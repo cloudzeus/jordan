@@ -2607,3 +2607,20 @@ model SoftoneClassification {
   @@unique([kind, sodtype, code])
   @@index([kind, sodtype])
 }
+
+// Μονάδες μέτρησης — καθρέφτης SoftOne MTRUNIT (EditMaster, εγγραφή ανά μονάδα).
+// Επιβεβαιωμένο ζωντανά (atelier, 2026-10-17): setData με ΡΗΤΟ αριθμό για νέα, μερική ενημέρωση,
+// οι υπόλοιπες μονάδες μένουν ανέπαφες. Το GetTable ΚΡΥΒΕΙ τις ανενεργές (ανάγνωση με getData).
+model SoftoneUnit {
+  id         Int      @id @default(autoincrement())
+  code       Int      @unique // MTRUNIT
+  shortcut   String // SHORTCUT («Σύντμηση», έως 5)
+  name       String // NAME («Περιγραφή»)
+  interCode  String? // INTERCODE («Διεθνής κωδικός», π.χ. m², έως 5)
+  decimals   Int      @default(2) // QDECIMALS
+  sodim      Int      @default(1) // SODIM («Διάσταση») — δεν αλλάζει από την εφαρμογή
+  sodiv      Float    @default(1) // SODIV («Διαιρέτης διάστασης»)
+  myDataCode Int? // MYDATACODE (μονάδα myDATA της ΑΑΔΕ)
+  isActive   Boolean  @default(true)
+  syncedAt   DateTime @default(now())
+}

@@ -92,7 +92,7 @@ export const MODULE_META: Record<string, ModuleMeta> = {
     accent: '#0369a1', accentSoft: '#e0f2fe',
   },
   operations: {
-    label: 'Operations', description: 'Έργα, συνεργάτες, κατηγορίες και ομάδες ειδών',
+    label: 'Operations', description: 'Έργα, συνεργάτες, κατηγορίες, ομάδες και μονάδες μέτρησης',
     icon: FiBriefcase,
     gradientFrom: '#34d399', gradientTo: '#059669',
     accent: '#047857', accentSoft: '#d1fae5',
