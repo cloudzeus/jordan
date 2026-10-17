@@ -1,5 +1,5 @@
 import { FiAlertTriangle, FiTrendingUp, FiTrendingDown, FiInfo } from 'react-icons/fi';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { COST_CATEGORIES, COST_CATEGORY_LABEL, type DocRef, type ProjectProfit } from '@/lib/project-profit/calc';
 import type { DataIssue } from '@/lib/project-profit/issues';
 import { IssueLinks } from '../financials-actions';
@@ -69,15 +69,17 @@ function DocsTable({ docs, gross }: { docs: DocRef[]; gross?: boolean }) {
   );
 }
 
-function Section({ title, count, total, children, open }: { title: string; count: number; total: string; children: React.ReactNode; open?: boolean }) {
+function Section({ value, title, count, total, children }: { value: string; title: string; count: number; total: string; children: React.ReactNode }) {
   return (
-    <details className="group rounded-lg border border-border" open={open}>
-      <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-3 py-2 text-[length:var(--fs-13)] font-medium text-foreground hover:bg-muted/40">
-        <span>{title} <span className="font-normal text-muted-foreground">({count})</span></span>
-        <span className="tabular-nums text-muted-foreground">{total}</span>
-      </summary>
-      <div className="border-t border-border px-3 py-2">{children}</div>
-    </details>
+    <AccordionItem value={value} className="rounded-lg border border-border not-last:border-b">
+      <AccordionTrigger className="items-center gap-2 px-3 py-2 hover:bg-muted/40 hover:no-underline">
+        <span className="flex flex-1 items-center justify-between gap-2 text-[length:var(--fs-13)]">
+          <span className="font-medium text-foreground">{title} <span className="font-normal text-muted-foreground">({count})</span></span>
+          <span className="font-normal tabular-nums text-muted-foreground">{total}</span>
+        </span>
+      </AccordionTrigger>
+      <AccordionContent className="border-t border-border px-3 py-2">{children}</AccordionContent>
+    </AccordionItem>
   );
 }
 
@@ -93,22 +95,22 @@ function MissingData({ issues }: { issues: DataIssue[] }) {
       <p className="mt-1 text-[length:var(--fs-12)]">
         Τα ποσά αυτών των θεμάτων <strong>δεν</strong> μετρούν στα νούμερα του έργου μέχρι να διορθωθούν στο SoftOne. Οι οδηγίες έχουν σταλεί αυτόματα: <IssueLinks />
       </p>
-      <ul className="mt-2 space-y-1.5">
+      <Accordion type="multiple" className="mt-2 gap-1.5">
         {issues.map((i) => (
-          <li key={i.key}>
-            <details className="rounded-md bg-background/70 px-2.5 py-1.5 dark:bg-background/20">
-              <summary className="flex cursor-pointer list-none flex-wrap items-center justify-between gap-2 text-[length:var(--fs-12)]">
+          <AccordionItem key={i.key} value={i.key} className="rounded-md bg-background/70 not-last:border-b-0 dark:bg-background/20">
+            <AccordionTrigger className="items-center gap-2 px-2.5 py-1.5 hover:no-underline">
+              <span className="flex flex-1 flex-wrap items-center justify-between gap-2 text-[length:var(--fs-12)]">
                 <span className="font-medium">{i.title}</span>
-                <span className="flex items-center gap-2">
+                <span className="flex items-center gap-2 font-normal">
                   {i.amount != null && <span className="tabular-nums">{eur.format(i.amount)}</span>}
                   <span className="rounded-full border border-current/30 px-1.5 text-[length:var(--fs-11)]">{AUDIENCE_LABEL[i.audience]}</span>
                 </span>
-              </summary>
-              <p className="mt-1.5 text-[length:var(--fs-12)] leading-relaxed">{i.detail}</p>
-            </details>
-          </li>
+              </span>
+            </AccordionTrigger>
+            <AccordionContent className="px-2.5 pb-2 text-[length:var(--fs-12)] leading-relaxed">{i.detail}</AccordionContent>
+          </AccordionItem>
         ))}
-      </ul>
+      </Accordion>
     </div>
   );
 }
@@ -120,14 +122,26 @@ export function ProjectFinancials({ profit: r, issues, computedAt, error }: { pr
   const estimate = r.costs.stock.filter((s) => s.source === 'estimate' && !s.suspect).reduce((a, s) => a + s.value, 0);
 
   return (
-    <Card className="mt-4">
-      <CardHeader className="px-3 sm:px-6">
-        <CardTitle className="text-[length:var(--fs-14)]">Οικονομικά έργου</CardTitle>
+    // Accordion, ΚΛΕΙΣΤΟ αρχικά (χωρίς defaultValue): στην κεφαλίδα φαίνονται τα βασικά νούμερα.
+    <Accordion type="single" collapsible className="mt-4 rounded-xl border border-border bg-card text-card-foreground shadow-sm">
+      <AccordionItem value="financials" className="border-b-0">
+      <AccordionTrigger className="items-center gap-3 px-3 py-3 hover:no-underline sm:px-6">
+        <span className="flex min-w-0 flex-1 flex-wrap items-center justify-between gap-x-4 gap-y-1">
+          <span className="inline-flex items-center gap-2 text-[length:var(--fs-14)] font-semibold text-foreground">
+            Οικονομικά έργου
+            {issues.length > 0 && <FiAlertTriangle className="size-3.5 text-amber-600" title={`${issues.length} θέματα «Δεδομένα που λείπουν»`} />}
+          </span>
+          <span className="flex flex-wrap items-center gap-x-4 gap-y-0.5 text-[length:var(--fs-12)] font-normal tabular-nums text-muted-foreground">
+            <span>Τιμολογήθηκε <strong className="font-semibold text-foreground">{eur.format(r.revenue.net)}</strong></span>
+            <span>Εισπράχθηκε <strong className="font-semibold text-foreground">{eur.format(r.collections.collected)}</strong></span>
+            <span>Καθαρό κέρδος <strong className="font-semibold" style={{ color: profitTone === 'good' ? GOOD : profitTone === 'bad' ? BAD : undefined }}>{eur.format(r.netProfit)}</strong></span>
+          </span>
+        </span>
+      </AccordionTrigger>
+      <AccordionContent className="space-y-4 border-t border-border px-3 pt-3 pb-4 sm:px-6 [&_p:not(:last-child)]:mb-0">
         <p className={MUTED}>
           Από τα παραστατικά του SoftOne · υπολογισμός {new Date(computedAt).toLocaleString('el-GR')}. Έσοδα και κόστος χωρίς ΦΠΑ· εισπράξεις και υπόλοιπο με ΦΠΑ.
         </p>
-      </CardHeader>
-      <CardContent className="space-y-4 px-3 sm:px-6">
         {error && (
           <p role="alert" className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-[length:var(--fs-12)] text-destructive">
             Το SoftOne δεν απάντησε ({error}) — εμφανίζεται ο προηγούμενος υπολογισμός.
@@ -202,13 +216,14 @@ export function ProjectFinancials({ profit: r, issues, computedAt, error }: { pr
           </div>
         </div>
 
-        <div className="space-y-2">
-          <Section title="Πωλήσεις" count={r.revenue.docs.length} total={eur.format(r.revenue.net)}><DocsTable docs={r.revenue.docs} /></Section>
-          <Section title="Εισπράξεις (εμβάσματα πελατών)" count={r.collections.docs.length} total={eur.format(r.collections.collected)}><DocsTable docs={r.collections.docs} gross /></Section>
-          <Section title="Αγορές, υπηρεσίες & αποθήκη" count={r.costs.docs.length} total={eur.format(r.costs.total - estimate)}><DocsTable docs={r.costs.docs} /></Section>
-          <Section title="Πληρωμές (εμβάσματα προμηθευτών)" count={r.payments.docs.length} total={eur.format(r.payments.paid)}><DocsTable docs={r.payments.docs} gross /></Section>
-        </div>
-      </CardContent>
-    </Card>
+        <Accordion type="multiple" className="gap-2">
+          <Section value="sales" title="Πωλήσεις" count={r.revenue.docs.length} total={eur.format(r.revenue.net)}><DocsTable docs={r.revenue.docs} /></Section>
+          <Section value="receipts" title="Εισπράξεις (εμβάσματα πελατών)" count={r.collections.docs.length} total={eur.format(r.collections.collected)}><DocsTable docs={r.collections.docs} gross /></Section>
+          <Section value="costs" title="Αγορές, υπηρεσίες & αποθήκη" count={r.costs.docs.length} total={eur.format(r.costs.total - estimate)}><DocsTable docs={r.costs.docs} /></Section>
+          <Section value="payments" title="Πληρωμές (εμβάσματα προμηθευτών)" count={r.payments.docs.length} total={eur.format(r.payments.paid)}><DocsTable docs={r.payments.docs} gross /></Section>
+        </Accordion>
+      </AccordionContent>
+      </AccordionItem>
+    </Accordion>
   );
 }
