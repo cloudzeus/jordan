@@ -4,11 +4,12 @@ import * as React from 'react';
 import Link from 'next/link';
 import {
   FiInfo, FiBookOpen, FiBriefcase, FiShoppingBag, FiFileText, FiShield, FiGlobe, FiEdit3, FiAlertTriangle,
-  FiRefreshCw, FiCheckCircle, FiMapPin, FiPhone, FiMail, FiLink, FiHash, FiArrowDownLeft, FiArrowUpRight,
+  FiRefreshCw, FiCheckCircle, FiMapPin, FiPhone, FiMail, FiLink, FiHash, FiArrowDownLeft, FiArrowUpRight, FiUsers,
 } from 'react-icons/fi';
 import { cn } from '@/lib/utils';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { TraderDocsPanel } from '@/components/admin/trader-docs-panel';
+import { CustomerContactsPanel } from '@/components/admin/customer-contacts-panel';
 import type { TraderRecord } from '@/components/admin/traders-view';
 import type { TraderDialogMode } from '@/components/admin/trader-edit-dialog';
 import type { TraderActivity, TraderDoc } from '@/lib/trader-activity';
@@ -17,7 +18,7 @@ const eur = new Intl.NumberFormat('el-GR', { style: 'currency', currency: 'EUR' 
 const fmtDate = (v: string | null) => (v ? new Date(v).toLocaleDateString('el-GR', { timeZone: 'UTC' }) : '—');
 const soft = (hex: string, pct: number) => `color-mix(in srgb, ${hex} ${pct}%, var(--background))`;
 
-const TONE = { info: '#0369A1', ledger: '#047857', projects: '#7C3AED', orders: '#B45309', scans: '#475569' } as const;
+const TONE = { info: '#0369A1', people: '#BE185D', ledger: '#047857', projects: '#7C3AED', orders: '#B45309', scans: '#475569' } as const;
 const DOC_TONE: Record<string, string> = {
   invoice: '#B45309', credit: '#BE123C', payment: '#047857', order: '#0369A1', quote: '#7C3AED', movement: '#475569', other: '#475569',
 };
@@ -338,6 +339,8 @@ export function TraderExpandPanel({ trader, canManage, onAction }: {
   const [data, setData] = React.useState<TraderActivity | null>(null);
   const [error, setError] = React.useState<string | null>(null);
   const [loading, setLoading] = React.useState(false);
+  const [people, setPeople] = React.useState<number | null>(null);
+  const isCustomer = trader.sodtype === 13;
   const load = React.useCallback(async () => {
     setLoading(true); setError(null);
     try {
@@ -366,6 +369,7 @@ export function TraderExpandPanel({ trader, canManage, onAction }: {
       <div className="flex items-center gap-2 border-b border-border">
         <TabsList variant="line" className="h-9 min-w-0 flex-1 justify-start gap-0 overflow-x-auto overflow-y-hidden p-0">
           <TabsTrigger value="details" className={TRIGGER} style={{ ['--tab-tone' as string]: TONE.info }}><FiInfo className="hidden size-3.5 sm:inline" aria-hidden /> Στοιχεία</TabsTrigger>
+          {isCustomer && <TabsTrigger value="people" className={TRIGGER} style={{ ['--tab-tone' as string]: TONE.people }}><FiUsers className="hidden size-3.5 sm:inline" aria-hidden /> Πρόσωπα & πρόσβαση <Badge n={people} tone={TONE.people} /></TabsTrigger>}
           <TabsTrigger value="ledger" className={TRIGGER} style={{ ['--tab-tone' as string]: TONE.ledger }}><FiBookOpen className="hidden size-3.5 sm:inline" aria-hidden /> Καρτέλα <Badge n={data?.ledger.length ?? null} tone={TONE.ledger} /></TabsTrigger>
           <TabsTrigger value="projects" className={TRIGGER} style={{ ['--tab-tone' as string]: TONE.projects }}><FiBriefcase className="hidden size-3.5 sm:inline" aria-hidden /> Έργα <Badge n={data?.projects.length ?? null} tone={TONE.projects} /></TabsTrigger>
           <TabsTrigger value="orders" className={TRIGGER} style={{ ['--tab-tone' as string]: TONE.orders }}><FiShoppingBag className="hidden size-3.5 sm:inline" aria-hidden /> Παραγγελίες <Badge n={data?.orders.length ?? null} tone={TONE.orders} /></TabsTrigger>
@@ -379,6 +383,11 @@ export function TraderExpandPanel({ trader, canManage, onAction }: {
         </button>
       </div>
       <TabsContent value="details"><DetailsTab t={trader} canManage={canManage} onAction={onAction} /></TabsContent>
+      {isCustomer && (
+        <TabsContent value="people" forceMount className="data-[state=inactive]:hidden">
+          <CustomerContactsPanel trdr={trader.trdr} customer={trader.name} defaultEmail={trader.email?.split(';').map((x) => x.trim()).find(Boolean) ?? null} canManage={canManage} onCount={setPeople} />
+        </TabsContent>
+      )}
       <TabsContent value="ledger">{remote((d) => <LedgerTab data={d} />)}</TabsContent>
       <TabsContent value="projects">{remote((d) => <ProjectsTab data={d} />)}</TabsContent>
       <TabsContent value="orders">{remote((d) => <OrdersTab data={d} />)}</TabsContent>

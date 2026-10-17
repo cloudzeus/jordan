@@ -1,10 +1,11 @@
-import { requireUser } from '@/lib/rbac';
+import { requireStaff } from '@/lib/rbac';
 import { AdminSidebar, AdminBottomNav } from '@/components/admin/sidebar';
 import { DEFAULT_LOCALE, isValidLocale, type LocaleCode } from '@/i18n/locales';
 import { SoftoneConnectionBar } from '@/components/admin/softone-connection-bar';
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
-  const user = await requireUser();
+  // Πελάτες/συνεργάτες ΔΕΝ μπαίνουν στη διαχείριση — πάνε στο portal τους.
+  const user = await requireStaff();
   const permissionKeys = Array.from(user.permissionKeys);
   const locale: LocaleCode = isValidLocale(user.locale) ? user.locale : DEFAULT_LOCALE;
 

@@ -18,7 +18,9 @@ export const getCurrentUserWithPermissions = cache(async () => {
       },
     },
   });
-  if (!user) return null;
+  // Ανενεργός χρήστης = μη συνδεδεμένος. Η συνεδρία είναι JWT (cookie), οπότε χωρίς αυτόν τον
+  // έλεγχο η απενεργοποίηση δεν έκοβε κάποιον που ήταν ήδη μέσα.
+  if (!user || !user.isActive) return null;
   const permissionKeys = new Set(user.role.permissions.map((rp) => rp.permission.key));
   return { ...user, permissionKeys };
 });
@@ -47,5 +49,27 @@ export async function requireAnyPermission(...keys: string[]) {
   const u = await requireUser();
   if (u.role.key === 'SUPER_ADMIN') return u;
   if (!keys.some((k) => u.permissionKeys.has(k))) redirect('/dashboard?error=forbidden');
+  return u;
+}
+
+/** Εξωτερικοί ρόλοι (portal) → η αρχική τους σελίδα. */
+export const PORTAL_HOME: Partial<Record<string, string>> = {
+  CUSTOMER: '/dashboard/customer',
+  COLLABORATOR: '/dashboard/collaborator',
+  SUPPLIER: '/dashboard/supplier',
+};
+
+/** Μόνο προσωπικό (admin/υπάλληλοι): πελάτες/συνεργάτες/προμηθευτές πάνε στο portal τους. */
+export async function requireStaff() {
+  const u = await requireUser();
+  const portal = u.role.key ? PORTAL_HOME[u.role.key] : undefined;
+  if (portal) redirect(portal);
+  return u;
+}
+
+/** Μόνο εξωτερικός χρήστης του portal (πελάτης/συνεργάτης). */
+export async function requirePortalUser() {
+  const u = await requireUser();
+  if (u.role.key !== 'CUSTOMER' && u.role.key !== 'COLLABORATOR') redirect('/admin');
   return u;
 }

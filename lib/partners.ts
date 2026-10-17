@@ -193,7 +193,13 @@ export async function updatePartner(id: string, input: PartnerInput) {
 
 export async function deletePartner(id: string) {
   const p = await mustExist(id);
-  await prisma.partner.delete({ where: { id } }); // cascade: πρόσωπα, πελάτες, έργα
+  // Οι χρήστες του portal (του ίδιου και των προσώπων του) διαγράφονται μαζί.
+  const full = await prisma.partner.findUnique({ where: { id }, select: { userId: true, contacts: { select: { userId: true } } } });
+  const userIds = [full?.userId, ...(full?.contacts ?? []).map((c) => c.userId)].filter((x): x is string => !!x);
+  await prisma.$transaction([
+    prisma.partner.delete({ where: { id } }), // cascade: πρόσωπα, πελάτες, έργα
+    prisma.user.deleteMany({ where: { id: { in: userIds } } }),
+  ]);
   return p;
 }
 
@@ -226,6 +232,7 @@ export async function deleteContact(partnerId: string, contactId: string) {
   if (!c) throw new PartnerError('Το πρόσωπο δεν υπάρχει', 404);
   await prisma.$transaction(async (tx) => {
     await tx.partnerContact.delete({ where: { id: contactId } });
+    if (c.userId) await tx.user.delete({ where: { id: c.userId } }); // η πρόσβασή του κόβεται μαζί
     // Αν έφυγε το κύριο, κύριο γίνεται το πρώτο που απομένει.
     if (c.isPrimary) {
       const next = await tx.partnerContact.findFirst({ where: { partnerId }, orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }] });

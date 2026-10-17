@@ -4,10 +4,11 @@ import { prisma } from '@/lib/db';
 import { createSessionToken, createAuthenticatedResponse } from '@/lib/session';
 import { logAudit } from '@/lib/audit';
 
+// Προσωπικό → διαχείριση· εξωτερικοί (πελάτες, συνεργάτες, προμηθευτές) → το portal τους.
 const routesByRoleKey: Record<string, string> = {
   SUPER_ADMIN: '/admin',
   ADMIN: '/admin',
-  EMPLOYEE: '/dashboard/employee',
+  EMPLOYEE: '/admin',
   COLLABORATOR: '/dashboard/collaborator',
   SUPPLIER: '/dashboard/supplier',
   CUSTOMER: '/dashboard/customer',

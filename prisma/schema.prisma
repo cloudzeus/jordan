@@ -104,6 +104,12 @@ model User {
   preferredLocales String[]      @default(["el"])
   roleId           String
   role             Role          @relation(fields: [roleId], references: [id])
+  // Εξωτερικοί χρήστες (portal): ποιανού πελάτη (SoftOne TRDR) / συνεργάτη είναι — περιορίζει ό,τι βλέπουν.
+  customerTrdr     Int?
+  partnerId        String?
+  customerContact  CustomerContact?
+  partnerContact   PartnerContact?
+  partnerSelf      Partner?          @relation("PartnerSelfUser")
   createdAt        DateTime      @default(now())
   updatedAt        DateTime      @updatedAt
   accounts         Account[]
@@ -112,6 +118,8 @@ model User {
   excelImports     ExcelImport[]
 
   @@index([roleId])
+  @@index([customerTrdr])
+  @@index([partnerId])
 }
 
 model Account {
@@ -2535,6 +2543,8 @@ model Partner {
   website   String?
   notes     String?
   isActive  Boolean     @default(true)
+  userId    String?     @unique // φυσικό πρόσωπο: πρόσβαση στο portal ο ίδιος (ρόλος COLLABORATOR)
+  user      User?       @relation("PartnerSelfUser", fields: [userId], references: [id], onDelete: SetNull)
   createdAt DateTime    @default(now())
   updatedAt DateTime    @updatedAt
 
@@ -2559,6 +2569,8 @@ model PartnerContact {
   notes     String?
   isPrimary Boolean  @default(false)
   sortOrder Int      @default(0)
+  userId    String?  @unique // πρόσβαση στο portal (ρόλος COLLABORATOR)
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -2725,4 +2737,25 @@ model OfferEmail {
 
   @@unique([recipientId, kind, level])
   @@index([offerId])
+}
+
+// Πρόσωπα επικοινωνίας ΠΕΛΑΤΗ (SoftOne TRDR) — τοπικά. Κάθε πρόσωπο μπορεί να έχει πρόσβαση στο
+// portal (χρήστης με ρόλο CUSTOMER, δεμένος με τον πελάτη μέσω User.customerTrdr).
+model CustomerContact {
+  id        String   @id @default(cuid())
+  trdr      Int
+  name      String
+  role      String? // ιδιότητα (π.χ. «Υπεύθυνος αγορών»)
+  phone     String?
+  mobile    String?
+  email     String?
+  notes     String?
+  isPrimary Boolean  @default(false)
+  sortOrder Int      @default(0)
+  userId    String?  @unique
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([trdr])
 }

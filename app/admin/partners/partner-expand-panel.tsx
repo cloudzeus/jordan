@@ -19,6 +19,7 @@ import {
   ContactDialog, LinkCustomersDialog, LinkProjectDialog, PartnerFormDialog, type PartnerContactRow,
 } from './partner-dialogs';
 import { emitPartnerChanged, usePartnerChanged } from './partner-events';
+import { AccessDialog, AccessMenuItems, AccessStatus, type AccessUser } from '@/components/admin/portal-access';
 
 const soft = (hex: string, pct: number) => `color-mix(in srgb, ${hex} ${pct}%, var(--background))`;
 const TONE = { info: '#0369A1', contacts: '#7C3AED', customers: '#047857', projects: '#B45309' } as const;
@@ -94,6 +95,8 @@ export function PartnerExpandPanel({ row, canManage }: { row: PartnerListRow; ca
   const [data, setData] = React.useState<PartnerDetail | null>(null);
   const [error, setError] = React.useState<string | null>(null);
   const [dlg, setDlg] = React.useState<Dlg>(null);
+  const [access, setAccess] = React.useState<{ self: AccessUser; contacts: Record<string, AccessUser> } | null>(null);
+  const [accessDlg, setAccessDlg] = React.useState<{ kind: 'partner-contact' | 'partner'; id: string; name: string; email: string | null; mode: 'grant' | 'password' } | null>(null);
 
   const load = React.useCallback(async () => {
     setError(null);
@@ -101,6 +104,8 @@ export function PartnerExpandPanel({ row, canManage }: { row: PartnerListRow; ca
       const res = await fetch(`/api/admin/partners/${row.id}`, { cache: 'no-store' });
       if (!res.ok) throw new Error('Αποτυχία φόρτωσης');
       setData(await res.json());
+      const a = await fetch(`/api/admin/partners/${row.id}/access`, { cache: 'no-store' }).then((r) => (r.ok ? r.json() : null)).catch(() => null);
+      setAccess(a);
     } catch (e) { setError((e as Error).message); }
   }, [row.id]);
 
@@ -174,6 +179,22 @@ export function PartnerExpandPanel({ row, canManage }: { row: PartnerListRow; ca
             {company && <Info icon={<FiStar />} label="Κύριο πρόσωπο">{primary ? `${primary.name}${primary.role ? ` · ${primary.role}` : ''}` : null}</Info>}
           </div>
           {p.notes && <p className="whitespace-pre-wrap rounded-md bg-muted/50 px-3 py-2 text-[length:var(--fs-12)]">{p.notes}</p>}
+          {!company && (
+            <div className="flex flex-wrap items-center gap-3 rounded-md border border-border bg-card px-3 py-2">
+              <span className="text-[length:var(--fs-12)] font-semibold">Πρόσβαση στην πλατφόρμα</span>
+              <AccessStatus user={access?.self ?? null} />
+              {canManage && (
+                <span className="ml-auto">
+                  <RowMenu label="Ενέργειες πρόσβασης">
+                    <AccessMenuItems kind="partner" holderId={p.id} holderName={p.name} user={access?.self ?? null}
+                      onGrant={() => setAccessDlg({ kind: 'partner', id: p.id, name: p.name, email: p.email, mode: 'grant' })}
+                      onPassword={() => setAccessDlg({ kind: 'partner', id: p.id, name: p.name, email: p.email, mode: 'password' })}
+                      onChanged={() => void load()} />
+                  </RowMenu>
+                </span>
+              )}
+            </div>
+          )}
           <p className="text-[length:var(--fs-11)] text-muted-foreground">
             Καταχώριση {new Date(p.createdAt).toLocaleDateString('el-GR')} · τελευταία αλλαγή {new Date(p.updatedAt).toLocaleString('el-GR')}
           </p>
@@ -188,7 +209,7 @@ export function PartnerExpandPanel({ row, canManage }: { row: PartnerListRow; ca
                 <table className="w-full">
                   <thead className="bg-muted/40"><tr>
                     <th className={TH}>Ονοματεπώνυμο</th><th className={TH}>Ιδιότητα</th>
-                    <th className={cn(TH, 'hidden md:table-cell')}>Τηλέφωνα</th><th className={cn(TH, 'hidden sm:table-cell')}>Email</th>
+                    <th className={cn(TH, 'hidden md:table-cell')}>Τηλέφωνα</th><th className={cn(TH, 'hidden sm:table-cell')}>Email</th><th className={TH}>Πρόσβαση</th>
                     {canManage && <th className={TH}><span className="sr-only">Ενέργειες</span></th>}
                   </tr></thead>
                   <tbody className="divide-y divide-border">
@@ -207,6 +228,7 @@ export function PartnerExpandPanel({ row, canManage }: { row: PartnerListRow; ca
                           {!c.phone && !c.mobile && DASH}
                         </td>
                         <td className={cn(TD, 'hidden sm:table-cell')}>{c.email ? <a href={`mailto:${c.email}`} className="hover:underline">{c.email}</a> : DASH}</td>
+                        <td className={TD}><AccessStatus user={access?.contacts[c.id] ?? null} compact /></td>
                         {canManage && (
                           <td className={cn(TD, 'w-10 text-right')}>
                             <RowMenu label={`Ενέργειες για ${c.name}`}>
@@ -216,10 +238,14 @@ export function PartnerExpandPanel({ row, canManage }: { row: PartnerListRow; ca
                                   <FiStar className="size-3.5" aria-hidden /> Ορισμός ως κύριο
                                 </DropdownMenuItem>
                               )}
+                              <AccessMenuItems kind="partner-contact" holderId={c.id} holderName={c.name} user={access?.contacts[c.id] ?? null}
+                                onGrant={() => setAccessDlg({ kind: 'partner-contact', id: c.id, name: c.name, email: c.email, mode: 'grant' })}
+                                onPassword={() => setAccessDlg({ kind: 'partner-contact', id: c.id, name: c.name, email: c.email, mode: 'password' })}
+                                onChanged={() => void load()} />
                               <DropdownMenuSeparator />
                               <DropdownMenuItem
                                 className={cn(ITEM, 'text-destructive focus:text-destructive')}
-                                onSelect={async () => { if (await confirmAction(`Διαγραφή του προσώπου «${c.name}»;`)) await act(`/api/admin/partners/${p.id}/contacts/${c.id}`, 'DELETE', 'Το πρόσωπο διαγράφηκε'); }}
+                                onSelect={async () => { if (await confirmAction(`Διαγραφή του προσώπου «${c.name}»;${access?.contacts[c.id] ? ' Διαγράφεται και η πρόσβασή του.' : ''}`)) await act(`/api/admin/partners/${p.id}/contacts/${c.id}`, 'DELETE', 'Το πρόσωπο διαγράφηκε'); }}
                               >
                                 <FiTrash2 className="size-3.5" aria-hidden /> Διαγραφή
                               </DropdownMenuItem>
@@ -347,6 +373,11 @@ export function PartnerExpandPanel({ row, canManage }: { row: PartnerListRow; ca
           <PartnerFormDialog open={dlg?.kind === 'edit'} onOpenChange={closeDlg} partnerId={dlg?.kind === 'edit' ? p.id : null} />
           <ContactDialog open={dlg?.kind === 'contact'} onOpenChange={closeDlg} partnerId={p.id} partnerName={p.name} contact={dlg?.kind === 'contact' ? dlg.contact : null} />
           <LinkCustomersDialog open={dlg?.kind === 'customers'} onOpenChange={closeDlg} partnerId={p.id} partnerName={p.name} />
+          {accessDlg && (
+            <AccessDialog open onOpenChange={(o) => { if (!o) setAccessDlg(null); }} kind={accessDlg.kind} holderId={accessDlg.id}
+              holderName={accessDlg.kind === 'partner' ? accessDlg.name : `${accessDlg.name} · ${p.name}`} defaultEmail={accessDlg.email} mode={accessDlg.mode}
+              onDone={() => void load()} />
+          )}
           <LinkProjectDialog open={dlg?.kind === 'project'} onOpenChange={closeDlg} partnerId={p.id} partnerName={p.name} presetPrjc={dlg?.kind === 'project' ? dlg.preset : null} />
         </>
       )}
