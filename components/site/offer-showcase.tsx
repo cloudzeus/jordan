@@ -248,8 +248,8 @@ function PriceSteps({ tiers, capacity, shown, idx, animate, preview }: { tiers: 
               </>
             )}
             {i > 0 && <line x1={xs} x2={xs} y1={y(tiers[i - 1].value)} y2={ty} stroke={idx >= i ? c : '#CFC9C0'} strokeWidth={idx >= i ? 2.5 : 1} />}
-            {(() => { const nearEnd = xs > W - 70; return (
-              <text x={nearEnd ? xe : xs + 6} y={ty - 10} textAnchor={nearEnd ? 'end' : 'start'} fontSize="12.5" fontWeight={idx === i ? 600 : 400} fill={idx >= i ? c : 'var(--s-mute)'} style={{ fontVariantNumeric: 'tabular-nums' }}>{t.label}</text>
+            {(() => { const nearEnd = xs > W - 70; const narrow = xe - xs < 56 && i % 2 === 1 && i > 0; return (
+              <text x={nearEnd ? xe : xs + 6} y={ty - (narrow ? 26 : 10)} textAnchor={nearEnd ? 'end' : 'start'} fontSize="12.5" fontWeight={idx === i ? 600 : 400} fill={idx >= i ? c : 'var(--s-mute)'} style={{ fontVariantNumeric: 'tabular-nums' }}>{t.label}</text>
             ); })()}
             {i > 0 && <text x={xs} y={base + 18} textAnchor={xs > W - 30 ? 'end' : 'middle'} fontSize="12" fill={idx >= i ? 'var(--s-ink)' : 'var(--s-mute)'} style={{ fontVariantNumeric: 'tabular-nums' }}>{fmt(t.from, 1)}</text>}
           </g>

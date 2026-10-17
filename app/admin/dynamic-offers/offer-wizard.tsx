@@ -1,14 +1,15 @@
 'use client';
 
 // Οδηγός «Δυναμική προσφορά» σε 4 βήματα:
-//   1 Προϊόν · 2 Μονάδες (τ.μ. container / παλέτας, προαιρετικά και στο είδος του SoftOne)
-//   3 Τιμές (σημεία πτώσης σε παλέτες → PRICEW01…05, η 01 η μεγαλύτερη) · 4 Δημοσίευση (ημερομηνία,
-//   προθεσμία, παραλήπτες πελάτες/συνεργάτες, προεπισκόπηση email).
+//   1 Προϊόντα (ένα ή περισσότερα, με τ.μ. ανά παλέτα το καθένα) · 2 Container (χωρητικότητα σε παλέτες,
+//   προαιρετικά και οι μονάδες των ειδών στο SoftOne) · 3 Τιμές (ΚΟΙΝΑ σημεία πτώσης W01…W08 + τιμή
+//   κάθε προϊόντος σε κάθε σημείο, η 01 η μεγαλύτερη) · 4 Δημοσίευση (ημερομηνία, προθεσμία,
+//   παραλήπτες πελάτες/συνεργάτες, προεπισκόπηση email).
 import * as React from 'react';
 import dynamic from 'next/dynamic';
 import {
   FiPackage, FiBox, FiTrendingDown, FiSend, FiSearch, FiCheck, FiChevronLeft, FiChevronRight, FiLoader, FiPlus,
-  FiMoreVertical, FiTrash2, FiZap, FiMail, FiAlertTriangle, FiUsers, FiUserCheck, FiEye,
+  FiMoreVertical, FiTrash2, FiZap, FiMail, FiAlertTriangle, FiUsers, FiUserCheck, FiEye, FiArrowUp, FiArrowDown,
 } from 'react-icons/fi';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -16,12 +17,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { confirmAction } from '@/components/ui/confirm-dialog';
 import { Dialog, DialogBody, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Field, FormSection, RowHint, Segmented, fieldCls } from '@/components/admin/form-kit';
 import { UnitThumb } from '@/components/admin/unit-visual';
 import { presetIds, type UnitMeta } from '@/components/admin/item-unit-setup-panel';
 import { uploadOfferSnapshot } from '@/components/admin/container-snapshot';
-import { capacityPallets, checkTiers, MAX_TIERS, PALLET_STEP, roundStep, type Tier } from '@/lib/container-pricing';
+import { checkLevels, checkPrices, isStep, itemTiers, MAX_TIERS, PALLET_STEP, priceField, roundStep, type Level } from '@/lib/container-pricing';
 import { PriceLadder } from './price-ladder';
 
 const ContainerScene = dynamic(() => import('@/components/admin/container-scene'), {
@@ -29,13 +30,17 @@ const ContainerScene = dynamic(() => import('@/components/admin/container-scene'
 });
 
 type ItemHit = { mtrl: number; code: string; name: string; photo: string | null; baseUnit: string | null; price: number | null };
-type Rec = Record<string, unknown> & { name: string; unit1: string | null; unit2: string | null; ratio2: number; unitBuy: string | null; buyRatio: number; dim1: number; dim2: number; dim3: number; priceWholesale: number };
+type Rec = Record<string, unknown> & { name: string; unit1: string | null; unit2: string | null; ratio2: number; unitBuy: string | null; buyRatio: number; dim1: number; dim2: number; dim3: number };
 type Option = { kind: 'CUSTOMER' | 'PARTNER'; refId: string; name: string; sub: string; email: string | null };
-type TierRow = { from: string; price: string };
+/** Προϊόν στον οδηγό: τιμές ανά κλιμάκιο ως κείμενο (prices[i] → W0{i+1}). */
+type Row = {
+  mtrl: number; code: string; name: string; photo: string | null; baseUnit: string | null;
+  sqmPerPallet: string; prices: string[]; booked: number; rec: Rec | null; hasMovements: boolean | null;
+};
 
 const STEPS = [
-  { title: 'Προϊόν', icon: FiPackage },
-  { title: 'Μονάδες', icon: FiBox },
+  { title: 'Προϊόντα', icon: FiPackage },
+  { title: 'Container', icon: FiBox },
   { title: 'Τιμές', icon: FiTrendingDown },
   { title: 'Δημοσίευση', icon: FiSend },
 ] as const;
@@ -51,10 +56,11 @@ const loadOf = (name: string): 'stones' | 'boxes' | 'sacks' => {
   return 'boxes';
 };
 const localInput = (d: Date) => new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+const resize = (a: string[], n: number) => Array.from({ length: n }, (_, i) => a[i] ?? '');
 
-/** Πρόταση σημείων: ½ παλέτα, ¼, ½, ¾ και γεμάτο container (ανά ½ παλέτα). */
+/** Πρόταση σημείων: ½ παλέτα και μετά ίσα διαστήματα ως το γεμάτο container (ανά ½ παλέτα). */
 function suggestPoints(capacity: number, n: number): number[] {
-  const marks = [0, 0.25, 0.5, 0.75, 1].slice(0, n).map((f, i) => (i === 0 ? PALLET_STEP : roundStep(capacity * f)));
+  const marks = Array.from({ length: n }, (_, i) => (i === 0 ? PALLET_STEP : roundStep((capacity * i) / (n - 1 || 1))));
   return marks.map((v, i) => (i > 0 && v <= marks[i - 1] ? marks[i - 1] + PALLET_STEP : v));
 }
 
@@ -63,21 +69,19 @@ export function OfferWizard({ open, onOpenChange, offerId, onDone }: {
 }) {
   const [step, setStep] = React.useState(0);
   const [busy, setBusy] = React.useState<string | null>(null);
-  const [locked, setLocked] = React.useState(false); // υπάρχουν κρατήσεις → προϊόν/χωρητικότητα «παγωμένα»
   const [filledNow, setFilledNow] = React.useState(0);
   const [status, setStatus] = React.useState<string>('DRAFT');
   // 1
   const [q, setQ] = React.useState('');
   const [hits, setHits] = React.useState<ItemHit[]>([]);
-  const [item, setItem] = React.useState<ItemHit | null>(null);
-  // 2
-  const [rec, setRec] = React.useState<Rec | null>(null);
+  const [rows, setRows] = React.useState<Row[]>([]);
   const [meta, setMeta] = React.useState<UnitMeta[]>([]);
-  const [sqmPallet, setSqmPallet] = React.useState('');
-  const [sqmContainer, setSqmContainer] = React.useState('');
+  // 2
+  const [capacityTxt, setCapacityTxt] = React.useState('');
   const [syncUnits, setSyncUnits] = React.useState(false);
-  // 3
-  const [tiers, setTiers] = React.useState<TierRow[]>([]);
+  // 3 — κοινά σημεία: levels[i] = «από Χ παλέτες» του W0{i+1} (το 1ο = ελάχιστη παραγγελία)
+  const [levels, setLevels] = React.useState<string[]>([]);
+  const [chartItem, setChartItem] = React.useState(0);
   // 4
   const [title, setTitle] = React.useState('');
   const [when, setWhen] = React.useState<'now' | 'later' | 'draft'>('now');
@@ -88,12 +92,32 @@ export function OfferWizard({ open, onOpenChange, offerId, onDone }: {
   const [rq, setRq] = React.useState('');
   const [preview, setPreview] = React.useState<{ id: string; kind: 'publish' | 'drop' } | null>(null);
   const savedId = React.useRef<string | null>(null);
-  const autoTitle = React.useRef(''); // ο αυτόματος τίτλος ακολουθεί το προϊόν όσο δεν τον άλλαξε ο χρήστης
+  const autoTitle = React.useRef(''); // ο αυτόματος τίτλος ακολουθεί τα προϊόντα όσο δεν τον άλλαξε ο χρήστης
 
   const reset = React.useCallback(() => {
-    setStep(0); setBusy(null); setLocked(false); setFilledNow(0); setStatus('DRAFT'); setQ(''); setHits([]); setItem(null); setRec(null); setMeta([]);
-    setSqmPallet(''); setSqmContainer(''); setSyncUnits(false); setTiers([]); setTitle(''); setWhen('now'); setPublishAt(''); setClosesAt('');
-    setPicked(new Set()); setRq(''); savedId.current = null;
+    setStep(0); setBusy(null); setFilledNow(0); setStatus('DRAFT'); setQ(''); setHits([]); setRows([]); setMeta([]);
+    setCapacityTxt(''); setSyncUnits(false); setLevels([]); setChartItem(0); setTitle(''); setWhen('now'); setPublishAt(''); setClosesAt('');
+    setPicked(new Set()); setRq(''); savedId.current = null; autoTitle.current = '';
+  }, []);
+
+  /** Ζωντανή καρτέλα του είδους (μονάδες, PRICEW, κινήσεις) → προτάσεις τ.μ./παλέτα και τιμών. */
+  const loadRecord = React.useCallback((mtrl: number) => {
+    fetch(`/api/admin/softone/items/${mtrl}/full`, { cache: 'no-store' }).then((r) => r.json()).then((d) => {
+      if (!d.record) return;
+      const r = d.record as Rec;
+      if (d.unitsMeta?.length) setMeta((m) => (m.length ? m : d.unitsMeta));
+      setRows((cur) => cur.map((x) => {
+        if (x.mtrl !== mtrl) return x;
+        const prices = Array.from({ length: MAX_TIERS }, (_, i) => Number(r[`priceW0${i + 1}`]) || 0);
+        const hasPrices = x.prices.some((p) => p.trim());
+        return {
+          ...x, rec: r, hasMovements: d.hasMovements ?? null,
+          sqmPerPallet: x.sqmPerPallet || (r.unit2 && r.unit2 !== r.unit1 && r.ratio2 > 0 ? fmt(r.ratio2) : ''),
+          prices: hasPrices ? x.prices : prices.map((p) => fmt(p)),
+        };
+      }));
+      setCapacityTxt((c) => c || (r.unitBuy && r.unitBuy !== r.unit1 && r.buyRatio > 0 && r.unit2 && r.ratio2 > 0 ? fmt(Math.floor((r.buyRatio / r.ratio2) * 2) / 2) : ''));
+    }).catch(() => null);
   }, []);
 
   // Επεξεργασία υπάρχουσας: φόρτωση όλων.
@@ -105,17 +129,23 @@ export function OfferWizard({ open, onOpenChange, offerId, onDone }: {
     setBusy('Φόρτωση…');
     fetch(`/api/admin/dynamic-offers/${offerId}`, { cache: 'no-store' }).then((r) => r.json()).then((d) => {
       const o = d.offer;
-      setItem({ mtrl: o.mtrl, code: o.code, name: o.name, photo: null, baseUnit: o.baseUnit, price: null });
-      setSqmPallet(fmt(o.sqmPerPallet)); setSqmContainer(fmt(o.sqmPerContainer));
-      setTiers(o.tiers.map((t: Tier) => ({ from: fmt(t.fromPallets), price: fmt(t.price) })));
-      setTitle(o.title ?? ''); setClosesAt(o.closesAt ? o.closesAt.slice(0, 10) : '');
-      setStatus(o.status); setFilledNow(o.filled); setLocked(o.filled > 0);
+      const n = o.levels.length;
+      setRows(o.items.map((it: { mtrl: number; code: string; name: string; baseUnit: string | null; sqmPerPallet: number; prices: number[]; booked: number; pending: number }) => ({
+        mtrl: it.mtrl, code: it.code, name: it.name, photo: null, baseUnit: it.baseUnit, sqmPerPallet: fmt(it.sqmPerPallet),
+        prices: resize(it.prices.map((p) => fmt(p)), n), booked: it.booked + it.pending, rec: null, hasMovements: null,
+      })));
+      for (const it of o.items) loadRecord(it.mtrl);
+      setCapacityTxt(fmt(o.capacity));
+      setLevels(o.levels.map((l: Level) => fmt(l.fromPallets)));
+      setTitle(o.title ?? ''); autoTitle.current = o.title ?? '';
+      setClosesAt(o.closesAt ? o.closesAt.slice(0, 10) : '');
+      setStatus(o.status); setFilledNow(o.filled);
       setWhen(o.status === 'OPEN' ? 'now' : o.status === 'SCHEDULED' ? 'later' : 'now');
       if (o.publishAt && o.status === 'SCHEDULED') setPublishAt(localInput(new Date(o.publishAt)));
       setPicked(new Set(d.recipients.map((r: { kind: string; refId: string }) => `${r.kind}:${r.refId}`)));
       setStep(o.status === 'OPEN' ? 2 : 0);
     }).catch(() => toast.error('Αποτυχία φόρτωσης')).finally(() => setBusy(null));
-  }, [open, offerId, reset]);
+  }, [open, offerId, reset, loadRecord]);
 
   // 1 · αναζήτηση προϊόντων (με καθυστέρηση πληκτρολόγησης)
   React.useEffect(() => {
@@ -126,36 +156,24 @@ export function OfferWizard({ open, onOpenChange, offerId, onDone }: {
     return () => clearTimeout(h);
   }, [q, open, step]);
 
-  // 2 · ζωντανή καρτέλα του είδους (μονάδες, διαστάσεις, PRICEW)
+  // Αυτόματος τίτλος από τα προϊόντα (όσο δεν τον άλλαξε ο χρήστης).
   React.useEffect(() => {
-    if (!item) return;
-    let alive = true;
-    fetch(`/api/admin/softone/items/${item.mtrl}/full`, { cache: 'no-store' }).then((r) => r.json()).then((d) => {
-      if (!alive || !d.record) return;
-      setRec(d.record); setMeta(d.unitsMeta ?? []);
-      const r = d.record as Rec;
-      setSqmPallet((v) => v || (r.unit2 && r.unit2 !== r.unit1 && r.ratio2 > 0 ? fmt(r.ratio2) : ''));
-      setSqmContainer((v) => v || (r.unitBuy && r.unitBuy !== r.unit1 && r.buyRatio > 0 ? fmt(r.buyRatio) : ''));
-      setTiers((cur) => {
-        if (cur.length) return cur;
-        const prices = [1, 2, 3, 4, 5].map((i) => Number(r[`priceW0${i}`]) || 0);
-        return prices.some((p) => p > 0) ? prices.filter((p) => p > 0).map((p) => ({ from: '', price: fmt(p) })) : [];
-      });
-    }).catch(() => null);
-    return () => { alive = false; };
-  }, [item]);
+    if (title && title !== autoTitle.current) return;
+    const next = rows.length === 0 ? '' : rows.length === 1 ? `${rows[0].name} — Κοινό container` : `Κοινό container — ${rows.length} προϊόντα`;
+    autoTitle.current = next; setTitle(next);
+  }, [rows.length, rows[0]?.name]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const perPallet = parse(sqmPallet);
-  const perContainer = parse(sqmContainer);
-  const capacity = capacityPallets(perContainer, perPallet);
-  const unit = item?.baseUnit ?? 'τ.μ.';
+  const capacity = parse(capacityTxt);
+  const nLevels = levels.length;
+  const levelList: Level[] = levels.map((v, i) => ({ level: i + 1, fromPallets: i === 0 ? PALLET_STEP : parse(v) }));
+  const levelIssues = capacity > 0 && nLevels ? checkLevels(levelList, capacity) : [];
+  const priceIssues = rows.map((r) => checkPrices(resize(r.prices, nLevels).map(parse), nLevels));
+  const errorsCount = levelIssues.filter((i) => i.level === 'error').length + priceIssues.flat().filter((i) => i.level === 'error').length;
   const ids = presetIds(meta);
-  const sceneLoad = loadOf(item?.name ?? '');
-  const slab = rec && rec.dim1 > 0 && rec.dim2 > 0 ? { l: rec.dim1 / 100, w: rec.dim2 / 100, t: (rec.dim3 > 0 ? rec.dim3 : 2) / 100 } : null;
-
-  const tierList: Tier[] = tiers.map((t, i) => ({ level: i + 1, fromPallets: parse(t.from), price: parse(t.price) }));
-  const tierIssues = capacity > 0 ? checkTiers(tierList, capacity) : [];
-  const tierErrors = tierIssues.filter((i) => i.level === 'error');
+  const first = rows[0];
+  const sceneLoad = loadOf(first?.name ?? '');
+  const slab = first?.rec && first.rec.dim1 > 0 && first.rec.dim2 > 0 ? { l: first.rec.dim1 / 100, w: first.rec.dim2 / 100, t: (first.rec.dim3 > 0 ? first.rec.dim3 : 2) / 100 } : null;
+  const perPallet0 = parse(first?.sqmPerPallet ?? '');
 
   const allOptions = React.useMemo(() => [...(options?.customers ?? []), ...(options?.partners ?? [])], [options]);
   React.useEffect(() => {
@@ -163,35 +181,63 @@ export function OfferWizard({ open, onOpenChange, offerId, onDone }: {
   }, [step, options]);
 
   const canNext = [
-    !!item,
-    perPallet > 0 && perContainer > 0 && capacity >= PALLET_STEP,
-    tiers.length > 0 && tierErrors.length === 0,
+    rows.length > 0 && rows.every((r) => parse(r.sqmPerPallet) > 0),
+    capacity >= PALLET_STEP && isStep(capacity) && capacity >= filledNow,
+    nLevels > 0 && errorsCount === 0,
     true,
   ][step];
 
+  const addItem = (h: ItemHit) => {
+    if (rows.some((r) => r.mtrl === h.mtrl)) return;
+    setRows((cur) => [...cur, { mtrl: h.mtrl, code: h.code, name: h.name, photo: h.photo, baseUnit: h.baseUnit, sqmPerPallet: '', prices: resize([], nLevels), booked: 0, rec: null, hasMovements: null }]);
+    loadRecord(h.mtrl);
+  };
+  const patchRow = (mtrl: number, patch: Partial<Row>) => setRows((cur) => cur.map((r) => (r.mtrl === mtrl ? { ...r, ...patch } : r)));
+  const moveRow = (i: number, d: -1 | 1) => setRows((cur) => { const n = [...cur]; const j = i + d; if (j < 0 || j >= n.length) return cur; [n[i], n[j]] = [n[j], n[i]]; return n; });
+
+  // Αλλαγή πλήθους κλιμακίων: οι τιμές κάθε προϊόντος ακολουθούν (κόβονται/συμπληρώνονται).
+  const setLevelCount = (n: number) => {
+    const k = Math.max(1, Math.min(MAX_TIERS, n));
+    setLevels((cur) => Array.from({ length: k }, (_, i) => cur[i] ?? (i === 0 ? '0,5' : '')));
+    setRows((cur) => cur.map((r) => ({ ...r, prices: r.prices.length >= k ? r.prices : resize(r.prices, k) })));
+  };
+  const removeLevel = (i: number) => {
+    if (nLevels <= 1) return;
+    setLevels((cur) => cur.filter((_, j) => j !== i).map((v, j) => (j === 0 ? '0,5' : v)));
+    setRows((cur) => cur.map((r) => ({ ...r, prices: r.prices.filter((_, j) => j !== i) })));
+  };
+
   // ── Αποθήκευση: μονάδες (προαιρετικά) → προσφορά → παραλήπτες → 3D εικόνα ──
   const persist = async (): Promise<string> => {
-    if (!item) throw new Error('Δεν επιλέχθηκε προϊόν');
-    if (syncUnits && rec && ids) {
+    if (!rows.length) throw new Error('Δεν επιλέχθηκαν προϊόντα');
+    if (syncUnits && ids) {
+      const eligible = rows.filter((r) => r.hasMovements !== true);
+      const skipped = rows.filter((r) => r.hasMovements === true);
       const ok = await confirmAction({
         title: 'Ενημέρωση μονάδων στο SoftOne',
-        message: `Στο είδος ${item.code} θα γραφτούν: Μ.Μ.2 = Παλέτα (1 = ${fmt(perPallet)} ${unit}) και Μονάδα αγορών = Container (1 = ${fmt(perContainer)} ${unit}). Συνέχεια;`,
+        message: `Σε ${eligible.length} είδη θα γραφτούν: Μ.Μ.2 = Παλέτα και Μονάδα αγορών = Container (${fmt(capacity)} παλέτες × τ.μ. παλέτας).${skipped.length ? ` Παραλείπονται ${skipped.length} με κινήσεις (το SoftOne δεν αλλάζει μονάδες σε είδη με παραστατικά): ${skipped.map((s) => s.code).join(', ')}.` : ''} Συνέχεια;`,
         confirmLabel: 'Ενημέρωση',
       });
       if (ok) {
-        setBusy('Ενημέρωση μονάδων στο SoftOne…');
-        const res = await fetch(`/api/admin/softone/items/${item.mtrl}/full`, {
-          method: 'PUT', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ unit2: ids.pallet, ratio2: perPallet, strict2: false, unitBuy: ids.container, buyRatio: perContainer }),
-        });
-        const b = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(b.message ?? 'Η ενημέρωση των μονάδων απέτυχε');
+        const failed: string[] = [];
+        for (const r of eligible) {
+          setBusy(`Μονάδες στο SoftOne · ${r.code}…`);
+          const pp = parse(r.sqmPerPallet);
+          const res = await fetch(`/api/admin/softone/items/${r.mtrl}/full`, {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ unit2: ids.pallet, ratio2: pp, strict2: false, unitBuy: ids.container, buyRatio: roundStep(capacity * pp, 0.0001) }),
+          });
+          if (!res.ok) failed.push(`${r.code}: ${(await res.json().catch(() => ({}))).message ?? 'αποτυχία'}`);
+        }
+        if (failed.length) toast.warning(`Οι μονάδες δεν άλλαξαν σε ${failed.length} είδη`, { description: failed.join(' · ') });
       }
     }
     setBusy('Αποθήκευση προσφοράς…');
     const body = {
-      mtrl: item.mtrl, title: title || null, sqmPerContainer: perContainer, sqmPerPallet: perPallet, minOrder: PALLET_STEP,
-      closesAt: closesAt ? new Date(`${closesAt}T23:59:00`).toISOString() : null, notes: null, tiers: tierList,
+      title: title || null, capacityPallets: capacity, minOrder: PALLET_STEP,
+      closesAt: closesAt ? new Date(`${closesAt}T23:59:00`).toISOString() : null, notes: null,
+      tiers: levelList,
+      items: rows.map((r) => ({ mtrl: r.mtrl, sqmPerPallet: parse(r.sqmPerPallet), prices: resize(r.prices, nLevels).map(parse) })),
     };
     const id = savedId.current;
     const res = await fetch(id ? `/api/admin/dynamic-offers/${id}` : '/api/admin/dynamic-offers', {
@@ -207,7 +253,7 @@ export function OfferWizard({ open, onOpenChange, offerId, onDone }: {
     if (!rr.ok) throw new Error((await rr.json().catch(() => ({}))).message ?? 'Αποτυχία αποθήκευσης παραληπτών');
     setBusy('3D εικόνα για το email…');
     // Πρώτη αποστολή: ΓΕΜΑΤΟ container (τι παίρνει ο πελάτης)· αν υπάρχουν κρατήσεις, το πραγματικό γέμισμα.
-    await uploadOfferSnapshot(newId, { pallets: capacity, perPallet, filled: filledNow > 0 ? filledNow : capacity, load: sceneLoad, slab });
+    await uploadOfferSnapshot(newId, { pallets: capacity, perPallet: perPallet0 || 1, filled: filledNow > 0 ? filledNow : capacity, load: sceneLoad, slab });
     return newId;
   };
 
@@ -217,11 +263,12 @@ export function OfferWizard({ open, onOpenChange, offerId, onDone }: {
       if (mode === 'publish' && status !== 'OPEN') {
         const at = when === 'later' && publishAt ? new Date(publishAt) : null;
         if (when === 'later' && (!at || at.getTime() < Date.now())) throw new Error('Διάλεξε μελλοντική ημερομηνία δημοσίευσης');
+        const fields = `PRICEW01…${priceField(nLevels)}`;
         const ok = await confirmAction({
           title: at ? 'Προγραμματισμός δημοσίευσης' : 'Δημοσίευση τώρα',
           message: at
-            ? `Η προσφορά θα δημοσιευτεί ${at.toLocaleString('el-GR')} και θα σταλεί σε ${picked.size} παραλήπτες. Οι τιμές PRICEW01…0${tierList.length} γράφονται στο SoftOne τη στιγμή της δημοσίευσης.`
-            : `Θα γραφτούν οι τιμές PRICEW01…0${tierList.length} στο είδος ${item?.code} στο SoftOne και θα σταλεί email σε ${picked.size} παραλήπτες. Συνέχεια;`,
+            ? `Η προσφορά θα δημοσιευτεί ${at.toLocaleString('el-GR')} και θα σταλεί σε ${picked.size} παραλήπτες. Οι τιμές ${fields} γράφονται στα ${rows.length} είδη στο SoftOne τη στιγμή της δημοσίευσης.`
+            : `Θα γραφτούν οι τιμές ${fields} σε ${rows.length} είδη στο SoftOne (${rows.map((r) => r.code).join(', ')}) και θα σταλεί email σε ${picked.size} παραλήπτες. Συνέχεια;`,
           confirmLabel: at ? 'Προγραμματισμός' : 'Δημοσίευση',
         });
         if (!ok) { setBusy(null); return; }
@@ -247,153 +294,211 @@ export function OfferWizard({ open, onOpenChange, offerId, onDone }: {
   };
 
   // ── Βήματα ──
-  const stepProduct = (
+  const chosen = new Set(rows.map((r) => r.mtrl));
+  const stepProducts = (
     <div className="space-y-3">
+      {rows.length > 0 && (
+        <FormSection tone="emerald" icon={<FiPackage />} title="Προϊόντα στο container" aside={<span className="tabular-nums">{rows.length}</span>}>
+          <ul className="space-y-1.5">
+            {rows.map((r, i) => (
+              <li key={r.mtrl} className="grid grid-cols-[auto_1fr_auto] items-center gap-2.5 rounded-md border border-border bg-card px-2.5 py-2 sm:grid-cols-[auto_1fr_11rem_auto]">
+                {r.photo ? <img src={r.photo} alt="" className="size-10 rounded object-cover" /> : <span className="grid size-10 place-items-center rounded bg-muted"><FiPackage className="size-4 text-muted-foreground" aria-hidden /></span>}
+                <div className="min-w-0">
+                  <div className="truncate text-[length:var(--fs-13)] font-semibold">{r.name}</div>
+                  <div className="truncate text-[length:var(--fs-11)] text-muted-foreground">{r.code}{r.baseUnit ? ` · ${r.baseUnit}` : ''}{r.booked > 0 ? ` · ${fmt(r.booked)} παλ. σε κρατήσεις` : ''}</div>
+                </div>
+                <label className="col-span-3 flex items-center gap-1.5 text-[length:var(--fs-12)] text-muted-foreground sm:col-span-1">
+                  <Input inputMode="decimal" value={r.sqmPerPallet} onChange={(e) => patchRow(r.mtrl, { sqmPerPallet: e.target.value })} className={cn(fieldCls, 'w-24 tabular-nums')} aria-label={`${r.baseUnit ?? 'τ.μ.'} ανά παλέτα για ${r.name}`} placeholder="—" />
+                  {r.baseUnit ?? 'τ.μ.'}/παλ.
+                </label>
+                <DropdownMenu>
+                  <DropdownMenuTrigger className="row-start-1 col-start-3 inline-flex size-8 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-muted sm:col-start-4" aria-label={`Ενέργειες για ${r.name}`}><FiMoreVertical className="size-4" aria-hidden /></DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-48">
+                    <DropdownMenuItem className="cursor-pointer gap-2 text-[length:var(--fs-12)]" disabled={i === 0} onSelect={() => moveRow(i, -1)}><FiArrowUp className="size-3.5" aria-hidden /> Πιο πάνω</DropdownMenuItem>
+                    <DropdownMenuItem className="cursor-pointer gap-2 text-[length:var(--fs-12)]" disabled={i === rows.length - 1} onSelect={() => moveRow(i, 1)}><FiArrowDown className="size-3.5" aria-hidden /> Πιο κάτω</DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem variant="destructive" className="cursor-pointer gap-2 text-[length:var(--fs-12)]" disabled={r.booked > 0} onSelect={() => setRows((cur) => cur.filter((x) => x.mtrl !== r.mtrl))}>
+                      <FiTrash2 className="size-3.5" aria-hidden /> {r.booked > 0 ? 'Έχει κρατήσεις' : 'Αφαίρεση'}
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </li>
+            ))}
+          </ul>
+          {rows.some((r) => !(parse(r.sqmPerPallet) > 0)) && <RowHint tone="warn">Συμπλήρωσε τα τ.μ. ανά παλέτα για κάθε προϊόν (προτείνονται από τη ρύθμιση μονάδων του είδους, αν υπάρχει).</RowHint>}
+        </FormSection>
+      )}
       <div className="relative">
         <FiSearch className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
-        <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Αναζήτηση προϊόντος (κωδικός ή περιγραφή)…" className={cn(fieldCls, 'h-10 pl-8')} autoFocus disabled={locked} aria-label="Αναζήτηση προϊόντος" />
+        <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Αναζήτηση προϊόντος για προσθήκη (κωδικός ή περιγραφή)…" className={cn(fieldCls, 'h-10 pl-8')} autoFocus aria-label="Αναζήτηση προϊόντος" />
       </div>
-      {item && (
-        <div className="flex items-center gap-3 rounded-lg border-2 border-emerald-500/50 bg-emerald-50/60 px-3 py-2 dark:bg-emerald-500/10">
-          {item.photo ? <img src={item.photo} alt="" className="size-14 rounded-md object-cover" /> : <span className="grid size-14 place-items-center rounded-md bg-muted"><FiPackage className="size-6 text-muted-foreground" aria-hidden /></span>}
-          <div className="min-w-0 flex-1">
-            <div className="text-[length:var(--fs-11)] font-semibold uppercase tracking-wide text-emerald-700 dark:text-emerald-300">Επιλεγμένο προϊόν</div>
-            <div className="truncate text-[length:var(--fs-14)] font-semibold">{item.name}</div>
-            <div className="text-[length:var(--fs-12)] text-muted-foreground">{item.code}{item.baseUnit ? ` · μονάδα ${item.baseUnit}` : ''}</div>
-          </div>
-          <FiCheck className="size-6 text-emerald-600" aria-hidden />
-        </div>
-      )}
-      {locked && <RowHint tone="warn">Υπάρχουν ήδη κρατήσεις — το προϊόν δεν αλλάζει.</RowHint>}
-      {!locked && (
-        <ul className="grid max-h-[46dvh] gap-1.5 overflow-y-auto sm:grid-cols-2" aria-label="Αποτελέσματα">
-          {hits.map((h) => (
+      <ul className="grid max-h-[40dvh] gap-1.5 overflow-y-auto sm:grid-cols-2" aria-label="Αποτελέσματα">
+        {hits.map((h) => {
+          const on = chosen.has(h.mtrl);
+          return (
             <li key={h.mtrl}>
-              <button
-                type="button" onClick={() => { setItem(h); setRec(null); setSqmPallet(''); setSqmContainer(''); setTiers([]); if (!title || title === autoTitle.current) { autoTitle.current = `${h.name} — Κοινό container`; setTitle(autoTitle.current); } }}
-                className={cn('flex w-full cursor-pointer items-center gap-2.5 rounded-md border px-2.5 py-2 text-left transition-colors hover:bg-muted/60', item?.mtrl === h.mtrl ? 'border-emerald-500 bg-emerald-50/50 dark:bg-emerald-500/10' : 'border-border bg-card')}
-              >
+              <button type="button" onClick={() => addItem(h)} disabled={on}
+                className={cn('flex w-full cursor-pointer items-center gap-2.5 rounded-md border px-2.5 py-2 text-left transition-colors hover:bg-muted/60 disabled:cursor-default', on ? 'border-emerald-500 bg-emerald-50/50 dark:bg-emerald-500/10' : 'border-border bg-card')}>
                 {h.photo ? <img src={h.photo} alt="" className="size-10 shrink-0 rounded object-cover" /> : <span className="grid size-10 shrink-0 place-items-center rounded bg-muted"><FiPackage className="size-4 text-muted-foreground" aria-hidden /></span>}
-                <span className="min-w-0">
+                <span className="min-w-0 flex-1">
                   <span className="block truncate text-[length:var(--fs-13)] font-medium">{h.name}</span>
                   <span className="block truncate text-[length:var(--fs-11)] text-muted-foreground">{h.code}{h.baseUnit ? ` · ${h.baseUnit}` : ''}</span>
                 </span>
+                {on ? <FiCheck className="size-4 shrink-0 text-emerald-600" aria-label="Προστέθηκε" /> : <FiPlus className="size-4 shrink-0 text-muted-foreground" aria-hidden />}
               </button>
             </li>
-          ))}
-          {hits.length === 0 && <li className="col-span-full py-6 text-center text-[length:var(--fs-12)] text-muted-foreground">Κανένα προϊόν</li>}
-        </ul>
-      )}
+          );
+        })}
+        {hits.length === 0 && <li className="col-span-full py-6 text-center text-[length:var(--fs-12)] text-muted-foreground">Κανένα προϊόν</li>}
+      </ul>
     </div>
   );
 
-  const stepUnits = (
+  const stepContainer = (
     <div className="space-y-3">
-      <FormSection tone="amber" icon={<FiBox />} title="Χωρητικότητα" aside={<span>σε {unit} — τη βασική μονάδα του είδους</span>}>
-        <div className="grid gap-2.5 sm:grid-cols-3">
-          <Field label={`${unit} ανά παλέτα`} required htmlFor="w-pallet">
-            <Input id="w-pallet" inputMode="decimal" value={sqmPallet} onChange={(e) => setSqmPallet(e.target.value)} className={cn(fieldCls, 'tabular-nums')} disabled={locked} autoFocus />
+      <FormSection tone="amber" icon={<FiBox />} title="Χωρητικότητα" aside={<span>κοινή για όλα τα προϊόντα</span>}>
+        <div className="grid gap-2.5 sm:grid-cols-[12rem_1fr] sm:items-end">
+          <Field label="Παλέτες στο container" required htmlFor="w-cap">
+            <Input id="w-cap" inputMode="decimal" value={capacityTxt} onChange={(e) => setCapacityTxt(e.target.value)} className={cn(fieldCls, 'tabular-nums')} autoFocus />
           </Field>
-          <Field label={`${unit} σε όλο το container`} required htmlFor="w-cont">
-            <Input id="w-cont" inputMode="decimal" value={sqmContainer} onChange={(e) => setSqmContainer(e.target.value)} className={cn(fieldCls, 'tabular-nums')} disabled={locked} />
-          </Field>
-          <Field label="Παλέτες στο container">
-            <div className="flex h-8 items-center rounded-md bg-muted/60 px-2.5 text-[length:var(--fs-14)] font-semibold tabular-nums">{capacity > 0 ? fmt(capacity) : '—'}</div>
-          </Field>
+          <RowHint>Ελάχιστη παραγγελία πελάτη: ½ παλέτα, από οποιοδήποτε προϊόν. Οι κρατήσεις γίνονται ανά ½ παλέτα και μετράνε όλες στο ίδιο γέμισμα.</RowHint>
         </div>
-        <RowHint>Ελάχιστη παραγγελία πελάτη: ½ παλέτα ({perPallet > 0 ? fmt(perPallet / 2) : '—'} {unit}). Οι κρατήσεις γίνονται ανά ½ παλέτα.</RowHint>
-        {locked && <RowHint tone="warn">Υπάρχουν κρατήσεις ({fmt(filledNow)} παλέτες) — η χωρητικότητα δεν αλλάζει.</RowHint>}
+        {capacity > 0 && !isStep(capacity) && <RowHint tone="bad">Η χωρητικότητα δίνεται ανά ½ παλέτα (π.χ. 20 ή 20,5).</RowHint>}
+        {filledNow > 0 && <RowHint tone="warn">Υπάρχουν κρατήσεις {fmt(filledNow)} παλετών — η χωρητικότητα δεν μπορεί να πέσει κάτω από αυτές.</RowHint>}
       </FormSection>
 
       {capacity > 0 && (
-        <div className="rounded-md border border-border bg-card px-3 py-2">
-          <p className="mb-1.5 text-[length:var(--fs-11)] font-semibold uppercase tracking-wide text-muted-foreground">Με μια ματιά</p>
-          <div className="flex flex-wrap items-center gap-2 text-[length:var(--fs-13)] tabular-nums">
-            <span className="inline-flex items-center gap-1.5"><UnitThumb kind="container" size={52} /><strong>1</strong> Container</span>
-            <span className="text-muted-foreground">=</span>
-            <span className="inline-flex items-center gap-1.5"><UnitThumb kind="pallet" size={52} /><strong>{fmt(capacity)}</strong> παλέτες</span>
-            <span className="text-muted-foreground">=</span>
-            <span className="inline-flex items-center gap-1.5"><UnitThumb kind={sceneLoad === 'sacks' ? 'sack' : 'sqm'} size={52} /><strong>{fmt(capacity * perPallet)}</strong> {unit}</span>
-          </div>
-          {Math.abs(capacity * perPallet - perContainer) > 1e-6 && <RowHint tone="warn">Τα {fmt(perContainer)} {unit} δεν διαιρούνται ακριβώς σε παλέτες — μετράνε {fmt(capacity)} γεμάτες (= {fmt(capacity * perPallet)} {unit}).</RowHint>}
+        <div className="overflow-x-auto rounded-md border border-border bg-card">
+          <table className="w-full text-[length:var(--fs-12)]">
+            <thead className="bg-muted/40"><tr>
+              <th className="px-2.5 py-1.5 text-left font-semibold text-muted-foreground">Προϊόν</th>
+              <th className="px-2.5 py-1.5 text-right font-semibold text-muted-foreground">ανά παλέτα</th>
+              <th className="px-2.5 py-1.5 text-right font-semibold text-muted-foreground">αν γεμίσει μόνο με αυτό</th>
+            </tr></thead>
+            <tbody className="divide-y divide-border">
+              {rows.map((r) => {
+                const pp = parse(r.sqmPerPallet);
+                return (
+                  <tr key={r.mtrl}>
+                    <td className="px-2.5 py-1.5"><span className="inline-flex items-center gap-2"><UnitThumb kind={loadOf(r.name) === 'sacks' ? 'sack' : loadOf(r.name) === 'stones' ? 'piece' : 'box'} size={28} />{r.name}</span></td>
+                    <td className="px-2.5 py-1.5 text-right tabular-nums">{fmt(pp) || '—'} {r.baseUnit ?? 'τ.μ.'}</td>
+                    <td className="px-2.5 py-1.5 text-right tabular-nums">{pp > 0 ? `${fmt(capacity * pp)} ${r.baseUnit ?? 'τ.μ.'}` : '—'}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       )}
-      {capacity > 0 && (
-        <ContainerScene pallets={capacity} perPallet={perPallet} filled={filledNow || undefined} load={sceneLoad} slab={slab}
-          labels={{ container: 'Container', pallet: 'ΠΑΛ', base: unit }} heightClass="h-64 sm:h-72" />
+      {capacity > 0 && isStep(capacity) && (
+        <ContainerScene pallets={capacity} perPallet={perPallet0 || 1} filled={filledNow || undefined} load={sceneLoad} slab={slab}
+          labels={{ container: 'Container', pallet: 'ΠΑΛ', base: first?.baseUnit ?? 'τ.μ.' }} heightClass="h-64 sm:h-72" />
       )}
       <label className={cn('flex items-start gap-2 rounded-md border border-border bg-card px-3 py-2 text-[length:var(--fs-12)]', !ids && 'opacity-60')}>
-        <input type="checkbox" className="mt-0.5 size-4 accent-[#B45309]" checked={syncUnits} disabled={!ids || !rec} onChange={(e) => setSyncUnits(e.target.checked)} />
+        <input type="checkbox" className="mt-0.5 size-4 accent-[#B45309]" checked={syncUnits} disabled={!ids} onChange={(e) => setSyncUnits(e.target.checked)} />
         <span>
-          <strong>Ενημέρωση και των μονάδων του είδους στο SoftOne</strong> — Μ.Μ.2 = Παλέτα ({fmt(perPallet) || '…'} {unit}), Μονάδα αγορών = Container ({fmt(perContainer) || '…'} {unit}).
+          <strong>Ενημέρωση και των μονάδων των ειδών στο SoftOne</strong> — σε κάθε είδος: Μ.Μ.2 = Παλέτα (τα τ.μ. του), Μονάδα αγορών = Container ({fmt(capacity) || '…'} παλέτες).
+          {rows.some((r) => r.hasMovements) && <span className="block text-amber-800">Είδη με κινήσεις παραλείπονται — το SoftOne δεν αλλάζει μονάδες σε είδη που έχουν παραστατικά ({rows.filter((r) => r.hasMovements).map((r) => r.code).join(', ')}).</span>}
           {!ids && <span className="block text-muted-foreground">Λείπουν οι μονάδες Παλέτα/Container — φτιάξε τες στο Operations → Μονάδες μέτρησης.</span>}
         </span>
       </label>
     </div>
   );
 
-  const setTier = (i: number, patch: Partial<TierRow>) => setTiers((t) => t.map((x, j) => (j === i ? { ...x, ...patch } : x)));
+  const setPrice = (mtrl: number, i: number, v: string) => setRows((cur) => cur.map((r) => (r.mtrl === mtrl ? { ...r, prices: resize(r.prices, nLevels).map((p, j) => (j === i ? v : p)) } : r)));
+  const chartRow = rows[Math.min(chartItem, rows.length - 1)];
+  const chartTiers = chartRow ? itemTiers(levelList, resize(chartRow.prices, nLevels).map(parse)) : [];
   const stepPrices = (
     <div className="space-y-3">
-      <FormSection tone="emerald" icon={<FiTrendingDown />} title="Σημεία πτώσης τιμής" aside={(
+      <FormSection tone="emerald" icon={<FiTrendingDown />} title="Κοινά σημεία πτώσης και τιμές" aside={(
         <Button type="button" variant="outline" size="sm" className="h-7 text-[length:var(--fs-11)]" disabled={!(capacity > 0)}
           onClick={() => {
-            const n = Math.max(tiers.length, Math.min(MAX_TIERS, Math.max(2, Math.floor(capacity / PALLET_STEP))));
-            const pts = suggestPoints(capacity, Math.min(n, MAX_TIERS));
-            setTiers(pts.map((p, i) => ({ from: fmt(p) || '0,5', price: tiers[i]?.price ?? '' })));
+            const n = nLevels > 1 ? nLevels : Math.min(5, MAX_TIERS);
+            setLevelCount(n);
+            setLevels(suggestPoints(capacity, n).map((p) => fmt(p) || '0,5'));
           }}
         ><FiZap className="mr-1 size-3" aria-hidden /> Πρόταση σημείων</Button>
       )}>
         <p className="text-[length:var(--fs-12)] text-muted-foreground">
-          Η <strong>PRICEW01</strong> είναι η μεγαλύτερη τιμή (ισχύει από την πρώτη ½ παλέτα). Κάθε επόμενο σημείο: «όταν κλειστούν Χ παλέτες, η τιμή πέφτει σε…» — για <strong>όλους</strong>.
+          Τα σημεία είναι <strong>κοινά</strong>: «όταν κλειστούν Χ παλέτες (από οποιοδήποτε προϊόν), ισχύει η W0n» — για <strong>όλους</strong>. Η <strong>PRICEW01</strong> κάθε προϊόντος είναι η μεγαλύτερη· κάθε επόμενη φθηνότερη.
         </p>
-        <div className="space-y-1.5">
-          {tiers.map((t, i) => {
-            const issues = tierIssues.filter((x) => x.tier === i + 1);
-            return (
-              <div key={i} className="rounded-md border border-border bg-card px-2.5 py-2">
-                <div className="grid grid-cols-12 items-center gap-2">
-                  <span className="col-span-12 inline-flex items-center gap-1.5 text-[length:var(--fs-12)] font-semibold sm:col-span-2">
-                    <span className="rounded-sm bg-emerald-100 px-1.5 py-0.5 font-mono text-[length:var(--fs-11)] text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-300">W0{i + 1}</span>
-                  </span>
-                  <label className="col-span-6 flex items-center gap-1.5 text-[length:var(--fs-12)] text-muted-foreground sm:col-span-4">
-                    {i === 0 ? 'από' : 'όταν φτάσει'}
-                    <Input inputMode="decimal" value={t.from} onChange={(e) => setTier(i, { from: e.target.value })} disabled={i === 0} className={cn(fieldCls, 'w-20 tabular-nums')} aria-label={`Παλέτες για PRICEW0${i + 1}`} placeholder={i === 0 ? '0,5' : ''} />
-                    παλ.
-                  </label>
-                  <label className="col-span-5 flex items-center gap-1.5 text-[length:var(--fs-12)] text-muted-foreground sm:col-span-5">
-                    τιμή
-                    <Input inputMode="decimal" value={t.price} onChange={(e) => setTier(i, { price: e.target.value })} className={cn(fieldCls, 'w-24 tabular-nums font-semibold')} aria-label={`Τιμή PRICEW0${i + 1}`} />
-                    €/{unit}
-                  </label>
-                  <div className="col-span-1 flex justify-end">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger className="inline-flex size-8 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-muted" aria-label={`Ενέργειες για PRICEW0${i + 1}`}><FiMoreVertical className="size-4" aria-hidden /></DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-44">
-                        <DropdownMenuItem variant="destructive" className="cursor-pointer gap-2 text-[length:var(--fs-12)]" disabled={tiers.length === 1} onSelect={() => setTiers((x) => x.filter((_, j) => j !== i))}>
-                          <FiTrash2 className="size-3.5" aria-hidden /> Αφαίρεση
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
-                </div>
-                {issues.map((x, k) => <p key={k} className={cn('mt-1 text-[length:var(--fs-11)]', x.level === 'error' ? 'text-destructive' : 'text-amber-800')}>{x.message}</p>)}
-              </div>
-            );
-          })}
-        </div>
+        {nLevels === 0 ? (
+          <Button type="button" variant="outline" size="sm" onClick={() => setLevelCount(1)}><FiPlus className="mr-1 size-3.5" aria-hidden /> Πρώτο κλιμάκιο</Button>
+        ) : (
+          <div className="overflow-x-auto rounded-md border border-border bg-card">
+            <table className="w-full min-w-[34rem] text-[length:var(--fs-12)]">
+              <thead>
+                <tr className="bg-muted/40">
+                  <th className="sticky left-0 z-10 bg-muted/40 px-2 py-1.5 text-left font-semibold text-muted-foreground">Σημείο</th>
+                  {levels.map((_, i) => {
+                    const bad = levelIssues.some((x) => x.tier === i + 1 && x.level === 'error');
+                    return (
+                      <th key={i} className="px-1.5 py-1.5 text-left align-top">
+                        <div className="flex items-center justify-between gap-1">
+                          <span className="rounded-sm bg-emerald-100 px-1.5 py-0.5 font-mono text-[length:var(--fs-11)] text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-300">W0{i + 1}</span>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger className="inline-flex size-6 cursor-pointer items-center justify-center rounded text-muted-foreground hover:bg-muted" aria-label={`Ενέργειες για W0${i + 1}`}><FiMoreVertical className="size-3.5" aria-hidden /></DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-40">
+                              <DropdownMenuItem variant="destructive" className="cursor-pointer gap-2 text-[length:var(--fs-12)]" disabled={nLevels === 1} onSelect={() => removeLevel(i)}><FiTrash2 className="size-3.5" aria-hidden /> Αφαίρεση</DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
+                        <label className="mt-1 flex items-center gap-1 font-normal text-muted-foreground">
+                          {i === 0 ? 'από' : 'σε'}
+                          <Input inputMode="decimal" value={i === 0 ? '0,5' : levels[i]} disabled={i === 0} onChange={(e) => setLevels((cur) => cur.map((v, j) => (j === i ? e.target.value : v)))}
+                            className={cn(fieldCls, 'h-7 w-14 px-1.5 tabular-nums', bad && 'border-destructive')} aria-label={`Παλέτες για ${priceField(i + 1)}`} />
+                          παλ.
+                        </label>
+                      </th>
+                    );
+                  })}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {rows.map((r, ri) => (
+                  <tr key={r.mtrl}>
+                    <th scope="row" className="sticky left-0 z-10 max-w-44 bg-card px-2 py-1.5 text-left font-medium">
+                      <span className="block truncate" title={r.name}>{r.name}</span>
+                      <span className="block truncate text-[length:var(--fs-10)] font-normal text-muted-foreground">€/{r.baseUnit ?? 'τ.μ.'}</span>
+                    </th>
+                    {levels.map((_, i) => {
+                      const bad = priceIssues[ri]?.some((x) => x.tier === i + 1 && x.level === 'error');
+                      return (
+                        <td key={i} className="px-1.5 py-1.5">
+                          <Input inputMode="decimal" value={r.prices[i] ?? ''} onChange={(e) => setPrice(r.mtrl, i, e.target.value)}
+                            className={cn(fieldCls, 'h-8 w-20 px-1.5 font-semibold tabular-nums', bad && 'border-destructive')} aria-label={`${priceField(i + 1)} για ${r.name}`} />
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
         <div className="flex flex-wrap items-center gap-2">
-          <Button type="button" variant="outline" size="sm" disabled={tiers.length >= MAX_TIERS} onClick={() => setTiers((t) => [...t, { from: t.length === 0 ? '0,5' : '', price: '' }])}>
-            <FiPlus className="mr-1 size-3.5" aria-hidden /> Σημείο πτώσης (έως 5)
+          <Button type="button" variant="outline" size="sm" disabled={nLevels >= MAX_TIERS} onClick={() => setLevelCount(nLevels + 1)}>
+            <FiPlus className="mr-1 size-3.5" aria-hidden /> Σημείο πτώσης (έως {MAX_TIERS})
           </Button>
-          {tierIssues.filter((x) => x.tier == null).map((x, k) => <RowHint key={k} tone="bad">{x.message}</RowHint>)}
         </div>
+        {[...levelIssues.filter((x) => x.level === 'error'), ...priceIssues.flatMap((p, ri) => p.filter((x) => x.level === 'error').map((x) => ({ ...x, message: `${rows[ri].name}: ${x.message}` })))]
+          .slice(0, 6).map((x, k) => <RowHint key={k} tone="bad">{x.message}</RowHint>)}
       </FormSection>
-      <PriceLadder tiers={tierList} capacity={capacity} filled={filledNow} unit={unit} />
-      {tierList.length > 1 && tierErrors.length === 0 && (
+      {rows.length > 1 && (
+        <div className="flex flex-wrap gap-1.5" role="tablist" aria-label="Γράφημα για">
+          {rows.map((r, i) => (
+            <button key={r.mtrl} type="button" role="tab" aria-selected={chartItem === i} onClick={() => setChartItem(i)}
+              className={cn('h-7 max-w-56 cursor-pointer truncate rounded-md border px-2.5 text-[length:var(--fs-11)] font-medium', chartItem === i ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-background text-muted-foreground hover:text-foreground')}>
+              {r.name}
+            </button>
+          ))}
+        </div>
+      )}
+      {chartRow && <PriceLadder tiers={chartTiers} capacity={capacity} filled={filledNow} unit={chartRow.baseUnit ?? 'τ.μ.'} />}
+      {chartTiers.length > 1 && errorsCount === 0 && (
         <p className="rounded-md bg-emerald-50 px-3 py-2 text-[length:var(--fs-12)] text-emerald-900 dark:bg-emerald-500/10 dark:text-emerald-200">
-          Από {eur(tierList[0].price)} έως {eur(tierList[tierList.length - 1].price)}/{unit} — όφελος έως {eur(tierList[0].price - tierList[tierList.length - 1].price)}/{unit}
-          ({Math.round((1 - tierList[tierList.length - 1].price / tierList[0].price) * 100)}%) όταν γεμίσει το container.
+          {chartRow.name}: από {eur(chartTiers[0].price)} έως {eur(chartTiers[chartTiers.length - 1].price)}/{chartRow.baseUnit ?? 'τ.μ.'}
+          ({Math.round((1 - chartTiers[chartTiers.length - 1].price / chartTiers[0].price) * 100)}%) όταν γεμίσει το container.
         </p>
       )}
     </div>
@@ -442,7 +547,7 @@ export function OfferWizard({ open, onOpenChange, offerId, onDone }: {
   const stepPublish = (
     <div className="space-y-3">
       <FormSection tone="blue" icon={<FiSend />} title="Δημοσίευση">
-        <Field label="Τίτλος (θέμα στο email)" htmlFor="w-title"><Input id="w-title" value={title} maxLength={150} onChange={(e) => setTitle(e.target.value)} className={fieldCls} placeholder="π.χ. Travertino Classic — Container Νοεμβρίου" /></Field>
+        <Field label="Τίτλος (θέμα στο email)" htmlFor="w-title"><Input id="w-title" value={title} maxLength={150} onChange={(e) => setTitle(e.target.value)} className={fieldCls} placeholder="π.χ. Travertino & πλακάκια — Container Νοεμβρίου" /></Field>
         {status !== 'OPEN' ? (
           <div className="grid gap-2.5 sm:grid-cols-[auto_1fr_1fr] sm:items-end">
             <Field label="Πότε">
@@ -482,17 +587,17 @@ export function OfferWizard({ open, onOpenChange, offerId, onDone }: {
     </div>
   );
 
-  const body = [stepProduct, stepUnits, stepPrices, stepPublish][step];
+  const body = [stepProducts, stepContainer, stepPrices, stepPublish][step];
   const last = step === STEPS.length - 1;
   const primaryLabel = status === 'OPEN' ? 'Αποθήκευση αλλαγών' : when === 'draft' ? 'Αποθήκευση πρόχειρου' : when === 'later' ? 'Προγραμματισμός' : 'Δημοσίευση τώρα';
 
   return (
     <>
       <Dialog open={open} onOpenChange={(o) => !busy && onOpenChange(o)}>
-        <DialogContent className="flex max-h-[94dvh] w-[97vw] flex-col gap-0 overflow-hidden p-0 sm:max-w-4xl">
+        <DialogContent className="flex max-h-[94dvh] w-[97vw] flex-col gap-0 overflow-hidden p-0 sm:max-w-5xl">
           <DialogHeader className="border-b border-border px-4 py-3 pr-12 text-left">
             <DialogTitle className="text-[length:var(--fs-16)]">{offerId ? 'Επεξεργασία δυναμικής προσφοράς' : 'Νέα δυναμική προσφορά'}</DialogTitle>
-            <DialogDescription className="text-[length:var(--fs-12)]">Κοινό container: όσο γεμίζει με παραγγελίες πελατών, η τιμή πέφτει για όλους.</DialogDescription>
+            <DialogDescription className="text-[length:var(--fs-12)]">Κοινό container με ένα ή περισσότερα προϊόντα: όσο γεμίζει, οι τιμές πέφτουν για όλους.</DialogDescription>
             <ol className="mt-2 grid grid-cols-4 gap-1.5" aria-label="Βήματα">
               {STEPS.map((s, i) => {
                 const Icon = s.icon;
@@ -514,12 +619,12 @@ export function OfferWizard({ open, onOpenChange, offerId, onDone }: {
           <DialogBody className="bg-muted/20 px-4 py-3">{body}</DialogBody>
           <DialogFooter className="mx-0 mb-0 flex-row items-center gap-2 border-t border-border bg-card px-4 py-2.5">
             <span className="mr-auto flex min-w-0 items-center gap-1.5 text-[length:var(--fs-11)] text-muted-foreground" aria-live="polite">
-              {busy ? <><FiLoader className="size-3.5 animate-spin" aria-hidden /> {busy}</> : item ? <span className="truncate">{item.code} · {item.name}{capacity > 0 ? ` · ${fmt(capacity)} παλ.` : ''}</span> : null}
+              {busy ? <><FiLoader className="size-3.5 animate-spin" aria-hidden /> {busy}</> : rows.length ? <span className="truncate">{rows.length === 1 ? `${rows[0].code} · ${rows[0].name}` : `${rows.length} προϊόντα`}{capacity > 0 ? ` · ${fmt(capacity)} παλ.` : ''}{nLevels ? ` · ${nLevels} κλιμάκια` : ''}</span> : null}
             </span>
             {step > 0 && <Button variant="outline" onClick={() => setStep((s) => s - 1)} disabled={!!busy}><FiChevronLeft className="mr-1 size-4" aria-hidden /> Πίσω</Button>}
             {!last && <Button onClick={() => setStep((s) => s + 1)} disabled={!canNext || !!busy}>Επόμενο <FiChevronRight className="ml-1 size-4" aria-hidden /></Button>}
             {last && (
-              <Button onClick={() => finish(when === 'draft' && status !== 'OPEN' ? 'draft' : 'publish')} disabled={!!busy || tierErrors.length > 0 || (when !== 'draft' && status !== 'OPEN' && picked.size === 0)}>
+              <Button onClick={() => finish(when === 'draft' && status !== 'OPEN' ? 'draft' : 'publish')} disabled={!!busy || errorsCount > 0 || (when !== 'draft' && status !== 'OPEN' && picked.size === 0)}>
                 {busy ? <FiLoader className="mr-1.5 size-4 animate-spin" aria-hidden /> : <FiSend className="mr-1.5 size-4" aria-hidden />}{primaryLabel}
               </Button>
             )}

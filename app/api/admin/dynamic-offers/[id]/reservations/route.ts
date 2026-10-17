@@ -16,7 +16,7 @@ export async function POST(req: Request, ctx: Ctx) {
   if (!parsed.success) return invalid(parsed.error.issues);
   try {
     const r = await addReservation(id, parsed.data, u.id);
-    await logAudit({ userId: u.id, userEmail: u.email, action: 'offer.reservation.add', resource: 'dynamic_offer', resourceId: id, metadata: { trdr: r.trdr, pallets: r.pallets } }).catch(() => null);
+    await logAudit({ userId: u.id, userEmail: u.email, action: 'offer.reservation.add', resource: 'dynamic_offer', resourceId: id, metadata: { trdr: r.trdr, offerItemId: r.offerItemId, pallets: r.pallets } }).catch(() => null);
     return NextResponse.json({ reservation: r }, { status: 201 });
   } catch (e) { return offerErrorResponse(e); }
 }

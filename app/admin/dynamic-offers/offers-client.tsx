@@ -39,11 +39,11 @@ function RowActions({ o, onEdit, onChanged }: { o: OfferRow; onEdit: () => void;
   const setStatus = (status: string, ok: string) => act(() => call(`/api/admin/dynamic-offers/${o.id}/status`, { status }), ok);
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger className="inline-flex size-8 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring data-[state=open]:bg-muted" aria-label={`Ενέργειες για ${o.title ?? o.name}`} onClick={(e) => e.stopPropagation()}>
+      <DropdownMenuTrigger className="inline-flex size-8 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring data-[state=open]:bg-muted" aria-label={`Ενέργειες για ${o.title}`} onClick={(e) => e.stopPropagation()}>
         <FiMoreVertical className="size-4" aria-hidden />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-60">
-        <DropdownMenuLabel className="truncate text-[length:var(--fs-11)] font-semibold text-muted-foreground">{o.title ?? o.name}</DropdownMenuLabel>
+        <DropdownMenuLabel className="truncate text-[length:var(--fs-11)] font-semibold text-muted-foreground">{o.title}</DropdownMenuLabel>
         {o.status !== 'CLOSED' && o.status !== 'CANCELLED' && (
           <DropdownMenuItem className={ITEM} onSelect={onEdit}><FiEdit3 className="size-3.5" style={{ color: '#0369A1' }} aria-hidden /> {o.status === 'DRAFT' || o.status === 'SCHEDULED' ? 'Συνέχεια στον οδηγό' : 'Επεξεργασία τιμών/στοιχείων'}</DropdownMenuItem>
         )}
@@ -64,13 +64,13 @@ function RowActions({ o, onEdit, onChanged }: { o: OfferRow; onEdit: () => void;
           <>
             <DropdownMenuSeparator />
             <DropdownMenuItem variant="destructive" className={ITEM} onSelect={async () => {
-              if (await confirmAction({ title: 'Ακύρωση προσφοράς', message: `Ακύρωση της «${o.title ?? o.name}»; ${o.customers ? `Υπάρχουν κρατήσεις ${o.customers} συμμετεχόντων — ενημέρωσέ τους.` : ''}`, confirmLabel: 'Ακύρωση προσφοράς', destructive: true })) await setStatus('CANCELLED', 'Η προσφορά ακυρώθηκε');
+              if (await confirmAction({ title: 'Ακύρωση προσφοράς', message: `Ακύρωση της «${o.title}»; ${o.customers ? `Υπάρχουν κρατήσεις ${o.customers} συμμετεχόντων — ενημέρωσέ τους.` : ''}`, confirmLabel: 'Ακύρωση προσφοράς', destructive: true })) await setStatus('CANCELLED', 'Η προσφορά ακυρώθηκε');
             }}><FiXCircle className="size-3.5" aria-hidden /> Ακύρωση</DropdownMenuItem>
           </>
         )}
         {(o.status === 'DRAFT' || o.status === 'SCHEDULED') && o.filled === 0 && (
           <DropdownMenuItem variant="destructive" className={ITEM} onSelect={async () => {
-            if (await confirmAction({ title: 'Διαγραφή', message: `Διαγραφή της «${o.title ?? o.name}»;`, confirmLabel: 'Διαγραφή', destructive: true })) {
+            if (await confirmAction({ title: 'Διαγραφή', message: `Διαγραφή της «${o.title}»;`, confirmLabel: 'Διαγραφή', destructive: true })) {
               await act(async () => { const r = await fetch(`/api/admin/dynamic-offers/${o.id}`, { method: 'DELETE' }); if (!r.ok) throw new Error((await r.json().catch(() => ({}))).message ?? 'Αποτυχία'); }, 'Διαγράφηκε');
             }
           }}><FiTrash2 className="size-3.5" aria-hidden /> Διαγραφή</DropdownMenuItem>
@@ -95,8 +95,11 @@ export function OffersClient({ offers, canManage }: { offers: OfferRow[]; canMan
       accessorKey: 'name', header: 'Προσφορά', size: 300,
       cell: ({ row }) => (
         <div className="min-w-0">
-          <div className="truncate text-[length:var(--fs-12)] font-medium">{row.original.title ?? row.original.name}</div>
-          <div className="truncate text-[length:var(--fs-11)] text-muted-foreground">{row.original.code} · {row.original.name}</div>
+          <div className="truncate text-[length:var(--fs-12)] font-medium">{row.original.title}</div>
+          <div className="truncate text-[length:var(--fs-11)] text-muted-foreground" title={row.original.name}>
+            {row.original.items.length > 1 && <span className="mr-1 rounded-sm bg-sky-100 px-1 font-semibold text-sky-800">{row.original.items.length} προϊόντα</span>}
+            {row.original.items.length === 1 ? `${row.original.code} · ${row.original.name}` : row.original.name}
+          </div>
         </div>
       ),
     },
@@ -117,14 +120,22 @@ export function OffersClient({ offers, canManage }: { offers: OfferRow[]; canMan
       },
     },
     {
-      id: 'price', accessorFn: (o) => o.current?.price ?? 0, header: 'Τιμή τώρα', size: 110,
-      cell: ({ row }) => (row.original.current ? <span className="text-[length:var(--fs-13)] font-bold tabular-nums text-emerald-700">{eur(row.original.current.price)}<span className="text-[length:var(--fs-10)] font-normal text-muted-foreground">/{row.original.baseUnit ?? 'τ.μ.'}</span></span> : DASH),
+      id: 'price', accessorFn: (o) => o.currentLevel, header: 'Τιμή τώρα', size: 120,
+      cell: ({ row }) => {
+        const o = row.original; const it = o.items[0];
+        if (!it?.current) return DASH;
+        return o.items.length === 1
+          ? <span className="text-[length:var(--fs-13)] font-bold tabular-nums text-emerald-700">{eur(it.current.price)}<span className="text-[length:var(--fs-10)] font-normal text-muted-foreground">/{it.baseUnit ?? 'τ.μ.'}</span></span>
+          : <span className="text-[length:var(--fs-12)] tabular-nums"><strong className="text-emerald-700">W0{o.currentLevel}</strong> <span className="text-muted-foreground">από {o.levels.length}</span></span>;
+      },
     },
     {
-      id: 'next', accessorFn: (o) => o.next?.missing ?? 0, header: 'Επόμενη πτώση', size: 140,
-      cell: ({ row }) => (row.original.next
-        ? <span className="text-[length:var(--fs-12)] tabular-nums">{eur(row.original.next.tier.price)} <span className="text-muted-foreground">σε {num(row.original.next.missing)} παλ.</span></span>
-        : <span className="text-[length:var(--fs-12)] text-emerald-700">καλύτερη ✓</span>),
+      id: 'next', accessorFn: (o) => o.nextLevel?.missing ?? 0, header: 'Επόμενη πτώση', size: 150,
+      cell: ({ row }) => {
+        const o = row.original; const it = o.items[0];
+        if (!o.nextLevel) return <span className="text-[length:var(--fs-12)] text-emerald-700">καλύτερη ✓</span>;
+        return <span className="text-[length:var(--fs-12)] tabular-nums">{o.items.length === 1 && it?.next ? eur(it.next.tier.price) : `W0${o.nextLevel.level}`} <span className="text-muted-foreground">σε {num(o.nextLevel.missing)} παλ.</span></span>;
+      },
     },
     { accessorKey: 'customers', header: 'Συμμετέχοντες', size: 110, cell: ({ row }) => (
       <span className="inline-flex items-center gap-1.5 tabular-nums text-[length:var(--fs-12)]">

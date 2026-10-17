@@ -1,20 +1,27 @@
 /**
  * Κοινό container — η λογική τιμής (καθαρή, για client, server και το μελλοντικό B2B).
  *
- * Ένα προϊόν, ένα container που γεμίζει με κρατήσεις ΠΟΛΛΩΝ πελατών (ελάχιστο ½ παλέτα, βήμα ½).
- * Κλιμάκια σε ΠΑΛΕΤΕΣ: από `fromPallets` και πάνω ισχύει η τιμή του κλιμακίου (PRICEW0{level} στο
- * SoftOne). PRICEW01 = η ΜΕΓΑΛΥΤΕΡΗ τιμή (από την ελάχιστη παραγγελία), κάθε επόμενη φθηνότερη. Η τιμή ισχύει για ΟΛΟΥΣ τους συμμετέχοντες: όσο γεμίζει, πέφτει για όλους.
+ * Ένα container με ΕΝΑ ή ΠΕΡΙΣΣΟΤΕΡΑ προϊόντα, που γεμίζει με κρατήσεις πολλών πελατών (ελάχιστο ½
+ * παλέτα, βήμα ½). Τα σημεία πτώσης (κλιμάκια) είναι ΚΟΙΝΑ: από `fromPallets` παλέτες ΣΥΝΟΛΙΚΟΥ
+ * γεμίσματος ισχύει το κλιμάκιο `level` (PRICEW0{level} στο SoftOne). Κάθε προϊόν έχει τη δική του
+ * τιμή ανά κλιμάκιο — PRICEW01 η ΜΕΓΑΛΥΤΕΡΗ, κάθε επόμενη φθηνότερη. Μια κράτηση σε οποιοδήποτε
+ * προϊόν ρίχνει την τιμή ΟΛΩΝ των προϊόντων, για όλους τους συμμετέχοντες.
  */
 
 export const PALLET_STEP = 0.5;
-export const MAX_TIERS = 5;
+export const MAX_TIERS = 8;
 
-export type Tier = { level: number; fromPallets: number; price: number };
+/** Κοινό σημείο πτώσης. */
+export type Level = { level: number; fromPallets: number };
+/** Κλιμάκιο ενός προϊόντος: σημείο + η τιμή του προϊόντος εκεί. */
+export type Tier = Level & { price: number };
 export type TierIssue = { level: 'error' | 'warn'; tier?: number; message: string };
 
 const EPS = 1e-9;
 export const isStep = (n: number, step = PALLET_STEP) => Math.abs(n / step - Math.round(n / step)) < 1e-6;
 export const roundStep = (n: number, step = PALLET_STEP) => Math.round(n / step) * step;
+/** «PRICEW01» … «PRICEW08». */
+export const priceField = (level: number) => `PRICEW${String(level).padStart(2, '0')}`;
 
 /** Παλέτες που χωρούν: τ.μ. container ÷ τ.μ. παλέτας (προς τα κάτω, σε βήματα ½). */
 export function capacityPallets(sqmPerContainer: number, sqmPerPallet: number): number {
@@ -22,47 +29,72 @@ export function capacityPallets(sqmPerContainer: number, sqmPerPallet: number): 
   return Math.floor((sqmPerContainer / sqmPerPallet) / PALLET_STEP + EPS) * PALLET_STEP;
 }
 
-/** Τα κλιμάκια ταξινομημένα κατά «από παλέτες». */
-export const sortTiers = (tiers: Tier[]) => [...tiers].sort((a, b) => a.fromPallets - b.fromPallets);
+/** Ταξινόμηση κατά «από παλέτες». */
+export const sortTiers = <T extends Level>(tiers: T[]) => [...tiers].sort((a, b) => a.fromPallets - b.fromPallets);
+
+/** Τα κλιμάκια ενός προϊόντος από τα κοινά σημεία και τις τιμές του (prices[level-1]). */
+export function itemTiers(levels: Level[], prices: number[]): Tier[] {
+  return sortTiers(levels).map((l) => ({ level: l.level, fromPallets: l.fromPallets, price: prices[l.level - 1] ?? NaN }));
+}
 
 /**
- * Έλεγχος κλιμακίων. Το 1ο ξεκινά από την ελάχιστη παραγγελία· τα επόμενα σε αύξουσα σειρά, σε
- * βήματα ½ και μέσα στη χωρητικότητα· η τιμή ΠΕΦΤΕΙ από κλιμάκιο σε κλιμάκιο.
+ * Έλεγχος κοινών σημείων: 1 έως 8, το 1ο από την ελάχιστη παραγγελία, τα επόμενα σε αύξουσα σειρά,
+ * σε βήματα ½ και μέσα στη χωρητικότητα, αριθμημένα PRICEW01, 02, … με τη σειρά.
  */
-export function checkTiers(tiers: Tier[], capacity: number, minOrder = PALLET_STEP): TierIssue[] {
+export function checkLevels(levels: Level[], capacity: number, minOrder = PALLET_STEP): TierIssue[] {
   const out: TierIssue[] = [];
-  if (tiers.length === 0) return [{ level: 'error', message: 'Χρειάζεται τουλάχιστον ένα κλιμάκιο τιμής.' }];
-  if (tiers.length > MAX_TIERS) out.push({ level: 'error', message: `Έως ${MAX_TIERS} κλιμάκια (PRICEW01…PRICEW05).` });
-  const t = sortTiers(tiers);
+  if (levels.length === 0) return [{ level: 'error', message: 'Χρειάζεται τουλάχιστον ένα κλιμάκιο τιμής.' }];
+  if (levels.length > MAX_TIERS) out.push({ level: 'error', message: `Έως ${MAX_TIERS} κλιμάκια (PRICEW01…${priceField(MAX_TIERS)}).` });
+  const t = sortTiers(levels);
   t.forEach((x, i) => {
-    if (!(x.price > 0)) out.push({ level: 'error', tier: x.level, message: `Κλιμάκιο ${x.level}: η τιμή πρέπει να είναι > 0.` });
-    if (!isStep(x.fromPallets)) out.push({ level: 'error', tier: x.level, message: `Κλιμάκιο ${x.level}: οι παλέτες πάνε ανά ½ (π.χ. 3 ή 3,5).` });
+    if (!Number.isFinite(x.fromPallets) || !isStep(x.fromPallets)) out.push({ level: 'error', tier: x.level, message: `Κλιμάκιο ${x.level}: οι παλέτες πάνε ανά ½ (π.χ. 3 ή 3,5).` });
     if (x.fromPallets > capacity + EPS) out.push({ level: 'error', tier: x.level, message: `Κλιμάκιο ${x.level}: ξεκινά από ${x.fromPallets} παλέτες αλλά το container χωρά ${capacity}.` });
     if (i > 0 && x.fromPallets <= t[i - 1].fromPallets + EPS) out.push({ level: 'error', tier: x.level, message: `Κλιμάκιο ${x.level}: πρέπει να ξεκινά μετά το προηγούμενο (${t[i - 1].fromPallets} παλέτες).` });
-    // PRICEW01 είναι η ΜΕΓΑΛΥΤΕΡΗ τιμή· κάθε επόμενο κλιμάκιο ΦΘΗΝΟΤΕΡΟ.
-    if (i > 0 && x.price >= t[i - 1].price - EPS) out.push({ level: 'error', tier: x.level, message: `PRICEW0${x.level}: πρέπει να είναι φθηνότερη από την PRICEW0${t[i - 1].level} (${t[i - 1].price}).` });
-    if (x.level !== i + 1) out.push({ level: 'error', tier: x.level, message: `Τα κλιμάκια πάνε με τη σειρά: το ${i + 1}ο (από ${x.fromPallets} παλέτες) είναι η PRICEW0${i + 1}.` });
+    if (x.level !== i + 1) out.push({ level: 'error', tier: x.level, message: `Τα κλιμάκια πάνε με τη σειρά: το ${i + 1}ο (από ${x.fromPallets} παλέτες) είναι η ${priceField(i + 1)}.` });
   });
   if (Math.abs(t[0].fromPallets - minOrder) > EPS) {
     out.push({ level: 'error', tier: t[0].level, message: `Το 1ο κλιμάκιο ξεκινά από την ελάχιστη παραγγελία (${minOrder} παλέτα).` });
   }
-  const levels = t.map((x) => x.level);
-  if (new Set(levels).size !== levels.length || levels.some((l) => l < 1 || l > MAX_TIERS)) {
-    out.push({ level: 'error', message: 'Κάθε κλιμάκιο αντιστοιχεί σε μία από τις PRICEW01…PRICEW05.' });
+  const lv = t.map((x) => x.level);
+  if (new Set(lv).size !== lv.length || lv.some((l) => l < 1 || l > MAX_TIERS)) {
+    out.push({ level: 'error', message: `Κάθε κλιμάκιο αντιστοιχεί σε μία από τις PRICEW01…${priceField(MAX_TIERS)}.` });
   }
   return out;
 }
 
-/** Το κλιμάκιο που ισχύει με `filled` παλέτες (πριν από την 1η κράτηση: το 1ο). */
-export function tierAt(tiers: Tier[], filled: number): Tier | null {
+/** Τιμές ενός προϊόντος: μία ανά κλιμάκιο, > 0, και ΦΘΗΝΟΤΕΡΗ από κλιμάκιο σε κλιμάκιο (01 η μεγαλύτερη). */
+export function checkPrices(prices: number[], levels: number, label = ''): TierIssue[] {
+  const out: TierIssue[] = [];
+  const who = label ? `${label}: ` : '';
+  if (prices.length !== levels) out.push({ level: 'error', message: `${who}χρειάζεται μία τιμή για κάθε κλιμάκιο (${levels}).` });
+  for (let i = 0; i < Math.min(prices.length, levels); i++) {
+    const p = prices[i];
+    if (!(p > 0)) out.push({ level: 'error', tier: i + 1, message: `${who}${priceField(i + 1)}: η τιμή πρέπει να είναι > 0.` });
+    else if (i > 0 && prices[i - 1] > 0 && p >= prices[i - 1] - EPS) {
+      out.push({ level: 'error', tier: i + 1, message: `${who}${priceField(i + 1)}: πρέπει να είναι φθηνότερη από την ${priceField(i)} (${prices[i - 1]}).` });
+    }
+  }
+  return out;
+}
+
+/** Συνδυαστικός έλεγχος για ένα προϊόν (κλιμάκια με τιμές). */
+export function checkTiers(tiers: Tier[], capacity: number, minOrder = PALLET_STEP): TierIssue[] {
   const t = sortTiers(tiers);
-  let cur: Tier | null = t[0] ?? null;
+  const lv = checkLevels(t, capacity, minOrder);
+  if (!t.length) return lv;
+  return [...lv, ...checkPrices(t.map((x) => x.price), t.length)];
+}
+
+/** Το κλιμάκιο που ισχύει με `filled` παλέτες (πριν από την 1η κράτηση: το 1ο). */
+export function tierAt<T extends Level>(tiers: T[], filled: number): T | null {
+  const t = sortTiers(tiers);
+  let cur: T | null = t[0] ?? null;
   for (const x of t) if (filled + EPS >= x.fromPallets) cur = x;
   return cur;
 }
 
 /** Το επόμενο κλιμάκιο και πόσες παλέτες λείπουν για να πέσει η τιμή. */
-export function nextTier(tiers: Tier[], filled: number): { tier: Tier; missing: number } | null {
+export function nextTier<T extends Level>(tiers: T[], filled: number): { tier: T; missing: number } | null {
   // Μετά το ΤΡΕΧΟΝ κλιμάκιο: πριν από την 1η κράτηση ισχύει ήδη η PRICEW01 — «επόμενη» είναι η 02.
   const t = sortTiers(tiers);
   const floor = Math.max(filled, t[0]?.fromPallets ?? 0);
@@ -70,18 +102,24 @@ export function nextTier(tiers: Tier[], filled: number): { tier: Tier; missing: 
   return next ? { tier: next, missing: roundStep(next.fromPallets - filled) } : null;
 }
 
-/** Τι ισχύει τώρα: γέμισμα, ελεύθερες θέσεις, τρέχουσα/επόμενη τιμή, όφελος από την αρχική. */
-export function offerState(o: { tiers: Tier[]; sqmPerContainer: number; sqmPerPallet: number }, filled: number) {
-  const capacity = capacityPallets(o.sqmPerContainer, o.sqmPerPallet);
-  const current = tierAt(o.tiers, filled);
-  const next = nextTier(o.tiers, filled);
-  const first = sortTiers(o.tiers)[0] ?? null;
+/** Γέμισμα του container: ελεύθερες θέσεις, ποσοστό, αν γέμισε. */
+export function fillState(capacity: number, filled: number) {
   return {
     capacity,
     filled,
     free: Math.max(0, roundStep(capacity - filled)),
     percent: capacity > 0 ? Math.min(100, (filled / capacity) * 100) : 0,
     full: capacity > 0 && filled + EPS >= capacity,
+  };
+}
+
+/** Τι ισχύει τώρα για ένα προϊόν: γέμισμα, τρέχουσα/επόμενη τιμή, όφελος από την αρχική. */
+export function offerState(o: { tiers: Tier[]; capacity: number }, filled: number) {
+  const current = tierAt(o.tiers, filled);
+  const next = nextTier(o.tiers, filled);
+  const first = sortTiers(o.tiers)[0] ?? null;
+  return {
+    ...fillState(o.capacity, filled),
     current,
     next,
     savingPerUnit: first && current ? Math.max(0, first.price - current.price) : 0,

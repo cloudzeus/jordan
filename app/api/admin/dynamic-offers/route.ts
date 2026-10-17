@@ -19,7 +19,7 @@ export async function POST(req: Request) {
   if (!parsed.success) return invalid(parsed.error.issues);
   try {
     const o = await createOffer(parsed.data, u.id);
-    await logAudit({ userId: u.id, userEmail: u.email, action: 'offer.create', resource: 'dynamic_offer', resourceId: o.id, metadata: { mtrl: parsed.data.mtrl } }).catch(() => null);
+    await logAudit({ userId: u.id, userEmail: u.email, action: 'offer.create', resource: 'dynamic_offer', resourceId: o.id, metadata: { products: parsed.data.items.map((i) => i.mtrl), tiers: parsed.data.tiers.length } }).catch(() => null);
     return NextResponse.json({ offer: o }, { status: 201 });
   } catch (e) { return offerErrorResponse(e); }
 }

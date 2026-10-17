@@ -2652,15 +2652,11 @@ enum ContainerOfferStatus {
 
 model ContainerOffer {
   id              String               @id @default(cuid())
-  mtrl            Int // SoftOne MTRL του προϊόντος
-  code            String // στιγμιότυπο κωδικού/περιγραφής
-  name            String
-  title           String? // π.χ. «Travertino Classic — Container Νοεμβρίου»
+  title           String? // π.χ. «Travertino & Πλακάκια — Container Νοεμβρίου»
   status          ContainerOfferStatus @default(DRAFT)
-  sqmPerContainer Float // βασικές μονάδες (τ.μ.) που χωρούν στο container
-  sqmPerPallet    Float // βασικές μονάδες ανά παλέτα
+  // Χωρητικότητα σε ΠΑΛΕΤΕΣ — κοινή για όλα τα προϊόντα (το καθένα έχει δικά του τ.μ./παλέτα).
+  capacityPallets Float
   minOrder        Float                @default(0.5) // ελάχιστη παραγγελία σε παλέτες
-  baseUnit        String? // σύντμηση βασικής μονάδας (π.χ. Μετ²)
   closesAt        DateTime? // προθεσμία συμμετοχής
   publishAt       DateTime? // πότε δημοσιεύεται (στέλνονται τα email)
   publishedAt     DateTime?
@@ -2671,46 +2667,70 @@ model ContainerOffer {
   createdAt       DateTime             @default(now())
   updatedAt       DateTime             @updatedAt
 
+  items        ContainerOfferItem[]
   tiers        ContainerOfferTier[]
   reservations ContainerReservation[]
   recipients   OfferRecipient[]
   emails       OfferEmail[]
 
-  @@index([mtrl])
   @@index([status])
 }
 
-// Κλιμάκιο τιμής: από `fromPallets` και πάνω ισχύει η PRICEW0{level} (στιγμιότυπο τιμής).
+// Προϊόν της δυναμικής προσφοράς: δικά του τ.μ./παλέτα και δικές του τιμές ανά κλιμάκιο
+// (prices[level-1] → PRICEW0{level} του είδους στο SoftOne). Τα κλιμάκια/γέμισμα είναι ΚΟΙΝΑ.
+model ContainerOfferItem {
+  id           String                 @id @default(cuid())
+  offerId      String
+  offer        ContainerOffer         @relation(fields: [offerId], references: [id], onDelete: Cascade)
+  mtrl         Int // SoftOne MTRL
+  code         String // στιγμιότυπο κωδικού/περιγραφής
+  name         String
+  baseUnit     String? // σύντμηση βασικής μονάδας (π.χ. Μετ²)
+  sqmPerPallet Float // βασικές μονάδες ανά παλέτα
+  order        Int                    @default(0)
+  prices       Float[] // μία τιμή ανά κλιμάκιο, PRICEW01 (η μεγαλύτερη) … PRICEW08
+  createdAt    DateTime               @default(now())
+  reservations ContainerReservation[]
+
+  @@unique([offerId, mtrl])
+  @@index([mtrl])
+}
+
+// Κοινό σημείο πτώσης τιμής: από `fromPallets` (γέμισμα ΟΛΟΥ του container) ισχύει η PRICEW0{level}
+// κάθε προϊόντος (η τιμή είναι στο ContainerOfferItem.prices).
 model ContainerOfferTier {
   id          String         @id @default(cuid())
   offerId     String
   offer       ContainerOffer @relation(fields: [offerId], references: [id], onDelete: Cascade)
-  level       Int // 1…5 → PRICEW01…PRICEW05
+  level       Int // 1…8 → PRICEW01…PRICEW08
   fromPallets Float
-  price       Float
 
   @@unique([offerId, level])
 }
 
 model ContainerReservation {
-  id           String         @id @default(cuid())
+  id           String             @id @default(cuid())
   offerId      String
-  offer        ContainerOffer @relation(fields: [offerId], references: [id], onDelete: Cascade)
+  offer        ContainerOffer     @relation(fields: [offerId], references: [id], onDelete: Cascade)
+  // Ποιο προϊόν της προσφοράς (οι παλέτες μετράνε στο ΚΟΙΝΟ γέμισμα).
+  offerItemId  String
+  offerItem    ContainerOfferItem @relation(fields: [offerItemId], references: [id], onDelete: Cascade)
   // Ποιος κλείνει: πελάτης SoftOne (trdr) Ή συνεργάτης (partnerId) — ακριβώς ένα από τα δύο.
   trdr         Int? // SoftOne TRDR του πελάτη
   partnerId    String? // Partner.id
   pallets      Float // πολλαπλάσιο του ½
   // PENDING (αίτημα από το portal, ΔΕΝ μετράει στο γέμισμα) → ACTIVE (εγκρίθηκε) | REJECTED · ACTIVE → CANCELLED
-  status       String         @default("ACTIVE")
+  status       String             @default("ACTIVE")
   notes        String?
   createdById  String? // ο χρήστης που την καταχώρισε (διαχειριστής ή ο ίδιος ο πελάτης από το portal)
   decidedById  String? // ποιος ενέκρινε/απέρριψε
   decidedAt    DateTime?
   decisionNote String? // π.χ. λόγος απόρριψης
-  createdAt    DateTime       @default(now())
-  updatedAt    DateTime       @updatedAt
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
 
   @@index([offerId])
+  @@index([offerItemId])
   @@index([trdr])
   @@index([partnerId])
 }

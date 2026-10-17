@@ -23,7 +23,7 @@ const ContainerScene = dynamic(() => import('@/components/admin/container-scene'
   ssr: false, loading: () => <div className="h-72 animate-pulse rounded-md bg-muted motion-reduce:animate-none" />,
 });
 
-type Reservation = { id: string; trdr: number | null; partnerId: string | null; kind: 'CUSTOMER' | 'PARTNER'; customer: string; customerCode: string | null; pallets: number; status: string; notes: string | null; decisionNote: string | null; fromPortal: boolean; createdAt: string };
+type Reservation = { id: string; trdr: number | null; partnerId: string | null; kind: 'CUSTOMER' | 'PARTNER'; customer: string; customerCode: string | null; offerItemId: string; product: { code: string; name: string }; sqm: number; unit: string; pallets: number; status: string; notes: string | null; decisionNote: string | null; fromPortal: boolean; createdAt: string };
 type Recipient = { id: string; kind: string; refId: string; name: string; email: string | null; emails: { kind: string; level: number; status: string; error: string | null; sentAt: string }[] };
 type Customer = { refId: string; name: string; sub: string };
 
@@ -55,23 +55,25 @@ function ReservationDialog({ open, onOpenChange, offer, onSaved }: { open: boole
   const [customers, setCustomers] = React.useState<Customer[] | null>(null);
   const [q, setQ] = React.useState('');
   const [trdr, setTrdr] = React.useState<string | null>(null);
+  const [itemId, setItemId] = React.useState(offer.items[0]?.id ?? '');
   const [pallets, setPallets] = React.useState(offer.minOrder);
   const [notes, setNotes] = React.useState('');
   const [busy, setBusy] = React.useState(false);
   React.useEffect(() => {
     if (!open) return;
-    setQ(''); setTrdr(null); setPallets(offer.minOrder); setNotes('');
+    setQ(''); setTrdr(null); setItemId(offer.items[0]?.id ?? ''); setPallets(offer.minOrder); setNotes('');
     if (!customers) fetch('/api/admin/dynamic-offers/options').then((r) => r.json()).then((d) => setCustomers(d.customers)).catch(() => null);
-  }, [open, offer.minOrder, customers]);
+  }, [open, offer.minOrder, offer.items, customers]);
   const err = checkReservation(pallets, offer.free, offer.minOrder);
-  const after = tierAt(offer.tiers, offer.filled + pallets);
+  const item = offer.items.find((i) => i.id === itemId) ?? offer.items[0];
+  const after = tierAt(offer.levels, offer.filled + pallets);
   const n = strip(q.trim());
   const shown = (customers ?? []).filter((c) => !n || strip(`${c.name} ${c.sub}`).includes(n)).slice(0, 200);
   const save = async () => {
     if (!trdr || err) return;
     setBusy(true);
     try {
-      const res = await fetch(`/api/admin/dynamic-offers/${offer.id}/reservations`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ trdr: Number(trdr), pallets, notes }) });
+      const res = await fetch(`/api/admin/dynamic-offers/${offer.id}/reservations`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ offerItemId: item.id, trdr: Number(trdr), pallets, notes }) });
       const d = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(d.message ?? 'Η κράτηση απέτυχε');
       await onSaved(pallets);
@@ -83,7 +85,7 @@ function ReservationDialog({ open, onOpenChange, offer, onSaved }: { open: boole
       <DialogContent className="flex max-h-[92dvh] w-[96vw] flex-col gap-0 overflow-hidden p-0 sm:max-w-lg">
         <DialogHeader className="border-b border-border px-4 py-2.5 pr-12 text-left">
           <DialogTitle className="text-[length:var(--fs-15)]">Νέα κράτηση</DialogTitle>
-          <DialogDescription className="truncate text-[length:var(--fs-11)]">{offer.name} · ελεύθερες {num(offer.free)} παλέτες</DialogDescription>
+          <DialogDescription className="truncate text-[length:var(--fs-11)]">{offer.title} · ελεύθερες {num(offer.free)} παλέτες</DialogDescription>
         </DialogHeader>
         <DialogBody className="space-y-3 bg-muted/20 px-4 py-3">
           <Field label="Πελάτης" required>
@@ -102,22 +104,29 @@ function ReservationDialog({ open, onOpenChange, offer, onSaved }: { open: boole
               </li>
             ))}
           </ul>
+          {offer.items.length > 1 && (
+            <Field label="Προϊόν" required htmlFor="res-item">
+              <select id="res-item" value={item?.id} onChange={(e) => setItemId(e.target.value)} className={cn(fieldCls, 'h-9 w-full rounded-md border border-input bg-background px-2')}>
+                {offer.items.map((i) => <option key={i.id} value={i.id}>{i.name} ({i.code})</option>)}
+              </select>
+            </Field>
+          )}
           <Field label="Παλέτες (ανά ½)" required>
             <div className="flex items-center gap-2">
               <Button type="button" variant="outline" size="sm" className="size-9 p-0 text-[length:var(--fs-16)]" onClick={() => setPallets((p) => Math.max(offer.minOrder, p - PALLET_STEP))} aria-label="Μισή παλέτα λιγότερη">−</Button>
               <span className="min-w-20 text-center text-[length:var(--fs-18)] font-bold tabular-nums">{num(pallets)}</span>
               <Button type="button" variant="outline" size="sm" className="size-9 p-0 text-[length:var(--fs-16)]" onClick={() => setPallets((p) => Math.min(offer.free, p + PALLET_STEP))} aria-label="Μισή παλέτα περισσότερη">+</Button>
-              <span className="text-[length:var(--fs-12)] text-muted-foreground">= {num(pallets * offer.sqmPerPallet)} {offer.baseUnit ?? 'τ.μ.'}</span>
+              <span className="text-[length:var(--fs-12)] text-muted-foreground">= {num(pallets * (item?.sqmPerPallet ?? 0))} {item?.baseUnit ?? 'τ.μ.'}</span>
             </div>
           </Field>
-          {err ? <RowHint tone="bad">{err}</RowHint> : after && offer.current && after.level !== offer.current.level
-            ? <RowHint tone="ok">Με αυτή την κράτηση η τιμή πέφτει σε {eur(after.price)} για όλους — θα σταλεί email «η τιμή έπεσε».</RowHint>
+          {err ? <RowHint tone="bad">{err}</RowHint> : after && after.level !== offer.currentLevel
+            ? <RowHint tone="ok">Με αυτή την κράτηση περνάμε στο W0{after.level}{item ? ` (${item.name}: ${eur(item.prices[after.level - 1] ?? 0)})` : ''} — πέφτουν οι τιμές όλων των προϊόντων και θα σταλεί «η τιμή έπεσε».</RowHint>
             : null}
           <Field label="Σημείωση" htmlFor="res-notes"><Input id="res-notes" value={notes} maxLength={500} onChange={(e) => setNotes(e.target.value)} className={fieldCls} /></Field>
         </DialogBody>
         <DialogFooter className="mx-0 mb-0 items-center gap-2 border-t border-border bg-card px-4 py-2.5">
           <Button variant="ghost" size="sm" onClick={() => onOpenChange(false)} disabled={busy}>Άκυρο</Button>
-          <Button size="sm" onClick={save} disabled={busy || !trdr || !!err}>{busy && <FiLoader className="mr-1.5 size-3.5 animate-spin" aria-hidden />}Κράτηση</Button>
+          <Button size="sm" onClick={save} disabled={busy || !trdr || !item || !!err}>{busy && <FiLoader className="mr-1.5 size-3.5 animate-spin" aria-hidden />}Κράτηση</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -128,20 +137,22 @@ export function OfferDetail({ offer, canManage, onChanged }: { offer: OfferRow; 
   const [data, setData] = React.useState<{ reservations: Reservation[]; recipients: Recipient[] } | null>(null);
   const [addOpen, setAddOpen] = React.useState(false);
   const [previewKind, setPreviewKind] = React.useState<'publish' | 'drop'>('publish');
+  const [chartItem, setChartItem] = React.useState(0);
   const load = React.useCallback(() => {
     fetch(`/api/admin/dynamic-offers/${offer.id}`, { cache: 'no-store' }).then((r) => r.json()).then((d) => setData({ reservations: d.reservations, recipients: d.recipients })).catch(() => toast.error('Αποτυχία φόρτωσης'));
   }, [offer.id]);
   React.useEffect(() => { load(); }, [load]);
-  const unit = offer.baseUnit ?? 'τ.μ.';
-  const load3d = loadOf(offer.name);
+  const first = offer.items[0];
+  const unit = first?.baseUnit ?? 'τ.μ.';
+  const load3d = loadOf(first?.name ?? '');
   const active = data?.reservations.filter((r) => r.status === 'ACTIVE') ?? [];
   const pending = data?.reservations.filter((r) => r.status === 'PENDING') ?? [];
 
   /** Μετά από αλλαγή γεμίσματος: νέα 3D εικόνα (για τα email) και «η τιμή έπεσε» αν πέρασε κλιμάκιο. */
   const refreshSnapshot = async (filled: number) => {
     try {
-      const r = await uploadOfferSnapshot(offer.id, { pallets: offer.capacity, perPallet: offer.sqmPerPallet, filled, load: load3d, slab: null }, true);
-      if (r.drop) toast.success(`Η τιμή έπεσε σε ${eur(r.drop.price)} — email: ${r.drop.sent} στάλθηκαν${r.drop.failed ? `, ${r.drop.failed} απέτυχαν` : ''}`);
+      const r = await uploadOfferSnapshot(offer.id, { pallets: offer.capacity, perPallet: first?.sqmPerPallet ?? 1, filled, load: load3d, slab: null }, true);
+      if (r.drop) toast.success(`Οι τιμές έπεσαν στο W0${r.drop.level} — email: ${r.drop.sent} στάλθηκαν${r.drop.failed ? `, ${r.drop.failed} απέτυχαν` : ''}`);
     } catch (e) { toast.error((e as Error).message); }
   };
 
@@ -159,7 +170,7 @@ export function OfferDetail({ offer, canManage, onChanged }: { offer: OfferRow; 
     let note: string | null = null;
     if (decision === 'reject') {
       if (!(await confirmAction({ title: 'Απόρριψη αιτήματος', message: `Απόρριψη του αιτήματος ${num(r.pallets)} παλετών του «${r.customer}»; Θα ενημερωθεί με email.`, confirmLabel: 'Απόρριψη', destructive: true }))) return;
-    } else if (!(await confirmAction({ title: 'Έγκριση κράτησης', message: `Έγκριση ${num(r.pallets)} παλετών για «${r.customer}»; Θα μετρήσει στο γέμισμα και αν περάσει κλιμάκιο θα σταλεί «η τιμή έπεσε».`, confirmLabel: 'Έγκριση' }))) return;
+    } else if (!(await confirmAction({ title: 'Έγκριση κράτησης', message: `Έγκριση ${num(r.pallets)} παλετών «${r.product.name}» για «${r.customer}»; Θα μετρήσει στο γέμισμα και αν περάσει κλιμάκιο θα σταλεί «η τιμή έπεσε».`, confirmLabel: 'Έγκριση' }))) return;
     const res = await fetch(`/api/admin/dynamic-offers/${offer.id}/reservations/${r.id}/decision`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ decision, note }) });
     if (!res.ok) { toast.error((await res.json().catch(() => ({}))).message ?? 'Αποτυχία'); return; }
     toast.success(decision === 'approve' ? 'Η κράτηση εγκρίθηκε' : 'Το αίτημα απορρίφθηκε');
@@ -188,28 +199,44 @@ export function OfferDetail({ offer, canManage, onChanged }: { offer: OfferRow; 
 
         <TabsContent value="overview" className="space-y-3">
           <div className="grid gap-3 lg:grid-cols-[1.25fr_1fr]">
-            <ContainerScene pallets={offer.capacity} perPallet={offer.sqmPerPallet} filled={offer.filled} load={load3d} labels={{ container: 'Container', pallet: 'ΠΑΛ', base: unit }} heightClass="h-72" />
-            <div className="space-y-3">
+            <ContainerScene pallets={offer.capacity} perPallet={first?.sqmPerPallet ?? 1} filled={offer.filled} load={load3d} labels={{ container: 'Container', pallet: 'ΠΑΛ', base: unit }} heightClass="h-72" />
+            <div className="min-w-0 space-y-3">
               <div className="grid grid-cols-2 gap-2">
                 <div className="rounded-lg border px-3 py-2" style={{ borderColor: soft('#047857', 35), backgroundColor: soft('#047857', 6) }}>
-                  <div className="text-[length:var(--fs-11)] font-semibold uppercase tracking-wide text-emerald-800 dark:text-emerald-300">Τιμή τώρα</div>
-                  <div className="text-[length:var(--fs-24)] font-extrabold tabular-nums text-emerald-700 dark:text-emerald-300">{offer.current ? eur(offer.current.price) : '—'}</div>
-                  <div className="text-[length:var(--fs-11)] text-muted-foreground">ανά {unit} · PRICEW0{offer.current?.level ?? 1}</div>
+                  <div className="text-[length:var(--fs-11)] font-semibold uppercase tracking-wide text-emerald-800 dark:text-emerald-300">Κλιμάκιο τώρα</div>
+                  <div className="text-[length:var(--fs-24)] font-extrabold tabular-nums text-emerald-700 dark:text-emerald-300">W0{offer.currentLevel}</div>
+                  <div className="text-[length:var(--fs-11)] text-muted-foreground">από {offer.levels.length} · κοινό για {offer.items.length} {offer.items.length === 1 ? 'προϊόν' : 'προϊόντα'}</div>
                 </div>
                 <div className="rounded-lg border px-3 py-2" style={{ borderColor: soft('#B45309', 35), backgroundColor: soft('#B45309', 6) }}>
                   <div className="text-[length:var(--fs-11)] font-semibold uppercase tracking-wide text-amber-800 dark:text-amber-300">Επόμενη πτώση</div>
-                  {offer.next
-                    ? <><div className="text-[length:var(--fs-24)] font-extrabold tabular-nums text-amber-700 dark:text-amber-300">{eur(offer.next.tier.price)}</div><div className="text-[length:var(--fs-11)] text-muted-foreground">σε {num(offer.next.missing)} παλέτες ακόμη</div></>
+                  {offer.nextLevel
+                    ? <><div className="text-[length:var(--fs-24)] font-extrabold tabular-nums text-amber-700 dark:text-amber-300">W0{offer.nextLevel.level}</div><div className="text-[length:var(--fs-11)] text-muted-foreground">σε {num(offer.nextLevel.missing)} παλέτες ακόμη</div></>
                     : <div className="pt-1 text-[length:var(--fs-13)] font-semibold text-emerald-700">Καλύτερη τιμή ✓</div>}
                 </div>
               </div>
               <div>
-                <div className="mb-1 flex justify-between text-[length:var(--fs-12)] tabular-nums"><span><strong>{num(offer.filled)}</strong> / {num(offer.capacity)} παλέτες</span><span className="text-muted-foreground">{Math.round(offer.percent)}% · {num(offer.filled * offer.sqmPerPallet)} {unit}</span></div>
+                <div className="mb-1 flex justify-between text-[length:var(--fs-12)] tabular-nums"><span><strong>{num(offer.filled)}</strong> / {num(offer.capacity)} παλέτες</span><span className="text-muted-foreground">{Math.round(offer.percent)}%{offer.pending > 0 ? ` · ${num(offer.pending)} σε αναμονή` : ''}</span></div>
                 <div className="h-3 overflow-hidden rounded-full bg-muted" role="progressbar" aria-valuenow={Math.round(offer.percent)} aria-valuemin={0} aria-valuemax={100} aria-label="Γέμισμα container">
                   <div className="h-full rounded-full bg-emerald-600 transition-[width] duration-500" style={{ width: `${offer.percent}%` }} />
                 </div>
               </div>
-              <PriceLadder tiers={offer.tiers} capacity={offer.capacity} filled={offer.filled} unit={unit} height={170} />
+              <div className="overflow-x-auto rounded-md border border-border">
+                <table className="w-full">
+                  <thead className="bg-muted/40"><tr><th className={TH}>Προϊόν</th><th className={cn(TH, 'text-right')}>Τώρα</th><th className={cn(TH, 'text-right')}>Επόμενη</th><th className={cn(TH, 'text-right')}>Κρατ.</th></tr></thead>
+                  <tbody className="divide-y divide-border">
+                    {offer.items.map((it, i) => (
+                      <tr key={it.id} className={cn('cursor-pointer hover:bg-muted/30', chartItem === i && offer.items.length > 1 && 'bg-sky-50/60 dark:bg-sky-500/5')} onClick={() => setChartItem(i)}>
+                        <td className={TD}><span className="block max-w-56 truncate font-medium" title={it.name}>{it.name}</span><span className="text-[length:var(--fs-11)] text-muted-foreground">{it.code} · {num(it.sqmPerPallet)} {it.baseUnit ?? 'τ.μ.'}/παλ.</span></td>
+                        <td className={cn(TD, 'text-right font-bold tabular-nums text-emerald-700')}>{it.current ? eur(it.current.price) : '—'}</td>
+                        <td className={cn(TD, 'text-right tabular-nums')}>{it.next ? eur(it.next.tier.price) : <span className="text-emerald-700">✓</span>}</td>
+                        <td className={cn(TD, 'text-right tabular-nums')}>{num(it.booked)}{it.pending > 0 && <span className="ml-1 text-amber-700">+{num(it.pending)}</span>}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {offer.items[chartItem] && <PriceLadder tiers={offer.items[chartItem].tiers} capacity={offer.capacity} filled={offer.filled} unit={offer.items[chartItem].baseUnit ?? 'τ.μ.'} height={170} />}
+              {offer.items.length > 1 && <p className="text-[length:var(--fs-11)] text-muted-foreground">Γράφημα: {offer.items[chartItem]?.name} — πατήστε σε προϊόν για άλλο.</p>}
             </div>
           </div>
         </TabsContent>
@@ -226,13 +253,14 @@ export function OfferDetail({ offer, canManage, onChanged }: { offer: OfferRow; 
           ) : (
             <div className="overflow-x-auto rounded-md border border-border">
               <table className="w-full">
-                <thead className="bg-muted/40"><tr><th className={TH}>Πελάτης</th><th className={cn(TH, 'text-right')}>Παλέτες</th><th className={cn(TH, 'text-right')}>{unit}</th><th className={cn(TH, 'hidden sm:table-cell')}>Ημ/νία</th><th className={TH}>Κατάσταση</th>{canManage && <th className={TH}><span className="sr-only">Ενέργειες</span></th>}</tr></thead>
+                <thead className="bg-muted/40"><tr><th className={TH}>Πελάτης</th>{offer.items.length > 1 && <th className={TH}>Προϊόν</th>}<th className={cn(TH, 'text-right')}>Παλέτες</th><th className={cn(TH, 'text-right')}>Ποσότητα</th><th className={cn(TH, 'hidden sm:table-cell')}>Ημ/νία</th><th className={TH}>Κατάσταση</th>{canManage && <th className={TH}><span className="sr-only">Ενέργειες</span></th>}</tr></thead>
                 <tbody className="divide-y divide-border">
                   {data.reservations.map((r) => (
                     <tr key={r.id} className={cn('hover:bg-muted/30', r.status === 'PENDING' && 'bg-amber-50/60 dark:bg-amber-500/5', r.status !== 'ACTIVE' && r.status !== 'PENDING' && 'opacity-55')}>
                       <td className={TD}><span className="font-medium">{r.customer}</span>{r.kind === 'PARTNER' && <span className="ml-1.5 rounded-sm bg-violet-100 px-1 text-[length:var(--fs-10)] font-semibold text-violet-800">Συνεργάτης</span>}{r.fromPortal && <span className="ml-1.5 rounded-sm bg-sky-100 px-1 text-[length:var(--fs-10)] font-semibold text-sky-800">portal</span>}{r.notes && <div className="text-[length:var(--fs-11)] text-muted-foreground">{r.notes}</div>}</td>
+                      {offer.items.length > 1 && <td className={TD}><span className="block max-w-48 truncate" title={r.product.name}>{r.product.name}</span><span className="text-[length:var(--fs-11)] text-muted-foreground">{r.product.code}</span></td>}
                       <td className={cn(TD, 'text-right font-semibold tabular-nums')}>{num(r.pallets)}</td>
-                      <td className={cn(TD, 'text-right tabular-nums')}>{num(r.pallets * offer.sqmPerPallet)}</td>
+                      <td className={cn(TD, 'text-right tabular-nums')}>{num(r.sqm)} <span className="text-muted-foreground">{r.unit}</span></td>
                       <td className={cn(TD, 'hidden tabular-nums text-muted-foreground sm:table-cell')}>{new Date(r.createdAt).toLocaleDateString('el-GR')}</td>
                       <td className={TD}>{statusCell(r)}</td>
                       {canManage && (

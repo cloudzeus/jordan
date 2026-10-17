@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 vi.mock('server-only', () => ({}));
 vi.mock('@/lib/softone-sync/item-edit', () => ({ editSoftoneItem: vi.fn() }));
 
-type R = { id: string; offerId: string; trdr: number | null; partnerId: string | null; pallets: number; status: string; notes?: string | null };
+type R = { id: string; offerId: string; offerItemId?: string; trdr: number | null; partnerId: string | null; pallets: number; status: string; notes?: string | null };
 const mem = vi.hoisted(() => ({ rs: [] as R[], recipients: [] as { offerId: string; kind: string; refId: string }[], offer: null as any, seq: 0 }));
 const db = vi.hoisted(() => {
   const p: Record<string, any> = {
@@ -28,8 +28,8 @@ const customer = { trdr: 142, partnerId: null };
 
 beforeEach(() => {
   mem.rs = []; mem.seq = 0;
-  // 20 παλέτες × 50 τ.μ.
-  mem.offer = { id: 'o1', status: 'OPEN', closesAt: null, sqmPerContainer: 1000, sqmPerPallet: 50, minOrder: 0.5 };
+  // 20 παλέτες, δύο προϊόντα στο ίδιο container
+  mem.offer = { id: 'o1', status: 'OPEN', closesAt: null, capacityPallets: 20, minOrder: 0.5, items: [{ id: 'stone' }, { id: 'tile' }] };
   mem.recipients = [{ offerId: 'o1', kind: 'PARTNER', refId: 'p1' }, { offerId: 'o1', kind: 'CUSTOMER', refId: '142' }];
 });
 
@@ -43,31 +43,38 @@ describe('bookerOf', () => {
 
 describe('αίτημα κράτησης από το portal', () => {
   it('μένει PENDING και κρατά θέση έναντι επόμενων αιτημάτων', async () => {
-    const r = await requestReservation('o1', partner, { pallets: 15, notes: null }, 'u1');
+    const r = await requestReservation('o1', partner, { offerItemId: 'stone', pallets: 15, notes: null }, 'u1');
     expect(r.status).toBe('PENDING');
-    await expect(requestReservation('o1', customer, { pallets: 6, notes: null }, 'u2')).rejects.toThrow(/Χωρούν ακόμη 5/);
-    await expect(requestReservation('o1', customer, { pallets: 5, notes: null }, 'u2')).resolves.toMatchObject({ status: 'PENDING' });
+    await expect(requestReservation('o1', customer, { offerItemId: 'stone', pallets: 6, notes: null }, 'u2')).rejects.toThrow(/Χωρούν ακόμη 5/);
+    await expect(requestReservation('o1', customer, { offerItemId: 'stone', pallets: 5, notes: null }, 'u2')).resolves.toMatchObject({ status: 'PENDING' });
+  });
+  it('κοινό γέμισμα: παλέτες άλλου προϊόντος μετράνε στον ίδιο χώρο', async () => {
+    await requestReservation('o1', partner, { offerItemId: 'tile', pallets: 12, notes: null }, null);
+    await expect(requestReservation('o1', customer, { offerItemId: 'stone', pallets: 9, notes: null }, null)).rejects.toThrow(/Χωρούν ακόμη 8/);
+  });
+  it('προϊόν που δεν ανήκει στην προσφορά ⇒ απόρριψη', async () => {
+    await expect(requestReservation('o1', partner, { offerItemId: 'other', pallets: 1, notes: null }, null)).rejects.toThrow(/δεν ανήκει/);
   });
   it('μόνο παραλήπτες, μόνο ανοιχτή, βήμα ½', async () => {
-    await expect(requestReservation('o1', { trdr: null, partnerId: 'x' }, { pallets: 1, notes: null }, null)).rejects.toThrow(/δεν είναι διαθέσιμη/);
-    await expect(requestReservation('o1', partner, { pallets: 0.3, notes: null }, null)).rejects.toThrow(/ανά ½/);
+    await expect(requestReservation('o1', { trdr: null, partnerId: 'x' }, { offerItemId: 'stone', pallets: 1, notes: null }, null)).rejects.toThrow(/δεν είναι διαθέσιμη/);
+    await expect(requestReservation('o1', partner, { offerItemId: 'stone', pallets: 0.3, notes: null }, null)).rejects.toThrow(/ανά ½/);
     mem.offer.status = 'CLOSED';
-    await expect(requestReservation('o1', partner, { pallets: 1, notes: null }, null)).rejects.toThrow(/δεν δέχεται/);
+    await expect(requestReservation('o1', partner, { offerItemId: 'stone', pallets: 1, notes: null }, null)).rejects.toThrow(/δεν δέχεται/);
   });
   it('έγκριση → ACTIVE· δεύτερη φορά απορρίπτεται· ελέγχει χώρο έναντι ενεργών', async () => {
-    const a = await requestReservation('o1', partner, { pallets: 12, notes: null }, null);
-    const b = await requestReservation('o1', customer, { pallets: 8, notes: null }, null);
+    const a = await requestReservation('o1', partner, { offerItemId: 'stone', pallets: 12, notes: null }, null);
+    const b = await requestReservation('o1', customer, { offerItemId: 'stone', pallets: 8, notes: null }, null);
     await expect(approveReservation('o1', a.id, 'admin')).resolves.toMatchObject({ status: 'ACTIVE' });
     await expect(approveReservation('o1', a.id, 'admin')).rejects.toThrow(/έχει ήδη απαντηθεί/);
     // ο διαχειριστής πρόσθεσε στο μεταξύ ενεργή κράτηση — το b (8) δεν χωράει πια στις 8 − 1
-    mem.rs.push({ id: 'manual', offerId: 'o1', trdr: 7, partnerId: null, pallets: 1, status: 'ACTIVE' });
+    mem.rs.push({ id: 'manual', offerId: 'o1', offerItemId: 'tile', trdr: 7, partnerId: null, pallets: 1, status: 'ACTIVE' });
     await expect(approveReservation('o1', b.id, 'admin')).rejects.toThrow(/Δεν χωράει/);
   });
   it('απόρριψη με σημείωση· απόσυρση μόνο δικού, μόνο σε αναμονή', async () => {
-    const a = await requestReservation('o1', partner, { pallets: 2, notes: null }, null);
+    const a = await requestReservation('o1', partner, { offerItemId: 'stone', pallets: 2, notes: null }, null);
     await expect(withdrawRequest('o1', a.id, customer)).rejects.toThrow(/δεν βρέθηκε/);
     await expect(withdrawRequest('o1', a.id, partner)).resolves.toMatchObject({ status: 'CANCELLED' });
-    const b = await requestReservation('o1', partner, { pallets: 2, notes: null }, null);
+    const b = await requestReservation('o1', partner, { offerItemId: 'stone', pallets: 2, notes: null }, null);
     await expect(rejectReservation('o1', b.id, 'admin', '  Δεν υπάρχει απόθεμα  ')).resolves.toMatchObject({ status: 'REJECTED', decisionNote: 'Δεν υπάρχει απόθεμα' });
     await expect(withdrawRequest('o1', b.id, partner)).rejects.toThrow(/δεν βρέθηκε/);
   });

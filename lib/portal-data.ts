@@ -26,9 +26,9 @@ export async function portalData(user: PortalUser) {
   const offerIds = offers.map((o) => o.id);
   const [snapshots, mine, org, photos] = await Promise.all([
     prisma.containerOffer.findMany({ where: { id: { in: offerIds } }, select: { id: true, snapshotUrl: true } }),
-    prisma.containerReservation.findMany({ where: { ...mineWhere(b), offerId: { in: offerIds }, status: { in: ['ACTIVE', 'PENDING'] } }, select: { id: true, offerId: true, pallets: true, status: true, createdAt: true } }),
+    prisma.containerReservation.findMany({ where: { ...mineWhere(b), offerId: { in: offerIds }, status: { in: ['ACTIVE', 'PENDING'] } }, select: { id: true, offerId: true, offerItemId: true, pallets: true, status: true, createdAt: true } }),
     orgName(b),
-    prisma.itemMedia.findMany({ where: { mtrl: { in: offers.map((o) => o.mtrl) }, kind: 'IMAGE' }, orderBy: [{ isPrimary: 'desc' }, { createdAt: 'asc' }], select: { mtrl: true, thumbUrl: true, publicUrl: true } }),
+    prisma.itemMedia.findMany({ where: { mtrl: { in: offers.flatMap((o) => o.items.map((i) => i.mtrl)) }, kind: 'IMAGE' }, orderBy: [{ isPrimary: 'desc' }, { createdAt: 'asc' }], select: { mtrl: true, thumbUrl: true, publicUrl: true } }),
   ]);
   const snap = new Map(snapshots.map((o) => [o.id, o.snapshotUrl]));
   const photo = new Map<number, string>();
@@ -37,12 +37,17 @@ export async function portalData(user: PortalUser) {
     org,
     offers: offers.map((o) => {
       const my = mine.filter((r) => r.offerId === o.id);
+      const active = (itemId?: string) => my.filter((r) => r.status === 'ACTIVE' && (!itemId || r.offerItemId === itemId)).reduce((a, r) => a + r.pallets, 0);
+      const items = o.items.map((i) => ({ ...i, photo: photo.get(i.mtrl) ?? null, mine: active(i.id) }));
       return {
         ...o,
+        items,
         snapshotUrl: snap.get(o.id) ?? null,
-        photo: photo.get(o.mtrl) ?? null,
-        mine: my.filter((r) => r.status === 'ACTIVE').reduce((a, r) => a + r.pallets, 0),
-        myPending: my.filter((r) => r.status === 'PENDING').map((r) => ({ id: r.id, pallets: r.pallets, createdAt: r.createdAt.toISOString() })),
+        photo: items.find((i) => i.photo)?.photo ?? null,
+        mine: active(),
+        myPending: my.filter((r) => r.status === 'PENDING').map((r) => ({
+          id: r.id, offerItemId: r.offerItemId, product: o.items.find((i) => i.id === r.offerItemId)?.name ?? '', pallets: r.pallets, createdAt: r.createdAt.toISOString(),
+        })),
       };
     }),
   };
@@ -53,8 +58,9 @@ export async function portalOffer(user: PortalUser, offerId: string) {
   const data = await portalData(user);
   const offer = data.offers.find((o) => o.id === offerId);
   if (!offer) return null;
-  const product = await siteProduct(offer.mtrl);
-  return { org: data.org, offer, product };
+  // Λεπτομέρειες καταλόγου (φωτογραφίες, χαρακτηριστικά) για ΚΑΘΕ προϊόν της προσφοράς.
+  const products = await Promise.all(offer.items.map((i) => siteProduct(i.mtrl)));
+  return { org: data.org, offer, products: offer.items.map((i, k) => ({ itemId: i.id, detail: products[k] })) };
 }
 
 export type PortalOffer = Awaited<ReturnType<typeof portalData>>['offers'][number];

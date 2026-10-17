@@ -19,7 +19,7 @@ export async function POST(req: Request, ctx: Ctx) {
   if (!parsed.success) return invalid(parsed.error.issues);
   try {
     const r = await requestReservation(id, b, parsed.data, u.id);
-    await logAudit({ userId: u.id, userEmail: u.email, action: 'offer.reservation.request', resource: 'dynamic_offer', resourceId: id, metadata: { pallets: r.pallets } }).catch(() => null);
+    await logAudit({ userId: u.id, userEmail: u.email, action: 'offer.reservation.request', resource: 'dynamic_offer', resourceId: id, metadata: { offerItemId: r.offerItemId, pallets: r.pallets } }).catch(() => null);
     await notifyReservation(id, r.id, 'requested');
     return NextResponse.json({ reservation: { id: r.id, pallets: r.pallets, status: r.status } }, { status: 201 });
   } catch (e) { return offerErrorResponse(e); }
