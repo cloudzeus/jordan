@@ -1187,7 +1187,14 @@ export async function withResyncLock<T>(
   const runId = `single-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
   const marker = await claimRun(actor, runId, tables);
   try {
-    return await fn();
+    const result = await fn();
+    // ΣΦΡΑΓΙΔΑ ΕΓΚΑΤΑΣΤΑΣΗΣ και για το μεμονωμένο κλικ — όπως στο «Συγχρονισμός όλων». Χωρίς αυτήν
+    // ο πίνακας έχει δεδομένα χωρίς καταγωγή και η μπάρα σύνδεσης τον δείχνει «χωρίς γνωστή προέλευση».
+    const total = (result as { total?: unknown } | null)?.total;
+    if (tables.length === 1 && typeof total === 'number') {
+      await stampMirror(tables[0], total).catch(() => {});
+    }
+    return result;
   } finally {
     // Ο δείκτης δεν κρατάει απολογισμό εδώ — μόνο τη σειρά. Σβήνεται πάντα.
     if (marker.runId === runId) await prisma.appSetting.deleteMany({ where: { key: RUN_KEY } }).catch(() => {});

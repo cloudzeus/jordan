@@ -237,7 +237,12 @@ export async function clearTenantChange(): Promise<void> {
 
 /** Σφραγίδα συγχρονισμού: ΠΟΙΟΣ πίνακας, για ΠΟΙΑ εγκατάσταση, ΠΟΤΕ, με πόσες γραμμές. */
 export async function stampMirror(table: SyncTable, rows: number): Promise<void> {
-  const tenantKey = (await knownTenantKey()) ?? 'unknown';
+  // Ο συγχρονισμός μόλις μίλησε με το SoftOne: αν η εγκατάσταση δεν έχει εξακριβωθεί ακόμα (π.χ.
+  // δεν πατήθηκε ποτέ «Δοκιμή σύνδεσης»), την εξακριβώνουμε τώρα — αλλιώς η σφραγίδα γράφει
+  // 'unknown' και ο πίνακας δείχνει «ξένος» μόλις γίνει ο πρώτος έλεγχος.
+  const tenantKey = (await knownTenantKey())
+    ?? (await probeConnection().catch(() => null))?.tenantKey
+    ?? 'unknown';
   const syncedAt = new Date();
   await prisma.softoneMirrorState.upsert({
     where: { table },
