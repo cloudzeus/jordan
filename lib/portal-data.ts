@@ -59,8 +59,42 @@ export async function portalOffer(user: PortalUser, offerId: string) {
   const offer = data.offers.find((o) => o.id === offerId);
   if (!offer) return null;
   // Λεπτομέρειες καταλόγου (φωτογραφίες, χαρακτηριστικά) για ΚΑΘΕ προϊόν της προσφοράς.
-  const products = await Promise.all(offer.items.map((i) => siteProduct(i.mtrl)));
-  return { org: data.org, offer, products: offer.items.map((i, k) => ({ itemId: i.id, detail: products[k] })) };
+  const [products, active, media] = await Promise.all([
+    Promise.all(offer.items.map((i) => siteProduct(i.mtrl))),
+    // Δραστηριότητα «δημοπρασίας» — ΑΝΩΝΥΜΑ: μόνο παλέτες, προϊόν, χρόνος (ποτέ ποιος).
+    prisma.containerReservation.findMany({
+      where: { offerId, status: 'ACTIVE' },
+      orderBy: { createdAt: 'asc' },
+      select: { pallets: true, offerItemId: true, createdAt: true, decidedAt: true },
+    }),
+    // Όλα τα media των προϊόντων (φωτογραφίες, βίντεο, πανοράματα) για το modal προϊόντος.
+    prisma.itemMedia.findMany({
+      where: { mtrl: { in: offer.items.map((i) => i.mtrl) } },
+      orderBy: [{ isPrimary: 'desc' }, { order: 'asc' }, { createdAt: 'asc' }],
+      select: { mtrl: true, kind: true, publicUrl: true, thumbUrl: true, title: true, mimeType: true },
+    }),
+  ]);
+  const mediaOf = (mtrl: number) => media.filter((m) => m.mtrl === mtrl).map((m) => ({ kind: m.kind, url: m.publicUrl, thumb: m.thumbUrl ?? null, title: m.title ?? null, mime: m.mimeType }));
+  // Χρονολογικά με σωρευτικό γέμισμα → πού πέρασε κλιμάκιο («η τιμή έπεσε»).
+  let cum = 0;
+  const levels = [...offer.levels].sort((a, b) => a.fromPallets - b.fromPallets);
+  const levelAt = (f: number) => levels.reduce((acc, l, i) => (f + 1e-9 >= l.fromPallets ? i : acc), 0);
+  const activity = active
+    .map((r) => ({ ...r, at: r.decidedAt ?? r.createdAt }))
+    .sort((a, b) => a.at.getTime() - b.at.getTime())
+    .map((r) => {
+      const before = levelAt(cum);
+      cum += r.pallets;
+      const after = levelAt(cum);
+      return {
+        at: r.at.toISOString(), pallets: r.pallets,
+        product: offer.items.find((i) => i.id === r.offerItemId)?.name ?? null,
+        dropTo: after > before ? levels[after].level : null,
+      };
+    })
+    .reverse()
+    .slice(0, 8);
+  return { org: data.org, offer, activity, products: offer.items.map((i, k) => ({ itemId: i.id, detail: products[k], media: mediaOf(i.mtrl) })) };
 }
 
 export type PortalOffer = Awaited<ReturnType<typeof portalData>>['offers'][number];
