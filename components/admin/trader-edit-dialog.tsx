@@ -8,18 +8,19 @@
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
-import { FiAlertTriangle, FiArrowRight, FiCheckCircle, FiEdit3, FiGlobe, FiLoader, FiMapPin, FiPhone, FiShield, FiUser } from 'react-icons/fi';
+import { FiAlertTriangle, FiArrowRight, FiCheckCircle, FiCrosshair, FiEdit3, FiExternalLink, FiGlobe, FiLoader, FiMapPin, FiNavigation, FiPhone, FiShield, FiUser } from 'react-icons/fi';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogBody, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Field, FormSection, FormSelect, RowHint, fieldCls } from '@/components/admin/form-kit';
 import { ViesCheck, type ViesCheckResult } from '@/components/admin/vies-check';
 import { isValidAfm } from '@/lib/ocr/validate';
+import { formatCoords, validCoords } from '@/lib/coords';
 import { cn } from '@/lib/utils';
 
 export type TraderDialogMode = 'edit' | 'aade' | 'vies';
 type Key = 'name' | 'afm' | 'irsData' | 'profession' | 'address' | 'district' | 'zip' | 'city' | 'country' | 'phone' | 'phone2' | 'fax' | 'email' | 'webpage';
-type Values = Partial<Record<Key, string | null>> & { kad?: number | null; kad1?: number | null };
+type Values = Partial<Record<Key, string | null>> & { kad?: number | null; kad1?: number | null; lat?: number | null; lng?: number | null };
 interface Loaded {
   trdr: number; sodtype: number; code: string; values: Values; editable: boolean;
   kadLabels: { kad: string | null; kad1: string | null };
@@ -44,11 +45,14 @@ export function TraderEditDialog({ trdr, mode, open, onOpenChange, canManage }: 
   const [data, setData] = React.useState<Loaded | null>(null);
   const [form, setForm] = React.useState<Values>({});
   const [loadError, setLoadError] = React.useState<string | null>(null);
-  const [busy, setBusy] = React.useState<'load' | 'aade' | 'preview' | 'save' | null>(null);
+  const [busy, setBusy] = React.useState<'load' | 'aade' | 'preview' | 'save' | 'geo' | null>(null);
   const [proposals, setProposals] = React.useState<{ source: string; items: Proposal[]; warning?: string | null } | null>(null);
   const [picked, setPicked] = React.useState<Set<string>>(new Set());
   const [preview, setPreview] = React.useState<Change[] | null>(null);
   const [viesOpen, setViesOpen] = React.useState(false);
+  /** Γεωγραφική θέση ως κείμενο φόρμας (δεκαδικά με τελεία ή κόμμα). */
+  const [geo, setGeo] = React.useState({ lat: '', lng: '' });
+  const [geoNote, setGeoNote] = React.useState<string | null>(null);
   /** Ονόματα ΚΑΔ (id → «κωδικός — περιγραφή») από την καρτέλα και την ΑΑΔΕ. */
   const [kadNames, setKadNames] = React.useState<Record<number, string>>({});
 
@@ -98,6 +102,7 @@ export function TraderEditDialog({ trdr, mode, open, onOpenChange, canManage }: 
       const d = await r.json().catch(() => null);
       if (!r.ok || !d) { setLoadError(d?.message ?? 'Η καρτέλα δεν διαβάστηκε από τη SoftOne.'); return; }
       setData(d); setForm(d.values ?? {});
+      setGeo({ lat: d.values?.lat != null ? String(d.values.lat) : '', lng: d.values?.lng != null ? String(d.values.lng) : '' }); setGeoNote(null);
       setKadNames({
         ...(d.values?.kad && d.kadLabels?.kad ? { [d.values.kad]: d.kadLabels.kad } : {}),
         ...(d.values?.kad1 && d.kadLabels?.kad1 ? { [d.values.kad1]: d.kadLabels.kad1 } : {}),
@@ -141,6 +146,7 @@ export function TraderEditDialog({ trdr, mode, open, onOpenChange, canManage }: 
       const values: Values = {};
       for (const k of KEYS) values[k] = form[k] ?? null;
       values.kad = form.kad ?? null; values.kad1 = form.kad1 ?? null;
+      values.lat = geoNum(geo.lat); values.lng = geoNum(geo.lng);
       const r = await fetch(`/api/admin/traders/${trdr}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ values, dryRun }) });
       const d = await r.json().catch(() => null);
       if (!r.ok) { toast.error(d?.message ?? 'Η αποθήκευση απέτυχε.'); return; }
@@ -154,6 +160,41 @@ export function TraderEditDialog({ trdr, mode, open, onOpenChange, canManage }: 
   };
 
   const set = (k: Key, v: string) => { setForm((f) => ({ ...f, [k]: v })); setPreview(null); };
+  const geoNum = (v: string) => (v.trim() === '' ? null : Number(v.replace(',', '.').trim()));
+  const coords = validCoords(geoNum(geo.lat), geoNum(geo.lng));
+  const geoInvalid = !coords && (geo.lat.trim() !== '' || geo.lng.trim() !== '');
+  const setGeoField = (k: 'lat' | 'lng', v: string) => { setGeo((g) => ({ ...g, [k]: v })); setPreview(null); setGeoNote(null); };
+
+  /** Συντεταγμένες από τη διεύθυνση της φόρμας (geocoder με μνήμη — μία κλήση ανά διεύθυνση). */
+  const locate = async () => {
+    const address = [s(form.address), [s(form.zip), s(form.city)].filter(Boolean).join(' '), countryName(form.country) ?? ''].filter(Boolean).join(', ');
+    if (!s(form.address) && !s(form.city)) { toast.error('Συμπλήρωσε πρώτα διεύθυνση ή πόλη.'); return; }
+    // Η SoftOne κρατά συντομογραφίες τύπου ΦΠΑ (EL, UK) — ο geocoder θέλει ISO 3166 (GR, GB).
+    const short = s(data?.countries.find((c) => c.id === s(form.country))?.shortcut).toUpperCase();
+    const hint = ({ EL: 'GR', UK: 'GB' } as Record<string, string>)[short] ?? short;
+    setBusy('geo');
+    try {
+      const r = await fetch('/api/admin/geocode', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ address, countryHint: hint && /^[A-Za-z]{2}$/.test(hint) ? hint : null }) });
+      const d = await r.json().catch(() => null);
+      if (!r.ok || !d) { toast.error('Ο εντοπισμός απέτυχε.'); return; }
+      if (d.unavailable) { toast.error('Η υπηρεσία χαρτών δεν απάντησε — δοκίμασε ξανά.'); return; }
+      const c = d.found ? validCoords(d.lat, d.lng) : null;
+      if (!c) { toast.error('Η διεύθυνση δεν εντοπίστηκε στον χάρτη — συμπλήρωσε τις συντεταγμένες με το χέρι.'); return; }
+      setGeo({ lat: c.lat.toFixed(6), lng: c.lng.toFixed(6) }); setPreview(null);
+      setGeoNote(d.formatted ? `Εντοπίστηκε: ${d.formatted}` : null);
+    } catch { toast.error('Σφάλμα δικτύου.'); } finally { setBusy(null); }
+  };
+  /** Η θέση της συσκευής (π.χ. όταν είσαι στο εργοτάξιο / στο κατάστημα του πελάτη). */
+  const here = () => {
+    if (!navigator.geolocation) { toast.error('Η συσκευή δεν δίνει θέση.'); return; }
+    setBusy('geo');
+    navigator.geolocation.getCurrentPosition(
+      (p) => { setGeo({ lat: p.coords.latitude.toFixed(6), lng: p.coords.longitude.toFixed(6) }); setPreview(null); setGeoNote(`Θέση συσκευής (ακρίβεια ~${Math.round(p.coords.accuracy)} m)`); setBusy(null); },
+      () => { toast.error('Δεν δόθηκε άδεια θέσης.'); setBusy(null); },
+      { enableHighAccuracy: true, timeout: 15000 },
+    );
+  };
   const afm = s(form.afm);
   const greek = isValidAfm(afm);
   const foreign = !greek && isForeign(afm);
@@ -277,6 +318,46 @@ export function TraderEditDialog({ trdr, mode, open, onOpenChange, canManage }: 
                     opts={data.countries.map((c) => ({ id: c.id, name: c.name }))} placeholder="— Χώρα —" />
                 </Field>
               </div>
+            </FormSection>
+
+            <FormSection tone="emerald" icon={<FiCrosshair />} title="Γεωγραφική θέση"
+              aside={coords ? <span className="font-mono tabular-nums">{formatCoords(coords)}</span> : <span>χωρίς θέση</span>}>
+              <div className="grid gap-2.5 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] sm:items-end">
+                <Field label="Γεωγραφικό πλάτος" htmlFor="te-lat">
+                  <Input id="te-lat" inputMode="decimal" placeholder="π.χ. 37.975432" value={geo.lat} onChange={(e) => setGeoField('lat', e.target.value)}
+                    disabled={readOnly} aria-invalid={geoInvalid} className={cn(fieldCls, 'font-mono tabular-nums')} />
+                </Field>
+                <Field label="Γεωγραφικό μήκος" htmlFor="te-lng">
+                  <Input id="te-lng" inputMode="decimal" placeholder="π.χ. 23.734521" value={geo.lng} onChange={(e) => setGeoField('lng', e.target.value)}
+                    disabled={readOnly} aria-invalid={geoInvalid} className={cn(fieldCls, 'font-mono tabular-nums')} />
+                </Field>
+                {!readOnly && (
+                  <div className="flex flex-wrap gap-2">
+                    <Button type="button" variant="outline" size="sm" disabled={busy != null} onClick={() => void locate()} title="Συντεταγμένες από τη διεύθυνση της φόρμας">
+                      {busy === 'geo' ? <FiLoader aria-hidden className="mr-1.5 size-3.5 animate-spin" /> : <FiMapPin aria-hidden className="mr-1.5 size-3.5" />} Από τη διεύθυνση
+                    </Button>
+                    <Button type="button" variant="outline" size="sm" disabled={busy != null} onClick={here} title="Η τρέχουσα θέση αυτής της συσκευής">
+                      <FiNavigation aria-hidden className="mr-1.5 size-3.5" /> Θέση συσκευής
+                    </Button>
+                  </div>
+                )}
+              </div>
+              {geoInvalid && <RowHint tone="bad">Χρειάζονται έγκυρο πλάτος (−90…90) ΚΑΙ μήκος (−180…180) — ή άφησε και τα δύο κενά.</RowHint>}
+              {geoNote && <RowHint>{geoNote} — έλεγξε στον χάρτη πριν την αποθήκευση.</RowHint>}
+              {coords && (
+                <div className="overflow-hidden rounded-md border border-border">
+                  {/* Χάρτης OpenStreetMap (χωρίς κλειδί) — ~300 m γύρω από το σημείο, με πινέζα. */}
+                  <iframe
+                    title={`Χάρτης στη θέση ${formatCoords(coords)}`}
+                    src={`https://www.openstreetmap.org/export/embed.html?bbox=${coords.lng - 0.004}%2C${coords.lat - 0.0025}%2C${coords.lng + 0.004}%2C${coords.lat + 0.0025}&layer=mapnik&marker=${coords.lat}%2C${coords.lng}`}
+                    className="block h-[180px] w-full border-0 sm:h-[220px]" loading="lazy" referrerPolicy="no-referrer"
+                  />
+                  <a href={`https://www.openstreetmap.org/?mlat=${coords.lat}&mlon=${coords.lng}#map=17/${coords.lat}/${coords.lng}`} target="_blank" rel="noopener noreferrer"
+                    className="flex items-center gap-1 border-t border-border px-2.5 py-1.5 text-[length:var(--fs-12)] text-muted-foreground hover:text-foreground">
+                    <FiExternalLink aria-hidden className="size-3" /> Άνοιγμα σε χάρτη
+                  </a>
+                </div>
+              )}
             </FormSection>
 
             <FormSection tone="slate" icon={<FiPhone />} title="Επικοινωνία">

@@ -8,7 +8,7 @@ const { rbac, db, cacheRows } = vi.hoisted(() => {
   const cacheRows = new Map<string, Record<string, unknown>>();
   return {
     cacheRows,
-    rbac: { requirePermission: vi.fn(), hasPermission: vi.fn() },
+    rbac: { requirePermission: vi.fn(), requireAnyPermission: vi.fn(), hasPermission: vi.fn() },
     db: {
       vatCheck: { findFirst: vi.fn(async (): Promise<Record<string, unknown> | null> => null), create: vi.fn(async () => ({})), findMany: vi.fn(async () => []) },
       geocodeCache: {
@@ -41,6 +41,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   cacheRows.clear();
   rbac.requirePermission.mockResolvedValue({ id: 'u1', email: 'a@b.gr' });
+  rbac.requireAnyPermission.mockResolvedValue({ id: 'u1', email: 'a@b.gr' });
   fetchMock = vi.fn();
   vi.stubGlobal('fetch', fetchMock);
   vi.stubEnv('MAPTILER_API_KEY', '');

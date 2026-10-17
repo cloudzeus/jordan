@@ -4,6 +4,8 @@
 // τοπικό καθρέφτη, που μπορεί να είναι παλιός). Τα objects SUPPLIER/CUSTOMER/DEBTOR/CREDITOR είναι
 // EditMaster: το setData με KEY ενημερώνει μόνο τα πεδία που στέλνονται. Ο ΚΑΔ ζει σε άλλον πίνακα
 // (TRDEXTRA μέσω <SUP|CUS|DEB|CRE>EXTRA) — στέλνεται μόνο αν άλλαξε.
+// Η γεωγραφική θέση (TRDR.LATITUDE / LONGITUDE) είναι ΖΕΥΓΟΣ: αλλάζει ή σβήνει πάντα μαζί.
+import { formatCoords, validCoords } from '@/lib/coords';
 
 /** Object ανά SODTYPE. Οι χρηματικοί λογαριασμοί (14) δεν τροποποιούνται από εδώ. */
 export const TRADER_OBJECT_BY_SODTYPE: Record<number, { object: string; extra: string }> = {
@@ -32,9 +34,18 @@ export const TRADER_EDIT_FIELDS = [
 ] as const;
 
 export type TraderFieldKey = (typeof TRADER_EDIT_FIELDS)[number]['key'];
-export type TraderValues = Partial<Record<TraderFieldKey, string | null>> & { kad?: number | null; kad1?: number | null };
+export type TraderValues = Partial<Record<TraderFieldKey, string | null>> & {
+  kad?: number | null; kad1?: number | null;
+  /** Γεωγραφικό πλάτος / μήκος (TRDR.LATITUDE / LONGITUDE) — null = άγνωστο. */
+  lat?: number | null; lng?: number | null;
+};
 
-export interface TraderChange { key: TraderFieldKey | 'kad' | 'kad1'; label: string; from: string | null; to: string | null }
+export interface TraderChange { key: TraderFieldKey | 'kad' | 'kad1' | 'coords'; label: string; from: string | null; to: string | null }
+
+/** Ίδια θέση αν διαφέρουν λιγότερο από ~5 cm (το SoftOne κρατά Float). */
+const COORD_EPS = 5e-7;
+const sameCoords = (a: { lat: number; lng: number } | null, b: { lat: number; lng: number } | null) =>
+  a == null || b == null ? a === b : Math.abs(a.lat - b.lat) < COORD_EPS && Math.abs(a.lng - b.lng) < COORD_EPS;
 
 const norm = (v: unknown): string | null => {
   const s = String(v ?? '').replace(/\s+/g, ' ').trim();
@@ -48,6 +59,9 @@ export function traderValuesFromRow(row: Record<string, unknown>, extra?: Record
   for (const f of TRADER_EDIT_FIELDS) out[f.key] = norm(row[f.col]);
   out.kad = kadNorm(extra?.KAD);
   out.kad1 = kadNorm(extra?.KAD1);
+  const c = validCoords(row.LATITUDE, row.LONGITUDE);
+  out.lat = c?.lat ?? null;
+  out.lng = c?.lng ?? null;
   return out;
 }
 
@@ -89,6 +103,19 @@ export function planTraderUpdate(current: TraderValues, next: TraderValues): Tra
     extra[col] = to ?? '';
     changes.push({ key, label, from: from == null ? null : String(from), to: to == null ? null : String(to) });
   }
+  // Γεωγραφική θέση: ζεύγος — έγκυρο πλάτος ΚΑΙ μήκος, ή και τα δύο κενά (σβήσιμο).
+  if ('lat' in next || 'lng' in next) {
+    const empty = (v: unknown) => v == null || v === '';
+    const to = validCoords(next.lat, next.lng);
+    const from = validCoords(current.lat, current.lng);
+    if (!to && !(empty(next.lat) && empty(next.lng))) {
+      errors.push('Γεωγραφική θέση: χρειάζονται έγκυρο πλάτος (−90…90) ΚΑΙ μήκος (−180…180).');
+    } else if (!sameCoords(from, to)) {
+      changes.push({ key: 'coords', label: 'Γεωγραφική θέση', from: formatCoords(from) || null, to: formatCoords(to) || null });
+      row.LATITUDE = to ? to.lat : '';
+      row.LONGITUDE = to ? to.lng : '';
+    }
+  }
   return { changes, row, extra, errors };
 }
 
@@ -98,7 +125,11 @@ export function planTraderUpdate(current: TraderValues, next: TraderValues): Tra
  */
 export function unappliedChanges(plan: TraderUpdatePlan, after: TraderValues): TraderChange[] {
   return plan.changes.filter((c) => {
-    const got = c.key === 'kad' || c.key === 'kad1' ? (after[c.key] == null ? null : String(after[c.key])) : norm(after[c.key]);
+    if (c.key === 'coords') {
+      const want = c.to ? validCoords(...(c.to.split(',').map(Number) as [number, number])) : null;
+      return !sameCoords(want, validCoords(after.lat, after.lng));
+    }
+    const got = c.key === 'kad' || c.key === 'kad1' ? (after[c.key] == null ? null : String(after[c.key])) : norm(after[c.key as TraderFieldKey]);
     return (got ?? null) !== (c.to ?? null);
   });
 }

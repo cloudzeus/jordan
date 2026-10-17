@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { requirePermission } from '@/lib/rbac';
+import { requireAnyPermission } from '@/lib/rbac';
 import { cachedGeocodeAddressParts } from '@/lib/geocode-cache';
 
 export const runtime = 'nodejs';
@@ -18,7 +18,8 @@ const Body = z.object({
 // Το route είναι πλέον ΜΝΗΜΟΝΙΚΟ: κάθε διακριτή (κανονικοποιημένη) διεύθυνση ρωτά τον
 // πάροχο μία και μόνη φορά. Το `cached: true` στην απάντηση σημαίνει «καμία χρέωση».
 export async function POST(req: Request) {
-  await requirePermission('ocr.categorize');
+  // Ουρά νέων συναλλασσομένων (ocr.categorize) και καρτέλα συναλλασσομένου (metadata.manage).
+  await requireAnyPermission('ocr.categorize', 'metadata.manage');
 
   const parsed = Body.safeParse(await req.json().catch(() => null));
   if (!parsed.success) {

@@ -49,6 +49,8 @@ const Body = z.object({
     ...Object.fromEntries(TRADER_EDIT_FIELDS.map((f) => [f.key, str])),
     kad: z.number().int().positive().nullable().optional(),
     kad1: z.number().int().positive().nullable().optional(),
+    lat: z.number().finite().nullable().optional(),
+    lng: z.number().finite().nullable().optional(),
   }),
   dryRun: z.boolean().optional(),
 });

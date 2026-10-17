@@ -9,7 +9,7 @@ import {
   type TraderUpdatePlan, type TraderValues, type TraderChange,
 } from '@/lib/trader-update';
 
-const TRDR_COLS = ['TRDR', 'SODTYPE', 'CODE', ...TRADER_EDIT_FIELDS.map((f) => f.col)];
+const TRDR_COLS = ['TRDR', 'SODTYPE', 'CODE', ...TRADER_EDIT_FIELDS.map((f) => f.col), 'LATITUDE', 'LONGITUDE'];
 /** Όσα πεδία του TRDEXTRA ελέγχουμε ότι ΔΕΝ άλλαξαν όταν γράφουμε ΚΑΔ. */
 const EXTRA_COLS = ['TRDR', 'KAD', 'KAD1', 'REFCODE', 'VARCHAR01', 'VARCHAR02', 'NUM01', 'NUM02', 'SOSDATE', 'SOEDATE'];
 

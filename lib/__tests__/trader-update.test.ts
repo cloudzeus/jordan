@@ -42,3 +42,37 @@ describe('planTraderUpdate', () => {
     expect(TRADER_OBJECT_BY_SODTYPE[14]).toBeUndefined();
   });
 });
+
+describe('γεωγραφική θέση (TRDR.LATITUDE / LONGITUDE)', () => {
+  const cur = traderValuesFromRow({ NAME: 'Α', LATITUDE: '37.9754', LONGITUDE: '23.7348' });
+  it('διαβάζει το ζεύγος· το (0,0) είναι άγνωστο', () => {
+    expect(cur).toMatchObject({ lat: 37.9754, lng: 23.7348 });
+    expect(traderValuesFromRow({ NAME: 'Α', LATITUDE: '0', LONGITUDE: '0' })).toMatchObject({ lat: null, lng: null });
+  });
+  it('νέα θέση ⇒ γράφει και τα δύο ως αριθμούς', () => {
+    const p = planTraderUpdate(cur, { lat: 36.7213, lng: 24.4459 });
+    expect(p.errors).toEqual([]);
+    expect(p.row).toEqual({ LATITUDE: 36.7213, LONGITUDE: 24.4459 });
+    expect(p.changes[0]).toMatchObject({ key: 'coords', from: '37.975400, 23.734800', to: '36.721300, 24.445900' });
+  });
+  it('ίδια θέση (εντός ~5 cm) ⇒ καμία αλλαγή', () => {
+    expect(planTraderUpdate(cur, { lat: 37.97540001, lng: 23.7348 }).changes).toEqual([]);
+  });
+  it('μισό ζεύγος ή εκτός ορίων ⇒ σφάλμα, τίποτα δεν γράφεται', () => {
+    for (const next of [{ lat: 37.9, lng: null }, { lat: 95, lng: 23 }, { lat: 0, lng: 0 }]) {
+      const p = planTraderUpdate(cur, next);
+      expect(p.errors.length).toBe(1);
+      expect(p.row).toEqual({});
+    }
+  });
+  it('και τα δύο κενά ⇒ σβήσιμο', () => {
+    const p = planTraderUpdate(cur, { lat: null, lng: null });
+    expect(p.row).toEqual({ LATITUDE: '', LONGITUDE: '' });
+    expect(p.changes[0].to).toBeNull();
+  });
+  it('επαλήθευση μετά την εγγραφή: θέση που δεν κράτησε η SoftOne φαίνεται', () => {
+    const p = planTraderUpdate(cur, { lat: 36.7213, lng: 24.4459 });
+    expect(unappliedChanges(p, { ...cur, lat: 36.7213, lng: 24.4459 })).toEqual([]);
+    expect(unappliedChanges(p, cur).map((c) => c.key)).toEqual(['coords']);
+  });
+});
