@@ -110,7 +110,7 @@ html, body { height: 100%; }
 body {
   background: var(--background);
   color: var(--foreground);
-  font-size: 14px;
+  font-size: var(--fs-14);
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -395,6 +395,12 @@ body {
     --fs-18: 1.125rem;
     --fs-20: 1.25rem;
     --fs-28: clamp(1.365rem, 1.21435rem + 0.66957vw, 1.75rem);
+    --fs-24: clamp(1.17rem, 1.04087rem + 0.57391vw, 1.5rem);
+    --fs-30: clamp(1.4625rem, 1.30109rem + 0.71739vw, 1.875rem);
+    --fs-32: clamp(1.56rem, 1.38783rem + 0.76522vw, 2rem);
+    --fs-36: clamp(1.755rem, 1.5613rem + 0.86087vw, 2.25rem);
+    --fs-40: clamp(1.95rem, 1.73478rem + 0.95652vw, 2.5rem);
+    --fs-56: clamp(2.73rem, 2.4287rem + 1.33913vw, 3.5rem);
   }
 
   /* Συσκευή αφής: γραμμές και κελιά στα 44px — ελάχιστος στόχος αφής (Apple HIG / Material). */

@@ -140,17 +140,18 @@ const config: Config = {
         ],
       },
 
+      // Ρευστά rem tokens (app/globals.css): στο desktop ίδιο px με πριν, στο κινητό κατά τον κανόνα.
       fontSize: {
-        'caption': ['11px', { lineHeight: '1.15', fontWeight: '400' }],
-        'body-sm': ['12px', { lineHeight: '1.3', fontWeight: '400' }],
-        'body': ['14px', { lineHeight: '1.5', fontWeight: '400' }],
-        'body-lg': ['16px', { lineHeight: '1.5', fontWeight: '400' }],
-        'subtitle': ['18px', { lineHeight: '1.3', fontWeight: '500' }],
-        'title-3': ['20px', { lineHeight: '1.3', fontWeight: '600' }],
-        'title-2': ['24px', { lineHeight: '1.3', fontWeight: '600' }],
-        'title-1': ['32px', { lineHeight: '1.15', fontWeight: '600' }],
-        'hero': ['40px', { lineHeight: '1.15', fontWeight: '600' }],
-        'display': ['56px', { lineHeight: '1.15', fontWeight: '600' }],
+        'caption': ['var(--fs-11)', { lineHeight: '1.15', fontWeight: '400' }],
+        'body-sm': ['var(--fs-12)', { lineHeight: '1.3', fontWeight: '400' }],
+        'body': ['var(--fs-14)', { lineHeight: '1.5', fontWeight: '400' }],
+        'body-lg': ['var(--fs-16)', { lineHeight: '1.5', fontWeight: '400' }],
+        'subtitle': ['var(--fs-18)', { lineHeight: '1.3', fontWeight: '500' }],
+        'title-3': ['var(--fs-20)', { lineHeight: '1.3', fontWeight: '600' }],
+        'title-2': ['var(--fs-24)', { lineHeight: '1.3', fontWeight: '600' }],
+        'title-1': ['var(--fs-32)', { lineHeight: '1.15', fontWeight: '600' }],
+        'hero': ['var(--fs-40)', { lineHeight: '1.15', fontWeight: '600' }],
+        'display': ['var(--fs-56)', { lineHeight: '1.15', fontWeight: '600' }],
       },
 
       /**

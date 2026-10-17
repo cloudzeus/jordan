@@ -10,6 +10,18 @@ const config: Config = {
   ],
   theme: {
     extend: {
+      // Τα default μεγέθη του Tailwind (που χρησιμοποιούν τα shadcn components) πάνω στα ρευστά
+      // rem tokens του app/globals.css — στο desktop ίδια px με τα defaults, στο κινητό κατά τον κανόνα.
+      fontSize: {
+        xs: ['var(--fs-12)', { lineHeight: '1rem' }],
+        sm: ['var(--fs-14)', { lineHeight: '1.25rem' }],
+        base: ['var(--fs-16)', { lineHeight: '1.5rem' }],
+        lg: ['var(--fs-18)', { lineHeight: '1.75rem' }],
+        xl: ['var(--fs-20)', { lineHeight: '1.75rem' }],
+        '2xl': ['var(--fs-24)', { lineHeight: '2rem' }],
+        '3xl': ['var(--fs-30)', { lineHeight: '2.25rem' }],
+        '4xl': ['var(--fs-36)', { lineHeight: '2.5rem' }],
+      },
       colors: {
         background: 'var(--background)',
         foreground: 'var(--foreground)',
