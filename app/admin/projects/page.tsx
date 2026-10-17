@@ -9,10 +9,10 @@ export const dynamic = 'force-dynamic';
 
 // Έργα της εταιρίας — καθρέφτης του SoftOne PRJC (SoftoneProject), ομάδα μενού «Operations».
 export default async function ProjectsPage() {
-  await requirePermission('metadata.read');
+  await requirePermission('projects.read');
   const [rows, canManage, lastSync] = await Promise.all([
     listProjects(),
-    hasPermission('metadata.manage'),
+    hasPermission('projects.manage'),
     getSetting<string>('integrations.softoneProjectsLastSync'),
   ]);
   const active = rows.filter((r) => r.isActive).length;

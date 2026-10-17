@@ -5,6 +5,7 @@ import { FiKey, FiShield } from 'react-icons/fi';
 import { toast } from 'sonner';
 import { SortableList } from '@/components/ui/sortable-list';
 import { Badge } from '@/components/ui/badge';
+import { RESOURCE_LABELS } from '@/lib/permissions';
 
 type PermItem = {
   id: string; key: string; resource: string; action: string;
@@ -44,7 +45,7 @@ function ResourceGroup({ resource, initial }: { resource: string; initial: PermI
   return (
     <section>
       <div className="flex items-center gap-2 mb-2">
-        <h3 className="text-[length:var(--fs-11)] font-bold uppercase tracking-wider text-muted-foreground">{resource}</h3>
+        <h3 className="text-[length:var(--fs-11)] font-bold uppercase tracking-wider text-muted-foreground" title={resource}>{RESOURCE_LABELS[resource] ?? resource}</h3>
         <Badge variant="outline" className="text-[length:var(--fs-10)]">{local.length}</Badge>
       </div>
       <SortableList

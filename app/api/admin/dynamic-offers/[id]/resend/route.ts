@@ -10,7 +10,7 @@ export const maxDuration = 300;
 
 // POST — αποστολή της προσφοράς σε όσους δεν την έλαβαν (νέοι παραλήπτες, αποτυχίες).
 export async function POST(_req: Request, ctx: Ctx) {
-  const u = await requirePermission('metadata.manage');
+  const u = await requirePermission('dynamic_offers.manage');
   const { id } = await ctx.params;
   try {
     const r = await resendPublish(id);

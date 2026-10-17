@@ -10,7 +10,7 @@ export const dynamic = 'force-dynamic';
 
 // POST — συγχρονισμός κατηγοριών & ομάδων από το SoftOne.
 export async function POST() {
-  const u = await requirePermission('metadata.manage');
+  const u = await requirePermission('classifications.manage');
   try {
     const r = await syncClassifications();
     await setSetting('integrations.softoneClassificationsLastSync', new Date().toISOString()).catch(() => null);

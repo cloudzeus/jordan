@@ -8,7 +8,7 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 export async function DELETE(_req: Request, ctx: { params: Promise<{ id: string; prjc: string }> }) {
-  const u = await requirePermission('metadata.manage');
+  const u = await requirePermission('partners.manage');
   const { id, prjc: raw } = await ctx.params;
   const prjc = intParam(raw);
   if (!prjc) return NextResponse.json({ error: 'invalid_prjc' }, { status: 400 });

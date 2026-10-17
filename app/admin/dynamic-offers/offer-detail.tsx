@@ -133,7 +133,8 @@ function ReservationDialog({ open, onOpenChange, offer, onSaved }: { open: boole
   );
 }
 
-export function OfferDetail({ offer, canManage, onChanged }: { offer: OfferRow; canManage: boolean; onChanged: () => void }) {
+// canReserve = δικαίωμα dynamic_offers.reservations (νέες κρατήσεις, ακύρωση, έγκριση/απόρριψη αιτημάτων).
+export function OfferDetail({ offer, canReserve, onChanged }: { offer: OfferRow; canReserve: boolean; onChanged: () => void }) {
   const [data, setData] = React.useState<{ reservations: Reservation[]; recipients: Recipient[] } | null>(null);
   const [addOpen, setAddOpen] = React.useState(false);
   const [previewKind, setPreviewKind] = React.useState<'publish' | 'drop'>('publish');
@@ -266,7 +267,7 @@ export function OfferDetail({ offer, canManage, onChanged }: { offer: OfferRow; 
         </TabsContent>
 
         <TabsContent value="res" className="space-y-2">
-          {canManage && (
+          {canReserve && (
             <div className="flex items-center justify-end gap-2">
               {offer.status !== 'OPEN' && <span className="text-[length:var(--fs-11)] text-muted-foreground">Κρατήσεις γίνονται όταν η προσφορά είναι δημοσιευμένη.</span>}
               <Button size="sm" onClick={() => setAddOpen(true)} disabled={offer.status !== 'OPEN' || offer.full}><FiPlus className="mr-1 size-3.5" aria-hidden /> Νέα κράτηση</Button>
@@ -277,7 +278,7 @@ export function OfferDetail({ offer, canManage, onChanged }: { offer: OfferRow; 
           ) : (
             <div className="overflow-x-auto rounded-md border border-border">
               <table className="w-full">
-                <thead className="bg-muted/40"><tr><th className={TH}>Πελάτης</th>{offer.items.length > 1 && <th className={TH}>Προϊόν</th>}<th className={cn(TH, 'text-right')}>Παλέτες</th><th className={cn(TH, 'text-right')}>Ποσότητα</th><th className={cn(TH, 'hidden sm:table-cell')}>Ημ/νία</th><th className={TH}>Κατάσταση</th>{canManage && <th className={TH}><span className="sr-only">Ενέργειες</span></th>}</tr></thead>
+                <thead className="bg-muted/40"><tr><th className={TH}>Πελάτης</th>{offer.items.length > 1 && <th className={TH}>Προϊόν</th>}<th className={cn(TH, 'text-right')}>Παλέτες</th><th className={cn(TH, 'text-right')}>Ποσότητα</th><th className={cn(TH, 'hidden sm:table-cell')}>Ημ/νία</th><th className={TH}>Κατάσταση</th>{canReserve && <th className={TH}><span className="sr-only">Ενέργειες</span></th>}</tr></thead>
                 <tbody className="divide-y divide-border">
                   {data.reservations.map((r) => (
                     <tr key={r.id} className={cn('hover:bg-muted/30', r.status === 'PENDING' && 'bg-amber-50/60 dark:bg-amber-500/5', r.status !== 'ACTIVE' && r.status !== 'PENDING' && 'opacity-55')}>
@@ -287,7 +288,7 @@ export function OfferDetail({ offer, canManage, onChanged }: { offer: OfferRow; 
                       <td className={cn(TD, 'text-right tabular-nums')}>{num(r.sqm)} <span className="text-muted-foreground">{r.unit}</span></td>
                       <td className={cn(TD, 'hidden tabular-nums text-muted-foreground sm:table-cell')}>{new Date(r.createdAt).toLocaleDateString('el-GR')}</td>
                       <td className={TD}>{statusCell(r)}</td>
-                      {canManage && (
+                      {canReserve && (
                         <td className={cn(TD, 'w-10 text-right')}>
                           {(r.status === 'ACTIVE' || r.status === 'PENDING') && offer.status !== 'CLOSED' && (
                             <DropdownMenu>
@@ -354,7 +355,7 @@ export function OfferDetail({ offer, canManage, onChanged }: { offer: OfferRow; 
           <iframe title="Προεπισκόπηση email" src={`/api/admin/dynamic-offers/${offer.id}/email-preview?kind=${previewKind}`} className="h-[640px] w-full rounded-md border border-border bg-slate-100" />
         </TabsContent>
       </Tabs>
-      {canManage && (
+      {canReserve && (
         <ReservationDialog open={addOpen} onOpenChange={setAddOpen} offer={offer} onSaved={async (p) => {
           toast.success('Η κράτηση καταχωρίστηκε');
           await refreshSnapshot(offer.filled + p);

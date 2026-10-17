@@ -11,7 +11,7 @@ type Ctx = { params: Promise<{ id: string }> };
 
 // GET — πλήρη στοιχεία: πρόσωπα, πελάτες, έργα.
 export async function GET(_req: Request, ctx: Ctx) {
-  await requirePermission('metadata.read');
+  await requirePermission('partners.read');
   const d = await getPartnerDetail((await ctx.params).id);
   if (!d) return NextResponse.json({ error: 'not_found' }, { status: 404 });
   return NextResponse.json(d);
@@ -19,7 +19,7 @@ export async function GET(_req: Request, ctx: Ctx) {
 
 // PUT — αντικατάσταση των στοιχείων του συνεργάτη.
 export async function PUT(req: Request, ctx: Ctx) {
-  const u = await requirePermission('metadata.manage');
+  const u = await requirePermission('partners.manage');
   const { id } = await ctx.params;
   const body = await parseBody(req, partnerInput);
   if (body.res) return body.res;
@@ -32,7 +32,7 @@ export async function PUT(req: Request, ctx: Ctx) {
 
 // DELETE — διαγραφή (μαζί πρόσωπα και συσχετίσεις· τα στοιχεία SoftOne δεν αγγίζονται).
 export async function DELETE(_req: Request, ctx: Ctx) {
-  const u = await requirePermission('metadata.manage');
+  const u = await requirePermission('partners.manage');
   const { id } = await ctx.params;
   try {
     const p = await deletePartner(id);

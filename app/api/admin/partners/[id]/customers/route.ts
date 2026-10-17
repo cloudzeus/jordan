@@ -9,7 +9,7 @@ export const dynamic = 'force-dynamic';
 
 // POST — συσχέτιση με πελάτες: { trdrs: number[] }.
 export async function POST(req: Request, ctx: { params: Promise<{ id: string }> }) {
-  const u = await requirePermission('metadata.manage');
+  const u = await requirePermission('partners.manage');
   const { id } = await ctx.params;
   const body = await parseBody(req, linkCustomersInput);
   if (body.res) return body.res;

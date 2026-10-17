@@ -7,7 +7,7 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 export async function PUT(req: Request, ctx: Ctx) {
-  await requirePermission('metadata.manage');
+  await requirePermission('dynamic_offers.manage');
   const { id } = await ctx.params;
   const parsed = recipientsInput.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return invalid(parsed.error.issues);

@@ -9,10 +9,10 @@ export const dynamic = 'force-dynamic';
 
 // Εμπορικές κατηγορίες & ομάδες ειδών/υπηρεσιών (SoftOne MTRCATEGORY / MTRGROUP), ομάδα «Operations».
 export default async function ClassificationsPage() {
-  await requirePermission('metadata.read');
+  await requirePermission('classifications.read');
   const [{ rows, membersError }, canManage, lastSync] = await Promise.all([
     listClassifications(),
-    hasPermission('metadata.manage'),
+    hasPermission('classifications.manage'),
     getSetting<string>('integrations.softoneClassificationsLastSync'),
   ]);
   const cats = rows.filter((r) => r.kind === 'CATEGORY' && r.isActive).length;

@@ -8,6 +8,6 @@ export const dynamic = 'force-dynamic';
 
 // GET — κατάσταση πρόσβασης: των προσώπων (εταιρία) ή του ίδιου (φυσικό πρόσωπο).
 export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> }) {
-  await requirePermission('metadata.read');
+  await requirePermission('partners.read');
   try { return NextResponse.json(await partnerAccess((await ctx.params).id)); } catch (e) { return accessErrorResponse(e); }
 }

@@ -9,7 +9,7 @@ export const dynamic = 'force-dynamic';
 
 // POST — συσχέτιση (ή αλλαγή ρόλου) με έργο συνδεδεμένου πελάτη: { prjc, role? }.
 export async function POST(req: Request, ctx: { params: Promise<{ id: string }> }) {
-  const u = await requirePermission('metadata.manage');
+  const u = await requirePermission('partners.manage');
   const { id } = await ctx.params;
   const body = await parseBody(req, linkProjectInput);
   if (body.res) return body.res;

@@ -8,7 +8,7 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 export async function GET(_req: Request, ctx: Ctx) {
-  await requirePermission('metadata.read');
+  await requirePermission('dynamic_offers.read');
   const { id } = await ctx.params;
   const offer = (await listOffers()).find((o) => o.id === id);
   if (!offer) return NextResponse.json({ error: 'not_found' }, { status: 404 });
@@ -17,7 +17,7 @@ export async function GET(_req: Request, ctx: Ctx) {
 }
 
 export async function PUT(req: Request, ctx: Ctx) {
-  const u = await requirePermission('metadata.manage');
+  const u = await requirePermission('dynamic_offers.manage');
   const { id } = await ctx.params;
   const parsed = offerInput.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return invalid(parsed.error.issues);
@@ -29,7 +29,7 @@ export async function PUT(req: Request, ctx: Ctx) {
 }
 
 export async function DELETE(_req: Request, ctx: Ctx) {
-  const u = await requirePermission('metadata.manage');
+  const u = await requirePermission('dynamic_offers.manage');
   const { id } = await ctx.params;
   try {
     await deleteOffer(id);

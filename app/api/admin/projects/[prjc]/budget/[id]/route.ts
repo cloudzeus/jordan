@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic';
 
 // DELETE — αφαίρεση γραμμής προϋπολογισμού (μόνο δικά μας δεδομένα· το SoftOne δεν αγγίζεται).
 export async function DELETE(_req: Request, ctx: { params: Promise<{ prjc: string; id: string }> }) {
-  const u = await requirePermission('metadata.manage');
+  const u = await requirePermission('projects.manage');
   const { prjc: raw, id } = await ctx.params;
   const prjc = Number(raw);
   if (!Number.isInteger(prjc) || prjc <= 0) return NextResponse.json({ error: 'invalid_prjc' }, { status: 400 });

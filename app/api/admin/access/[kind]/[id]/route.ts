@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { requirePermission } from '@/lib/rbac';
 import { logAudit } from '@/lib/audit';
 import { grantAccess, grantInput, passwordSchema, revokeAccess, setActive, setPassword } from '@/lib/portal-access';
-import { accessErrorResponse, invalid, kindOf } from '../../_shared';
+import { partnerAccessDenied, accessErrorResponse, invalid, kindOf } from '../../_shared';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -16,6 +16,8 @@ export async function POST(req: Request, ctx: Ctx) {
   const u = await requirePermission('users.create');
   const { kind, id } = await resolve(ctx);
   if (!kind) return NextResponse.json({ error: 'invalid_kind' }, { status: 400 });
+  const denied = await partnerAccessDenied(kind);
+  if (denied) return denied;
   const parsed = grantInput.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return invalid(parsed.error.issues);
   try {
@@ -30,6 +32,8 @@ export async function PATCH(req: Request, ctx: Ctx) {
   const u = await requirePermission('users.update');
   const { kind, id } = await resolve(ctx);
   if (!kind) return NextResponse.json({ error: 'invalid_kind' }, { status: 400 });
+  const denied = await partnerAccessDenied(kind);
+  if (denied) return denied;
   const parsed = z.union([z.object({ password: passwordSchema }), z.object({ isActive: z.boolean() })]).safeParse(await req.json().catch(() => null));
   if (!parsed.success) return invalid(parsed.error.issues);
   try {
@@ -49,6 +53,8 @@ export async function DELETE(_req: Request, ctx: Ctx) {
   const u = await requirePermission('users.delete');
   const { kind, id } = await resolve(ctx);
   if (!kind) return NextResponse.json({ error: 'invalid_kind' }, { status: 400 });
+  const denied = await partnerAccessDenied(kind);
+  if (denied) return denied;
   try {
     const r = await revokeAccess(kind, id);
     await logAudit({ userId: u.id, userEmail: u.email, action: 'portal.access.revoke', resource: 'user', resourceId: r.userId, metadata: { email: r.email } }).catch(() => null);

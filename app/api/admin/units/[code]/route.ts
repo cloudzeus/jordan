@@ -9,7 +9,7 @@ export const dynamic = 'force-dynamic';
 
 // PATCH — αλλαγή στοιχείων / (απ)ενεργοποίηση μονάδας στο SoftOne.
 export async function PATCH(req: Request, ctx: { params: Promise<{ code: string }> }) {
-  const u = await requirePermission('metadata.manage');
+  const u = await requirePermission('units.manage');
   const code = Number((await ctx.params).code);
   if (!Number.isInteger(code) || code <= 0) return NextResponse.json({ error: 'invalid_code' }, { status: 400 });
   const parsed = unitUpdateInput.safeParse(await req.json().catch(() => null));

@@ -8,13 +8,13 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
-  await requirePermission('metadata.read');
+  await requirePermission('dynamic_offers.read');
   return NextResponse.json({ offers: await listOffers() });
 }
 
 // POST — νέα δυναμική προσφορά (πρόχειρη) από τον οδηγό.
 export async function POST(req: Request) {
-  const u = await requirePermission('metadata.manage');
+  const u = await requirePermission('dynamic_offers.manage');
   const parsed = offerInput.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return invalid(parsed.error.issues);
   try {

@@ -1,6 +1,7 @@
 'use client';
 
 import { confirmAction } from '@/components/ui/confirm-dialog';
+import { RESOURCE_LABELS } from '@/lib/permissions';
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { FiShield, FiUsers, FiKey, FiLock, FiSettings, FiTrash2, FiCheck } from 'react-icons/fi';
@@ -199,7 +200,7 @@ function RolePermissionsEditor({
                   </span>
                   <AccordionTrigger className="hover:no-underline py-1.5 flex-1 group min-w-0">
                     <div className="flex items-center gap-2 flex-1 min-w-0">
-                      <span className="truncate text-[length:var(--fs-11)] font-bold uppercase tracking-wider text-foreground">{resource}</span>
+                      <span className="truncate text-[length:var(--fs-11)] font-bold uppercase tracking-wider text-foreground" title={resource}>{RESOURCE_LABELS[resource] ?? resource}</span>
                       <span className={`ml-auto mr-2 rounded px-1.5 font-mono text-[length:var(--fs-10)] tabular-nums ${allOn ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300' : someOn ? 'bg-amber-500/15 text-amber-800 dark:text-amber-300' : 'text-muted-foreground'}`}>
                         {sel}/{total}
                       </span>

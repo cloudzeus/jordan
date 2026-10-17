@@ -9,7 +9,7 @@ export const dynamic = 'force-dynamic';
 
 // DELETE — αποσύνδεση πελάτη (και των έργων του από τον συνεργάτη).
 export async function DELETE(_req: Request, ctx: { params: Promise<{ id: string; trdr: string }> }) {
-  const u = await requirePermission('metadata.manage');
+  const u = await requirePermission('partners.manage');
   const { id, trdr: raw } = await ctx.params;
   const trdr = intParam(raw);
   if (!trdr) return NextResponse.json({ error: 'invalid_trdr' }, { status: 400 });

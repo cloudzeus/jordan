@@ -21,7 +21,8 @@
     "wiki:index": "node ./scripts/wiki/build-index.mjs",
     "wiki:screenshots": "node ./scripts/wiki/screenshot.mjs",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "permissions:sync": "npx tsx scripts/sync-permissions.ts"
   },
   "dependencies": {
     "@auth/core": "^0.34.3",

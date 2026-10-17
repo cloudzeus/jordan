@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic';
 
 // GET — ενεργά είδη/υπηρεσίες που χρησιμοποιούν τη μονάδα (βασική / αγορών / πώλησης).
 export async function GET(_req: Request, ctx: { params: Promise<{ code: string }> }) {
-  await requirePermission('metadata.read');
+  await requirePermission('units.read');
   const code = Number((await ctx.params).code);
   if (!Number.isInteger(code)) return NextResponse.json({ error: 'invalid_code' }, { status: 400 });
   try { return NextResponse.json({ items: await unitMembers(code) }); } catch (e) { return unitErrorResponse(e); }

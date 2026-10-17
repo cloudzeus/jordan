@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic';
 
 // GET ?kind=publish|drop — το HTML του email (για iframe προεπισκόπησης).
 export async function GET(req: Request, ctx: Ctx) {
-  await requirePermission('metadata.read');
+  await requirePermission('dynamic_offers.read');
   const { id } = await ctx.params;
   const kind = new URL(req.url).searchParams.get('kind') === 'drop' ? 'drop' : 'publish';
   try {

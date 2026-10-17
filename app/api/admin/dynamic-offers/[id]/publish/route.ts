@@ -11,7 +11,7 @@ export const maxDuration = 300;
 
 // POST — δημοσίευση τώρα ή προγραμματισμός: { publishAt?: ISO }.
 export async function POST(req: Request, ctx: Ctx) {
-  const u = await requirePermission('metadata.manage');
+  const u = await requirePermission('dynamic_offers.manage');
   const { id } = await ctx.params;
   const parsed = z.object({ publishAt: z.string().datetime({ offset: true }).nullable().optional() }).safeParse(await req.json().catch(() => ({})));
   if (!parsed.success) return invalid(parsed.error.issues);

@@ -50,11 +50,11 @@ const NAV_GROUPS: NavGroup[] = [
   {
     label: 'Operations',
     items: [
-      { href: '/admin/projects', label: 'Έργα', icon: FiBriefcase, permissions: ['metadata.read'] },
-      { href: '/admin/dynamic-offers', label: 'Δυναμικές προσφορές', icon: FiTrendingDown, permissions: ['metadata.read'] },
-      { href: '/admin/partners', label: 'Συνεργάτες', icon: FiUsers, permissions: ['metadata.read'] },
-      { href: '/admin/classifications', label: 'Κατηγορίες & ομάδες', icon: FiTag, permissions: ['metadata.read'] },
-      { href: '/admin/units', label: 'Μονάδες μέτρησης', icon: FiMaximize2, permissions: ['metadata.read'] },
+      { href: '/admin/projects', label: 'Έργα', icon: FiBriefcase, permissions: ['projects.read'] },
+      { href: '/admin/dynamic-offers', label: 'Δυναμικές προσφορές', icon: FiTrendingDown, permissions: ['dynamic_offers.read'] },
+      { href: '/admin/partners', label: 'Συνεργάτες', icon: FiUsers, permissions: ['partners.read'] },
+      { href: '/admin/classifications', label: 'Κατηγορίες & ομάδες', icon: FiTag, permissions: ['classifications.read'] },
+      { href: '/admin/units', label: 'Μονάδες μέτρησης', icon: FiMaximize2, permissions: ['units.read'] },
     ],
   },
   {

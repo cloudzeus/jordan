@@ -10,7 +10,7 @@ export const dynamic = 'force-dynamic';
 
 // POST — συγχρονισμός μονάδων μέτρησης από το SoftOne.
 export async function POST() {
-  const u = await requirePermission('metadata.manage');
+  const u = await requirePermission('units.manage');
   try {
     const r = await syncUnits();
     await setSetting('integrations.softoneUnitsLastSync', new Date().toISOString()).catch(() => null);

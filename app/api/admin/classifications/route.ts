@@ -7,6 +7,6 @@ export const dynamic = 'force-dynamic';
 
 // GET — κατηγορίες & ομάδες (καθρέφτης) με πλήθος ενεργών ειδών ανά εγγραφή.
 export async function GET() {
-  await requirePermission('metadata.read');
+  await requirePermission('classifications.read');
   return NextResponse.json(await listClassifications());
 }

@@ -10,7 +10,7 @@ export const dynamic = 'force-dynamic';
 // POST — κράτηση πελάτη (παλέτες ανά ½). Η ειδοποίηση πτώσης τιμής στέλνεται ΜΕΤΑ την ανανέωση της
 // 3D εικόνας (POST …/snapshot?notify=1 από τη σελίδα) ή από το cron.
 export async function POST(req: Request, ctx: Ctx) {
-  const u = await requirePermission('metadata.manage');
+  const u = await requirePermission('dynamic_offers.reservations');
   const { id } = await ctx.params;
   const parsed = reservationInput.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return invalid(parsed.error.issues);

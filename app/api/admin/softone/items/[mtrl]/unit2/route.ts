@@ -21,12 +21,10 @@ export async function GET() {
 }
 
 // POST — ΕΞΑΙΡΕΣΗ: Μ.Μ.2 σε είδος με παραστατικά μέσω του custom script (softone/scripts/units.js).
-// Μόνο διαχειριστές· ?dryRun=1 = μόνο έλεγχοι. Πάντα πριν/μετά στο ιστορικό ενεργειών.
+// Δικαίωμα items.unit2_override· ?dryRun=1 = μόνο έλεγχοι. Πάντα πριν/μετά στο ιστορικό ενεργειών.
 export async function POST(req: Request, { params }: { params: Promise<{ mtrl: string }> }) {
-  const u = await requirePermission('metadata.manage');
-  if (u.role.key !== 'SUPER_ADMIN' && u.role.key !== 'ADMIN') {
-    return NextResponse.json({ error: 'forbidden', message: 'Μόνο διαχειριστές.' }, { status: 403 });
-  }
+  // Ρητό δικαίωμα (προεπιλογή μόνο SUPER_ADMIN/ADMIN) — δεν δίνεται αυτόματα από το metadata.manage.
+  const u = await requirePermission('items.unit2_override');
   const mtrl = Number((await params).mtrl);
   if (!Number.isInteger(mtrl) || mtrl <= 0) return NextResponse.json({ error: 'invalid_mtrl', message: 'Άκυρη εγγραφή.' }, { status: 400 });
   const parsed = unit2Input.safeParse(await req.json().catch(() => null));

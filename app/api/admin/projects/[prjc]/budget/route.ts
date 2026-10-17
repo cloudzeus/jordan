@@ -13,7 +13,7 @@ const prjcOf = async (ctx: { params: Promise<{ prjc: string }> }) => {
 
 // GET — οι γραμμές προϋπολογισμού του έργου (δικά μας δεδομένα, όχι SoftOne).
 export async function GET(_req: Request, ctx: { params: Promise<{ prjc: string }> }) {
-  await requirePermission('metadata.read');
+  await requirePermission('projects.read');
   const prjc = await prjcOf(ctx);
   if (!prjc) return NextResponse.json({ error: 'invalid_prjc' }, { status: 400 });
   return NextResponse.json({ lines: await listBudget(prjc) });
@@ -21,7 +21,7 @@ export async function GET(_req: Request, ctx: { params: Promise<{ prjc: string }
 
 // POST — νέα γραμμή προϋπολογισμού: { mtrl, qty, unitPrice?, notes? }.
 export async function POST(req: Request, ctx: { params: Promise<{ prjc: string }> }) {
-  const u = await requirePermission('metadata.manage');
+  const u = await requirePermission('projects.manage');
   const prjc = await prjcOf(ctx);
   if (!prjc) return NextResponse.json({ error: 'invalid_prjc' }, { status: 400 });
 

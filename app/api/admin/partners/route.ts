@@ -9,13 +9,13 @@ export const dynamic = 'force-dynamic';
 
 // GET — λίστα συνεργατών (τοπικό μητρώο).
 export async function GET() {
-  await requirePermission('metadata.read');
+  await requirePermission('partners.read');
   return NextResponse.json({ partners: await listPartners() });
 }
 
 // POST — νέος συνεργάτης (εταιρία ή πρόσωπο).
 export async function POST(req: Request) {
-  const u = await requirePermission('metadata.manage');
+  const u = await requirePermission('partners.manage');
   const body = await parseBody(req, partnerInput);
   if (body.res) return body.res;
   const p = await createPartner(body.data);

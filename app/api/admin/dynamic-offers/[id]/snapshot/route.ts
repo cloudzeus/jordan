@@ -9,7 +9,7 @@ export const maxDuration = 300;
 
 // POST — η 3D εικόνα (PNG, από τον browser) για τα email. `?notify=1`: μετά στέλνει τυχόν «η τιμή έπεσε».
 export async function POST(req: Request, ctx: Ctx) {
-  await requirePermission('metadata.manage');
+  await requirePermission('dynamic_offers.manage');
   const { id } = await ctx.params;
   const notify = new URL(req.url).searchParams.get('notify') === '1';
   try {

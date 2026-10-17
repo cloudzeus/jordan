@@ -8,7 +8,7 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 export async function DELETE(_req: Request, ctx: { params: Promise<{ id: string; rid: string }> }) {
-  const u = await requirePermission('metadata.manage');
+  const u = await requirePermission('dynamic_offers.reservations');
   const { id, rid } = await ctx.params;
   try {
     await cancelReservation(id, rid);

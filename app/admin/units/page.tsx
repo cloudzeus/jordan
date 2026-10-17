@@ -9,9 +9,9 @@ export const dynamic = 'force-dynamic';
 
 // Μονάδες μέτρησης (SoftOne MTRUNIT), ομάδα μενού «Operations».
 export default async function UnitsPage() {
-  await requirePermission('metadata.read');
+  await requirePermission('units.read');
   const [{ rows, usageError }, canManage, lastSync] = await Promise.all([
-    listUnits(), hasPermission('metadata.manage'), getSetting<string>('integrations.softoneUnitsLastSync'),
+    listUnits(), hasPermission('units.manage'), getSetting<string>('integrations.softoneUnitsLastSync'),
   ]);
   const active = rows.filter((r) => r.isActive).length;
   return (

@@ -37,13 +37,13 @@ function TraderBlock({ t }: { t: Trader }) {
 
 // Καρτέλα έργου — ό,τι κρατά ο καθρέφτης SoftoneProject για ένα PRJC.
 export default async function ProjectPage({ params }: { params: Promise<{ prjc: string }> }) {
-  await requirePermission('metadata.read');
+  await requirePermission('projects.read');
   const { prjc } = await params;
   const id = Number(prjc);
   if (!Number.isInteger(id)) notFound();
   const p = await getProject(id);
   if (!p) notFound();
-  const canManage = await hasPermission('metadata.manage');
+  const canManage = await hasPermission('projects.manage');
 
   return (
     <div className="w-full max-w-5xl">

@@ -8,8 +8,8 @@ export const dynamic = 'force-dynamic';
 
 // Δυναμικές προσφορές (κοινό container) — Operations.
 export default async function DynamicOffersPage() {
-  await requirePermission('metadata.read');
-  const [offers, canManage] = await Promise.all([listOffers(), hasPermission('metadata.manage')]);
+  await requirePermission('dynamic_offers.read');
+  const [offers, canManage, canReserve] = await Promise.all([listOffers(), hasPermission('dynamic_offers.manage'), hasPermission('dynamic_offers.reservations')]);
   const open = offers.filter((o) => o.status === 'OPEN').length;
   return (
     <div className="w-full">
@@ -19,7 +19,7 @@ export default async function DynamicOffersPage() {
         description={`Κοινό container: η τιμή πέφτει για όλους όσο γεμίζει · ${open} ανοιχτές από ${offers.length}`}
         helpAnchor="dynamic-offers"
       />
-      <OffersClient offers={offers} canManage={canManage} />
+      <OffersClient offers={offers} canManage={canManage} canReserve={canReserve} />
     </div>
   );
 }

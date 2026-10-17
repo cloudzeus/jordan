@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic';
 
 // GET ?kind=CATEGORY|GROUP&sodtype=51|52&code=N — τα ενεργά είδη της κατηγορίας/ομάδας.
 export async function GET(req: Request) {
-  await requirePermission('metadata.read');
+  await requirePermission('classifications.read');
   const q = new URL(req.url).searchParams;
   const kind = q.get('kind');
   const sodtype = Number(q.get('sodtype'));

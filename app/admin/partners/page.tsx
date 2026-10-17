@@ -9,8 +9,8 @@ export const dynamic = 'force-dynamic';
 // Συνεργάτες — τοπικό μητρώο εταιριών/προσώπων, με πρόσωπα επικοινωνίας και συσχέτιση με
 // πελάτες και έργα του SoftOne. Ομάδα μενού «Operations».
 export default async function PartnersPage() {
-  await requirePermission('metadata.read');
-  const [rows, options, canManage] = await Promise.all([listPartners(), partnerLinkOptions(), hasPermission('metadata.manage')]);
+  await requirePermission('partners.read');
+  const [rows, options, canManage] = await Promise.all([listPartners(), partnerLinkOptions(), hasPermission('partners.manage')]);
   const companies = rows.filter((r) => r.type === 'COMPANY').length;
 
   return (

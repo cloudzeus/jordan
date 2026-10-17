@@ -9,7 +9,7 @@ export const dynamic = 'force-dynamic';
 
 // PATCH — μετονομασία / σύντμηση / (απ)ενεργοποίηση κατηγορίας στο SoftOne.
 export async function PATCH(req: Request, ctx: { params: Promise<{ sodtype: string; code: string }> }) {
-  const u = await requirePermission('metadata.manage');
+  const u = await requirePermission('classifications.manage');
   const p = await ctx.params;
   const sodtype = Number(p.sodtype);
   const code = Number(p.code);

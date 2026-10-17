@@ -4,7 +4,7 @@ module: roles
 slug: roles-management
 roles: [SUPER_ADMIN, ADMIN]
 order: 1
-updatedAt: 2026-05-28
+updatedAt: 2026-10-17
 description: "Διαχείριση ρόλων, ανάθεση δικαιωμάτων, αναδιάταξη προτεραιότητας."
 screenshots:
   - file: list.png
@@ -37,3 +37,26 @@ helpAnchors: [roles, roles-list]
 <Callout type="danger">
   Αφαίρεση δικαιώματος από ρόλο επηρεάζει <strong>όλους</strong> τους χρήστες του ρόλου άμεσα. Ενημέρωσέ τους πριν.
 </Callout>
+
+## Δικαιώματα ανά ενότητα (Operations)
+
+Κάθε ενότητα έχει πλέον δικά της δικαιώματα — δεν αρκεί πια το γενικό «Μητρώα αναφοράς» (`metadata.*`):
+
+| Ενότητα | Προβολή | Διαχείριση | Επιπλέον |
+|---|---|---|---|
+| Έργα | `projects.read` | `projects.manage` | — |
+| Δυναμικές προσφορές | `dynamic_offers.read` | `dynamic_offers.manage` (δημιουργία, δημοσίευση, παραλήπτες, email, τιμές SoftOne) | `dynamic_offers.reservations` (κρατήσεις, έγκριση/απόρριψη αιτημάτων portal) |
+| Συνεργάτες | `partners.read` | `partners.manage` | `partners.access` (χρήστες portal συνεργατών) |
+| Κατηγορίες & ομάδες | `classifications.read` | `classifications.manage` | — |
+| Μονάδες μέτρησης | `units.read` | `units.manage` | — |
+| Είδη | — | — | `items.unit2_override` (αλλαγή Μ.Μ.2 μέσω script σε είδος με παραστατικά) |
+
+<Callout type="info">
+  Κατά τη μετάβαση, όποιος ρόλος είχε `metadata.read` πήρε όλα τα νέα «Προβολή» και όποιος είχε `metadata.manage` όλα τα «Διαχείριση» — κανείς δεν έχασε πρόσβαση. Αφαιρέστε από κάθε ρόλο ό,τι δεν χρειάζεται.
+</Callout>
+
+<Callout type="warning">
+  Το `items.unit2_override` γράφει απευθείας στο SoftOne παρακάμπτοντας τον έλεγχό του: δίνεται μόνο σε Super Admin/Administrator και δεν περνά αυτόματα σε άλλους ρόλους.
+</Callout>
+
+Για νέα εγκατάσταση ή όταν προστεθούν δικαιώματα στον κώδικα: `npm run permissions:sync` (με `-- --dry` για προεπισκόπηση). Ποτέ δεν αφαιρεί δικαιώματα από ρόλους.

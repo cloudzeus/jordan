@@ -14,7 +14,7 @@ const body = z.object({ decision: z.enum(['approve', 'reject']), note: z.string(
 // POST — έγκριση/απόρριψη αιτήματος από το portal. Μετά την έγκριση η σελίδα ανανεώνει την 3D εικόνα
 // και στέλνει το «η τιμή έπεσε» (ίδια ροή με τη νέα κράτηση).
 export async function POST(req: Request, ctx: { params: Promise<{ id: string; rid: string }> }) {
-  const u = await requirePermission('metadata.manage');
+  const u = await requirePermission('dynamic_offers.reservations');
   const { id, rid } = await ctx.params;
   const parsed = body.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return invalid(parsed.error.issues);

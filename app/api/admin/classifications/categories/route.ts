@@ -9,7 +9,7 @@ export const dynamic = 'force-dynamic';
 
 // POST — νέα εμπορική κατηγορία στο SoftOne: { sodtype: 51|52, shortCode, name }.
 export async function POST(req: Request) {
-  const u = await requirePermission('metadata.manage');
+  const u = await requirePermission('classifications.manage');
   const parsed = categoryCreateInput.safeParse(await req.json().catch(() => null));
   if (!parsed.success) {
     const i = parsed.error.issues[0];

@@ -9,13 +9,13 @@ export const dynamic = 'force-dynamic';
 
 // GET — μονάδες μέτρησης (καθρέφτης) με πλήθος ειδών που τις χρησιμοποιούν.
 export async function GET() {
-  await requirePermission('metadata.read');
+  await requirePermission('units.read');
   return NextResponse.json(await listUnits());
 }
 
 // POST — νέα μονάδα στο SoftOne: { shortcut, name, interCode?, decimals, myDataCode }.
 export async function POST(req: Request) {
-  const u = await requirePermission('metadata.manage');
+  const u = await requirePermission('units.manage');
   const parsed = unitCreateInput.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return invalid(parsed.error.issues);
   try {

@@ -60,6 +60,27 @@ export const PERMISSIONS: PermissionDef[] = [
 
   // European funding programs (ΕΣΠΑ / EU calls)
 
+  // ── Operations ──
+  // Έργα (SoftOne PRJC: προϋπολογισμός, δραστηριότητα)
+  { key: 'projects.read', resource: 'projects', action: 'read', description: 'Προβολή έργων' },
+  { key: 'projects.manage', resource: 'projects', action: 'manage', description: 'Επεξεργασία έργων και προϋπολογισμού' },
+  // Δυναμικές προσφορές (κοινό container, PRICEW01–08)
+  { key: 'dynamic_offers.read', resource: 'dynamic_offers', action: 'read', description: 'Προβολή δυναμικών προσφορών' },
+  { key: 'dynamic_offers.manage', resource: 'dynamic_offers', action: 'manage', description: 'Δημιουργία/επεξεργασία, δημοσίευση, παραλήπτες, email, τιμές στο SoftOne' },
+  { key: 'dynamic_offers.reservations', resource: 'dynamic_offers', action: 'reservations', description: 'Κρατήσεις: νέα, ακύρωση, έγκριση/απόρριψη αιτημάτων του portal' },
+  // Συνεργάτες
+  { key: 'partners.read', resource: 'partners', action: 'read', description: 'Προβολή συνεργατών' },
+  { key: 'partners.manage', resource: 'partners', action: 'manage', description: 'Επεξεργασία συνεργατών, επαφών, πελατών και έργων τους' },
+  { key: 'partners.access', resource: 'partners', action: 'access', description: 'Πρόσβαση συνεργατών στο portal (χρήστης/κωδικός)' },
+  // Κατηγορίες & ομάδες ειδών (SoftOne)
+  { key: 'classifications.read', resource: 'classifications', action: 'read', description: 'Προβολή κατηγοριών & ομάδων' },
+  { key: 'classifications.manage', resource: 'classifications', action: 'manage', description: 'Δημιουργία/μετονομασία κατηγοριών & υποομάδων στο SoftOne' },
+  // Μονάδες μέτρησης (SoftOne MTRUNIT)
+  { key: 'units.read', resource: 'units', action: 'read', description: 'Προβολή μονάδων μέτρησης' },
+  { key: 'units.manage', resource: 'units', action: 'manage', description: 'Δημιουργία/επεξεργασία μονάδων μέτρησης στο SoftOne' },
+  // Είδη — ευαίσθητες ενέργειες
+  { key: 'items.unit2_override', resource: 'items', action: 'unit2_override', description: 'Αλλαγή Μ.Μ.2 μέσω script σε είδος με παραστατικά (παράκαμψη ελέγχου SoftOne)' },
+
   // System
   { key: 'system.audit', resource: 'system', action: 'audit', description: 'View audit log' },
   { key: 'system.settings', resource: 'system', action: 'settings', description: 'Modify system settings' },
@@ -77,11 +98,38 @@ export const ROLE_DEFAULTS: Record<string, string[]> = {
     'kad.read', 'kad.manage',
     'metadata.read', 'metadata.manage',
     'ocr.read', 'ocr.create', 'ocr.delete', 'ocr.categorize', 'ocr.post',
+    'projects.read', 'projects.manage',
+    'dynamic_offers.read', 'dynamic_offers.manage', 'dynamic_offers.reservations',
+    'partners.read', 'partners.manage', 'partners.access',
+    'classifications.read', 'classifications.manage',
+    'units.read', 'units.manage',
+    'items.unit2_override',
   ],
   EMPLOYEE: ['users.read'],
   COLLABORATOR: ['users.read'],
   SUPPLIER: [],
   CUSTOMER: [],
+};
+
+/** Ελληνικές ετικέτες ομάδων για τη σελίδα «Δικαιώματα» (ό,τι λείπει εμφανίζεται με το κλειδί). */
+export const RESOURCE_LABELS: Record<string, string> = {
+  users: 'Χρήστες', roles: 'Ρόλοι', permissions: 'Δικαιώματα', media: 'Media', companies: 'Εταιρείες',
+  kad: 'ΚΑΔ', metadata: 'Μητρώα αναφοράς', ocr: 'OCR / Έγγραφα', system: 'Σύστημα',
+  projects: 'Έργα', dynamic_offers: 'Δυναμικές προσφορές', partners: 'Συνεργάτες',
+  classifications: 'Κατηγορίες & ομάδες', units: 'Μονάδες μέτρησης', items: 'Είδη',
+};
+
+/**
+ * Μετάβαση από τα γενικά metadata.* στα δικαιώματα ανά ενότητα: όποιος ρόλος είχε το «παλιό» παίρνει
+ * τα νέα, ώστε κανείς να μη χάσει πρόσβαση (scripts/sync-permissions.ts). ΔΕΝ περιλαμβάνει το
+ * items.unit2_override — αυτό δίνεται μόνο ρητά (προεπιλογή: SUPER_ADMIN/ADMIN).
+ */
+export const LEGACY_GRANTS: Record<string, string[]> = {
+  'metadata.read': ['projects.read', 'dynamic_offers.read', 'partners.read', 'classifications.read', 'units.read'],
+  'metadata.manage': [
+    'projects.manage', 'dynamic_offers.manage', 'dynamic_offers.reservations',
+    'partners.manage', 'partners.access', 'classifications.manage', 'units.manage',
+  ],
 };
 
 export const SYSTEM_ROLES: Array<{ key: string; name: string; description: string; order: number }> = [

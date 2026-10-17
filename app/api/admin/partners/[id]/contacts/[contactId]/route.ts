@@ -10,7 +10,7 @@ export const dynamic = 'force-dynamic';
 type Ctx = { params: Promise<{ id: string; contactId: string }> };
 
 export async function PUT(req: Request, ctx: Ctx) {
-  const u = await requirePermission('metadata.manage');
+  const u = await requirePermission('partners.manage');
   const { id, contactId } = await ctx.params;
   const body = await parseBody(req, contactInput);
   if (body.res) return body.res;
@@ -22,7 +22,7 @@ export async function PUT(req: Request, ctx: Ctx) {
 }
 
 export async function DELETE(_req: Request, ctx: Ctx) {
-  const u = await requirePermission('metadata.manage');
+  const u = await requirePermission('partners.manage');
   const { id, contactId } = await ctx.params;
   try {
     const c = await deleteContact(id, contactId);

@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic';
 
 // GET — παραστατικά και υλικά/υπηρεσίες ενός έργου, ζωντανά από το SoftOne. Μόνο ανάγνωση.
 export async function GET(_req: Request, ctx: { params: Promise<{ prjc: string }> }) {
-  await requirePermission('metadata.read');
+  await requirePermission('projects.read');
   const prjc = Number((await ctx.params).prjc);
   if (!Number.isInteger(prjc) || prjc <= 0) return NextResponse.json({ error: 'invalid_prjc' }, { status: 400 });
   try {

@@ -82,7 +82,7 @@ function RowActions({ o, onEdit, onChanged }: { o: OfferRow; onEdit: () => void;
 
 type Filter = 'active' | 'all' | 'CLOSED' | 'CANCELLED';
 
-export function OffersClient({ offers, canManage }: { offers: OfferRow[]; canManage: boolean }) {
+export function OffersClient({ offers, canManage, canReserve }: { offers: OfferRow[]; canManage: boolean; canReserve: boolean }) {
   const router = useRouter();
   const [wizard, setWizard] = React.useState<{ id: string | null } | null>(null);
   const [filter, setFilter] = React.useState<Filter>('active');
@@ -177,7 +177,7 @@ export function OffersClient({ offers, canManage }: { offers: OfferRow[]; canMan
         pageSize={25}
         growColumnId="name"
         responsiveHide={['closesAt', 'customers', 'next', 'status', 'price']}
-        expandable={(o) => <OfferDetail offer={o} canManage={canManage} onChanged={refresh} />}
+        expandable={(o) => <OfferDetail offer={o} canReserve={canReserve} onChanged={refresh} />}
         emptyState={(
           <div className="space-y-2 py-10 text-center">
             <FiSend className="mx-auto size-8 text-muted-foreground/50" aria-hidden />
