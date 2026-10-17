@@ -230,7 +230,7 @@ function DocsTable({ rows }: { rows: ProjectDoc[] }) {
             return (
               <tr
                 key={d.findoc}
-                className={cn('border-t border-border/60 transition-colors duration-150 hover:bg-muted/30', d.cancelled && 'text-muted-foreground')}
+                className={cn('border-t border-border/60 transition-colors duration-150 hover:bg-muted/30', (d.cancelled || !d.counts) && 'text-muted-foreground')}
               >
                 <td className={cn(TD, 'tabular-nums whitespace-nowrap')} style={{ boxShadow: `inset 3px 0 0 ${t.fg}` }}>{fmtDate(d.date)}</td>
                 <td className={TD}>
@@ -243,6 +243,11 @@ function DocsTable({ rows }: { rows: ProjectDoc[] }) {
                       <FiSlash className="size-3" aria-hidden /> Ακυρωμένο
                     </span>
                   )}
+                  {!d.counts && !d.cancelled && (
+                    <span className="mt-0.5 ml-1 inline-block rounded-sm bg-muted px-1 text-[length:var(--fs-11)] text-muted-foreground" title="Παραγγελίες, προσφορές και δελτία δεν μετρούν στα σύνολα — η ίδια αγορά/πώληση μετριέται στο τιμολόγιο">
+                      {d.kindLabel} · δεν μετρά
+                    </span>
+                  )}
                   {!d.onHeader && (
                     <span className="mt-0.5 ml-1 inline-block rounded-sm bg-muted px-1 text-[length:var(--fs-11)] text-muted-foreground" title="Το έργο είναι μόνο σε γραμμές του παραστατικού, όχι στην κεφαλή">
                       μόνο γραμμές
@@ -253,7 +258,7 @@ function DocsTable({ rows }: { rows: ProjectDoc[] }) {
                 <td className={cn(TD, 'hidden lg:table-cell')}>{d.trader ?? <span className="text-muted-foreground/50">—</span>}</td>
                 <td className={cn(TD, NUM, 'hidden xl:table-cell')}>{eur.format(d.net)}</td>
                 <td className={cn(TD, NUM, 'hidden text-muted-foreground xl:table-cell')}>{eur.format(d.vat)}</td>
-                <td className={cn(TD, NUM, 'font-semibold', !d.cancelled && 'text-foreground')}>{eur.format(d.total)}</td>
+                <td className={cn(TD, NUM, 'font-semibold', !d.cancelled && d.counts && 'text-foreground')}>{eur.format(d.total)}</td>
               </tr>
             );
           })}

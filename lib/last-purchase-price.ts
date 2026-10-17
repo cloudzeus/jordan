@@ -1,5 +1,6 @@
 import 'server-only';
 import { softoneGetTable, s1DateOrNull } from '@/lib/softone';
+import { purchaseSeriesMap } from '@/lib/purchase-kinds';
 
 /**
  * Τελευταία τιμή αγοράς ανά είδος, ΑΠΟ ΤΑ ΠΑΡΑΣΤΑΤΙΚΑ ΑΓΟΡΩΝ του SoftOne.
@@ -11,7 +12,8 @@ import { softoneGetTable, s1DateOrNull } from '@/lib/softone';
  *    οπότε η ημερομηνία και η ενότητα έρχονται από την κεφαλή (`FINDOC`).
  *
  * Κόστος μονάδας = LINEVAL / QTY1 (καθαρή αξία γραμμής μετά τις εκπτώσεις, ανά βασική μονάδα).
- * Αν η ποσότητα είναι 0, πέφτουμε στο PRICE. Ακυρωμένα παραστατικά (ISCANCEL≠0) δεν μετρούν.
+ * Μετρούν ΜΟΝΟ τα τιμολόγια (lib/purchase-kinds) με ποσότητα και αξία > 0: μια παραγγελία δεν είναι
+ * αγορά, και ένα δελτίο παραλαβής με αξία 0 θα έδινε «τελευταίο κόστος 0». Ακυρωμένα δεν μετρούν.
  */
 
 export type LastPurchase = {
@@ -36,9 +38,13 @@ async function purchaseHeaders(force = false) {
   if (!force && headers && Date.now() - headers.at < HEADERS_TTL_MS) return headers.byId;
   if (headersLoading) return headersLoading;
   headersLoading = (async () => {
-    const rows = await softoneGetTable('FINDOC', ['FINDOC', 'TRNDATE', 'FINCODE'], `SOSOURCE=${PURCHASES} AND ISCANCEL=0`);
+    const [rows, series] = await Promise.all([
+      softoneGetTable('FINDOC', ['FINDOC', 'TRNDATE', 'FINCODE', 'SERIES'], `SOSOURCE=${PURCHASES} AND ISCANCEL=0`),
+      purchaseSeriesMap(),
+    ]);
     const byId = new Map<number, { date: string; fincode: string }>();
     for (const r of rows) {
+      if (series.get(r.SERIES)?.kind !== 'invoice') continue;
       const d = s1DateOrNull(r.TRNDATE);
       const id = Number(r.FINDOC);
       if (d && Number.isInteger(id)) byId.set(id, { date: d.toISOString(), fincode: r.FINCODE });
@@ -65,8 +71,8 @@ export async function lastPurchasePrices(mtrls: number[], opts: { fresh?: boolea
       const mtrl = Number(l.MTRL);
       const qty = Number(l.QTY1);
       const val = Number(l.LINEVAL);
-      const unitCost = qty > 0 && Number.isFinite(val) ? val / qty : Number(l.PRICE);
-      if (!Number.isFinite(unitCost)) continue;
+      if (!(qty > 0) || !(val > 0)) continue;
+      const unitCost = val / qty;
       const cur = out.get(mtrl);
       // Η πιο πρόσφατη ημερομηνία κερδίζει· στην ίδια ημέρα, το μεταγενέστερο παραστατικό.
       if (!cur || head.date > cur.date || (head.date === cur.date && findoc > cur.findoc)) {

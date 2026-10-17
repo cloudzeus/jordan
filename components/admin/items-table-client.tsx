@@ -8,7 +8,7 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { ItemEditDialog } from '@/components/admin/item-edit-dialog';
-import { ItemMediaPanel } from '@/components/admin/item-media/item-media-panel';
+import { ItemExpandPanel } from '@/components/admin/item-expand-panel';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -289,8 +289,8 @@ export function ItemsTableClient({
         searchPlaceholder="Αναζήτηση (κωδικός, EAN, εργοστασίου, περιγραφή…)"
         persistKey={`admin.${variant}.table.v1`}
         toolbar={toolbar}
-        // Πολυμέσα του είδους (φωτογραφίες, βίντεο, 360°) στην ανοιγμένη γραμμή.
-        expandable={(r) => <ItemMediaPanel mtrl={r.mtrl} canManage={canManage} showStock={!r.isService} />}
+        // Ανοιγμένη γραμμή: Info (υπόλοιπα, στοιχεία) · Media · Αγορές.
+        expandable={(r) => <ItemExpandPanel mtrl={r.mtrl} canManage={canManage} isService={r.isService} />}
         pageSize={50}
       />
       {lastSync && (

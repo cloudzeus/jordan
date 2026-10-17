@@ -2,6 +2,7 @@ import 'server-only';
 import { prisma } from '@/lib/db';
 import { softoneGetTable, s1DateOrNull, sosourceLabel } from '@/lib/softone';
 import { lastPurchasePrices } from '@/lib/last-purchase-price';
+import { docKindMap, purchaseSeriesMap, PURCHASE_KIND_LABEL, type PurchaseKind } from '@/lib/purchase-kinds';
 
 /**
  * Κινήσεις ενός έργου, ΖΩΝΤΑΝΑ από το SoftOne (όχι καθρέφτης): τα παραστατικά (FINDOC) και οι
@@ -35,6 +36,11 @@ export type ProjectDoc = {
   cancelled: boolean;
   /** Το PRJC είναι στην κεφαλή (αλλιώς μόνο σε γραμμές του). */
   onHeader: boolean;
+  /** Τιμολόγιο / πιστωτικό / παραγγελία / προσφορά / δελτίο. Στις Αγορές/Πωλήσεις μετρούν μόνο τα
+   *  τιμολόγια (+) και τα πιστωτικά (−) — αλλιώς μια αγορά μετριέται σε παραγγελία, δελτίο ΚΑΙ τιμολόγιο. */
+  kind: PurchaseKind;
+  kindLabel: string;
+  counts: boolean;
 };
 
 export type ProjectMaterial = {
@@ -85,8 +91,10 @@ export async function fetchProjectActivity(prjc: number): Promise<ProjectActivit
     : [];
 
   const allHeads = [...headRows, ...extraRows];
-  const [series, traders, items, units] = await Promise.all([
+  const [series, purchaseSeries, kinds, traders, items, units] = await Promise.all([
     prisma.softoneDocSeries.findMany({ select: { sosource: true, code: true, name: true } }),
+    purchaseSeriesMap(),
+    docKindMap(),
     prisma.softoneTrader.findMany({
       where: { trdr: { in: [...new Set(allHeads.map((r) => int(r.TRDR)).filter((v): v is number => v != null))] } },
       select: { trdr: true, name: true },
@@ -100,6 +108,10 @@ export async function fetchProjectActivity(prjc: number): Promise<ProjectActivit
   ]);
   const unitName = new Map(units.map((u) => [u.code, u.name]));
   const seriesName = new Map(series.map((s) => [`${s.sosource}:${s.code}`, s.name]));
+  // Οι σειρές αγορών ζουν στο PurchaseDocType, όχι στο SoftoneDocSeries.
+  for (const [code, v] of purchaseSeries) seriesName.set(`1251:${code}`, v.name);
+  /** Ενότητες όπου ένα παραστατικό ΔΕΝ είναι πάντα συναλλαγή (υπάρχουν παραγγελίες/δελτία/προσφορές). */
+  const TRADE = new Set([1251, 1351]);
   const traderName = new Map(traders.map((t) => [t.trdr, t.name]));
   const itemById = new Map(items.map((i) => [i.mtrl, i]));
 
@@ -121,6 +133,10 @@ export async function fetchProjectActivity(prjc: number): Promise<ProjectActivit
       total: num(r.SUMAMNT),
       cancelled: num(r.ISCANCEL) !== 0,
       onHeader: num(r.PRJC) === prjc,
+      ...(() => {
+        const kind: PurchaseKind = TRADE.has(sosource) ? kinds.get(`${sosource}:${r.SERIES}`) ?? 'movement' : 'invoice';
+        return { kind, kindLabel: TRADE.has(sosource) ? PURCHASE_KIND_LABEL[kind] : sosourceLabel(sosource), counts: kind === 'invoice' || kind === 'credit' };
+      })(),
     };
   }).sort((a, b) => (b.date ?? '').localeCompare(a.date ?? '') || b.findoc - a.findoc);
 
@@ -131,7 +147,8 @@ export async function fetchProjectActivity(prjc: number): Promise<ProjectActivit
   for (const r of lineRows) {
     const mtrl = int(r.MTRL);
     const doc = docById.get(num(r.FINDOC));
-    if (mtrl == null || !doc || doc.cancelled) continue;
+    if (mtrl == null || !doc || doc.cancelled || !doc.counts) continue;
+    const sign = doc.kind === 'credit' ? -1 : 1;
     const key = `${mtrl}:${doc.sosource}`;
     let e = agg.get(key);
     if (!e) {
@@ -149,8 +166,8 @@ export async function fetchProjectActivity(prjc: number): Promise<ProjectActivit
       };
       agg.set(key, e);
     }
-    e.qty += num(r.QTY1);
-    e.value += num(r.LINEVAL);
+    e.qty += sign * num(r.QTY1);
+    e.value += sign * num(r.LINEVAL);
     e.docSet.add(doc.findoc);
   }
   // Κόστος από την ΤΕΛΕΥΤΑΙΑ αγορά του είδους σε όλη την εταιρία. Αν το SoftOne δεν απαντήσει,
@@ -165,9 +182,10 @@ export async function fetchProjectActivity(prjc: number): Promise<ProjectActivit
 
   const fam = new Map<number, FamilyTotal>();
   for (const d of docs) {
-    if (d.cancelled) continue;
+    if (d.cancelled || !d.counts) continue;
+    const sign = d.kind === 'credit' ? -1 : 1;
     const t = fam.get(d.sosource) ?? { sosource: d.sosource, family: d.family, docs: 0, net: 0, vat: 0, total: 0 };
-    t.docs++; t.net += d.net; t.vat += d.vat; t.total += d.total;
+    t.docs++; t.net += sign * d.net; t.vat += sign * d.vat; t.total += sign * d.total;
     fam.set(d.sosource, t);
   }
 

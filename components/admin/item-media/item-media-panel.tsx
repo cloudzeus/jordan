@@ -151,7 +151,7 @@ const qtyFmt = new Intl.NumberFormat('el-GR', { maximumFractionDigits: 3 });
 const STOCK_TONE = '#0F766E';
 
 /** Υπόλοιπα του είδους ανά αποθήκη + σύνολο. «Ανανέωση» = ζωντανή ανάγνωση από το SoftOne. */
-function StockStrip({ mtrl }: { mtrl: number }) {
+export function StockStrip({ mtrl }: { mtrl: number }) {
   const [data, setData] = React.useState<ItemStock | null>(null);
   const [busy, setBusy] = React.useState(false);
   const load = React.useCallback(async (live: boolean) => {
