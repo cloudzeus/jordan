@@ -91,6 +91,12 @@ export const MODULE_META: Record<string, ModuleMeta> = {
     gradientFrom: '#38bdf8', gradientTo: '#0284c7',
     accent: '#0369a1', accentSoft: '#e0f2fe',
   },
+  operations: {
+    label: 'Operations', description: 'Έργα της εταιρίας από το SoftOne',
+    icon: FiBriefcase,
+    gradientFrom: '#34d399', gradientTo: '#059669',
+    accent: '#047857', accentSoft: '#d1fae5',
+  },
 };
 
 export const FALLBACK_META: ModuleMeta = {

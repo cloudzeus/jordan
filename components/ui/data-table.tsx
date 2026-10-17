@@ -245,6 +245,7 @@ export function DataTable<TData, TValue>({
             }}
             className="inline-flex h-6 w-6 items-center justify-center rounded text-muted-foreground hover:bg-muted dark:hover:bg-muted transition-colors"
             aria-label={row.getIsExpanded() ? 'Σύμπτυξη' : 'Επέκταση'}
+            aria-expanded={row.getIsExpanded()}
           >
             {row.getIsExpanded() ? <FiChevronDown className="h-3.5 w-3.5" /> : <FiChevronRight className="h-3.5 w-3.5" />}
           </button>

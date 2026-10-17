@@ -2097,9 +2097,42 @@ model SoftoneProject {
   isActive Boolean  @default(true)
   syncedAt DateTime @default(now())
 
+  // Στοιχεία για τη σελίδα «Έργα» (Operations). Το SoftOne δεν δίνει τις ετικέτες του ACTSTATUS
+  // μέσω Web Services — κρατάμε τον κωδικό και η ετικέτα ζει στο `lib/projects.ts`.
+  actStatus Int? // ACTSTATUS («Status»)
+  trdrSu    Int? // TRDRSU («Προμηθευτής»)
+  remarks   String? // REMARKS («Παρατηρήσεις»)
+  crdDate   DateTime? // CRDDATE («Δημιουργία»)
+  fromDate  DateTime? // FROMDATE («Έναρξη»)
+  finalDate DateTime? // FINALDATE («Λήξη»)
+  closeDate DateTime? // CLOSEDATE («Κλείσιμο»)
+
   @@index([name])
   @@index([code])
   @@index([trdr])
+  @@index([actStatus])
+}
+
+// Προϋπολογισμός έργου — ΔΙΚΑ ΜΑΣ δεδομένα (όχι SoftOne): τα υλικά/υπηρεσίες που προβλέπονται για
+// ένα έργο, για σύγκριση με τις πραγματικές κινήσεις του SoftOne. Το όνομα και η μονάδα κρατιούνται
+// ως στιγμιότυπο, ώστε η γραμμή να διαβάζεται ακόμη κι αν το είδος αλλάξει ή σβηστεί από τον καθρέφτη.
+model ProjectBudgetLine {
+  id          String   @id @default(cuid())
+  prjc        Int // SoftOne PRJC του έργου
+  mtrl        Int // SoftOne MTRL (υλικό ή υπηρεσία)
+  code        String
+  name        String
+  isService   Boolean  @default(false)
+  unit        String?
+  qty         Float
+  unitPrice   Float    @default(0)
+  notes       String?
+  createdById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([prjc])
+  @@index([mtrl])
 }
 
 // Δραστηριότητες SoftOne — object PRJCSTAGE («Δραστηριότητες») → DB πίνακας PRJCSTAGE.

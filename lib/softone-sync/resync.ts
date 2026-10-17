@@ -788,7 +788,11 @@ export async function syncProjects(actor: SyncActor): Promise<SyncPayload> {
   let created = 0;
   let updated = 0;
   for (const r of rows) {
-    const data = { code: r.code, name: r.name, trdr: r.trdr, prjType: r.prjType, isActive: true, syncedAt: now };
+    const data = {
+      code: r.code, name: r.name, trdr: r.trdr, prjType: r.prjType, isActive: true, syncedAt: now,
+      actStatus: r.actStatus, trdrSu: r.trdrSu, remarks: r.remarks,
+      crdDate: r.crdDate, fromDate: r.fromDate, finalDate: r.finalDate, closeDate: r.closeDate,
+    };
     await prisma.softoneProject.upsert({ where: { prjc: r.prjc }, update: data, create: { prjc: r.prjc, ...data } });
     if (existing.has(r.prjc)) updated++; else created++;
   }

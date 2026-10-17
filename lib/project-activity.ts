@@ -1,0 +1,171 @@
+import 'server-only';
+import { prisma } from '@/lib/db';
+import { softoneGetTable, s1DateOrNull, sosourceLabel } from '@/lib/softone';
+
+/**
+ * Κινήσεις ενός έργου, ΖΩΝΤΑΝΑ από το SoftOne (όχι καθρέφτης): τα παραστατικά (FINDOC) και οι
+ * γραμμές ειδών/υπηρεσιών (MTRLINES) που φέρουν το PRJC του έργου.
+ *
+ * Επιβεβαιωμένο ζωντανά (atelier, 2026-10-17): `GetTable FINDOC FILTER PRJC=n` και
+ * `GetTable MTRLINES FILTER PRJC=n` απαντούν σε ~100ms — γι' αυτό φορτώνονται όταν ανοίγει
+ * το έργο, όχι με προ-συγχρονισμό εκατοντάδων παραστατικών.
+ *
+ * Το PRJC υπάρχει ΚΑΙ στην κεφαλή ΚΑΙ στη γραμμή: μια γραμμή μπορεί να χρεώνεται σε έργο ενώ η
+ * κεφαλή του παραστατικού όχι. Τις κεφαλές που λείπουν τις φέρνουμε χωριστά, ώστε κάθε γραμμή
+ * να δείχνει από ποιο παραστατικό προέρχεται.
+ */
+
+const DOC_FIELDS = ['FINDOC', 'FINCODE', 'TRNDATE', 'SERIES', 'SOSOURCE', 'TRDR', 'PRJC', 'SUMAMNT', 'NETAMNT', 'VATAMNT', 'ISCANCEL'];
+const LINE_FIELDS = ['MTRLINES', 'FINDOC', 'MTRL', 'QTY1', 'PRICE', 'LINEVAL', 'SODTYPE'];
+
+export type ProjectDoc = {
+  findoc: number;
+  fincode: string;
+  date: string | null;
+  sosource: number;
+  family: string;
+  series: string;
+  seriesName: string | null;
+  trader: string | null;
+  net: number;
+  vat: number;
+  total: number;
+  /** ISCANCEL ≠ 0: ακυρωμένο ή ακυρωτικό — δεν μετρά στα σύνολα. */
+  cancelled: boolean;
+  /** Το PRJC είναι στην κεφαλή (αλλιώς μόνο σε γραμμές του). */
+  onHeader: boolean;
+};
+
+export type ProjectMaterial = {
+  mtrl: number;
+  code: string | null;
+  name: string;
+  isService: boolean;
+  unit: string | null;
+  sosource: number;
+  family: string;
+  qty: number;
+  value: number;
+  docs: number;
+};
+
+export type FamilyTotal = { sosource: number; family: string; docs: number; net: number; vat: number; total: number };
+
+export type ProjectActivity = {
+  docs: ProjectDoc[];
+  materials: ProjectMaterial[];
+  totals: FamilyTotal[];
+  fetchedAt: string;
+};
+
+const num = (v: string | undefined) => {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : 0;
+};
+const int = (v: string | undefined) => {
+  const n = Number(v);
+  return Number.isInteger(n) && n !== 0 ? n : null;
+};
+
+export async function fetchProjectActivity(prjc: number): Promise<ProjectActivity> {
+  if (!Number.isInteger(prjc) || prjc <= 0) throw new Error('Μη έγκυρο έργο');
+
+  const [headRows, lineRows] = await Promise.all([
+    softoneGetTable('FINDOC', DOC_FIELDS, `PRJC=${prjc}`),
+    softoneGetTable('MTRLINES', LINE_FIELDS, `PRJC=${prjc}`),
+  ]);
+
+  const headerIds = new Set(headRows.map((r) => num(r.FINDOC)));
+  const missing = [...new Set(lineRows.map((r) => num(r.FINDOC)).filter((id) => id && !headerIds.has(id)))];
+  const extraRows = missing.length
+    ? await softoneGetTable('FINDOC', DOC_FIELDS, `FINDOC IN (${missing.join(',')})`)
+    : [];
+
+  const allHeads = [...headRows, ...extraRows];
+  const [series, traders, items, units] = await Promise.all([
+    prisma.softoneDocSeries.findMany({ select: { sosource: true, code: true, name: true } }),
+    prisma.softoneTrader.findMany({
+      where: { trdr: { in: [...new Set(allHeads.map((r) => int(r.TRDR)).filter((v): v is number => v != null))] } },
+      select: { trdr: true, name: true },
+    }),
+    prisma.softoneItem.findMany({
+      where: { mtrl: { in: [...new Set(lineRows.map((r) => int(r.MTRL)).filter((v): v is number => v != null))] } },
+      select: { mtrl: true, code: true, name: true, isService: true, unit1: true },
+    }),
+    // Το `unit1` είναι ο ΚΩΔΙΚΟΣ μονάδας (MTRUNIT, π.χ. «101») — το όνομα ζει στα μητρώα.
+    prisma.softoneLookup.findMany({ where: { kind: 'MTRUNIT' }, select: { code: true, name: true } }),
+  ]);
+  const unitName = new Map(units.map((u) => [u.code, u.name]));
+  const seriesName = new Map(series.map((s) => [`${s.sosource}:${s.code}`, s.name]));
+  const traderName = new Map(traders.map((t) => [t.trdr, t.name]));
+  const itemById = new Map(items.map((i) => [i.mtrl, i]));
+
+  const docs: ProjectDoc[] = allHeads.map((r) => {
+    const sosource = num(r.SOSOURCE);
+    const trdr = int(r.TRDR);
+    const date = s1DateOrNull(r.TRNDATE);
+    return {
+      findoc: num(r.FINDOC),
+      fincode: r.FINCODE || `#${r.FINDOC}`,
+      date: date ? date.toISOString() : null,
+      sosource,
+      family: sosourceLabel(sosource),
+      series: r.SERIES,
+      seriesName: seriesName.get(`${sosource}:${r.SERIES}`) ?? null,
+      trader: trdr != null ? traderName.get(trdr) ?? null : null,
+      net: num(r.NETAMNT),
+      vat: num(r.VATAMNT),
+      total: num(r.SUMAMNT),
+      cancelled: num(r.ISCANCEL) !== 0,
+      onHeader: num(r.PRJC) === prjc,
+    };
+  }).sort((a, b) => (b.date ?? '').localeCompare(a.date ?? '') || b.findoc - a.findoc);
+
+  const docById = new Map(docs.map((d) => [d.findoc, d]));
+
+  // Υλικά & υπηρεσίες: ΣΥΓΚΕΝΤΡΩΤΙΚΑ ανά είδος και ενότητα (αγορές ≠ πωλήσεις — δεν αθροίζονται).
+  const agg = new Map<string, ProjectMaterial & { docSet: Set<number> }>();
+  for (const r of lineRows) {
+    const mtrl = int(r.MTRL);
+    const doc = docById.get(num(r.FINDOC));
+    if (mtrl == null || !doc || doc.cancelled) continue;
+    const key = `${mtrl}:${doc.sosource}`;
+    let e = agg.get(key);
+    if (!e) {
+      const it = itemById.get(mtrl);
+      e = {
+        mtrl,
+        code: it?.code ?? null,
+        name: it?.name ?? `Είδος #${mtrl}`,
+        isService: it ? it.isService : num(r.SODTYPE) === 52,
+        unit: it?.unit1 ? unitName.get(it.unit1) ?? null : null,
+        sosource: doc.sosource,
+        family: doc.family,
+        qty: 0, value: 0, docs: 0,
+        docSet: new Set<number>(),
+      };
+      agg.set(key, e);
+    }
+    e.qty += num(r.QTY1);
+    e.value += num(r.LINEVAL);
+    e.docSet.add(doc.findoc);
+  }
+  const materials: ProjectMaterial[] = [...agg.values()]
+    .map(({ docSet, ...m }) => ({ ...m, docs: docSet.size }))
+    .sort((a, b) => a.sosource - b.sosource || b.value - a.value);
+
+  const fam = new Map<number, FamilyTotal>();
+  for (const d of docs) {
+    if (d.cancelled) continue;
+    const t = fam.get(d.sosource) ?? { sosource: d.sosource, family: d.family, docs: 0, net: 0, vat: 0, total: 0 };
+    t.docs++; t.net += d.net; t.vat += d.vat; t.total += d.total;
+    fam.set(d.sosource, t);
+  }
+
+  return {
+    docs,
+    materials,
+    totals: [...fam.values()].sort((a, b) => a.sosource - b.sosource),
+    fetchedAt: new Date().toISOString(),
+  };
+}

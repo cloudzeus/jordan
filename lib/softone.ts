@@ -2629,12 +2629,37 @@ export interface ProjectRow {
   trdr: number | null;
   prjType: number | null;
   isActive: boolean;
+  actStatus: number | null;
+  /** TRDRSU («Προμηθευτής»). */
+  trdrSu: number | null;
+  remarks: string | null;
+  crdDate: Date | null;
+  fromDate: Date | null;
+  finalDate: Date | null;
+  closeDate: Date | null;
 }
 
-/** Object PRJC «Έργα» → DB πίνακας PRJC. */
+/** «2025-06-27 00:00:00» (ώρα SoftOne, χωρίς ζώνη) → Date στις 00:00 UTC της ίδιας ημέρας· κενό → null. */
+export function s1DateOrNull(v: unknown): Date | null {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(str(v));
+  if (!m) return null;
+  const d = new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3])));
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+/**
+ * Object PRJC «Έργα» → DB πίνακας PRJC.
+ *
+ * Επιβεβαιωμένο ζωντανά (atelier, 2026-10-17): το GetTable στο PRJC επιστρέφει ΜΟΝΟ τα ενεργά
+ * έργα, ακόμα και χωρίς φίλτρο — τα ανενεργά δεν έρχονται ποτέ, γι' αυτό ο συγχρονισμός
+ * απενεργοποιεί όσα λείπουν.
+ */
 export async function softoneFetchProjects(): Promise<ProjectRow[]> {
   const rows = await softoneGetTable(
-    'PRJC', ['PRJC', 'CODE', 'NAME', 'TRDR', 'PRJTYPE', 'ISACTIVE'], 'ISACTIVE=1',
+    'PRJC',
+    ['PRJC', 'CODE', 'NAME', 'TRDR', 'PRJTYPE', 'ISACTIVE', 'ACTSTATUS', 'TRDRSU', 'REMARKS',
+      'CRDDATE', 'FROMDATE', 'FINALDATE', 'CLOSEDATE'],
+    'ISACTIVE=1',
   );
   return rows
     .map((o) => ({
@@ -2644,6 +2669,13 @@ export async function softoneFetchProjects(): Promise<ProjectRow[]> {
       trdr: intOrNull(o.TRDR),
       prjType: intOrNull(o.PRJTYPE),
       isActive: o.ISACTIVE !== '0',
+      actStatus: intOrNull(o.ACTSTATUS),
+      trdrSu: intOrNull(o.TRDRSU),
+      remarks: str(o.REMARKS) || null,
+      crdDate: s1DateOrNull(o.CRDDATE),
+      fromDate: s1DateOrNull(o.FROMDATE),
+      finalDate: s1DateOrNull(o.FINALDATE),
+      closeDate: s1DateOrNull(o.CLOSEDATE),
     }))
     .filter((r) => Number.isFinite(r.prjc) && r.prjc !== 0);
 }
