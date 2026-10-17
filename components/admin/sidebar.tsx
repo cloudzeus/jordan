@@ -4,7 +4,7 @@ import * as React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
-  FiGrid, FiUsers, FiShield, FiKey, FiImage, FiChevronDown, FiList,
+  FiGrid, FiUsers, FiShield, FiKey, FiImage, FiChevronDown, FiList, FiTag,
   FiActivity, FiSettings, FiFileText, FiLogOut, FiDatabase, FiBriefcase, FiLayers, FiCpu, FiBookOpen, FiBook, FiUserCheck, FiBox, FiTool, FiFolder, FiAlertCircle, FiUserPlus, FiPackage, FiPlayCircle, FiUploadCloud, FiHelpCircle, FiClipboard,
 } from 'react-icons/fi';
 
@@ -52,6 +52,7 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { href: '/admin/projects', label: 'Έργα', icon: FiBriefcase, permissions: ['metadata.read'] },
       { href: '/admin/partners', label: 'Συνεργάτες', icon: FiUsers, permissions: ['metadata.read'] },
+      { href: '/admin/classifications', label: 'Κατηγορίες & ομάδες', icon: FiTag, permissions: ['metadata.read'] },
     ],
   },
   {

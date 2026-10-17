@@ -4,6 +4,7 @@ const { softone, db, maint } = vi.hoisted(() => ({
   softone: { softoneCall: vi.fn(), softoneGetTable: vi.fn() },
   db: {
     softoneLookup: { findMany: vi.fn() },
+    softoneClassification: { findMany: vi.fn(async (_q?: any): Promise<unknown[]> => []) },
     vatCategory: { findMany: vi.fn() },
     softoneItem: { updateMany: vi.fn() },
   },
@@ -63,6 +64,16 @@ describe('editSoftoneItem', () => {
   it('απορρίπτει τιμή λίστας που δεν υπάρχει στο τοπικό μητρώο — πριν φύγει οτιδήποτε', async () => {
     softone.softoneGetTable.mockResolvedValueOnce([row()]);
     await expect(editSoftoneItem(266, { group: '999' })).rejects.toThrow(/Άγνωστη τιμή για «Ομάδα»/);
+    expect(softone.softoneCall).not.toHaveBeenCalled();
+  });
+
+  it('κατηγορία/ομάδα: δεκτές μόνο του ΙΔΙΟΥ μητρώου (η ομάδα 2 των ειδών δεν ισχύει σε υπηρεσία)', async () => {
+    db.softoneClassification.findMany.mockImplementation(async (q: any) => (q.where.sodtype === 52
+      ? [{ kind: 'GROUP', code: 1 }, { kind: 'CATEGORY', code: 1 }]
+      : [{ kind: 'GROUP', code: 1 }, { kind: 'GROUP', code: 2 }, { kind: 'CATEGORY', code: 1 }]));
+    softone.softoneGetTable.mockResolvedValueOnce([row({ SODTYPE: '52' })]);
+    await expect(editSoftoneItem(266, { group: '2' })).rejects.toThrow(/Άγνωστη τιμή για «Ομάδα»/);
+    expect(db.softoneClassification.findMany.mock.calls[0]?.[0]?.where).toEqual({ sodtype: 52, isActive: true });
     expect(softone.softoneCall).not.toHaveBeenCalled();
   });
 

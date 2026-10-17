@@ -129,6 +129,14 @@ export async function editSoftoneItem(mtrl: number, input: ItemEditInput): Promi
   const lookups = await prisma.softoneLookup.findMany({ select: { kind: true, code: true } });
   const vats = await prisma.vatCategory.findMany({ select: { code: true } });
   const known = new Set(lookups.map((l) => `${l.kind}:${l.code}`));
+  // Κατηγορία/ομάδα: αριθμούνται ΑΝΑ SODTYPE — δεκτές μόνο οι ενεργές του ίδιου μητρώου (είδη ή υπηρεσίες).
+  const classes = await prisma.softoneClassification.findMany({
+    where: { sodtype: before.isService ? 52 : 51, isActive: true }, select: { kind: true, code: true },
+  });
+  if (classes.length) {
+    for (const k of [...known]) if (k.startsWith('MTRCATEGORY:') || k.startsWith('MTRGROUP:')) known.delete(k);
+    for (const c of classes) known.add(`${c.kind === 'CATEGORY' ? 'MTRCATEGORY' : 'MTRGROUP'}:${c.code}`);
+  }
   const knownVat = new Set([...vats.map((v) => v.code), ...lookups.filter((l) => l.kind === 'VAT').map((l) => l.code)]);
 
   const patch: Record<string, string | number> = {};

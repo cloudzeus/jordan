@@ -2587,3 +2587,23 @@ model PartnerProject {
   @@id([partnerId, prjc])
   @@index([prjc])
 }
+
+// Εμπορικές κατηγορίες (MTRCATEGORY) και ομάδες (MTRGROUP) ειδών/υπηρεσιών — καθρέφτης SoftOne.
+// Η αρίθμηση είναι ΑΝΑ SODTYPE (51 είδη, 52 υπηρεσίες): η ομάδα 1 των ειδών και η ομάδα 1 των
+// υπηρεσιών είναι ΔΙΑΦΟΡΕΤΙΚΕΣ εγγραφές — γι' αυτό το κλειδί είναι (kind, sodtype, code).
+// Το GetTable ΚΡΥΒΕΙ τις ανενεργές: όποια λείπει στον συγχρονισμό σημειώνεται ανενεργή.
+// Εγγραφή στο SoftOne: ΜΟΝΟ κατηγορίες (ITECATEGORY/SRVCATEGORY). Οι ομάδες (ITEGROUP/SRVGROUP)
+// είναι λίστα-αντικείμενο που στο setData έσβησε τη γραμμή του KEY (atelier, 2026-10-17) — read-only.
+model SoftoneClassification {
+  id        Int      @id @default(autoincrement())
+  kind      String // CATEGORY | GROUP
+  sodtype   Int // 51 είδη · 52 υπηρεσίες
+  code      Int // MTRCATEGORY / MTRGROUP (αριθμητικό κλειδί)
+  shortCode String? // CODE («Σύντμηση»)
+  name      String
+  isActive  Boolean  @default(true)
+  syncedAt  DateTime @default(now())
+
+  @@unique([kind, sodtype, code])
+  @@index([kind, sodtype])
+}

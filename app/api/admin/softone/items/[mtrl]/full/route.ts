@@ -6,6 +6,7 @@ import { SoftoneError } from '@/lib/softone';
 import { ItemMaintenanceError } from '@/lib/softone-sync/item-maintenance';
 import { editSoftoneItem, itemEditInput, readSoftoneItem } from '@/lib/softone-sync/item-edit';
 import { lastPurchasePrices } from '@/lib/last-purchase-price';
+import { classificationOptions } from '@/lib/item-classifications';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -37,10 +38,14 @@ export async function GET(_req: Request, { params }: { params: Promise<{ mtrl: s
       lastPurchasePrices([mtrl]).catch(() => new Map()),
     ]);
     const opt = (kind: string) => lookups.filter((l) => l.kind === kind).map((l) => ({ id: l.code, name: l.name }));
+    // Κατηγορίες/ομάδες του ΙΔΙΟΥ μητρώου (είδη 51 / υπηρεσίες 52) — το SoftoneLookup τις μπερδεύει.
+    const cls = await classificationOptions(record.isService ? 52 : 51);
+    const hasCls = cls.categories.length + cls.groups.length > 0;
     return NextResponse.json({
       record,
       options: {
-        units: opt('MTRUNIT'), categories: opt('MTRCATEGORY'), groups: opt('MTRGROUP'),
+        units: opt('MTRUNIT'),
+        categories: hasCls ? cls.categories : opt('MTRCATEGORY'), groups: hasCls ? cls.groups : opt('MTRGROUP'),
         manufacturers: opt('MTRMANFCTR'), brands: opt('MTRMARK'),
         vats: vats.map((v) => ({ id: v.code, name: v.descr || v.code, rate: v.rate })),
       },
