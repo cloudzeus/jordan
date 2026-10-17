@@ -165,7 +165,7 @@ export function SoftoneConnectionBar() {
       <div className="flex shrink-0 flex-wrap items-center gap-1.5">
         {state === 'tenant' && (
           <>
-            <a href="/admin/metadata"
+            <a href="/admin/reference-data"
               className="inline-flex h-7 items-center gap-1 rounded-md bg-sisyphus-500 px-2.5 text-[length:var(--fs-11)] font-semibold text-white shadow-sm transition hover:bg-sisyphus-600">
               <FiRefreshCw className="size-3.5" /> Πλήρης συγχρονισμός
             </a>
@@ -176,7 +176,7 @@ export function SoftoneConnectionBar() {
           </>
         )}
         {(state === 'foreign' || state === 'unstamped') && (
-          <a href="/admin/metadata"
+          <a href="/admin/reference-data"
             className="inline-flex h-7 items-center gap-1 rounded-md bg-sisyphus-500 px-2.5 text-[length:var(--fs-11)] font-semibold text-white shadow-sm transition hover:bg-sisyphus-600">
             <FiRefreshCw className="size-3.5" /> Συγχρονισμός
           </a>
