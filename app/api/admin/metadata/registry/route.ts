@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { requirePermission } from '@/lib/rbac';
+import { lookupKindLabel, LOOKUP_KINDS } from '@/lib/lookup-kinds';
 
 // Generic read-only feed for reference registries that have no dedicated admin
 // page — consumed by the "Προβολή" modal on /admin/reference-data.
@@ -152,6 +153,22 @@ export async function GET(req: Request) {
         })),
       };
       break;
+    }
+  }
+
+  // `lookup:<KIND>` — ένα είδος του SoftoneLookup (μονάδες, κατηγορίες, τρόποι πληρωμής…).
+  if (!data && key.startsWith('lookup:')) {
+    const kind = key.slice('lookup:'.length);
+    if (LOOKUP_KINDS.some((k) => k.kind === kind)) {
+      const rows = await prisma.softoneLookup.findMany({ where: { kind }, orderBy: { order: 'asc' } });
+      data = {
+        title: lookupKindLabel(kind),
+        columns: [
+          { key: 'code', label: 'Κωδ. SoftOne' },
+          { key: 'name', label: 'Περιγραφή' },
+        ],
+        rows: rows.map((r) => ({ code: r.code, name: r.name })),
+      };
     }
   }
 

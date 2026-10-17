@@ -1089,7 +1089,9 @@ const cleanS1Label = (s: string): string => {
 };
 
 // SoftOne aux tables → local lookups. label = the el value, prefixed with code when useful.
-const LOOKUP_TABLES = ['MTRUNIT', 'MTRGROUP', 'MTRCATEGORY', 'MTRMANFCTR', 'MTRMARK'] as const;
+// PAYMENT / SHIPMENT / TRDCATEGORY: για την πλήρη καρτέλα συναλλασσομένου (τρόπος πληρωμής,
+// αποστολής, κατηγορία λογιστικής συμπεριφοράς). Όλοι έχουν COMPANY, CODE, NAME — ίδιος βρόχος.
+const LOOKUP_TABLES = ['MTRUNIT', 'MTRGROUP', 'MTRCATEGORY', 'MTRMANFCTR', 'MTRMARK', 'PAYMENT', 'SHIPMENT', 'TRDCATEGORY'] as const;
 
 export type LookupRow = { kind: string; code: string; name: string };
 
@@ -1140,6 +1142,12 @@ export async function softoneFetchLookups(): Promise<LookupFetchResult> {
       add(table, String(r[table]), name);
     }
   }
+
+  // Οι χώρες ΔΕΝ ανήκουν σε εταιρία (ο πίνακας δεν έχει COMPANY): χωρίς φίλτρο εταιρίας.
+  const countries = await softoneGetTable('COUNTRY', ['COUNTRY', 'NAME'], '')
+    .catch(() => { failed.push('COUNTRY'); return []; });
+  for (const r of countries) add('COUNTRY', String(r.COUNTRY), cleanS1Label(r.NAME));
+
   return { rows: out, failed };
 }
 

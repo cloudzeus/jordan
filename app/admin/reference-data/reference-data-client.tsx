@@ -215,7 +215,8 @@ export function ReferenceDataClient({ stats, canManage }: { stats: Stat[]; canMa
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
         {stats.map((s) => {
           const st = SOURCE_STYLE[s.source] ?? DEFAULT_STYLE;
-          const hasModal = MODAL_KEYS.has(s.key);
+          // `lookup:<KIND>` — κάθε είδος βοηθητικού πίνακα έχει προβολή από το ίδιο API.
+          const hasModal = MODAL_KEYS.has(s.key) || s.key.startsWith('lookup:');
           const hasView = !!s.viewHref || hasModal;
           const canSync = canManage && !!s.syncKind;
           const isSyncing = syncingKey === s.key;

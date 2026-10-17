@@ -4,12 +4,13 @@ import { requirePermission, hasPermission } from '@/lib/rbac';
 import { getSetting } from '@/lib/settings';
 import { PageHeader } from '@/components/admin/page-header';
 import { ReferenceDataClient } from './reference-data-client';
+import { LOOKUP_KINDS } from '@/lib/lookup-kinds';
 
 export const dynamic = 'force-dynamic';
 
 export default async function ReferenceDataPage() {
   await requirePermission('metadata.read');
-  const [legalTypes, gemiOffices, companyStatuses, prefectures, municipalities, vatCategories, purchaseDocTypes, tradersCount, lookupsCount, kadCount, kadLicenseTotal, kadLicenseRoots] = await Promise.all([
+  const [legalTypes, gemiOffices, companyStatuses, prefectures, municipalities, vatCategories, purchaseDocTypes, tradersCount, kadCount, kadLicenseTotal, kadLicenseRoots] = await Promise.all([
     prisma.legalType.aggregate({ _count: { _all: true }, _max: { lastUpdated: true } }),
     prisma.gemiOfficeRef.aggregate({ _count: { _all: true }, _max: { lastUpdated: true } }),
     prisma.companyStatusRef.aggregate({ _count: { _all: true }, _max: { lastUpdated: true } }),
@@ -18,7 +19,6 @@ export default async function ReferenceDataPage() {
     prisma.vatCategory.count(),
     prisma.purchaseDocType.count(),
     prisma.softoneTrader.count(),
-    prisma.softoneLookup.count(),
     prisma.kadCode.count(),
     prisma.kadLicenseRequirement.count({ where: { licenseType: 'OPERATING_LICENSE' } }),
     prisma.kadLicenseRequirement.count({ where: { licenseType: 'OPERATING_LICENSE', inherited: false } }),
@@ -34,6 +34,19 @@ export default async function ReferenceDataPage() {
   const lookupsLastSync = await getSetting<string>('integrations.softoneLookupsLastSync');
   const accountsCount = await prisma.softoneAccount.count();
   const accountsLastSync = await getSetting<string>('integrations.softoneAccountsLastSync');
+  // Ένα πλακίδιο ανά είδος βοηθητικού πίνακα (μονάδες, κατηγορίες, τρόποι πληρωμής…) — όλα
+  // ενημερώνονται από τον ίδιο συγχρονισμό «lookups».
+  const lookupCounts = new Map(
+    (await prisma.softoneLookup.groupBy({ by: ['kind'], _count: { _all: true } })).map((g) => [g.kind, g._count._all]),
+  );
+  const lookupStats = LOOKUP_KINDS.map((k) => ({
+    key: `lookup:${k.kind}`,
+    label: `${k.label} · ${k.usedFor}`,
+    count: lookupCounts.get(k.kind) ?? 0,
+    lastUpdated: lookupsLastSync ?? null,
+    source: 'SoftOne',
+    syncKind: 'lookups' as const,
+  }));
 
   return (
     <div className="w-full">
@@ -57,7 +70,7 @@ export default async function ReferenceDataPage() {
           { key: 'traders', label: 'Συναλλασσόμενοι (πελάτες, προμηθευτές, χρεώστες, πιστωτές)', count: tradersCount, lastUpdated: tradersLastSync ?? null, source: 'SoftOne', syncKind: 'traders', viewHref: '/admin/traders' },
           { key: 'expenses', label: 'Έξοδα SoftOne (EXPN)', count: expensesCount, lastUpdated: expensesLastSync ?? null, source: 'SoftOne', syncKind: 'expenses' },
           { key: 'accounts', label: 'Λογιστικό σχέδιο (ACNT)', count: accountsCount, lastUpdated: accountsLastSync ?? null, source: 'SoftOne', syncKind: 'accounts' },
-          { key: 'lookups', label: 'Βοηθητικοί πίνακες (ΦΠΑ/μονάδες/ομάδες…)', count: lookupsCount, lastUpdated: lookupsLastSync ?? null, source: 'SoftOne', syncKind: 'lookups' },
+          ...lookupStats,
           { key: 'kadCodes', label: 'Μητρώο ΚΑΔ', count: kadCount, lastUpdated: null, source: 'Auto (από lookups)', viewHref: '/admin/kad-codes' },
           { key: 'kadLicense', label: `ΚΑΔ με άδεια λειτουργίας (από ${kadLicenseRoots} ρίζες)`, count: kadLicenseTotal, lastUpdated: null, source: 'NF BUSNESS.xlsx', viewHref: '/admin/kad-codes' },
         ]}
