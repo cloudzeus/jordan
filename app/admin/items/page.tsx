@@ -5,6 +5,7 @@ import { getSetting } from '@/lib/settings';
 import { PageHeader } from '@/components/admin/page-header';
 import { cachedClassificationLabeller } from '@/lib/ocr/mydata-labels';
 import { ItemsTabs } from './items-tabs';
+import { primaryThumbs } from '@/lib/item-media/thumbs';
 import { checkAccounts } from '@/lib/ocr/account-check';
 
 export const dynamic = 'force-dynamic';
@@ -47,8 +48,10 @@ export default async function ItemsPage() {
     })),
     { synced: chartRows.length > 0, accounts: chartRows },
   );
-  const products = items.filter((i) => !i.isService);
-  const services = items.filter((i) => i.isService);
+  const thumbs = await primaryThumbs();
+  const withThumb = items.map((i) => ({ ...i, thumbUrl: thumbs.get(i.mtrl) ?? null }));
+  const products = withThumb.filter((i) => !i.isService);
+  const services = withThumb.filter((i) => i.isService);
 
   // Ο χαρακτηρισμός myDATA μεταφράζεται ΕΔΩ (server): οι λίστες είναι μικρές και το UI δείχνει
   // ελληνικά, όχι κωδικούς. Είναι ιδιότητα του μητρώου — η εφαρμογή δεν τον γράφει ποτέ.

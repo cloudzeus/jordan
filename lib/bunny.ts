@@ -1,5 +1,5 @@
 import { Readable } from 'node:stream';
-import { S3Client, PutObjectCommand, DeleteObjectCommand, DeleteObjectsCommand, GetObjectCommand, HeadObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, PutObjectCommand, DeleteObjectCommand, GetObjectCommand, HeadObjectCommand } from '@aws-sdk/client-s3';
 import { getSetting } from '@/lib/settings';
 
 interface BunnyCfg {
@@ -26,7 +26,10 @@ async function makeClient(cfg: BunnyCfg) {
   return new S3Client({
     endpoint: cfg.endpoint,
     region: 'auto',
-    credentials: { accessKeyId: cfg.zone, secretAccessKey: cfg.accessKey },
+    // Bunny S3: accessKeyId = όνομα storage zone, secret = ο κωδικός του zone (BUNNY_S3_REGION_SECRET_KEY).
+    // Επιβεβαιωμένο ζωντανά (jordanocr, 2026-10-17): με το BUNNY_ACCESS_KEY ως secret το Bunny
+    // απαντά SignatureDoesNotMatch. Το accessKey μένει εφεδρεία για εγκαταστάσεις χωρίς ξεχωριστό secret.
+    credentials: { accessKeyId: cfg.zone, secretAccessKey: cfg.secretKey || cfg.accessKey },
     forcePathStyle: true,
   });
 }
@@ -133,16 +136,21 @@ export async function bunnyStream(key: string, range?: { start: number; end: num
   };
 }
 
+/**
+ * Διαγραφή αρχείων, ΕΝΑ-ΕΝΑ. Το S3 API του Bunny δεν υλοποιεί το μαζικό `DeleteObjects`
+ * (επιβεβαιωμένο ζωντανά, jordanocr 2026-10-17: η κλήση δεν έσβηνε τίποτα), οπότε κάθε κλειδί
+ * σβήνεται με δικό του `DeleteObject`, σε μικρές παράλληλες παρτίδες. Αποτυχία έστω και ενός ⇒
+ * σφάλμα με τα κλειδιά που έμειναν, ώστε ο καλών να το ξέρει.
+ */
 export async function bunnyDelete(keys: string[]) {
-  if (keys.length === 0) return;
+  const unique = [...new Set(keys.filter(Boolean))];
+  if (unique.length === 0) return;
   const cfg = await resolveCfg();
   const s3 = await makeClient(cfg);
-  if (keys.length === 1) {
-    await s3.send(new DeleteObjectCommand({ Bucket: cfg.zone, Key: keys[0] }));
-  } else {
-    await s3.send(new DeleteObjectsCommand({
-      Bucket: cfg.zone,
-      Delete: { Objects: keys.map((Key) => ({ Key })) },
-    }));
+  const failed: string[] = [];
+  for (let i = 0; i < unique.length; i += 8) {
+    await Promise.all(unique.slice(i, i + 8).map((Key) =>
+      s3.send(new DeleteObjectCommand({ Bucket: cfg.zone, Key })).catch(() => { failed.push(Key); })));
   }
+  if (failed.length) throw new Error(`Bunny: δεν σβήστηκαν ${failed.length} αρχεία (${failed.slice(0, 3).join(', ')}${failed.length > 3 ? '…' : ''})`);
 }

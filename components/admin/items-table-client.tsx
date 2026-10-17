@@ -8,6 +8,7 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { ItemEditDialog } from '@/components/admin/item-edit-dialog';
+import { ItemMediaPanel } from '@/components/admin/item-media/item-media-panel';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -27,6 +28,8 @@ export type ItemRecord = {
   price: number | null;
   isService: boolean;
   isActive?: boolean;
+  /** Μικρογραφία της κύριας φωτογραφίας (ItemMedia) — αν υπάρχει. */
+  thumbUrl?: string | null;
 };
 
 /**
@@ -199,12 +202,18 @@ export function ItemsTableClient({
       {
         accessorKey: 'name', header: 'Περιγραφή', size: 320,
         cell: ({ row }) => (
+          <div className="flex min-w-0 items-center gap-2">
+            {row.original.thumbUrl
+              // eslint-disable-next-line @next/next/no-img-element
+              ? <img src={row.original.thumbUrl} alt="" loading="lazy" className="size-7 shrink-0 rounded border border-border object-cover" />
+              : <span aria-hidden className="size-7 shrink-0 rounded border border-dashed border-border bg-muted/40" />}
           <div className="min-w-0">
             <div className="font-medium text-foreground text-[length:var(--fs-12)] truncate">
               {row.original.name || '—'}
               {row.original.isActive === false && <span className="ml-1.5 rounded bg-muted px-1.5 py-px text-[length:var(--fs-10)] font-semibold text-muted-foreground">ανενεργό</span>}
             </div>
             {row.original.name2 && <div className="text-[length:var(--fs-10)] text-muted-foreground truncate">{row.original.name2}</div>}
+          </div>
           </div>
         ),
       },
@@ -245,6 +254,8 @@ export function ItemsTableClient({
         searchPlaceholder="Αναζήτηση (κωδικός, EAN, εργοστασίου, περιγραφή…)"
         persistKey={`admin.${variant}.table.v1`}
         toolbar={toolbar}
+        // Πολυμέσα του είδους (φωτογραφίες, βίντεο, 360°) στην ανοιγμένη γραμμή.
+        expandable={(r) => <ItemMediaPanel mtrl={r.mtrl} canManage={canManage} />}
         pageSize={50}
       />
       {lastSync && (

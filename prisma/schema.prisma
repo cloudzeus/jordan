@@ -2113,6 +2113,47 @@ model SoftoneProject {
   @@index([actStatus])
 }
 
+// Πολυμέσα είδους/υπηρεσίας (MTRL): φωτογραφίες, βίντεο, πανοράματα 360°. ΔΙΚΑ ΜΑΣ δεδομένα —
+// τα αρχεία ζουν στο Bunny CDN, το SoftOne δεν αγγίζεται.
+//  • IMAGE: το `publicUrl` είναι το τετράγωνο 1920×1920 WebP που παράγεται από το ΠΡΩΤΟΤΥΠΟ
+//    (`originalKey`) με τον μετασχηματισμό `transform` {zoom, x, y, rotate, background}. Η
+//    επανεπεξεργασία ξαναπαράγει από το πρωτότυπο — ποτέ από το ήδη συμπιεσμένο αποτέλεσμα.
+//  • PANORAMA: WebP στην αρχική αναλογία (equirectangular 2:1), όχι τετράγωνο.
+//  • VIDEO: το αρχείο όπως ανέβηκε.
+enum ItemMediaKind {
+  IMAGE
+  VIDEO
+  PANORAMA
+}
+
+model ItemMedia {
+  id             String        @id @default(cuid())
+  mtrl           Int // SoftOne MTRL
+  kind           ItemMediaKind
+  storageKey     String        @unique // Bunny key του αρχείου προβολής
+  publicUrl      String
+  thumbKey       String?
+  thumbUrl       String?
+  originalKey    String? // πρωτότυπο (κανονικοποιημένο) — μόνο IMAGE/PANORAMA
+  originalUrl    String?
+  originalWidth  Int?
+  originalHeight Int?
+  originalName   String
+  mimeType       String
+  size           Int
+  width          Int?
+  height         Int?
+  transform      Json? // IMAGE: { zoom, x, y, rotate, background }
+  isPrimary      Boolean       @default(false)
+  order          Int           @default(0)
+  title          String?
+  uploadedById   String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  @@index([mtrl, kind, order])
+}
+
 // Προϋπολογισμός έργου — ΔΙΚΑ ΜΑΣ δεδομένα (όχι SoftOne): τα υλικά/υπηρεσίες που προβλέπονται για
 // ένα έργο, για σύγκριση με τις πραγματικές κινήσεις του SoftOne. Το όνομα και η μονάδα κρατιούνται
 // ως στιγμιότυπο, ώστε η γραμμή να διαβάζεται ακόμη κι αν το είδος αλλάξει ή σβηστεί από τον καθρέφτη.
