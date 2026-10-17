@@ -11,6 +11,7 @@ import 'server-only';
 import { prisma } from '@/lib/db';
 import { checkAccounts } from '@/lib/ocr/account-check';
 import { currentTenantSince } from './tenant-since';
+import { loadStoredIssues } from '@/lib/project-profit';
 
 export interface LiveCheck {
   key: string;
@@ -71,7 +72,7 @@ export interface IntegratorReport {
 
 export async function loadIntegratorReport(): Promise<IntegratorReport> {
   const since = await currentTenantSince();
-  const [items, audits, openDocs, posted] = await Promise.all([
+  const [items, audits, openDocs, posted, projectIssues] = await Promise.all([
     prisma.integratorItem.findMany({ orderBy: { createdAt: 'desc' } }),
     prisma.auditLog.findMany({
       where: { action: { in: Object.keys(ERP_ACTIONS) }, ...(since ? { createdAt: { gte: since } } : {}) },
@@ -86,6 +87,7 @@ export async function loadIntegratorReport(): Promise<IntegratorReport> {
       },
     }),
     prisma.ocrDocument.findMany({ where: { postStatus: 'POSTED', ...(since ? { postedAt: { gte: since } } : {}) }, select: { fileName: true, postedRef: true, postedAt: true, document: true } }),
+    loadStoredIssues().catch(() => null),
   ]);
 
   const checks: LiveCheck[] = [];
@@ -152,6 +154,12 @@ export async function loadIntegratorReport(): Promise<IntegratorReport> {
       title: 'Παραστατικά με γραμμές χωρίς στόχο',
       detail: 'Συνήθως πάγια: οι γραμμές παγίων (ASSLINES) θέλουν αποθήκη και εγγραφή απόκτησης (ASSDEPR) — χρειάζεται μία αγορά παγίου καταχωρισμένη χειροκίνητα στο SoftOne ώστε να φανεί η ρύθμιση.',
     });
+  }
+
+  // ε. Κερδοφορία έργων: ρυθμίσεις σειρών/μετασχηματισμών που αφήνουν τα έργα ελλιπή (lib/project-profit).
+  for (const i of projectIssues?.issues ?? []) {
+    if (i.audience !== 'integrator') continue;
+    checks.push({ key: `project:${i.key}`, severity: i.severity, title: i.title, detail: i.detail, rows: i.rows ?? [] });
   }
 
   const changes: ChangeEntry[] = [

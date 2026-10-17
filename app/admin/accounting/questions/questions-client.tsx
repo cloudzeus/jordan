@@ -11,7 +11,7 @@ import type { AccountingQuestion, AnswerStatus, QuestionGroup } from '@/lib/acco
 
 const SECTION = 'rounded-xl border border-border bg-card shadow-fluent-2';
 const MUTED = 'text-[length:var(--fs-12)] text-muted-foreground';
-const GROUP_ORDER: QuestionGroup[] = ['family', 'utility', 'registry', 'account'];
+const GROUP_ORDER: QuestionGroup[] = ['family', 'utility', 'registry', 'account', 'project'];
 
 const STATUS_CHIP: Record<AnswerStatus, { text: string; cls: string }> = {
   ACCEPTED: { text: 'Εγκρίθηκε', cls: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
@@ -41,7 +41,7 @@ function QuestionCard({ q, canAnswer }: { q: AccountingQuestion; canAnswer: bool
       const d = await postAnswer({ ...base, status, comment: comment.trim() || undefined, ...extra });
       if (d.applied) toast.success(`Άλλαξαν ${d.applied.rules} κανόνες · επανεφαρμογή σε ${d.applied.rematch.docs} ανοιχτά παραστατικά${d.applied.manualLines ? ` (μαζί ${d.applied.manualLines} χειροκίνητες γραμμές)` : ''}.`);
       else if (d.integratorItem) toast.success('Καταγράφηκε στην αναφορά του integrator.');
-      else toast.success('Εγκρίθηκε.');
+      else toast.success(q.group === 'project' ? 'Καταγράφηκε.' : 'Εγκρίθηκε.');
       setMode(null); setComment('');
       router.refresh();
     } catch (e) {
@@ -52,7 +52,10 @@ function QuestionCard({ q, canAnswer }: { q: AccountingQuestion; canAnswer: bool
   };
   const pick = (p: RegistryPick) => send('CHANGED', { target: { kind: p.kind, id: p.id } });
 
-  const chip = q.answer ? STATUS_CHIP[q.answer.status] : null;
+  // Θέματα έργων: δεν «εγκρίνεται» πρόταση — ο λογιστής βεβαιώνει ότι το είδε (θα διορθωθεί στο SoftOne ή
+  // είναι σωστό ως έχει). Όταν διορθωθεί, το θέμα φεύγει μόνο του στον επόμενο υπολογισμό.
+  const isProject = q.group === 'project';
+  const chip = q.answer ? (isProject && q.answer.status === 'ACCEPTED' ? { ...STATUS_CHIP.ACCEPTED, text: 'Ελήφθη' } : STATUS_CHIP[q.answer.status]) : null;
   return (
     <li className={`${SECTION} p-4`}>
       <div className="flex flex-wrap items-start justify-between gap-2">
@@ -81,11 +84,13 @@ function QuestionCard({ q, canAnswer }: { q: AccountingQuestion; canAnswer: bool
       {canAnswer && (
         <div className="mt-3 flex flex-wrap gap-2">
           <button type="button" className={BTN_PRIMARY} disabled={busy} onClick={() => void send('ACCEPTED')}>
-            <FiCheck className="size-4" aria-hidden />Συμφωνώ
+            <FiCheck className="size-4" aria-hidden />{isProject ? 'Ελήφθη — θα διορθωθεί / σωστό ως έχει' : 'Συμφωνώ'}
           </button>
-          <button type="button" className={BTN_GHOST} disabled={busy} onClick={() => setMode(mode === 'change' ? null : 'change')} aria-expanded={mode === 'change'}>
-            <FiEdit2 className="size-4" aria-hidden />Αλλαγή
-          </button>
+          {!isProject && (
+            <button type="button" className={BTN_GHOST} disabled={busy} onClick={() => setMode(mode === 'change' ? null : 'change')} aria-expanded={mode === 'change'}>
+              <FiEdit2 className="size-4" aria-hidden />Αλλαγή
+            </button>
+          )}
           <button type="button" className={BTN_GHOST} disabled={busy} onClick={() => setMode(mode === 'erp' ? null : 'erp')} aria-expanded={mode === 'erp'}>
             <FiTool className="size-4" aria-hidden />Χρειάζεται ενέργεια στο SoftOne
           </button>

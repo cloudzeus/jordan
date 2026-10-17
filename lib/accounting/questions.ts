@@ -11,14 +11,17 @@ import { prisma } from '@/lib/db';
 import { familyMemoryKeyLabel } from '@/lib/ocr/expense-families';
 import { utilityMemoryKeyLabel } from '@/lib/ocr/utility-bills';
 import { currentTenantSince } from './tenant-since';
+import { loadStoredIssues } from '@/lib/project-profit';
+import { issueFingerprint } from '@/lib/project-profit/issues';
 
-export type QuestionGroup = 'family' | 'utility' | 'account' | 'registry';
+export type QuestionGroup = 'family' | 'utility' | 'account' | 'registry' | 'project';
 
 export const QUESTION_GROUP_LABEL: Record<QuestionGroup, string> = {
   family: 'Κατηγορίες δαπάνης',
   utility: 'Λογαριασμοί κοινής ωφέλειας & μισθώματα',
   account: 'Λογαριασμοί που άνοιξαν στο SoftOne',
   registry: 'Έξοδα & χρεοπιστώσεις που δημιουργήθηκαν',
+  project: 'Έργα: δεδομένα που λείπουν στο SoftOne',
 };
 
 export type AnswerStatus = 'ACCEPTED' | 'CHANGED' | 'NEEDS_ERP';
@@ -54,7 +57,7 @@ const WORLD_IN: Record<string, string> = { pur: 'στα τιμολόγια αγ�
 export async function loadAccountingQuestions(): Promise<AccountingQuestion[]> {
   const since = await currentTenantSince();
   const after = since ? { createdAt: { gte: since } } : {};
-  const [rules, answers, accountAudits, registryAudits] = await Promise.all([
+  const [rules, answers, accountAudits, registryAudits, projectIssues] = await Promise.all([
     // Μόνο οι ΓΕΝΙΚΟΙ κανόνες σταθερού κλειδιού: αυτοί είναι πολιτική της επιχείρησης, όχι συνήθεια ενός εκδότη.
     prisma.lineMatchRule.findMany({
       where: { afm: '', OR: [{ pattern: { startsWith: '@family:' } }, { pattern: { startsWith: '@utility:' } }] },
@@ -66,6 +69,8 @@ export async function loadAccountingQuestions(): Promise<AccountingQuestion[]> {
       where: { action: 'ocr.item.create_softone', resource: { in: ['softone_expense', 'softone_lineitem'] }, ...after },
       orderBy: { createdAt: 'asc' }, select: { resource: true, resourceId: true, metadata: true, createdAt: true },
     }),
+    // Κερδοφορία έργων: τα θέματα για τον λογιστή από τον τελευταίο υπολογισμό (lib/project-profit).
+    loadStoredIssues().catch(() => null),
   ]);
   const answerBy = new Map(answers.map((a) => [a.questionKey, a]));
 
@@ -178,6 +183,22 @@ export async function loadAccountingQuestions(): Promise<AccountingQuestion[]> {
       fingerprint: `${isExp ? 'expn' : 'lin'}:${id}`,
       changeKind: null,
       lines: usage(isExp ? { expn: id, lin: null } : { lin: id, expn: null }),
+    }));
+  }
+
+  // 5. Έργα: παραστατικά/εισπράξεις χωρίς έργο, έσοδα χωρίς κόστος κ.λπ. Το αποτύπωμα είναι το σύνολο
+  //    των παραστατικών — αν προστεθεί νέο, το ερώτημα ξανανοίγει· αν διορθωθούν όλα, εξαφανίζεται.
+  for (const i of projectIssues?.issues ?? []) {
+    if (i.audience !== 'accountant') continue;
+    out.push(withAnswer({
+      key: `project:${i.key}`,
+      group: 'project',
+      title: i.title,
+      question: i.detail,
+      proposal: i.amount != null ? `${i.amount}` : i.title,
+      fingerprint: issueFingerprint(i),
+      changeKind: null,
+      lines: i.docs.length,
     }));
   }
 

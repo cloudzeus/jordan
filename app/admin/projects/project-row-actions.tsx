@@ -9,19 +9,23 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { AddBudgetLineDialog } from './add-budget-line-dialog';
 import { emitProjectRefresh } from './project-events';
+import { useFinancialsActions } from './financials-actions';
 
 const ITEM = 'cursor-pointer gap-2 text-[length:var(--fs-12)]';
 
 /** Μενού ενεργειών δεξιά σε κάθε έργο (λίστα) ή στην κεφαλίδα της καρτέλας του. */
 export function ProjectRowActions({
-  prjc, code, name, canManage,
+  prjc, code, name, canManage, financials = false,
 }: {
   prjc: number;
   code: string;
   name: string;
   canManage: boolean;
+  /** Καρτέλα έργου με projects.financials: οι ενέργειες οικονομικών μπαίνουν στο ίδιο μενού. */
+  financials?: boolean;
 }) {
   const router = useRouter();
+  const fin = useFinancialsActions(canManage);
   const [dialog, setDialog] = React.useState<'product' | 'service' | null>(null);
 
   const copy = async () => {
@@ -70,8 +74,15 @@ export function ProjectRowActions({
           <DropdownMenuItem className={ITEM} onSelect={copy}>
             <FiCopy className="size-3.5" aria-hidden /> Αντιγραφή κωδικού
           </DropdownMenuItem>
+          {financials && (
+            <>
+              <DropdownMenuSeparator />
+              {fin.items}
+            </>
+          )}
         </DropdownMenuContent>
       </DropdownMenu>
+      {financials && fin.dialog}
 
       {canManage && (
         <AddBudgetLineDialog

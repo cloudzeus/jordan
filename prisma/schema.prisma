@@ -2788,3 +2788,43 @@ model CustomerContact {
 
   @@index([trdr])
 }
+
+// Κερδοφορία έργου — ΣΤΙΓΜΙΟΤΥΠΟ του υπολογισμού από τα παραστατικά του SoftOne (μόνο ανάγνωση).
+// Υπολογίζονται ΟΛΑ τα έργα μαζί με λίγα GetTable (βλ. `lib/project-profit/`), ώστε η λίστα να
+// ταξινομείται χωρίς ζωντανή κλήση ανά γραμμή. Τα ποσά είναι καθαρά (χωρίς ΦΠΑ), εκτός από τα
+// εισπραγμένα/ανοιχτό υπόλοιπο, που είναι μικτά — όπως πληρώνει ο πελάτης.
+model ProjectFinancials {
+  id         Int      @id @default(autoincrement())
+  prjc       Int      @unique
+  revenue    Float // καθαρά έσοδα (τιμολόγια − πιστωτικά)
+  collected  Float // εισπράξεις (εμβάσματα πελατών με το έργο)
+  openAmount Float // μικτά τιμολογηθέντα − εισπράξεις
+  costs      Float // άμεσο κόστος (αγορές/υπηρεσίες/εκτίμηση αποθέματος)
+  overhead   Float // επιμερισμός γενικών εξόδων
+  netProfit  Float
+  marginPct  Float? // null όταν δεν υπάρχουν έσοδα
+  paid       Float // πληρωμές προμηθευτών με το έργο
+  issues     Int      @default(0) // πόσα «Δεδομένα που λείπουν»
+  data       Json // πλήρης ανάλυση (ProjectProfit)
+  computedAt DateTime @default(now())
+}
+
+// Ποσοστό ΓΕΝΙΚΩΝ ΕΞΟΔΩΝ ανά περίοδο, ως % επί του άμεσου κόστους. ΚΟΙΝΗ σύμβαση με το
+// «Πραγματικό κόστος» (landed cost): `category` null = γενικό ποσοστό της περιόδου· με τιμή =
+// παράκαμψη για μια κατηγορία κόστους. Κλειδιά κατηγορίας: `cost:materials` · `cost:services` ·
+// `cost:other` · `cost:stock` (κόστος έργων) — άλλες ενότητες μπορούν να ορίσουν δικά τους με
+// δικό τους πρόθεμα (π.χ. `mtrcategory:<n>`). Επίλυση: `lib/overheads-resolve.ts`.
+model OverheadRate {
+  id          String    @id @default(cuid())
+  validFrom   DateTime  @db.Date
+  validTo     DateTime? @db.Date // null = ανοιχτό
+  percent     Float
+  category    String?
+  note        String?
+  createdById String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([validFrom])
+  @@index([category])
+}

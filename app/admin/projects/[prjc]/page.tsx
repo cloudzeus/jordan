@@ -7,6 +7,8 @@ import { PageHeader } from '@/components/admin/page-header';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ProjectActivityPanel } from '../project-activity-panel';
 import { ProjectRowActions } from '../project-row-actions';
+import { ensureFreshFinancials, getProjectFinancials } from '@/lib/project-profit';
+import { ProjectFinancials } from './project-financials';
 
 export const dynamic = 'force-dynamic';
 
@@ -43,7 +45,10 @@ export default async function ProjectPage({ params }: { params: Promise<{ prjc: 
   if (!Number.isInteger(id)) notFound();
   const p = await getProject(id);
   if (!p) notFound();
-  const canManage = await hasPermission('projects.manage');
+  const [canManage, canFinancials] = await Promise.all([hasPermission('projects.manage'), hasPermission('projects.financials')]);
+  // Οικονομικά: στιγμιότυπο όλων των έργων — ξαναϋπολογίζεται μόνο αν έχει παλιώσει.
+  const fresh = canFinancials ? await ensureFreshFinancials() : null;
+  const fin = canFinancials ? await getProjectFinancials(p.prjc) : null;
 
   return (
     <div className="w-full max-w-5xl">
@@ -55,7 +60,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ prjc: 
         title={p.name}
         description={`Έργο ${p.code}${p.isActive ? '' : ' · ανενεργό'}`}
         helpAnchor="projects"
-        actions={<ProjectRowActions prjc={p.prjc} code={p.code} name={p.name} canManage={canManage} />}
+        actions={<ProjectRowActions prjc={p.prjc} code={p.code} name={p.name} canManage={canManage} financials={canFinancials} />}
       />
 
       <div className="grid gap-4 md:grid-cols-2">
@@ -94,6 +99,13 @@ export default async function ProjectPage({ params }: { params: Promise<{ prjc: 
           </Card>
         )}
       </div>
+
+      {fin && <ProjectFinancials profit={fin.profit} issues={fin.issues} computedAt={fin.computedAt} error={fresh?.error ?? null} />}
+      {canFinancials && !fin && (
+        <p role="alert" className="mt-4 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-[length:var(--fs-12)] text-destructive">
+          Τα οικονομικά του έργου δεν υπολογίστηκαν ακόμη{fresh?.error ? ` — ${fresh.error}` : ''}.
+        </p>
+      )}
 
       <Card className="mt-4">
         <CardHeader className="px-3 sm:px-6"><CardTitle className="text-[length:var(--fs-14)]">Κινήσεις στο SoftOne</CardTitle></CardHeader>

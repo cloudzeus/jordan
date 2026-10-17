@@ -64,6 +64,7 @@ export const PERMISSIONS: PermissionDef[] = [
   // Έργα (SoftOne PRJC: προϋπολογισμός, δραστηριότητα)
   { key: 'projects.read', resource: 'projects', action: 'read', description: 'Προβολή έργων' },
   { key: 'projects.manage', resource: 'projects', action: 'manage', description: 'Επεξεργασία έργων και προϋπολογισμού' },
+  { key: 'projects.financials', resource: 'projects', action: 'financials', description: 'Οικονομικά έργων: τιμολογήσεις, εισπράξεις, κόστος, καθαρό κέρδος, ποσοστά γενικών εξόδων' },
   // Δυναμικές προσφορές (κοινό container, PRICEW01–08)
   { key: 'dynamic_offers.read', resource: 'dynamic_offers', action: 'read', description: 'Προβολή δυναμικών προσφορών' },
   { key: 'dynamic_offers.manage', resource: 'dynamic_offers', action: 'manage', description: 'Δημιουργία/επεξεργασία, δημοσίευση, παραλήπτες, email, τιμές στο SoftOne' },
@@ -98,7 +99,7 @@ export const ROLE_DEFAULTS: Record<string, string[]> = {
     'kad.read', 'kad.manage',
     'metadata.read', 'metadata.manage',
     'ocr.read', 'ocr.create', 'ocr.delete', 'ocr.categorize', 'ocr.post',
-    'projects.read', 'projects.manage',
+    'projects.read', 'projects.manage', 'projects.financials',
     'dynamic_offers.read', 'dynamic_offers.manage', 'dynamic_offers.reservations',
     'partners.read', 'partners.manage', 'partners.access',
     'classifications.read', 'classifications.manage',
@@ -127,7 +128,7 @@ export const RESOURCE_LABELS: Record<string, string> = {
 export const LEGACY_GRANTS: Record<string, string[]> = {
   'metadata.read': ['projects.read', 'dynamic_offers.read', 'partners.read', 'classifications.read', 'units.read'],
   'metadata.manage': [
-    'projects.manage', 'dynamic_offers.manage', 'dynamic_offers.reservations',
+    'projects.manage', 'projects.financials', 'dynamic_offers.manage', 'dynamic_offers.reservations',
     'partners.manage', 'partners.access', 'classifications.manage', 'units.manage',
   ],
 };
