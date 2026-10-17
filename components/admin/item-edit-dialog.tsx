@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { FiEdit3, FiInfo, FiLayers, FiBox, FiDollarSign, FiSliders, FiLoader, FiAlertTriangle, FiMaximize2, FiTag, FiPlus, FiMoreVertical, FiTrash2, FiArrowUp, FiArrowDown } from 'react-icons/fi';
+import { FiEdit3, FiInfo, FiLayers, FiDollarSign, FiSliders, FiLoader, FiAlertTriangle, FiMaximize2, FiTag, FiPlus, FiMoreVertical, FiTrash2, FiArrowUp, FiArrowDown } from 'react-icons/fi';
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
@@ -14,6 +14,8 @@ import {
   Dialog, DialogBody, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
 import { Field, FormSection, FormSelect, RowHint, Segmented, fieldCls } from '@/components/admin/form-kit';
+import { ItemUnitSetupPanel, toSetup, type UnitFormValues, type UnitMeta } from '@/components/admin/item-unit-setup-panel';
+import { checkUnitSetup, UNIT_FIELDS } from '@/lib/item-unit-setup';
 
 type Opt = { id: string; name: string };
 type Options = { units: Opt[]; categories: Opt[]; groups: Opt[]; manufacturers: Opt[]; brands: Opt[]; vats: (Opt & { rate: number | null })[] };
@@ -22,8 +24,10 @@ type Rec = {
   mtrl: number; code: string; isService: boolean; object: 'ITEM' | 'SERVICE';
   name: string | null; name2: string | null; code1: string | null; code2: string | null; remarks: string | null;
   isActive: boolean; vat: string | null; category: string | null; group: string | null;
-  manufacturer: string | null; brand: string | null; unit1: string | null; unitBuy: string | null;
-  buyRatio: number; unitSell: string | null; sellRatio: number;
+  manufacturer: string | null; brand: string | null; unit1: string | null;
+  unit2: string | null; ratio2: number; strict2: boolean;
+  unitBuy: string | null; buyRatio: number; buyStrict: boolean;
+  unitSell: string | null; sellRatio: number; sellStrict: boolean;
   priceRetail: number; priceWholesale: number; weight: number; grossWeight: number; volume: number;
   dim1: number; dim2: number; dim3: number;
 };
@@ -34,9 +38,9 @@ type LastPurchase = { unitCost: number; date: string; fincode: string } | null;
 type Form = Record<keyof Omit<Rec, 'mtrl' | 'isService' | 'object'>, string | boolean>;
 
 const NONE = '__none__';
-const NUMERIC = ['buyRatio', 'sellRatio', 'priceRetail', 'priceWholesale', 'weight', 'grossWeight', 'volume', 'dim1', 'dim2', 'dim3'] as const;
+const NUMERIC = ['ratio2', 'buyRatio', 'sellRatio', 'priceRetail', 'priceWholesale', 'weight', 'grossWeight', 'volume', 'dim1', 'dim2', 'dim3'] as const;
 /** Πεδία που έχει μόνο το είδος (όχι η υπηρεσία). */
-const ITEM_ONLY = ['unitBuy', 'buyRatio', 'unitSell', 'sellRatio', 'manufacturer', 'brand', 'weight', 'grossWeight', 'volume', 'dim1', 'dim2', 'dim3'];
+const ITEM_ONLY = ['unit2', 'ratio2', 'strict2', 'unitBuy', 'buyRatio', 'buyStrict', 'unitSell', 'sellRatio', 'sellStrict', 'manufacturer', 'brand', 'weight', 'grossWeight', 'volume', 'dim1', 'dim2', 'dim3'];
 
 type Attr = { name: string; value: string; unit: string };
 /** Συνηθισμένα χαρακτηριστικά για προτάσεις (ο χρήστης γράφει ό,τι θέλει). */
@@ -47,6 +51,7 @@ const LABEL: Record<string, string> = {
   remarks: 'Παρατηρήσεις', isActive: 'Ενεργό', vat: 'ΦΠΑ', category: 'Εμπορική κατηγορία', group: 'Ομάδα',
   manufacturer: 'Κατασκευαστής', brand: 'Μάρκα', unit1: 'Βασική μονάδα', unitBuy: 'Μονάδα αγορών',
   buyRatio: 'Σχέση αγορών', unitSell: 'Μονάδα πώλησης', sellRatio: 'Σχέση πώλησης',
+  unit2: 'Μ.Μ.2', ratio2: 'Σχέση Μ.Μ.2', strict2: 'Αυστηρή Μ.Μ.2', buyStrict: 'Αυστηρή αγορών', sellStrict: 'Αυστηρή πώλησης',
   priceRetail: 'Τιμή λιανικής', priceWholesale: 'Τιμή χονδρικής', weight: 'Καθαρό βάρος', grossWeight: 'Μικτό βάρος', volume: 'Όγκος', dim1: 'Μήκος', dim2: 'Πλάτος', dim3: 'Ύψος',
 };
 
@@ -57,6 +62,16 @@ function parseNum(v: string): number {
   const s = v.trim().replace(/\s/g, '');
   if (!s) return 0;
   return Number(s.includes(',') ? s.replace(/\./g, '').replace(',', '.') : s);
+}
+
+/** Τα πεδία μονάδων της φόρμας στη μορφή του πάνελ. */
+function unitValues(f: Form): UnitFormValues {
+  const s = (k: keyof Form) => String(f[k] ?? '');
+  return {
+    unit1: s('unit1'), unit2: s('unit2'), ratio2: s('ratio2'), strict2: !!f.strict2,
+    unitBuy: s('unitBuy'), buyRatio: s('buyRatio'), buyStrict: !!f.buyStrict,
+    unitSell: s('unitSell'), sellRatio: s('sellRatio'), sellStrict: !!f.sellStrict,
+  };
 }
 
 function toForm(r: Rec): Form {
@@ -111,6 +126,8 @@ export function ItemEditDialog({ mtrl, open, onOpenChange, onSaved }: {
   const [busy, setBusy] = React.useState(false);
   const [attrs, setAttrs] = React.useState<Attr[]>([]);
   const [attrsOrig, setAttrsOrig] = React.useState<Attr[]>([]);
+  const [unitsMeta, setUnitsMeta] = React.useState<UnitMeta[]>([]);
+  const [hasMovements, setHasMovements] = React.useState<boolean | null>(null);
 
   const load = React.useCallback(async () => {
     if (!mtrl) return;
@@ -120,6 +137,7 @@ export function ItemEditDialog({ mtrl, open, onOpenChange, onSaved }: {
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body.message || 'Αποτυχία ανάγνωσης από το SoftOne');
       setRec(body.record); setOpts(body.options); setLastBuy(body.lastPurchase ?? null); setForm(toForm(body.record));
+      setUnitsMeta(body.unitsMeta ?? []); setHasMovements(body.hasMovements ?? null);
       // Χαρακτηριστικά: δικά μας δεδομένα — αποτυχία εδώ δεν μπλοκάρει την καρτέλα του SoftOne.
       const ar = await fetch(`/api/admin/items/${mtrl}/attributes`, { cache: 'no-store' }).then((r) => (r.ok ? r.json() : { attributes: [] })).catch(() => ({ attributes: [] }));
       const list: Attr[] = (ar.attributes ?? []).map((a: { name: string; value: string; unit: string | null }) => ({ name: a.name, value: a.value, unit: a.unit ?? '' }));
@@ -160,12 +178,14 @@ export function ItemEditDialog({ mtrl, open, onOpenChange, onSaved }: {
       const n = Number(current[k]);
       if (!Number.isFinite(n) || n < 0) e[k] = 'Μη έγκυρος αριθμός.';
     }
-    if (!rec?.isService) {
-      if (Number(current.buyRatio) <= 0) e.buyRatio = 'Πρέπει να είναι > 0.';
-      if (Number(current.sellRatio) <= 0) e.sellRatio = 'Πρέπει να είναι > 0.';
+    // Μονάδες: οι κανόνες του lib/item-unit-setup — μόνο όταν αλλάζει κάτι σε αυτές (παλιές
+    // ρυθμίσεις που δεν αγγίζονται δεν μπλοκάρουν άλλες αλλαγές· ο server κάνει τον ίδιο έλεγχο).
+    if (!rec?.isService && form && changes.some((k) => (UNIT_FIELDS as readonly string[]).includes(k))) {
+      const issues = checkUnitSetup(toSetup(unitValues(form))).filter((i) => i.level === 'error');
+      if (issues.length) e.units = issues[0].message;
     }
     return e;
-  }, [current, rec]);
+  }, [current, rec, form, changes]);
   const attrsChanged = JSON.stringify(normAttrs(attrs)) !== JSON.stringify(normAttrs(attrsOrig));
   const attrError = React.useMemo(() => {
     const list = normAttrs(attrs);
@@ -313,32 +333,11 @@ export function ItemEditDialog({ mtrl, open, onOpenChange, onSaved }: {
                 </div>
               </FormSection>
 
-              <FormSection tone="amber" icon={<FiBox />} title="Μονάδες μέτρησης">
-                <div className="grid grid-cols-12 gap-x-3 gap-y-2">
-                  <Field label="Βασική μονάδα" required htmlFor="it-u1" className="col-span-12 sm:col-span-4" error={err('unit1')}>
-                    <OptSelect id="it-u1" value={String(form.unit1)} onChange={set('unit1')} opts={opts.units} invalid={!!err('unit1')} />
-                  </Field>
-                  {!rec.isService && (
-                    <>
-                      <Field label="Μονάδα αγορών" htmlFor="it-u3" className="col-span-7 sm:col-span-5">
-                        <OptSelect id="it-u3" value={String(form.unitBuy)} onChange={set('unitBuy')} opts={opts.units} optional />
-                      </Field>
-                      <Field label="Σχέση με βασική" htmlFor="it-mu31" className="col-span-5 sm:col-span-3" error={err('buyRatio')}>
-                        <Input id="it-mu31" inputMode="decimal" {...text('buyRatio')} className={cn(fieldCls, 'tabular-nums')} aria-invalid={!!err('buyRatio')} />
-                      </Field>
-                      <div className="hidden sm:col-span-4 sm:block" />
-                      <Field label="Μονάδα πώλησης" htmlFor="it-u4" className="col-span-7 sm:col-span-5">
-                        <OptSelect id="it-u4" value={String(form.unitSell)} onChange={set('unitSell')} opts={opts.units} optional />
-                      </Field>
-                      <Field label="Σχέση με βασική" htmlFor="it-mu41" className="col-span-5 sm:col-span-3" error={err('sellRatio')}>
-                        <Input id="it-mu41" inputMode="decimal" {...text('sellRatio')} className={cn(fieldCls, 'tabular-nums')} aria-invalid={!!err('sellRatio')} />
-                      </Field>
-                    </>
-                  )}
-                </div>
-                {!rec.isService && <RowHint>«Σχέση με βασική»: πόσες βασικές μονάδες κάνει 1 μονάδα αγορών/πώλησης (π.χ. 1 κιβώτιο = 12 τεμάχια).</RowHint>}
-              </FormSection>
-
+              <ItemUnitSetupPanel
+                value={unitValues(form)}
+                onChange={(patch) => setForm((f) => (f ? { ...f, ...patch } : f))}
+                opts={opts.units} meta={unitsMeta} originalUnit1={rec.unit1} hasMovements={hasMovements} isService={rec.isService}
+              />
               <FormSection tone="emerald" icon={<FiDollarSign />} title="Τιμές" aside={
                 lastBuy
                   ? <span className="tabular-nums">Τελ. αγορά: <strong>{eur.format(lastBuy.unitCost)}</strong> · {new Date(lastBuy.date).toLocaleDateString('el-GR', { timeZone: 'UTC' })} · {lastBuy.fincode}</span>

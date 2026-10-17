@@ -26,14 +26,14 @@ import { editSoftoneItem } from '../softone-sync/item-edit';
 const row = (over: Record<string, string> = {}) => ({
   MTRL: '266', CODE: '0000168', SODTYPE: '51', NAME: 'DOLCI ARGILLA', NAME1: '', CODE1: '', CODE2: '', REMARKS: '',
   ISACTIVE: '1', VAT: '1410', MTRCATEGORY: '1', MTRGROUP: '', MTRMANFCTR: '8', MTRMARK: '',
-  MTRUNIT1: '101', MTRUNIT3: '101', MU31: '1', MTRUNIT4: '101', MU41: '1',
+  MTRUNIT1: '101', MTRUNIT2: '', MU21: '0', MU12MODE: '', MTRUNIT3: '101', MU31: '1', MU13MODE: '1', MTRUNIT4: '101', MU41: '1', MU14MODE: '1',
   PRICER: '0', PRICEW: '0', WEIGHT: '0', GWEIGHT: '0', VOLUME: '0', DIM1: '0', DIM2: '0', DIM3: '0', ...over,
 });
 
 beforeEach(() => {
   vi.clearAllMocks();
   db.softoneLookup.findMany.mockResolvedValue([
-    { kind: 'MTRGROUP', code: '2' }, { kind: 'MTRCATEGORY', code: '1' }, { kind: 'MTRUNIT', code: '101' }, { kind: 'MTRUNIT', code: '107' },
+    { kind: 'MTRGROUP', code: '2' }, { kind: 'MTRCATEGORY', code: '1' }, { kind: 'MTRUNIT', code: '101' }, { kind: 'MTRUNIT', code: '107' }, { kind: 'MTRUNIT', code: '125' }, { kind: 'MTRUNIT', code: '202' }, { kind: 'MTRUNIT', code: '203' },
   ]);
   db.vatCategory.findMany.mockResolvedValue([{ code: '1410' }]);
   db.softoneItem.updateMany.mockResolvedValue({ count: 1 });
@@ -75,6 +75,39 @@ describe('editSoftoneItem', () => {
     await expect(editSoftoneItem(266, { group: '2' })).rejects.toThrow(/Άγνωστη τιμή για «Ομάδα»/);
     expect(db.softoneClassification.findMany.mock.calls[0]?.[0]?.where).toEqual({ sodtype: 52, isActive: true });
     expect(softone.softoneCall).not.toHaveBeenCalled();
+  });
+
+  it('μονάδες: ίδια μονάδα με τη βασική και σχέση ≠ 1 ⇒ σφάλμα πριν φύγει οτιδήποτε', async () => {
+    softone.softoneGetTable.mockResolvedValueOnce([row()]);
+    await expect(editSoftoneItem(266, { sellRatio: 12 })).rejects.toThrow(/σχέση πρέπει να είναι 1/);
+    expect(softone.softoneCall).not.toHaveBeenCalled();
+  });
+
+  it('η βασική μονάδα ΔΕΝ αλλάζει σε είδος με κινήσεις', async () => {
+    softone.softoneGetTable
+      .mockResolvedValueOnce([row()])
+      .mockResolvedValueOnce([{ MTRL: '266' }]); // MTRLINES: υπάρχουν κινήσεις
+    await expect(editSoftoneItem(266, { unit1: '125', unitBuy: '125', unitSell: '125' })).rejects.toThrow(/έχει ήδη κινήσεις/);
+    expect(softone.softoneCall).not.toHaveBeenCalled();
+  });
+
+  it('πρότυπο Container → Παλέτα → τ.μ. σε είδος χωρίς κινήσεις: γράφει όλες τις θέσεις και τις σημαίες', async () => {
+    const after = row({ MTRUNIT1: '125', MTRUNIT2: '202', MU21: '52', MU12MODE: '0', MTRUNIT3: '203', MU31: '1040', MTRUNIT4: '125' });
+    softone.softoneGetTable
+      .mockResolvedValueOnce([row()])
+      .mockResolvedValueOnce([]) // MTRLINES: καμία κίνηση
+      .mockResolvedValueOnce([after]);
+    softone.softoneCall.mockResolvedValue({ success: true });
+    await editSoftoneItem(266, { unit1: '125', unit2: '202', ratio2: 52, strict2: false, unitBuy: '203', buyRatio: 1040, unitSell: '125' });
+    expect(softone.softoneCall.mock.calls[0][1].DATA.ITEM[0]).toEqual({ MTRUNIT1: '125', MTRUNIT2: '202', MU21: 52, MTRUNIT3: '203', MU31: 1040, MTRUNIT4: '125' });
+  });
+
+  it('αφαίρεση Μ.Μ.2 ⇒ μηδενίζεται και ο συντελεστής της', async () => {
+    const withU2 = row({ MTRUNIT2: '107', MU21: '12', MU12MODE: '1' });
+    softone.softoneGetTable.mockResolvedValueOnce([withU2]).mockResolvedValueOnce([row()]);
+    softone.softoneCall.mockResolvedValue({ success: true });
+    await editSoftoneItem(266, { unit2: null });
+    expect(softone.softoneCall.mock.calls[0][1].DATA.ITEM[0]).toEqual({ MTRUNIT2: '', MU21: 0, MU12MODE: 0 });
   });
 
   it('success:true χωρίς πραγματική αποθήκευση ⇒ σφάλμα που ονομάζει το πεδίο', async () => {

@@ -14,8 +14,10 @@ import { z } from 'zod';
 import { prisma } from '@/lib/db';
 import { softoneCall, softoneGetTable } from '@/lib/softone';
 import { changeSoftoneItem, ItemMaintenanceError } from './item-maintenance';
+import { checkUnitSetup, UNIT_FIELDS, type UnitSetup } from '@/lib/item-unit-setup';
 
-type FieldKind = 'text' | 'lookup' | 'number' | 'bool' | 'vat';
+// `flag`: σημαία που το SoftOne αφήνει ΚΕΝΗ όταν δεν έχει οριστεί (π.χ. MU12MODE) — αληθής μόνο το «1».
+type FieldKind = 'text' | 'lookup' | 'number' | 'bool' | 'flag' | 'vat';
 
 /** Πεδίο φόρμας → στήλη MTRL. `itemOnly`: το object SERVICE δεν το έχει (μία μονάδα, χωρίς MU). */
 export const ITEM_FIELDS = {
@@ -31,10 +33,16 @@ export const ITEM_FIELDS = {
   manufacturer: { col: 'MTRMANFCTR', kind: 'lookup', lookup: 'MTRMANFCTR', label: 'Κατασκευαστής' },
   brand: { col: 'MTRMARK', kind: 'lookup', lookup: 'MTRMARK', label: 'Μάρκα' },
   unit1: { col: 'MTRUNIT1', kind: 'lookup', lookup: 'MTRUNIT', label: 'Βασική μονάδα' },
+  // Κάθε «σχέση» = πόσες ΒΑΣΙΚΕΣ σε 1 από αυτή τη μονάδα (βλ. lib/item-unit-setup.ts).
+  unit2: { col: 'MTRUNIT2', kind: 'lookup', lookup: 'MTRUNIT', label: 'Μ.Μ.2', itemOnly: true },
+  ratio2: { col: 'MU21', kind: 'number', label: 'Σχέση Μ.Μ.2 προς βασική', itemOnly: true },
+  strict2: { col: 'MU12MODE', kind: 'flag', label: 'Αυστηρή σχέση Μ.Μ.2', itemOnly: true },
   unitBuy: { col: 'MTRUNIT3', kind: 'lookup', lookup: 'MTRUNIT', label: 'Μονάδα αγορών', itemOnly: true },
   buyRatio: { col: 'MU31', kind: 'number', label: 'Σχέση αγορών προς βασική', itemOnly: true },
+  buyStrict: { col: 'MU13MODE', kind: 'flag', label: 'Αυστηρή σχέση αγορών', itemOnly: true },
   unitSell: { col: 'MTRUNIT4', kind: 'lookup', lookup: 'MTRUNIT', label: 'Μονάδα πώλησης', itemOnly: true },
   sellRatio: { col: 'MU41', kind: 'number', label: 'Σχέση πώλησης προς βασική', itemOnly: true },
+  sellStrict: { col: 'MU14MODE', kind: 'flag', label: 'Αυστηρή σχέση πώλησης', itemOnly: true },
   priceRetail: { col: 'PRICER', kind: 'number', label: 'Τιμή λιανικής' },
   priceWholesale: { col: 'PRICEW', kind: 'number', label: 'Τιμή χονδρικής' },
   weight: { col: 'WEIGHT', kind: 'number', label: 'Καθαρό βάρος', itemOnly: true },
@@ -54,7 +62,7 @@ export type ItemRecord = {
   code: string;
   isService: boolean;
   object: 'ITEM' | 'SERVICE';
-} & { [K in ItemFieldKey]: (typeof ITEM_FIELDS)[K]['kind'] extends 'number' ? number : (typeof ITEM_FIELDS)[K]['kind'] extends 'bool' ? boolean : string | null };
+} & { [K in ItemFieldKey]: (typeof ITEM_FIELDS)[K]['kind'] extends 'number' ? number : (typeof ITEM_FIELDS)[K]['kind'] extends 'bool' | 'flag' ? boolean : string | null };
 
 export const itemEditInput = z.object({
   code: z.string().trim().min(1).max(50).optional(),
@@ -70,6 +78,11 @@ export const itemEditInput = z.object({
   manufacturer: z.string().trim().max(20).nullable().optional(),
   brand: z.string().trim().max(20).nullable().optional(),
   unit1: z.string().trim().max(20).nullable().optional(),
+  unit2: z.string().trim().max(20).nullable().optional(),
+  ratio2: z.number().min(0).max(1e6).optional(),
+  strict2: z.boolean().optional(),
+  buyStrict: z.boolean().optional(),
+  sellStrict: z.boolean().optional(),
   unitBuy: z.string().trim().max(20).nullable().optional(),
   buyRatio: z.number().positive('Η σχέση μονάδων πρέπει να είναι > 0').max(1e6).optional(),
   unitSell: z.string().trim().max(20).nullable().optional(),
@@ -95,7 +108,7 @@ function toRecord(r: Record<string, string>): ItemRecord {
   for (const k of KEYS) {
     const f = ITEM_FIELDS[k];
     const raw = r[f.col];
-    rec[k] = f.kind === 'number' ? num(raw) : f.kind === 'bool' ? raw !== '0' : f.kind === 'text' ? textOrNull(raw) : idOrNull(raw);
+    rec[k] = f.kind === 'number' ? num(raw) : f.kind === 'bool' ? raw !== '0' : f.kind === 'flag' ? raw === '1' : f.kind === 'text' ? textOrNull(raw) : idOrNull(raw);
   }
   return rec as ItemRecord;
 }
@@ -155,8 +168,32 @@ export async function editSoftoneItem(mtrl: number, input: ItemEditInput): Promi
     }
     if (k === 'unit1' && next == null) throw new ItemMaintenanceError('unit_required', 'Η βασική μονάδα είναι υποχρεωτική.');
     if (k === 'vat' && next == null) throw new ItemMaintenanceError('vat_required', 'Η κατηγορία ΦΠΑ είναι υποχρεωτική.');
-    patch[f.col] = f.kind === 'bool' ? (next ? 1 : 0) : f.kind === 'number' ? Number(next) : (next == null ? '' : String(next));
+    patch[f.col] = f.kind === 'bool' || f.kind === 'flag' ? (next ? 1 : 0) : f.kind === 'number' ? Number(next) : (next == null ? '' : String(next));
     changed.push({ field: k, label: f.label, before: before[k], after: next });
+  }
+
+  // Μονάδες: ελέγχεται η ΤΕΛΙΚΗ ρύθμιση (ζωντανή + αλλαγές), μόνο όταν αλλάζει κάτι σε αυτές —
+  // παλιές ρυθμίσεις που δεν αγγίζονται δεν μπλοκάρουν άλλες αλλαγές του είδους.
+  const unitChanged = changed.some((c) => (UNIT_FIELDS as readonly string[]).includes(c.field));
+  if (unitChanged && !before.isService) {
+    const next = Object.fromEntries(UNIT_FIELDS.map((k) => [k, k in input ? (input as Record<string, unknown>)[k] ?? null : before[k]])) as UnitSetup;
+    if (!next.unit2) {
+      // Χωρίς Μ.Μ.2 δεν μένει «ορφανός» συντελεστής.
+      if ('MU21' in patch || before.ratio2 !== 0) patch.MU21 = 0;
+      if ('MU12MODE' in patch || before.strict2) patch.MU12MODE = 0;
+      for (const c of changed) if (c.field === 'ratio2' || c.field === 'strict2') c.after = c.field === 'ratio2' ? 0 : false;
+      next.ratio2 = 0; next.strict2 = false;
+    }
+    const errors = checkUnitSetup(next).filter((i) => i.level === 'error');
+    if (errors.length) throw new ItemMaintenanceError('unit_setup', errors.map((e) => e.message).join(' '));
+  }
+  // Η βασική μονάδα δεν αλλάζει σε είδος με κινήσεις: η αποθήκη και το ιστορικό είναι ήδη σε αυτήν.
+  if (changed.some((c) => c.field === 'unit1') && (await softoneGetTable('MTRLINES', ['MTRL'], `MTRL=${mtrl}`)).length > 0) {
+    throw new ItemMaintenanceError(
+      'base_unit_locked',
+      'Η βασική μονάδα δεν αλλάζει: το είδος έχει ήδη κινήσεις και η αποθήκη του μετράει σε αυτήν. Άλλαξε τις μονάδες αγορών/πώλησης/Μ.Μ.2 ή φτιάξε νέο είδος.',
+      409,
+    );
   }
 
   const codeChange = input.code != null && input.code !== before.code;

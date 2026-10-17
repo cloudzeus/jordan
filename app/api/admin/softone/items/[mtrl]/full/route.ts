@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { requirePermission } from '@/lib/rbac';
 import { logAudit } from '@/lib/audit';
-import { SoftoneError } from '@/lib/softone';
+import { SoftoneError, softoneGetTable } from '@/lib/softone';
 import { ItemMaintenanceError } from '@/lib/softone-sync/item-maintenance';
 import { editSoftoneItem, itemEditInput, readSoftoneItem } from '@/lib/softone-sync/item-edit';
 import { lastPurchasePrices } from '@/lib/last-purchase-price';
@@ -41,7 +41,16 @@ export async function GET(_req: Request, { params }: { params: Promise<{ mtrl: s
     // Κατηγορίες/ομάδες του ΙΔΙΟΥ μητρώου (είδη 51 / υπηρεσίες 52) — το SoftoneLookup τις μπερδεύει.
     const cls = await classificationOptions(record.isService ? 52 : 51);
     const hasCls = cls.categories.length + cls.groups.length > 0;
+    // Μονάδες με σύντμηση (για το «1 ΠΑΛ = 52 Μετ²» και το πρότυπο Container → Παλέτα → τ.μ.)
+    // και αν το είδος έχει κινήσεις — τότε η βασική μονάδα κλειδώνει.
+    const [unitsMeta, movements] = await Promise.all([
+      prisma.softoneUnit.findMany({ where: { isActive: true }, orderBy: { code: 'asc' }, select: { code: true, shortcut: true, name: true, interCode: true, decimals: true } }),
+      record.isService ? Promise.resolve([]) : softoneGetTable('MTRLINES', ['MTRL'], `MTRL=${mtrl}`).catch(() => null),
+    ]);
     return NextResponse.json({
+      unitsMeta: unitsMeta.map((u) => ({ id: String(u.code), shortcut: u.shortcut, name: u.name, interCode: u.interCode, decimals: u.decimals })),
+      // null = άγνωστο (το SoftOne δεν απάντησε): η φόρμα δεν κλειδώνει, αλλά ο server ελέγχει ξανά.
+      hasMovements: movements == null ? null : movements.length > 0,
       record,
       options: {
         units: opt('MTRUNIT'),
