@@ -138,8 +138,24 @@ export function OfferDetail({ offer, canManage, onChanged }: { offer: OfferRow; 
   const [addOpen, setAddOpen] = React.useState(false);
   const [previewKind, setPreviewKind] = React.useState<'publish' | 'drop'>('publish');
   const [chartItem, setChartItem] = React.useState(0);
+  const [loadError, setLoadError] = React.useState<string | null>(null);
+  // Το onChanged του γονέα δεν είναι σταθερό — μέσω ref, ώστε το load να μην ξανατρέχει σε κάθε render.
+  const onChangedRef = React.useRef(onChanged);
+  onChangedRef.current = onChanged;
   const load = React.useCallback(() => {
-    fetch(`/api/admin/dynamic-offers/${offer.id}`, { cache: 'no-store' }).then((r) => r.json()).then((d) => setData({ reservations: d.reservations, recipients: d.recipients })).catch(() => toast.error('Αποτυχία φόρτωσης'));
+    fetch(`/api/admin/dynamic-offers/${offer.id}`, { cache: 'no-store' })
+      .then(async (r) => {
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok) {
+          // 404: η προσφορά διαγράφηκε στο μεταξύ (π.χ. από άλλη καρτέλα) — ανανέωση της λίστας.
+          setLoadError(r.status === 404 ? 'Η προσφορά δεν υπάρχει πια — ανανεώνεται η λίστα.' : (d.message ?? 'Αποτυχία φόρτωσης'));
+          if (r.status === 404) onChangedRef.current();
+          return;
+        }
+        setLoadError(null);
+        setData({ reservations: d.reservations ?? [], recipients: d.recipients ?? [] });
+      })
+      .catch(() => setLoadError('Αποτυχία φόρτωσης — έλεγξε τη σύνδεση.'));
   }, [offer.id]);
   React.useEffect(() => { load(); }, [load]);
   const first = offer.items[0];
@@ -184,6 +200,14 @@ export function OfferDetail({ offer, canManage, onChanged }: { offer: OfferRow; 
     if (r.status === 'REJECTED') return <span className="inline-flex items-center gap-1 text-muted-foreground" title={r.decisionNote ?? undefined}><FiXCircle className="size-3.5" aria-hidden /> Απορρίφθηκε</span>;
     return <span className="inline-flex items-center gap-1 text-muted-foreground" title={r.decisionNote ?? undefined}><FiXCircle className="size-3.5" aria-hidden /> {r.decisionNote ? 'Αποσύρθηκε' : 'Ακυρώθηκε'}</span>;
   };
+
+  if (loadError) {
+    return (
+      <p role="alert" className="flex items-center gap-2 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-[length:var(--fs-12)] text-destructive">
+        <FiAlertTriangle className="size-4 shrink-0" aria-hidden /> {loadError}
+      </p>
+    );
+  }
 
   return (
     <>
