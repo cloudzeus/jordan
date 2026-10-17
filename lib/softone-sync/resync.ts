@@ -34,6 +34,7 @@ import {
   softoneFetchCostCenters,
   softoneFetchProjectStages,
   softoneFetchProjects,
+  softoneFetchStock,
   softoneFetchPurchaseDocTypes,
   softoneFetchTraders,
   softoneFetchVatCategories,
@@ -43,7 +44,7 @@ import {
 export type SyncTable =
   | 'vat' | 'lookups' | 'expenses' | 'items' | 'traders' | 'purdoc' | 'docseries'
   | 'accounts' | 'lineitems' | 'linecategories' | 'mydataclasses'
-  | 'costcenters' | 'projects' | 'projectstages' | 'assets';
+  | 'costcenters' | 'projects' | 'projectstages' | 'assets' | 'stock';
 
 export type SyncActor = { id: string; email: string };
 
@@ -839,6 +840,30 @@ export async function syncProjectStages(actor: SyncActor): Promise<SyncPayload> 
   return { created, updated, skipped: 0, total: created + updated, syncedAt, detail: { deactivated } };
 }
 
+/**
+ * Υπόλοιπα αποθήκης (MTRBALSHEET της τρέχουσας χρήσης) → `SoftoneStock`. Ο πίνακας ξαναγράφεται
+ * ΟΛΟΚΛΗΡΟΣ μέσα σε συναλλαγή: ένα είδος που μηδένισε ή άλλαξε αποθήκη δεν αφήνει παλιά γραμμή.
+ */
+export async function syncStock(actor: SyncActor): Promise<SyncPayload> {
+  const rows = await softoneFetchStock();
+  assertNonEmpty(rows, 'υπόλοιπα αποθήκης', MAY_BE_EMPTY);
+  const now = new Date();
+  const before = await prisma.softoneStock.count();
+  await prisma.$transaction(async (tx) => {
+    await tx.softoneStock.deleteMany({});
+    await tx.softoneStock.createMany({ data: rows.map((r) => ({ ...r, syncedAt: now })) });
+  });
+  const syncedAt = now.toISOString();
+  await setSetting('integrations.softoneStockLastSync', syncedAt, actor.id);
+  const withStock = new Set(rows.filter((r) => r.qty !== 0).map((r) => r.mtrl)).size;
+  await logAudit({
+    userId: actor.id, userEmail: actor.email,
+    action: 'metadata.stock.sync_softone', resource: 'setting',
+    metadata: { total: rows.length, before, items: withStock, fiscPrd: rows[0]?.fiscPrd ?? null },
+  });
+  return { created: rows.length, updated: 0, skipped: 0, total: rows.length, syncedAt, detail: { items: withStock, fiscPrd: rows[0]?.fiscPrd ?? null } };
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Ο ενορχηστρωτής
 // ─────────────────────────────────────────────────────────────────────────────
@@ -882,6 +907,7 @@ export const SYNC_STEPS: { table: SyncTable; label: string; run: (actor: SyncAct
   { table: 'costcenters',    label: 'Κέντρα κόστους',          run: syncCostCenters },
   { table: 'projects',       label: 'Έργα',                    run: syncProjects },
   { table: 'projectstages',  label: 'Δραστηριότητες',          run: syncProjectStages },
+  { table: 'stock',          label: 'Υπόλοιπα αποθηκών',       run: syncStock },
 ];
 
 

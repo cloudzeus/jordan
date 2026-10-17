@@ -284,6 +284,7 @@ const MIRROR_COUNTERS: { table: SyncTable; count: () => Promise<number> }[] = [
   { table: 'lookups', count: () => prisma.softoneLookup.count() },
   { table: 'costcenters', count: () => prisma.softoneCostCenter.count() },
   { table: 'projects', count: () => prisma.softoneProject.count() },
+  { table: 'stock', count: () => prisma.softoneStock.count() },
 ];
 
 /**

@@ -4,7 +4,7 @@ import * as React from 'react';
 import { useDropzone } from 'react-dropzone';
 import {
   FiImage, FiFilm, FiGlobe, FiStar, FiEdit3, FiArrowLeft, FiArrowRight, FiExternalLink, FiCopy, FiTrash2,
-  FiMoreVertical, FiUploadCloud, FiAlertTriangle, FiRefreshCw,
+  FiMoreVertical, FiUploadCloud, FiAlertTriangle, FiRefreshCw, FiArchive,
 } from 'react-icons/fi';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -14,6 +14,7 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import type { ItemMediaDTO } from '@/lib/item-media/service';
+import type { ItemStock } from '@/lib/item-stock';
 import { UploadProgressDialog, type MediaKind } from './upload-progress-dialog';
 import { ImageEditorDialog } from './image-editor-dialog';
 
@@ -146,6 +147,63 @@ function DropZone({ kind, onFiles, disabled }: { kind: (typeof KINDS)[number]; o
   );
 }
 
+const qtyFmt = new Intl.NumberFormat('el-GR', { maximumFractionDigits: 3 });
+const STOCK_TONE = '#0F766E';
+
+/** Υπόλοιπα του είδους ανά αποθήκη + σύνολο. «Ανανέωση» = ζωντανή ανάγνωση από το SoftOne. */
+function StockStrip({ mtrl }: { mtrl: number }) {
+  const [data, setData] = React.useState<ItemStock | null>(null);
+  const [busy, setBusy] = React.useState(false);
+  const load = React.useCallback(async (live: boolean) => {
+    setBusy(true);
+    try {
+      const res = await fetch(`/api/admin/items/${mtrl}/stock${live ? '?live=1' : ''}`, { cache: 'no-store' });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.message || 'Αποτυχία ανάγνωσης υπολοίπων');
+      setData(body);
+      if (live) toast.success('Τα υπόλοιπα ανανεώθηκαν από το SoftOne');
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }, [mtrl]);
+  React.useEffect(() => { void load(false); }, [load]);
+
+  if (!data) return <div className="h-14 animate-pulse rounded-md bg-muted motion-reduce:animate-none" aria-busy="true" aria-label="Φόρτωση υπολοίπων" />;
+  const unit = data.unit ? ` ${data.unit}` : '';
+  return (
+    <div className="flex flex-wrap items-stretch gap-2">
+      {data.warehouses.map((w) => (
+        <div key={w.whouse} className="min-w-[8.5rem] flex-1 rounded-md border border-border bg-background px-3 py-1.5 sm:flex-none">
+          <p className="flex items-center gap-1 truncate text-[length:var(--fs-11)] font-medium text-muted-foreground" title={w.name}>
+            <FiArchive className="size-3 shrink-0" aria-hidden /> {w.name}
+          </p>
+          <p className={cn('text-[length:var(--fs-14)] font-semibold tabular-nums', w.qty < 0 ? 'text-destructive' : w.qty === 0 ? 'text-muted-foreground' : 'text-foreground')}>
+            {qtyFmt.format(w.qty)}<span className="text-[length:var(--fs-11)] font-normal text-muted-foreground">{unit}</span>
+          </p>
+        </div>
+      ))}
+      <div
+        className="min-w-[8.5rem] flex-1 rounded-md border px-3 py-1.5 sm:flex-none"
+        style={{ backgroundColor: soft(STOCK_TONE, 8), borderColor: soft(STOCK_TONE, 30), boxShadow: `inset 3px 0 0 ${STOCK_TONE}` }}
+      >
+        <p className="text-[length:var(--fs-11)] font-semibold" style={{ color: STOCK_TONE }}>Σύνολο</p>
+        <p className={cn('text-[length:var(--fs-14)] font-bold tabular-nums', data.total < 0 ? 'text-destructive' : 'text-foreground')}>
+          {qtyFmt.format(data.total)}<span className="text-[length:var(--fs-11)] font-normal text-muted-foreground">{unit}</span>
+        </p>
+      </div>
+      <button
+        type="button" onClick={() => load(true)} disabled={busy}
+        className="ml-auto inline-flex h-8 cursor-pointer items-center gap-1 self-start rounded-md px-2 text-[length:var(--fs-11)] text-muted-foreground transition-colors duration-150 hover:bg-muted hover:text-foreground disabled:opacity-50"
+        title={data.syncedAt ? `Χρήση ${data.fiscPrd ?? '—'} · ενημέρωση ${new Date(data.syncedAt).toLocaleString('el-GR')}` : 'Χωρίς συγχρονισμό'}
+      >
+        <FiRefreshCw className={cn('size-3.5', busy && 'animate-spin motion-reduce:animate-none')} aria-hidden /> Ανανέωση υπολοίπων
+      </button>
+    </div>
+  );
+}
+
 const TRIGGER = cn(
   '!h-full flex-none cursor-pointer gap-1 rounded-none px-1.5 text-[length:var(--fs-12)] text-muted-foreground sm:gap-1.5 sm:px-2.5',
   'hover:text-foreground data-[state=active]:font-semibold data-[state=active]:!text-[color:var(--tab-tone)]',
@@ -153,7 +211,7 @@ const TRIGGER = cn(
 );
 
 /** Πολυμέσα ενός είδους: tabs Φωτογραφίες / Βίντεο / 360°, μεταφόρτωση πολλών αρχείων, editor. */
-export function ItemMediaPanel({ mtrl, canManage }: { mtrl: number; canManage: boolean }) {
+export function ItemMediaPanel({ mtrl, canManage, showStock = false }: { mtrl: number; canManage: boolean; showStock?: boolean }) {
   const [media, setMedia] = React.useState<ItemMediaDTO[] | null>(null);
   const [error, setError] = React.useState<string | null>(null);
   const [upload, setUpload] = React.useState<{ kind: MediaKind; files: File[] } | null>(null);
@@ -217,6 +275,7 @@ export function ItemMediaPanel({ mtrl, canManage }: { mtrl: number; canManage: b
 
   return (
     <>
+      {showStock && <div className="mb-3"><StockStrip mtrl={mtrl} /></div>}
       <Tabs defaultValue="images" className="gap-2">
         <TabsList variant="line" className="h-8 w-full justify-start gap-0 overflow-x-auto overflow-y-hidden border-b border-border p-0">
           {KINDS.map((k) => {

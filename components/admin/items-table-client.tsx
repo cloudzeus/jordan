@@ -30,7 +30,20 @@ export type ItemRecord = {
   isActive?: boolean;
   /** Μικρογραφία της κύριας φωτογραφίας (ItemMedia) — αν υπάρχει. */
   thumbUrl?: string | null;
+  /** Υπόλοιπα ανά αποθήκη (καθρέφτης SoftoneStock) — μόνο είδη. */
+  stock?: Record<string, number>;
 };
+
+const qtyFmt = new Intl.NumberFormat('el-GR', { maximumFractionDigits: 3 });
+/** Ποσότητα: 0 αχνό, αρνητικό κόκκινο με σύμβολο (όχι μόνο χρώμα). */
+function Qty({ v, strong }: { v: number; strong?: boolean }) {
+  if (v === 0) return <span className="block text-right tabular-nums text-muted-foreground/50">0</span>;
+  return (
+    <span className={cn('block text-right tabular-nums', v < 0 ? 'font-semibold text-destructive' : strong ? 'font-semibold text-foreground' : 'text-foreground')}>
+      {qtyFmt.format(v)}
+    </span>
+  );
+}
 
 /**
  * Διόρθωση ΥΠΑΡΧΟΥΣΑΣ εγγραφής στο SoftOne: νέος κωδικός ή αδρανοποίηση. Ποτέ διαγραφή — η
@@ -170,11 +183,14 @@ export function ItemsTableClient({
   variant,
   canManage,
   lastSync,
+  warehouses = [],
 }: {
   rows: ItemRecord[];
   variant: 'products' | 'services';
   canManage: boolean;
   lastSync: string | null;
+  /** Μία στήλη υπολοίπου ανά αποθήκη + «Σύνολο» (μόνο στα είδη). */
+  warehouses?: { id: string; name: string }[];
 }) {
   const router = useRouter();
   const [busy, setBusy] = React.useState(false);
@@ -182,10 +198,15 @@ export function ItemsTableClient({
   const sync = async () => {
     setBusy(true);
     const res = await fetch('/api/admin/metadata/sync-items-softone', { method: 'POST' });
+    // Στα είδη ανανεώνονται μαζί και τα υπόλοιπα αποθηκών — αλλιώς οι στήλες δείχνουν παλιές ποσότητες.
+    const stock = res.ok && variant === 'products'
+      ? await fetch('/api/admin/metadata/sync-stock-softone', { method: 'POST' }).then((r) => r.json().then((b) => ({ ok: r.ok, b }))).catch(() => null)
+      : null;
     setBusy(false);
     if (res.ok) {
       const d = await res.json();
-      toast.success(`Συγχρονίστηκαν ${d.products.toLocaleString('el-GR')} είδη + ${d.services.toLocaleString('el-GR')} υπηρεσίες`);
+      const extra = stock?.ok ? ` · υπόλοιπα για ${Number(stock.b.items ?? 0).toLocaleString('el-GR')} είδη` : stock ? ' · τα υπόλοιπα δεν ανανεώθηκαν' : '';
+      toast.success(`Συγχρονίστηκαν ${d.products.toLocaleString('el-GR')} είδη + ${d.services.toLocaleString('el-GR')} υπηρεσίες${extra}`);
       router.refresh();
     } else {
       const e = await res.json().catch(() => ({}));
@@ -225,6 +246,20 @@ export function ItemsTableClient({
         { accessorKey: 'code2', header: 'Κωδ. εργοστασίου', size: 160, cell: ({ row }) => mono(row.original.code2) },
       );
     }
+    if (variant === 'products' && warehouses.length > 0) {
+      for (const w of warehouses) {
+        base.push({
+          id: `wh_${w.id}`, header: () => <span className="block text-right" title={w.name}>{w.name}</span>, size: 110,
+          accessorFn: (r) => r.stock?.[w.id] ?? 0,
+          cell: ({ row }) => <Qty v={row.original.stock?.[w.id] ?? 0} />,
+        });
+      }
+      base.push({
+        id: 'stockTotal', header: () => <span className="block text-right">Σύνολο</span>, size: 100,
+        accessorFn: (r) => Object.values(r.stock ?? {}).reduce((a, b) => a + b, 0),
+        cell: ({ row }) => <Qty v={Object.values(row.original.stock ?? {}).reduce((a, b) => a + b, 0)} strong />,
+      });
+    }
     base.push({
       accessorKey: 'price', header: () => <span className="block text-right">Τιμή λιανικής</span>, size: 130,
       cell: ({ row }) => <span className="block text-right">{fmtPrice(row.original.price)}</span>,
@@ -236,7 +271,7 @@ export function ItemsTableClient({
       });
     }
     return base;
-  }, [variant, canManage, router]);
+  }, [variant, canManage, router, warehouses]);
 
   const toolbar = canManage ? (
     <Button variant="secondary" size="sm" onClick={sync} disabled={busy}>
@@ -255,7 +290,7 @@ export function ItemsTableClient({
         persistKey={`admin.${variant}.table.v1`}
         toolbar={toolbar}
         // Πολυμέσα του είδους (φωτογραφίες, βίντεο, 360°) στην ανοιγμένη γραμμή.
-        expandable={(r) => <ItemMediaPanel mtrl={r.mtrl} canManage={canManage} />}
+        expandable={(r) => <ItemMediaPanel mtrl={r.mtrl} canManage={canManage} showStock={!r.isService} />}
         pageSize={50}
       />
       {lastSync && (

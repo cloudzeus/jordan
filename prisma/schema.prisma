@@ -2113,6 +2113,36 @@ model SoftoneProject {
   @@index([actStatus])
 }
 
+// Υπόλοιπα αποθήκης ανά είδος — καθρέφτης του SoftOne (MTRBALSHEET της τρέχουσας χρήσης).
+// Υπόλοιπο = Σ(IMPQTY1 − EXPQTY1) σε όλες τις περιόδους της χρήσης (μαζί η 0 = μεταφορά/απογραφή).
+// Επιβεβαιωμένο ζωντανά (atelier, 2026-10-17): το άθροισμα ανά είδος ισούται με το MTRDATA.QTY1
+// για 447/447 είδη. Ποσότητες στη ΒΑΣΙΚΗ μονάδα του είδους.
+model SoftoneStock {
+  mtrl     Int
+  whouse   String // SoftOne WHOUSE (ετικέτα: SoftoneLookup kind WHOUSE)
+  fiscPrd  Int // χρήση από την οποία βγήκε το υπόλοιπο
+  qty      Float
+  syncedAt DateTime @default(now())
+
+  @@id([mtrl, whouse])
+  @@index([whouse])
+}
+
+// Χαρακτηριστικά είδους — ΔΙΚΑ ΜΑΣ δεδομένα (π.χ. «Χρώμα: Λευκό», «Φινίρισμα: Ματ»). Η
+// εγκατάσταση δεν έχει ορίσει χαρακτηριστικά στο SoftOne (MTRATTRIBUTE: 0 γραμμές), οπότε
+// κρατιούνται εδώ ως ελεύθερα ζεύγη όνομα–τιμή–μονάδα.
+model ItemAttribute {
+  id        String   @id @default(cuid())
+  mtrl      Int
+  name      String
+  value     String
+  unit      String?
+  order     Int      @default(0)
+  updatedAt DateTime @updatedAt
+
+  @@index([mtrl, order])
+}
+
 // Πολυμέσα είδους/υπηρεσίας (MTRL): φωτογραφίες, βίντεο, πανοράματα 360°. ΔΙΚΑ ΜΑΣ δεδομένα —
 // τα αρχεία ζουν στο Bunny CDN, το SoftOne δεν αγγίζεται.
 //  • IMAGE: το `publicUrl` είναι το τετράγωνο 1920×1920 WebP που παράγεται από το ΠΡΩΤΟΤΥΠΟ

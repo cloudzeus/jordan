@@ -16,6 +16,7 @@ import { AnalyticsTableClient, type AnalyticsRecord } from '@/components/admin/a
  * Κάθε tab έχει τον δικό του συγχρονισμό — όλοι μόνο ΑΝΑΓΝΩΣΗ από το SoftOne.
  */
 export function ItemsTabs({
+  warehouses,
   products,
   services,
   expenses,
@@ -35,6 +36,8 @@ export function ItemsTabs({
   projectsLastSync,
   projectStagesLastSync,
 }: {
+  /** Αποθήκες της εγκατάστασης — μία στήλη υπολοίπου η καθεμία στα είδη. */
+  warehouses: { id: string; name: string }[];
   products: ItemRecord[];
   services: ItemRecord[];
   expenses: ExpenseRecord[];
@@ -71,7 +74,7 @@ export function ItemsTabs({
         <TabsTrigger value="projectstages" className="cursor-pointer">Δραστηριότητες ({count(projectStages.length)})</TabsTrigger>
       </TabsList>
       <TabsContent value="products">
-        <ItemsTableClient rows={products} variant="products" canManage={canManage} lastSync={itemsLastSync} />
+        <ItemsTableClient rows={products} variant="products" canManage={canManage} lastSync={itemsLastSync} warehouses={warehouses} />
       </TabsContent>
       <TabsContent value="services">
         <ItemsTableClient rows={services} variant="services" canManage={canManage} lastSync={itemsLastSync} />

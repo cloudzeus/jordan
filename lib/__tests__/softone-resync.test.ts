@@ -27,6 +27,7 @@ const { db, s1, errs, settings, audit, rbac } = vi.hoisted(() => {
     softoneCostCenter: { findMany: vi.fn(), upsert: vi.fn(), updateMany: vi.fn() },
     softoneProject: { findMany: vi.fn(), upsert: vi.fn(), updateMany: vi.fn() },
     softoneProjectStage: { findMany: vi.fn(), upsert: vi.fn(), updateMany: vi.fn() },
+    softoneStock: { count: vi.fn(), deleteMany: vi.fn(), createMany: vi.fn() },
     appSetting: {
       findMany: vi.fn(), upsert: vi.fn(),
       // Ο δείκτης τρέχοντος περάσματος (κλειδαριά + σωρευτής) ζει σε γραμμή `AppSetting`.
@@ -52,6 +53,7 @@ const { db, s1, errs, settings, audit, rbac } = vi.hoisted(() => {
     softoneFetchCostCenters: vi.fn(),
     softoneFetchProjects: vi.fn(),
     softoneFetchProjectStages: vi.fn(),
+    softoneFetchStock: vi.fn(),
     clearCachedToken: vi.fn(),
   },
   settings: { setSetting: vi.fn(), maskSecret: (v: string) => `••••${v.slice(-4)}` },
@@ -96,6 +98,7 @@ function happyPath() {
   s1.softoneFetchCostCenters.mockResolvedValue([{ costcntr: 3, code: 'ΚΚ01', name: 'ΠΑΡΑΓΩΓΗ', name2: null, sohCode: null, acnmsk: null, isActive: true }]);
   s1.softoneFetchProjects.mockResolvedValue([{ prjc: 4, code: 'ΕΡΓ1', name: 'ΕΡΓΟ Α', trdr: 12345, prjType: 1, isActive: true }]);
   s1.softoneFetchProjectStages.mockResolvedValue([{ prjcStage: 5, code: 'ΔΡ1', name: 'ΜΕΛΕΤΗ', isActive: true }]);
+  s1.softoneFetchStock.mockResolvedValue([{ mtrl: 266, whouse: '1000', fiscPrd: 2026, qty: 70 }]);
 }
 
 /**
@@ -157,6 +160,9 @@ beforeEach(() => {
   db.softoneProject.updateMany.mockResolvedValue({ count: 0 });
   db.softoneProjectStage.findMany.mockResolvedValue([]);
   db.softoneProjectStage.updateMany.mockResolvedValue({ count: 0 });
+  db.softoneStock.count.mockResolvedValue(0);
+  db.softoneStock.deleteMany.mockResolvedValue({ count: 0 });
+  db.softoneStock.createMany.mockResolvedValue({ count: 1 });
   db.appSetting.findMany.mockResolvedValue([]);
   db.appSetting.upsert.mockResolvedValue({});
   // Οι τρεις «ολικής αντικατάστασης» πίνακες τρέχουν μέσα σε transaction με callback.
@@ -179,7 +185,7 @@ describe('SYNC_STEPS — η σειρά εξάρτησης', () => {
   it('τρέχει ΦΠΑ και lookups πριν από έξοδα/είδη, και τις σειρές τελευταίες', () => {
     expect(SYNC_STEPS.map((s) => s.table)).toEqual(
       ['vat', 'lookups', 'expenses', 'items', 'traders', 'purdoc', 'docseries',
-        'accounts', 'linecategories', 'lineitems', 'assets', 'mydataclasses', 'costcenters', 'projects', 'projectstages'],
+        'accounts', 'linecategories', 'lineitems', 'assets', 'mydataclasses', 'costcenters', 'projects', 'projectstages', 'stock'],
     );
   });
 
@@ -466,6 +472,12 @@ describe('άδεια απάντηση SoftOne — κανένα μητρώο δε
       arm: () => db.softoneProjectStage.findMany.mockResolvedValue([{ prjcStage: 5 }]),
       fetcher: () => s1.softoneFetchProjectStages,
       destructive: () => [db.softoneProjectStage.updateMany, db.softoneProjectStage.upsert],
+    },
+    {
+      table: 'stock',
+      arm: () => db.softoneStock.count.mockResolvedValue(10),
+      fetcher: () => s1.softoneFetchStock,
+      destructive: () => [db.softoneStock.deleteMany, db.softoneStock.createMany],
     },
   ];
 

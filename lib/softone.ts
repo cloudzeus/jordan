@@ -1143,12 +1143,52 @@ export async function softoneFetchLookups(): Promise<LookupFetchResult> {
     }
   }
 
+  // Αποθήκες. Ο πίνακας WHOUSE ΔΕΝ έχει στήλη CODE — αν τη ζητήσεις, το GetTable την παραλείπει
+  // σιωπηλά και οι επόμενες στήλες μετατοπίζονται (επιβεβαιωμένο ζωντανά, atelier 2026-10-17).
+  const whouses = await softoneGetTable('WHOUSE', ['WHOUSE', 'NAME', 'ISACTIVE'], onlyCompany)
+    .catch(() => { failed.push('WHOUSE'); return []; });
+  for (const r of whouses) add('WHOUSE', String(r.WHOUSE), cleanS1Label(r.NAME));
+
   // Οι χώρες ΔΕΝ ανήκουν σε εταιρία (ο πίνακας δεν έχει COMPANY): χωρίς φίλτρο εταιρίας.
   const countries = await softoneGetTable('COUNTRY', ['COUNTRY', 'NAME'], '')
     .catch(() => { failed.push('COUNTRY'); return []; });
   for (const r of countries) add('COUNTRY', String(r.COUNTRY), cleanS1Label(r.NAME));
 
   return { rows: out, failed };
+}
+
+export type StockRow = { mtrl: number; whouse: string; fiscPrd: number; qty: number };
+
+/**
+ * Υπόλοιπα αποθήκης ανά είδος από το MTRBALSHEET της τρέχουσας χρήσης.
+ *
+ * Υπόλοιπο = Σ(IMPQTY1 − EXPQTY1) σε όλες τις περιόδους της χρήσης (η περίοδος 0 κρατά τη μεταφορά
+ * από την προηγούμενη χρήση). Επιβεβαιωμένο ζωντανά (atelier, 2026-10-17): ισούται με το
+ * MTRDATA.QTY1 για 447/447 είδη. Αν η χρήση του τρέχοντος έτους δεν έχει ανοίξει ακόμα, παίρνουμε
+ * την προηγούμενη. `mtrl` → μόνο ένα είδος (ζωντανή ανανέωση από την καρτέλα του).
+ */
+export async function softoneFetchStock(mtrl?: number): Promise<StockRow[]> {
+  const fields = ['MTRL', 'WHOUSE', 'FISCPRD', 'PERIOD', 'IMPQTY1', 'EXPQTY1'];
+  const only = mtrl ? ` AND MTRL=${Math.trunc(mtrl)}` : '';
+  const year = new Date().getFullYear();
+  let fy = year;
+  let rows = await softoneGetTable('MTRBALSHEET', fields, `FISCPRD=${fy}${only}`);
+  if (rows.length === 0 && !mtrl) {
+    fy = year - 1;
+    rows = await softoneGetTable('MTRBALSHEET', fields, `FISCPRD=${fy}${only}`);
+  }
+  const sum = new Map<string, StockRow>();
+  for (const r of rows) {
+    const m = Number(r.MTRL);
+    const w = str(r.WHOUSE);
+    if (!Number.isFinite(m) || !w) continue;
+    const k = `${m}:${w}`;
+    const cur = sum.get(k) ?? { mtrl: m, whouse: w, fiscPrd: fy, qty: 0 };
+    cur.qty += (Number(r.IMPQTY1) || 0) - (Number(r.EXPQTY1) || 0);
+    sum.set(k, cur);
+  }
+  // Στρογγυλοποίηση: τα αθροίσματα float αφήνουν ουρές τύπου 69.99999999.
+  return [...sum.values()].map((r) => ({ ...r, qty: Math.round(r.qty * 1e6) / 1e6 }));
 }
 
 /** Το μητρώο μονάδων μέτρησης (MTRUNIT): id → ετικέτα (η ετικέτα ζει στο CODE· το NAME κρατά την εταιρεία). */

@@ -1,7 +1,10 @@
 'use client';
 
 import * as React from 'react';
-import { FiEdit3, FiInfo, FiLayers, FiBox, FiDollarSign, FiSliders, FiLoader, FiAlertTriangle } from 'react-icons/fi';
+import { FiEdit3, FiInfo, FiLayers, FiBox, FiDollarSign, FiSliders, FiLoader, FiAlertTriangle, FiMaximize2, FiTag, FiPlus, FiMoreVertical, FiTrash2, FiArrowUp, FiArrowDown } from 'react-icons/fi';
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -21,7 +24,8 @@ type Rec = {
   isActive: boolean; vat: string | null; category: string | null; group: string | null;
   manufacturer: string | null; brand: string | null; unit1: string | null; unitBuy: string | null;
   buyRatio: number; unitSell: string | null; sellRatio: number;
-  priceRetail: number; priceWholesale: number; weight: number; volume: number;
+  priceRetail: number; priceWholesale: number; weight: number; grossWeight: number; volume: number;
+  dim1: number; dim2: number; dim3: number;
 };
 
 type LastPurchase = { unitCost: number; date: string; fincode: string } | null;
@@ -30,13 +34,20 @@ type LastPurchase = { unitCost: number; date: string; fincode: string } | null;
 type Form = Record<keyof Omit<Rec, 'mtrl' | 'isService' | 'object'>, string | boolean>;
 
 const NONE = '__none__';
-const NUMERIC = ['buyRatio', 'sellRatio', 'priceRetail', 'priceWholesale', 'weight', 'volume'] as const;
+const NUMERIC = ['buyRatio', 'sellRatio', 'priceRetail', 'priceWholesale', 'weight', 'grossWeight', 'volume', 'dim1', 'dim2', 'dim3'] as const;
+/** Πεδία που έχει μόνο το είδος (όχι η υπηρεσία). */
+const ITEM_ONLY = ['unitBuy', 'buyRatio', 'unitSell', 'sellRatio', 'manufacturer', 'brand', 'weight', 'grossWeight', 'volume', 'dim1', 'dim2', 'dim3'];
+
+type Attr = { name: string; value: string; unit: string };
+/** Συνηθισμένα χαρακτηριστικά για προτάσεις (ο χρήστης γράφει ό,τι θέλει). */
+const ATTR_SUGGESTIONS = ['Χρώμα', 'Υλικό', 'Φινίρισμα', 'Διάσταση πλακιδίου', 'Πάχος', 'Αντιολισθηρότητα', 'Χρήση', 'Χώρα προέλευσης', 'Συσκευασία', 'Τεμάχια ανά κιβώτιο', 'm² ανά κιβώτιο', 'Εγγύηση'];
+const normAttrs = (a: Attr[]) => a.map((x) => ({ name: x.name.trim(), value: x.value.trim(), unit: x.unit.trim() })).filter((x) => x.name || x.value || x.unit);
 const LABEL: Record<string, string> = {
   code: 'Κωδικός', name: 'Περιγραφή', name2: 'Περιγραφή 2', code1: 'Barcode / EAN', code2: 'Κωδ. εργοστασίου',
   remarks: 'Παρατηρήσεις', isActive: 'Ενεργό', vat: 'ΦΠΑ', category: 'Εμπορική κατηγορία', group: 'Ομάδα',
   manufacturer: 'Κατασκευαστής', brand: 'Μάρκα', unit1: 'Βασική μονάδα', unitBuy: 'Μονάδα αγορών',
   buyRatio: 'Σχέση αγορών', unitSell: 'Μονάδα πώλησης', sellRatio: 'Σχέση πώλησης',
-  priceRetail: 'Τιμή λιανικής', priceWholesale: 'Τιμή χονδρικής', weight: 'Βάρος', volume: 'Όγκος',
+  priceRetail: 'Τιμή λιανικής', priceWholesale: 'Τιμή χονδρικής', weight: 'Καθαρό βάρος', grossWeight: 'Μικτό βάρος', volume: 'Όγκος', dim1: 'Μήκος', dim2: 'Πλάτος', dim3: 'Ύψος',
 };
 
 const eur = new Intl.NumberFormat('el-GR', { style: 'currency', currency: 'EUR' });
@@ -98,6 +109,8 @@ export function ItemEditDialog({ mtrl, open, onOpenChange, onSaved }: {
   const [loadError, setLoadError] = React.useState<string | null>(null);
   const [saveError, setSaveError] = React.useState<string | null>(null);
   const [busy, setBusy] = React.useState(false);
+  const [attrs, setAttrs] = React.useState<Attr[]>([]);
+  const [attrsOrig, setAttrsOrig] = React.useState<Attr[]>([]);
 
   const load = React.useCallback(async () => {
     if (!mtrl) return;
@@ -107,6 +120,10 @@ export function ItemEditDialog({ mtrl, open, onOpenChange, onSaved }: {
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body.message || 'Αποτυχία ανάγνωσης από το SoftOne');
       setRec(body.record); setOpts(body.options); setLastBuy(body.lastPurchase ?? null); setForm(toForm(body.record));
+      // Χαρακτηριστικά: δικά μας δεδομένα — αποτυχία εδώ δεν μπλοκάρει την καρτέλα του SoftOne.
+      const ar = await fetch(`/api/admin/items/${mtrl}/attributes`, { cache: 'no-store' }).then((r) => (r.ok ? r.json() : { attributes: [] })).catch(() => ({ attributes: [] }));
+      const list: Attr[] = (ar.attributes ?? []).map((a: { name: string; value: string; unit: string | null }) => ({ name: a.name, value: a.value, unit: a.unit ?? '' }));
+      setAttrs(list); setAttrsOrig(list);
     } catch (e) {
       setLoadError((e as Error).message);
     }
@@ -126,7 +143,7 @@ export function ItemEditDialog({ mtrl, open, onOpenChange, onSaved }: {
   const changes = React.useMemo(() => {
     if (!original || !current) return [] as string[];
     return Object.keys(current).filter((k) => {
-      if (rec?.isService && ['unitBuy', 'buyRatio', 'unitSell', 'sellRatio'].includes(k)) return false;
+      if (rec?.isService && ITEM_ONLY.includes(k)) return false;
       const a = original[k]; const b = current[k];
       return typeof a === 'number' || typeof b === 'number' ? Math.abs(Number(a) - Number(b)) > 1e-9 : a !== b;
     });
@@ -149,25 +166,53 @@ export function ItemEditDialog({ mtrl, open, onOpenChange, onSaved }: {
     }
     return e;
   }, [current, rec]);
-  const valid = Object.keys(errors).length === 0;
+  const attrsChanged = JSON.stringify(normAttrs(attrs)) !== JSON.stringify(normAttrs(attrsOrig));
+  const attrError = React.useMemo(() => {
+    const list = normAttrs(attrs);
+    if (list.some((a) => !a.name || !a.value)) return 'Κάθε χαρακτηριστικό χρειάζεται όνομα και τιμή.';
+    const names = list.map((a) => a.name.toLocaleLowerCase('el'));
+    if (new Set(names).size !== names.length) return 'Το ίδιο χαρακτηριστικό υπάρχει δύο φορές.';
+    return null;
+  }, [attrs]);
+  const valid = Object.keys(errors).length === 0 && !attrError;
+  const anyChange = changes.length > 0 || attrsChanged;
+  const setAttr = (i: number, patch: Partial<Attr>) => setAttrs((a) => a.map((x, j) => (j === i ? { ...x, ...patch } : x)));
+  const moveAttr = (i: number, dir: -1 | 1) => setAttrs((a) => { const b = [...a]; [b[i], b[i + dir]] = [b[i + dir], b[i]]; return b; });
 
   const save = async () => {
-    if (!rec || !current || changes.length === 0 || !valid) return;
+    if (!rec || !current || !anyChange || !valid) return;
+    const parts = [
+      changes.length ? `στο SoftOne (${rec.code}): ${changes.map((k) => LABEL[k] ?? k).join(', ')}` : '',
+      attrsChanged ? `στην εφαρμογή: χαρακτηριστικά (${normAttrs(attrs).length})` : '',
+    ].filter(Boolean);
     const ok = await confirmAction({
-      title: 'Αποθήκευση στο SoftOne',
-      message: `Θα αλλάξουν στο SoftOne (${rec.code}): ${changes.map((k) => LABEL[k] ?? k).join(', ')}. Συνέχεια;`,
+      title: changes.length ? 'Αποθήκευση στο SoftOne' : 'Αποθήκευση χαρακτηριστικών',
+      message: `Θα αλλάξουν ${parts.join(' και ')}. Συνέχεια;`,
       confirmLabel: 'Αποθήκευση',
     });
     if (!ok) return;
     setBusy(true); setSaveError(null);
     try {
-      const payload = Object.fromEntries(changes.map((k) => [k, current[k]]));
-      const res = await fetch(`/api/admin/softone/items/${rec.mtrl}/full`, {
-        method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
-      });
-      const body = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(body.message || 'Η αποθήκευση απέτυχε');
-      toast.success(`Αποθηκεύτηκε στο SoftOne και επαληθεύτηκε: ${body.changed.map((c: { label: string }) => c.label).join(', ')}`);
+      // Πρώτα τα χαρακτηριστικά (δικά μας, ασφαλή) — έτσι μια αποτυχία του SoftOne δεν τα χάνει.
+      if (attrsChanged) {
+        const ra = await fetch(`/api/admin/items/${rec.mtrl}/attributes`, {
+          method: 'PUT', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ attributes: normAttrs(attrs).map((a) => ({ ...a, unit: a.unit || null })) }),
+        });
+        const ba = await ra.json().catch(() => ({}));
+        if (!ra.ok) throw new Error(ba.message || 'Η αποθήκευση των χαρακτηριστικών απέτυχε');
+        setAttrsOrig(attrs);
+        toast.success('Αποθηκεύτηκαν τα χαρακτηριστικά');
+      }
+      if (changes.length) {
+        const payload = Object.fromEntries(changes.map((k) => [k, current[k]]));
+        const res = await fetch(`/api/admin/softone/items/${rec.mtrl}/full`, {
+          method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
+        });
+        const body = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(body.message || 'Η αποθήκευση απέτυχε');
+        toast.success(`Αποθηκεύτηκε στο SoftOne και επαληθεύτηκε: ${body.changed.map((c: { label: string }) => c.label).join(', ')}`);
+      }
       onSaved?.();
       onOpenChange(false);
     } catch (e) {
@@ -309,25 +354,82 @@ export function ItemEditDialog({ mtrl, open, onOpenChange, onSaved }: {
                 </div>
               </FormSection>
 
-              <FormSection tone="slate" icon={<FiSliders />} title="Λοιπά">
-                <div className="grid grid-cols-12 gap-x-3 gap-y-2">
-                  {!rec.isService && (
-                    <>
-                      <Field label="Βάρος" htmlFor="it-w" className="col-span-6 sm:col-span-3" error={err('weight')}>
-                        <Input id="it-w" inputMode="decimal" {...text('weight')} className={cn(fieldCls, 'tabular-nums')} />
+              {!rec.isService && (
+                <FormSection tone="blue" icon={<FiMaximize2 />} title="Διαστάσεις & βάρος">
+                  <div className="grid grid-cols-12 gap-x-3 gap-y-2">
+                    {([['dim1', 'Μήκος'], ['dim2', 'Πλάτος'], ['dim3', 'Ύψος']] as const).map(([k, label]) => (
+                      <Field key={k} label={label} htmlFor={`it-${k}`} className="col-span-4" error={err(k)}>
+                        <Input id={`it-${k}`} inputMode="decimal" {...text(k)} placeholder="0" className={cn(fieldCls, 'tabular-nums')} aria-invalid={!!err(k)} />
                       </Field>
-                      <Field label="Όγκος" htmlFor="it-v" className="col-span-6 sm:col-span-3" error={err('volume')}>
-                        <Input id="it-v" inputMode="decimal" {...text('volume')} className={cn(fieldCls, 'tabular-nums')} />
-                      </Field>
-                    </>
-                  )}
-                  <Field label="Παρατηρήσεις" htmlFor="it-rem" className="col-span-12">
-                    <textarea
-                      id="it-rem" rows={2} maxLength={2000} {...text('remarks')}
-                      className="w-full rounded-lg border border-input bg-transparent px-2.5 py-1.5 text-[length:var(--fs-13)] outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
-                    />
-                  </Field>
+                    ))}
+                    <Field label="Καθαρό βάρος (kg)" htmlFor="it-w" className="col-span-4" error={err('weight')}>
+                      <Input id="it-w" inputMode="decimal" {...text('weight')} placeholder="0" className={cn(fieldCls, 'tabular-nums')} aria-invalid={!!err('weight')} />
+                    </Field>
+                    <Field label="Μικτό βάρος (kg)" htmlFor="it-gw" className="col-span-4" error={err('grossWeight')}>
+                      <Input id="it-gw" inputMode="decimal" {...text('grossWeight')} placeholder="0" className={cn(fieldCls, 'tabular-nums')} aria-invalid={!!err('grossWeight')} />
+                    </Field>
+                    <Field label="Όγκος" htmlFor="it-v" className="col-span-4" error={err('volume')}>
+                      <Input id="it-v" inputMode="decimal" {...text('volume')} placeholder="0" className={cn(fieldCls, 'tabular-nums')} aria-invalid={!!err('volume')} />
+                    </Field>
+                  </div>
+                  <RowHint>Οι διαστάσεις γράφονται στη μονάδα που χρησιμοποιεί η εταιρία (π.χ. εκατοστά). Αποθηκεύονται στο SoftOne (Διάσταση 1/2/3, Μάζα, Μικτό βάρος, Όγκος).</RowHint>
+                </FormSection>
+              )}
+
+              <FormSection tone="violet" icon={<FiTag />} title="Χαρακτηριστικά" aside={<span>αποθηκεύονται στην εφαρμογή</span>}>
+                <datalist id="attr-names">{ATTR_SUGGESTIONS.map((n) => <option key={n} value={n} />)}</datalist>
+                {attrs.length === 0 && (
+                  <p className="text-[length:var(--fs-12)] text-muted-foreground">Κανένα χαρακτηριστικό. Πρόσθεσε π.χ. «Χρώμα: Λευκό» ή «Πάχος: 10 mm».</p>
+                )}
+                {attrs.map((a, i) => (
+                  <div key={i} className="grid grid-cols-12 items-end gap-x-2 gap-y-1">
+                    <Field label={i === 0 ? 'Όνομα' : ''} htmlFor={`at-n-${i}`} className="col-span-12 sm:col-span-4">
+                      <Input id={`at-n-${i}`} list="attr-names" value={a.name} onChange={(e) => setAttr(i, { name: e.target.value })} maxLength={80} placeholder="π.χ. Χρώμα" className={fieldCls} aria-label={`Όνομα χαρακτηριστικού ${i + 1}`} />
+                    </Field>
+                    <Field label={i === 0 ? 'Τιμή' : ''} htmlFor={`at-v-${i}`} className="col-span-7 sm:col-span-5">
+                      <Input id={`at-v-${i}`} value={a.value} onChange={(e) => setAttr(i, { value: e.target.value })} maxLength={300} placeholder="π.χ. Λευκό" className={fieldCls} aria-label={`Τιμή χαρακτηριστικού ${i + 1}`} />
+                    </Field>
+                    <Field label={i === 0 ? 'Μονάδα' : ''} htmlFor={`at-u-${i}`} className="col-span-3 sm:col-span-2">
+                      <Input id={`at-u-${i}`} value={a.unit} onChange={(e) => setAttr(i, { unit: e.target.value })} maxLength={20} placeholder="mm" className={fieldCls} aria-label={`Μονάδα χαρακτηριστικού ${i + 1}`} />
+                    </Field>
+                    <div className="col-span-2 flex justify-end sm:col-span-1">
+                      {/* Οι ενέργειες ζουν ΠΑΝΤΑ σε dropdown (κανόνας του project). */}
+                      <DropdownMenu>
+                        <DropdownMenuTrigger
+                          className="inline-flex size-8 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors duration-150 hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring data-[state=open]:bg-muted"
+                          aria-label={`Ενέργειες για χαρακτηριστικό ${a.name || i + 1}`}
+                        >
+                          <FiMoreVertical className="size-4" aria-hidden />
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-48">
+                          <DropdownMenuItem className="cursor-pointer gap-2 text-[length:var(--fs-12)]" disabled={i === 0} onSelect={() => moveAttr(i, -1)}>
+                            <FiArrowUp className="size-3.5" aria-hidden /> Μετακίνηση πάνω
+                          </DropdownMenuItem>
+                          <DropdownMenuItem className="cursor-pointer gap-2 text-[length:var(--fs-12)]" disabled={i === attrs.length - 1} onSelect={() => moveAttr(i, 1)}>
+                            <FiArrowDown className="size-3.5" aria-hidden /> Μετακίνηση κάτω
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem variant="destructive" className="cursor-pointer gap-2 text-[length:var(--fs-12)]" onSelect={() => setAttrs((x) => x.filter((_, j) => j !== i))}>
+                            <FiTrash2 className="size-3.5" aria-hidden /> Αφαίρεση
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  </div>
+                ))}
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button type="button" variant="outline" size="sm" onClick={() => setAttrs((x) => [...x, { name: '', value: '', unit: '' }])}>
+                    <FiPlus className="mr-1 size-3.5" aria-hidden /> Προσθήκη χαρακτηριστικού
+                  </Button>
+                  {attrError && <RowHint tone="bad">{attrError}</RowHint>}
                 </div>
+              </FormSection>
+
+              <FormSection tone="slate" icon={<FiSliders />} title="Παρατηρήσεις">
+                <textarea
+                  id="it-rem" rows={2} maxLength={2000} {...text('remarks')} aria-label="Παρατηρήσεις"
+                  className="w-full rounded-lg border border-input bg-transparent px-2.5 py-1.5 text-[length:var(--fs-13)] outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                />
               </FormSection>
 
               {saveError && (
@@ -341,12 +443,12 @@ export function ItemEditDialog({ mtrl, open, onOpenChange, onSaved }: {
 
         <DialogFooter className="mx-0 mb-0 items-center gap-2 border-t border-border bg-card px-4 py-2.5">
           <span className="mr-auto text-[length:var(--fs-11)] text-muted-foreground" aria-live="polite">
-            {changes.length === 0 ? 'Καμία αλλαγή' : `${changes.length} ${changes.length === 1 ? 'αλλαγή' : 'αλλαγές'}: ${changes.map((k) => LABEL[k] ?? k).join(', ')}`}
+            {!anyChange ? 'Καμία αλλαγή' : [...changes.map((k) => LABEL[k] ?? k), ...(attrsChanged ? ['Χαρακτηριστικά'] : [])].join(', ')}
           </span>
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={busy}>Άκυρο</Button>
-          <Button onClick={save} disabled={busy || changes.length === 0 || !valid}>
+          <Button onClick={save} disabled={busy || !anyChange || !valid}>
             {busy && <FiLoader className="mr-1.5 size-3.5 animate-spin motion-reduce:animate-none" aria-hidden />}
-            {busy ? 'Αποστολή…' : 'Αποθήκευση στο SoftOne'}
+            {busy ? 'Αποστολή…' : changes.length ? 'Αποθήκευση στο SoftOne' : 'Αποθήκευση'}
           </Button>
         </DialogFooter>
       </DialogContent>

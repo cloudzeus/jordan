@@ -37,8 +37,12 @@ export const ITEM_FIELDS = {
   sellRatio: { col: 'MU41', kind: 'number', label: 'Σχέση πώλησης προς βασική', itemOnly: true },
   priceRetail: { col: 'PRICER', kind: 'number', label: 'Τιμή λιανικής' },
   priceWholesale: { col: 'PRICEW', kind: 'number', label: 'Τιμή χονδρικής' },
-  weight: { col: 'WEIGHT', kind: 'number', label: 'Βάρος' },
-  volume: { col: 'VOLUME', kind: 'number', label: 'Όγκος' },
+  weight: { col: 'WEIGHT', kind: 'number', label: 'Καθαρό βάρος', itemOnly: true },
+  grossWeight: { col: 'GWEIGHT', kind: 'number', label: 'Μικτό βάρος', itemOnly: true },
+  volume: { col: 'VOLUME', kind: 'number', label: 'Όγκος', itemOnly: true },
+  dim1: { col: 'DIM1', kind: 'number', label: 'Μήκος (Διάσταση 1)', itemOnly: true },
+  dim2: { col: 'DIM2', kind: 'number', label: 'Πλάτος (Διάσταση 2)', itemOnly: true },
+  dim3: { col: 'DIM3', kind: 'number', label: 'Ύψος (Διάσταση 3)', itemOnly: true },
 } as const satisfies Record<string, { col: string; kind: FieldKind; label: string; max?: number; lookup?: string; itemOnly?: boolean }>;
 
 export type ItemFieldKey = keyof typeof ITEM_FIELDS;
@@ -73,7 +77,11 @@ export const itemEditInput = z.object({
   priceRetail: z.number().min(0).max(1e9).optional(),
   priceWholesale: z.number().min(0).max(1e9).optional(),
   weight: z.number().min(0).max(1e9).optional(),
+  grossWeight: z.number().min(0).max(1e9).optional(),
   volume: z.number().min(0).max(1e9).optional(),
+  dim1: z.number().min(0).max(1e9).optional(),
+  dim2: z.number().min(0).max(1e9).optional(),
+  dim3: z.number().min(0).max(1e9).optional(),
 });
 export type ItemEditInput = z.infer<typeof itemEditInput>;
 

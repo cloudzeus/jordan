@@ -26,7 +26,7 @@ const row = (over: Record<string, string> = {}) => ({
   MTRL: '266', CODE: '0000168', SODTYPE: '51', NAME: 'DOLCI ARGILLA', NAME1: '', CODE1: '', CODE2: '', REMARKS: '',
   ISACTIVE: '1', VAT: '1410', MTRCATEGORY: '1', MTRGROUP: '', MTRMANFCTR: '8', MTRMARK: '',
   MTRUNIT1: '101', MTRUNIT3: '101', MU31: '1', MTRUNIT4: '101', MU41: '1',
-  PRICER: '0', PRICEW: '0', WEIGHT: '0', VOLUME: '0', ...over,
+  PRICER: '0', PRICEW: '0', WEIGHT: '0', GWEIGHT: '0', VOLUME: '0', DIM1: '0', DIM2: '0', DIM3: '0', ...over,
 });
 
 beforeEach(() => {

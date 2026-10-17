@@ -6,6 +6,7 @@ import { PageHeader } from '@/components/admin/page-header';
 import { cachedClassificationLabeller } from '@/lib/ocr/mydata-labels';
 import { ItemsTabs } from './items-tabs';
 import { primaryThumbs } from '@/lib/item-media/thumbs';
+import { stockByItem, warehouses } from '@/lib/item-stock';
 import { checkAccounts } from '@/lib/ocr/account-check';
 
 export const dynamic = 'force-dynamic';
@@ -48,8 +49,8 @@ export default async function ItemsPage() {
     })),
     { synced: chartRows.length > 0, accounts: chartRows },
   );
-  const thumbs = await primaryThumbs();
-  const withThumb = items.map((i) => ({ ...i, thumbUrl: thumbs.get(i.mtrl) ?? null }));
+  const [thumbs, stock, whs] = await Promise.all([primaryThumbs(), stockByItem(), warehouses()]);
+  const withThumb = items.map((i) => ({ ...i, thumbUrl: thumbs.get(i.mtrl) ?? null, stock: i.isService ? undefined : stock.get(i.mtrl) ?? {} }));
   const products = withThumb.filter((i) => !i.isService);
   const services = withThumb.filter((i) => i.isService);
 
@@ -72,6 +73,7 @@ export default async function ItemsPage() {
         helpAnchor="items"
       />
       <ItemsTabs
+        warehouses={whs}
         products={products}
         services={services}
         expenses={expenses.map((e) => ({ expn: e.expn, code: e.code, name: e.name, vat: e.vat, isActive: e.isActive }))}

@@ -8,6 +8,7 @@ export const LOOKUP_KINDS = [
   { kind: 'MTRGROUP', label: 'Ομάδες ειδών', usedFor: 'Είδη & υπηρεσίες' },
   { kind: 'MTRMANFCTR', label: 'Κατασκευαστές', usedFor: 'Είδη' },
   { kind: 'MTRMARK', label: 'Μάρκες', usedFor: 'Είδη' },
+  { kind: 'WHOUSE', label: 'Αποθήκες', usedFor: 'Υπόλοιπα ειδών' },
   { kind: 'TRDCATEGORY', label: 'Κατηγορίες συναλλασσομένων', usedFor: 'Συναλλασσόμενοι' },
   { kind: 'PAYMENT', label: 'Τρόποι πληρωμής', usedFor: 'Συναλλασσόμενοι & παραστατικά' },
   { kind: 'SHIPMENT', label: 'Τρόποι αποστολής', usedFor: 'Συναλλασσόμενοι & παραστατικά' },
