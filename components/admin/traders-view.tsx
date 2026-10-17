@@ -9,7 +9,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { TraderEditDialog, type TraderDialogMode } from '@/components/admin/trader-edit-dialog';
 import { isValidAfm } from '@/lib/ocr/validate';
-import { TraderDocsPanel } from '@/components/admin/trader-docs-panel';
+import { TraderExpandPanel } from '@/components/admin/trader-expand-panel';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -141,14 +141,10 @@ export function TradersView({
                   <FiGlobe aria-hidden className="mr-2 size-3.5" /> Εξακρίβωση VIES
                   {!foreign && <span className="ml-auto text-[length:var(--fs-10)] text-muted-foreground">όχι ξένος ΑΦΜ</span>}
                 </DropdownMenuItem>
-                {(c.docCount ?? 0) > 0 && (
-                  <>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem onSelect={() => row.toggleExpanded(true)} className="text-[length:var(--fs-13)]">
-                      <FiFileText aria-hidden className="mr-2 size-3.5" /> Παραστατικά ({c.docCount})
-                    </DropdownMenuItem>
-                  </>
-                )}
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onSelect={() => row.toggleExpanded(true)} className="text-[length:var(--fs-13)]">
+                  <FiFileText aria-hidden className="mr-2 size-3.5" /> Καρτέλα & κινήσεις{(c.docCount ?? 0) > 0 ? ` · ${c.docCount} σκαναρίσματα` : ''}
+                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           );
@@ -310,7 +306,8 @@ export function TradersView({
             searchKey="name"
             searchPlaceholder="Αναζήτηση (κωδικός, επωνυμία, ΑΦΜ, ΔΟΥ, πόλη, τηλ…)"
             persistKey="admin.traders.table.v1"
-            expandable={(r) => <TraderDocsPanel trdr={r.trdr} count={r.docCount ?? 0} />}
+            // Στοιχεία (ΑΑΔΕ/VIES) · Καρτέλα · Έργα · Παραγγελίες · Σκαναρίσματα.
+            expandable={(r) => <TraderExpandPanel trader={r} canManage={canManage} onAction={(mode) => setDialog({ trdr: r.trdr, mode })} />}
             toolbar={toolbar}
           />
         </div>
