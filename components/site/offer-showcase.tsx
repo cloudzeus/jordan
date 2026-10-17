@@ -4,6 +4,7 @@ import * as React from 'react';
 import dynamic from 'next/dynamic';
 import { FiPause, FiPlay } from 'react-icons/fi';
 import { cn } from '@/lib/utils';
+import { tierColor } from './tier-colors';
 
 const ContainerScene = dynamic(() => import('@/components/admin/container-scene'), { ssr: false, loading: () => null });
 
@@ -20,10 +21,18 @@ export type ShowcaseProps = {
   /** Επιπλέον στατιστικά κάτω από τα βασικά (π.χ. συμμετέχοντες, προθεσμία, η κράτησή σας). */
   extra?: { label: string; value: string }[];
   footnote?: string;
+  /** Κράτηση με click στις άδειες θέσεις του 3D (portal). `maxPallets` = ελεύθερες μείον εκκρεμή αιτήματα. */
+  booking?: { maxPallets: number; onPick: (pallets: number) => void; selected?: number };
+  /** Demo (website): click σε άδεια θέση ⇒ μήνυμα «συνδεθείτε για κράτηση» με αυτό το link. */
+  pickHref?: string;
+  /** Προεπισκόπηση: +N παλέτες πάνω στο τρέχον γέμισμα — δείχνει στο γράφημα πού θα πάει η τιμή. */
+  preview?: number;
+  /** Ενέργειες κάτω από τα στατιστικά (π.χ. κουμπί «Κλείστε παλέτες»). */
+  actions?: React.ReactNode;
 };
 
 const easeOut = (t: number) => 1 - Math.pow(1 - t, 3);
-const fmt = (n: number, d = 0) => n.toLocaleString('el-GR', { maximumFractionDigits: d, minimumFractionDigits: d });
+const fmt = (n: number, d = 0) => n.toLocaleString('el-GR', { maximumFractionDigits: d, minimumFractionDigits: Number.isInteger(n) ? 0 : d });
 
 /** Ομαλή «κίνηση» προς τον στόχο με rAF — ΜΙΑ τιμή οδηγεί αριθμούς, καμπύλη, δείκτη και 3D. */
 function useTween(target: number, ms: number, enabled: boolean) {
@@ -61,6 +70,7 @@ export function OfferShowcase(p: ShowcaseProps) {
   const [playing, setPlaying] = React.useState(true);
   const demoStart = Math.max(1, Math.round(p.capacity * 0.15));
   const [target, setTarget] = React.useState(p.mode === 'demo' ? demoStart : 0);
+  const [demoPick, setDemoPick] = React.useState(0);
 
   React.useEffect(() => {
     const r = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -93,28 +103,49 @@ export function OfferShowcase(p: ShowcaseProps) {
   const first = tiers[0];
   const dropPct = first && cur && first.value > 0 ? ((first.value - cur.value) / first.value) * 100 : 0;
 
+  // Click σε άδεια θέση: στο portal → κράτηση· στο demo → παύση + «συνδεθείτε».
+  const pickable = p.booking ? p.booking.maxPallets >= 0.5 : !!p.pickHref;
+  const onPick = p.booking
+    ? (n: number) => p.booking!.onPick(Math.min(n, p.booking!.maxPallets))
+    : p.pickHref ? (n: number) => { setPlaying(false); setDemoPick(n); } : undefined;
+  const selected = p.booking?.selected ?? demoPick;
+  const previewN = p.preview ?? (demoPick || 0);
+
   return (
-    <div ref={ref} className="grid gap-10 lg:grid-cols-[1.35fr_1fr] lg:gap-14">
-      <div className="relative aspect-[4/3] w-full">
+    <div ref={ref} className="grid gap-10 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)] lg:gap-14">
+      <div className="relative aspect-[4/3] w-full min-w-0 overflow-hidden">
         {mounted && (
           <ContainerScene
             pallets={p.capacity} perPallet={p.product.perPallet} filled={sceneFilled} load={p.product.load}
             labels={{ container: 'Container', pallet: 'ΠΑΛ', base: p.product.unit }}
             heightClass="h-full" expandable={false} fitScale={0.8}
+            onPickSlots={pickable ? onPick : undefined} selectedSlots={Math.ceil(selected)}
+            maxSelectable={p.booking ? Math.ceil(p.booking.maxPallets) : undefined}
             className="h-full [&>div>.pointer-events-none]:hidden [&>div]:rounded-none [&>div]:border-0 [&>div]:![background:transparent] [&_figcaption]:hidden"
           />
         )}
-        <div className="pointer-events-none absolute left-0 top-2 flex flex-col items-start gap-2">
+        <div className="pointer-events-none absolute left-0 top-2 hidden flex-col items-start gap-2 sm:flex">
           <Chip dot="var(--s-ink)">Γεμάτες <b className="font-semibold tabular-nums">{fmt(Math.floor(shown * 2) / 2, 1)}</b> παλέτες</Chip>
           <Chip dot={tierColor(idx, tiers.length)}>Τιμή τώρα <b className="font-semibold tabular-nums" style={{ color: tierColor(idx, tiers.length) }}>{cur?.label}</b></Chip>
         </div>
-        <div className="pointer-events-none absolute bottom-6 right-0">
-          <Chip dot="#CFC9C0" hollow>Ελεύθερες <b className="font-semibold tabular-nums">{fmt(Math.max(0, p.capacity - Math.floor(shown * 2) / 2), 1)}</b></Chip>
+        <div className="pointer-events-none absolute bottom-6 right-0 flex flex-col items-end gap-2">
+          {pickable && <Chip dot="#0F766E">Πατήστε σε <b className="font-semibold">ελεύθερη θέση</b> για κράτηση</Chip>}
+          <Chip dot="#CFC9C0" hollow className="hidden sm:inline-flex">Ελεύθερες <b className="font-semibold tabular-nums">{fmt(Math.max(0, p.capacity - Math.floor(shown * 2) / 2), 1)}</b></Chip>
         </div>
+        {p.pickHref && demoPick > 0 && (
+          <div className="absolute inset-x-0 top-1/2 mx-auto w-fit max-w-[92%] -translate-y-1/2 border border-[var(--s-line)] bg-white px-5 py-4 text-center shadow-[0_12px_40px_rgba(28,50,65,0.12)]" role="status">
+            <p className="text-[length:var(--fs-15)]">Θέλετε <b className="tabular-nums">{fmt(demoPick)}</b> {demoPick === 1 ? 'παλέτα' : 'παλέτες'};</p>
+            <p className="mt-1 text-[length:var(--fs-13)] text-[var(--s-ink-2)]">Οι κρατήσεις γίνονται από την περιοχή πελατών & συνεργατών.</p>
+            <div className="mt-3 flex items-center justify-center gap-4">
+              <a href={p.pickHref} className="inline-flex min-h-11 items-center bg-[var(--s-ink)] px-5 text-[length:var(--fs-14)] font-medium text-white hover:bg-[#2C4556]">Είσοδος για κράτηση</a>
+              <button type="button" onClick={() => { setDemoPick(0); setPlaying(true); }} className="min-h-11 cursor-pointer text-[length:var(--fs-14)] text-[var(--s-ink-2)] hover:text-[var(--s-ink)]">Κλείσιμο</button>
+            </div>
+          </div>
+        )}
         <p className="pointer-events-none absolute bottom-0 left-0 text-[length:var(--fs-12)] text-[var(--s-mute)]">Σύρετε για περιστροφή</p>
       </div>
 
-      <div className="flex flex-col">
+      <div className="flex min-w-0 flex-col">
         {p.product.eyebrow && <p className="text-[length:var(--fs-12)] font-medium uppercase tracking-[0.18em] text-[var(--s-mute)]">{p.product.eyebrow}</p>}
         <h3 className="font-site mt-3 text-[length:var(--fs-24)] font-light leading-tight">{p.product.name}</h3>
         {p.product.code && <p className="mt-1 text-[length:var(--fs-13)] text-[var(--s-mute)]">{p.product.code} · παλέτα {fmt(p.product.perPallet)} {p.product.unit}</p>}
@@ -130,11 +161,13 @@ export function OfferShowcase(p: ShowcaseProps) {
             <p className="text-[length:var(--fs-12)] uppercase tracking-[0.18em] text-[var(--s-mute)]">{p.valueCaption}</p>
             <p className={cn(/[\u0370-\u03FF]/.test(cur?.label ?? '') ? 'font-site' : 'font-num', 'text-[length:var(--fs-20)] font-light transition-colors duration-500')} style={{ color: tierColor(idx, tiers.length) }}>{cur?.label ?? '—'}</p>
           </div>
-          <PriceSteps tiers={tiers} capacity={p.capacity} shown={shown} idx={idx} animate={!reduce} />
+          <PriceSteps tiers={tiers} capacity={p.capacity} shown={shown} idx={idx} animate={!reduce} preview={previewN > 0 ? Math.min(p.capacity, shown + previewN) : undefined} />
           <p className="mt-3 min-h-6 text-[length:var(--fs-14)] text-[var(--s-ink-2)]">
             {next ? <>Επόμενη πτώση σε <strong className="font-medium tabular-nums text-[var(--s-ink)]">{fmt(Math.max(0.5, Math.ceil((next.from - shown) * 2) / 2), 1)}</strong> παλέτες → <span className="tabular-nums">{next.label}</span></> : 'Καλύτερη τιμή — το container είναι στο χαμηλότερο κλιμάκιο.'}
           </p>
         </div>
+
+        {p.actions && <div className="mt-6">{p.actions}</div>}
 
         {p.extra && p.extra.length > 0 && (
           <dl className="mt-6 space-y-2 border-t border-[var(--s-line)] pt-5 text-[length:var(--fs-14)]">
@@ -158,9 +191,9 @@ export function OfferShowcase(p: ShowcaseProps) {
   );
 }
 
-function Chip({ dot, hollow, children }: { dot: string; hollow?: boolean; children: React.ReactNode }) {
+function Chip({ dot, hollow, className, children }: { dot: string; hollow?: boolean; className?: string; children: React.ReactNode }) {
   return (
-    <span className="inline-flex items-center gap-2 border border-[var(--s-line)] bg-white/90 px-3 py-1.5 text-[length:var(--fs-13)] text-[var(--s-ink)] backdrop-blur-sm">
+    <span className={cn('inline-flex items-center gap-2 border border-[var(--s-line)] bg-white/90 px-3 py-1.5 text-[length:var(--fs-13)] text-[var(--s-ink)] backdrop-blur-sm', className)}>
       <span className="size-2 rounded-full" style={hollow ? { boxShadow: `inset 0 0 0 1.5px ${dot}` } : { background: dot }} aria-hidden />
       {children}
     </span>
@@ -176,19 +209,11 @@ function Stat({ label, value }: { label: string; value: React.ReactNode }) {
   );
 }
 
-/** Χρώμα κλιμακίου: ζεστό (ακριβό) → πράσινο (φθηνότερο). Όλα ≥ 4.5:1 σε λευκό για τις ετικέτες. */
-const TIER_COLORS = ['#B4471B', '#B45309', '#8A6A00', '#4D7C0F', '#15803D', '#0F766E'];
-export function tierColor(i: number, n: number) {
-  if (n <= 1) return TIER_COLORS[0];
-  const k = Math.round((i / (n - 1)) * (TIER_COLORS.length - 1));
-  return TIER_COLORS[Math.min(TIER_COLORS.length - 1, k)];
-}
-
 /**
  * Λιτό, έγχρωμο γράφημα «σκαλοπάτι»: τιμή ανά γέμισμα. Κάθε κλιμάκιο έχει το χρώμα του (ζεστό → πράσινο)·
  * ό,τι έχει ήδη κατακτηθεί γεμίζει, το υπόλοιπο μένει αχνό. Ο δείκτης «περπατά» στην καμπύλη. Καθαρό SVG.
  */
-function PriceSteps({ tiers, capacity, shown, idx, animate }: { tiers: ShowcaseTier[]; capacity: number; shown: number; idx: number; animate: boolean }) {
+function PriceSteps({ tiers, capacity, shown, idx, animate, preview }: { tiers: ShowcaseTier[]; capacity: number; shown: number; idx: number; animate: boolean; preview?: number }) {
   if (!tiers.length || capacity <= 0) return null;
   const W = 440, H = 210, L = 4, R = 4, T = 30, B = 34;
   const vals = tiers.map((t) => t.value);
@@ -223,13 +248,27 @@ function PriceSteps({ tiers, capacity, shown, idx, animate }: { tiers: ShowcaseT
               </>
             )}
             {i > 0 && <line x1={xs} x2={xs} y1={y(tiers[i - 1].value)} y2={ty} stroke={idx >= i ? c : '#CFC9C0'} strokeWidth={idx >= i ? 2.5 : 1} />}
-            <text x={xs + 6} y={ty - 10} fontSize="12.5" fontWeight={idx === i ? 600 : 400} fill={idx >= i ? c : 'var(--s-mute)'} style={{ fontVariantNumeric: 'tabular-nums' }}>{t.label}</text>
-            {i > 0 && <text x={xs} y={base + 18} textAnchor="middle" fontSize="12" fill={idx >= i ? 'var(--s-ink)' : 'var(--s-mute)'} style={{ fontVariantNumeric: 'tabular-nums' }}>{fmt(t.from, 1)}</text>}
+            {(() => { const nearEnd = xs > W - 70; return (
+              <text x={nearEnd ? xe : xs + 6} y={ty - 10} textAnchor={nearEnd ? 'end' : 'start'} fontSize="12.5" fontWeight={idx === i ? 600 : 400} fill={idx >= i ? c : 'var(--s-mute)'} style={{ fontVariantNumeric: 'tabular-nums' }}>{t.label}</text>
+            ); })()}
+            {i > 0 && <text x={xs} y={base + 18} textAnchor={xs > W - 30 ? 'end' : 'middle'} fontSize="12" fill={idx >= i ? 'var(--s-ink)' : 'var(--s-mute)'} style={{ fontVariantNumeric: 'tabular-nums' }}>{fmt(t.from, 1)}</text>}
           </g>
         );
       })}
       <line x1={x(0)} x2={x(capacity)} y1={base} y2={base} stroke="var(--s-line)" />
-      <text x={x(capacity)} y={base + 18} textAnchor="end" fontSize="12" fill="var(--s-mute)">{fmt(capacity)} παλ.</text>
+      {tiers[tiers.length - 1].from < capacity - capacity * 0.08 && <text x={x(capacity)} y={base + 18} textAnchor="end" fontSize="12" fill="var(--s-mute)">{fmt(capacity)} παλ.</text>}
+      {preview != null && preview > shown && (() => {
+        const pi = tiers.reduce((acc, t, i) => (preview + 1e-6 >= t.from ? i : acc), 0);
+        const px = x(preview), py = y(tiers[pi].value), pc = tierColor(pi, tiers.length);
+        return (
+          <g aria-hidden>
+            <rect x={cx} y={T - 6} width={Math.max(0, px - cx)} height={base - T + 6} fill={pc} opacity={0.08} />
+            <line x1={px} x2={px} y1={T - 6} y2={base} stroke={pc} strokeWidth={1.5} strokeDasharray="4 3" />
+            <circle cx={px} cy={py} r={6} fill="#fff" stroke={pc} strokeWidth={2.5} />
+            <text x={px} y={T - 12} textAnchor={px > W - 80 ? 'end' : 'middle'} fontSize="12.5" fontWeight={600} fill={pc} style={{ fontVariantNumeric: 'tabular-nums' }}>με την κράτησή σας: {tiers[pi].label}</text>
+          </g>
+        );
+      })()}
       <line x1={cx} x2={cx} y1={cy} y2={base} stroke={color} strokeWidth={1} opacity={0.5} />
       {animate && <circle cx={cx} cy={cy} r={7} fill={color} className="origin-center animate-ping [transform-box:fill-box] motion-reduce:hidden" opacity={0.3} />}
       <circle cx={cx} cy={cy} r={6} fill={color} stroke="#fff" strokeWidth={2} />

@@ -64,7 +64,7 @@ function RowActions({ o, onEdit, onChanged }: { o: OfferRow; onEdit: () => void;
           <>
             <DropdownMenuSeparator />
             <DropdownMenuItem variant="destructive" className={ITEM} onSelect={async () => {
-              if (await confirmAction({ title: 'Ακύρωση προσφοράς', message: `Ακύρωση της «${o.title ?? o.name}»; ${o.customers ? `Υπάρχουν κρατήσεις ${o.customers} πελατών — ενημέρωσέ τους.` : ''}`, confirmLabel: 'Ακύρωση προσφοράς', destructive: true })) await setStatus('CANCELLED', 'Η προσφορά ακυρώθηκε');
+              if (await confirmAction({ title: 'Ακύρωση προσφοράς', message: `Ακύρωση της «${o.title ?? o.name}»; ${o.customers ? `Υπάρχουν κρατήσεις ${o.customers} συμμετεχόντων — ενημέρωσέ τους.` : ''}`, confirmLabel: 'Ακύρωση προσφοράς', destructive: true })) await setStatus('CANCELLED', 'Η προσφορά ακυρώθηκε');
             }}><FiXCircle className="size-3.5" aria-hidden /> Ακύρωση</DropdownMenuItem>
           </>
         )}
@@ -126,7 +126,12 @@ export function OffersClient({ offers, canManage }: { offers: OfferRow[]; canMan
         ? <span className="text-[length:var(--fs-12)] tabular-nums">{eur(row.original.next.tier.price)} <span className="text-muted-foreground">σε {num(row.original.next.missing)} παλ.</span></span>
         : <span className="text-[length:var(--fs-12)] text-emerald-700">καλύτερη ✓</span>),
     },
-    { accessorKey: 'customers', header: 'Πελάτες', size: 80, cell: ({ row }) => <span className="tabular-nums text-[length:var(--fs-12)]">{row.original.customers}</span> },
+    { accessorKey: 'customers', header: 'Συμμετέχοντες', size: 110, cell: ({ row }) => (
+      <span className="inline-flex items-center gap-1.5 tabular-nums text-[length:var(--fs-12)]">
+        {row.original.customers}
+        {row.original.pending > 0 && <span className="rounded-sm bg-amber-100 px-1.5 py-0.5 text-[length:var(--fs-10)] font-semibold text-amber-800" title="Αιτήματα κράτησης από το portal που περιμένουν έγκριση">{row.original.pending} παλ. σε αναμονή</span>}
+      </span>
+    ) },
     {
       accessorKey: 'closesAt', header: 'Λήξη', size: 100,
       cell: ({ row }) => (row.original.closesAt ? <span className="tabular-nums text-[length:var(--fs-12)] text-muted-foreground">{new Date(row.original.closesAt).toLocaleDateString('el-GR')}</span> : DASH),

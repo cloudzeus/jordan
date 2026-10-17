@@ -41,6 +41,15 @@ export type ContainerSceneProps = {
   className?: string;
   /** Απόσταση κάμερας ως συντελεστής του «χωράει ολόκληρο» (προεπιλογή 0.92· μικρότερο = πιο κοντά). */
   fitScale?: number;
+  /**
+   * Κράτηση με click: οι άδειες θέσεις γίνονται «πατήσιμες». Hover = προεπισκόπηση, click στη k-οστή
+   * άδεια θέση ⇒ `onPickSlots(k)` (k παλέτες από την πρώτη ελεύθερη). Το drag συνεχίζει να περιστρέφει.
+   */
+  onPickSlots?: (count: number) => void;
+  /** Πόσες άδειες θέσεις (από την πρώτη) να φαίνονται «επιλεγμένες». */
+  selectedSlots?: number;
+  /** Πόσες άδειες θέσεις μπορούν να επιλεγούν (π.χ. μείον τα εκκρεμή αιτήματα άλλων). */
+  maxSelectable?: number;
 };
 
 type Slab = { l: number; w: number; t: number };
@@ -484,8 +493,27 @@ export function buildScene(scene: THREE.Scene, pallets: number, filled: number, 
   });
   group.add(ghosts);
 
-  const instanced = [rods, handles, casts, holes, cross, rings, vents, hinges, keepers, decks, stringers, ghosts, ...loaded];
+  // Επιλογή/hover για κράτηση με click: ίδιος όγκος, πιο έντονος (επιλογή) ή απαλός (hover).
+  const pickMat = track(new THREE.MeshStandardMaterial({ color: '#0F766E', transparent: true, opacity: 0.5, depthWrite: false, roughness: 0.8, emissive: '#0F766E', emissiveIntensity: 0.25 }));
+  const hoverMat = track(new THREE.MeshStandardMaterial({ color: '#14B8A6', transparent: true, opacity: 0.28, depthWrite: false, roughness: 1 }));
+  const picked = new THREE.InstancedMesh(ghostGeo, pickMat, Math.max(1, empty.length));
+  const hovered = new THREE.InstancedMesh(ghostGeo, hoverMat, Math.max(1, empty.length));
+  picked.count = 0; hovered.count = 0;
+  picked.raycast = () => {}; hovered.raycast = () => {}; // το raycast «βλέπει» μόνο τα ghosts
+  const place = (mesh: THREE.InstancedMesh, n: number) => {
+    const k = Math.max(0, Math.min(empty.length, Math.floor(n)));
+    for (let i = 0; i < k; i++) mesh.setMatrixAt(i, m.makeTranslation(empty[i].x, empty[i].y + LOAD_H / 2, empty[i].z));
+    mesh.count = k;
+    mesh.instanceMatrix.needsUpdate = true;
+  };
+  group.add(picked, hovered);
+
+  const instanced = [rods, handles, casts, holes, cross, rings, vents, hinges, keepers, decks, stringers, ghosts, picked, hovered, ...loaded];
   return {
+    ghosts,
+    emptyCount: empty.length,
+    setPicked: (n: number) => place(picked, n),
+    setHovered: (n: number) => place(hovered, n),
     dispose() {
       scene.remove(group);
       for (const im of instanced) im.dispose();
@@ -495,7 +523,7 @@ export function buildScene(scene: THREE.Scene, pallets: number, filled: number, 
 }
 
 export default function ContainerScene({
-  pallets, perPallet, labels, filled, load = 'boxes', slab, heightClass = 'h-72 sm:h-80', expandable = true, className, fitScale = 0.92,
+  pallets, perPallet, labels, filled, load = 'boxes', slab, heightClass = 'h-72 sm:h-80', expandable = true, className, fitScale = 0.92, onPickSlots, selectedSlots = 0, maxSelectable,
 }: ContainerSceneProps) {
   const host = React.useRef<HTMLDivElement>(null);
   const [failed, setFailed] = React.useState(false);
@@ -507,6 +535,9 @@ export default function ContainerScene({
   } | null>(null);
   const [ready, setReady] = React.useState(false);
   const fitRef = React.useRef<(() => void) | null>(null);
+  const builtRef = React.useRef<ReturnType<typeof buildScene> | null>(null);
+  const pickRef = React.useRef({ onPickSlots, maxSelectable, selectedSlots });
+  pickRef.current = { onPickSlots, maxSelectable, selectedSlots };
   const info = containerLayout(pallets);
   const fill = filled ?? pallets;
   const fmt = (n: number) => n.toLocaleString('el-GR', { maximumFractionDigits: 2 });
@@ -577,6 +608,42 @@ export default function ContainerScene({
     const io = new IntersectionObserver(([e]) => { visible = e.isIntersecting; });
     io.observe(el);
     let raf = 0;
+    // Κράτηση με click: raycast ΜΟΝΟ στις άδειες θέσεις. Κίνηση < 6px = click (όχι περιστροφή).
+    const ray = new THREE.Raycaster();
+    const ndc = new THREE.Vector2();
+    const slotAt = (ev: PointerEvent) => {
+      const b = builtRef.current;
+      if (!b || !pickRef.current.onPickSlots || b.emptyCount === 0) return 0;
+      const r = renderer.domElement.getBoundingClientRect();
+      ndc.set(((ev.clientX - r.left) / r.width) * 2 - 1, -((ev.clientY - r.top) / r.height) * 2 + 1);
+      ray.setFromCamera(ndc, camera);
+      const hit = ray.intersectObject(b.ghosts, false)[0];
+      if (hit?.instanceId == null) return 0;
+      const max = pickRef.current.maxSelectable ?? b.emptyCount;
+      return Math.max(0, Math.min(max, hit.instanceId + 1));
+    };
+    let down: { x: number; y: number } | null = null;
+    let hoverN = 0;
+    const onDown = (ev: PointerEvent) => { down = { x: ev.clientX, y: ev.clientY }; };
+    const onMove = (ev: PointerEvent) => {
+      if (!pickRef.current.onPickSlots || ev.buttons) return;
+      const n = slotAt(ev);
+      if (n !== hoverN) { hoverN = n; builtRef.current?.setHovered(n); }
+      renderer.domElement.style.cursor = n ? 'pointer' : '';
+      if (n) controls.autoRotate = false; // σταματά η περιστροφή όταν «στοχεύει» θέση
+    };
+    const onLeave = () => { hoverN = 0; builtRef.current?.setHovered(0); renderer.domElement.style.cursor = ''; };
+    const onUp = (ev: PointerEvent) => {
+      const d = down; down = null;
+      if (!d || Math.hypot(ev.clientX - d.x, ev.clientY - d.y) > 6) return;
+      const n = slotAt(ev);
+      if (n) pickRef.current.onPickSlots?.(n);
+    };
+    renderer.domElement.addEventListener('pointerdown', onDown);
+    renderer.domElement.addEventListener('pointermove', onMove);
+    renderer.domElement.addEventListener('pointerleave', onLeave);
+    renderer.domElement.addEventListener('pointerup', onUp);
+
     const loop = () => {
       raf = requestAnimationFrame(loop);
       if (!visible) return;
@@ -586,6 +653,10 @@ export default function ContainerScene({
     loop();
 
     return () => {
+      renderer.domElement.removeEventListener('pointerdown', onDown);
+      renderer.domElement.removeEventListener('pointermove', onMove);
+      renderer.domElement.removeEventListener('pointerleave', onLeave);
+      renderer.domElement.removeEventListener('pointerup', onUp);
       cancelAnimationFrame(raf);
       ro.disconnect(); io.disconnect();
       controls.dispose();
@@ -603,12 +674,17 @@ export default function ContainerScene({
     const st = stage.current;
     if (!ready || !st) return;
     const built = buildScene(st.scene, pallets, fill, { kind: load, slab: slab ?? DEFAULT_SLAB, perPallet });
-    return () => built.dispose();
+    builtRef.current = built;
+    built.setPicked(pickRef.current.selectedSlots);
+    return () => { builtRef.current = null; built.dispose(); };
   }, [ready, pallets, fill, load, slabKey, perPallet]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Πόσο «κοντά» κάθεται η κάμερα (0.92 = ολόκληρο με αέρα· μικρότερο = πιο κοντινό κάδρο).
   const fitScaleRef = React.useRef(fitScale);
   fitScaleRef.current = fitScale;
+
+  // Επιλεγμένες θέσεις (κράτηση με click): ενημέρωση χωρίς να ξαναχτιστεί η σκηνή.
+  React.useEffect(() => { builtRef.current?.setPicked(selectedSlots); }, [selectedSlots]);
 
   // Κάμερα/ήλιος ανάλογα με το container (20ft / 40ft): κάδρο που χωράει ολόκληρο το container.
   const size = info.size;

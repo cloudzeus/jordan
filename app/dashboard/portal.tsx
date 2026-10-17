@@ -1,111 +1,97 @@
-import { FiLogOut, FiPackage, FiPhone, FiMail, FiCheckCircle } from 'react-icons/fi';
-import { getSetting } from '@/lib/settings';
+import Link from 'next/link';
 import { portalData } from '@/lib/portal-data';
 import type { UserWithRole } from '@/lib/rbac';
-import { OfferShowcase } from '@/components/site/offer-showcase';
-
-const strip = (s: string) => s.toLocaleLowerCase('el').normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-const loadOf = (name: string): 'stones' | 'boxes' | 'sacks' => {
-  const n = strip(name);
-  if (/κολλ|τσιμεντ|κονιαμ|στοκ|αρμο|σοβα|glue|cement|mortar|grout/.test(n)) return 'sacks';
-  if (/πετρ|stone|τραβερτ|travert/.test(n) && !/πλακακι|gres|porcel/.test(n)) return 'stones';
-  return 'boxes';
-};
+import { Container, Eyebrow } from '@/components/site/ui';
+import { ProductPlaceholder } from '@/components/site/visuals';
+import { tierColor } from '@/components/site/tier-colors';
+import { PortalShell } from './portal-shell';
 
 const eur = (n: number) => n.toLocaleString('el-GR', { style: 'currency', currency: 'EUR' });
 const num = (n: number) => n.toLocaleString('el-GR', { maximumFractionDigits: 2 });
-const pal = (n: number) => { const w = Math.floor(n + 1e-9); const h = Math.abs(n - w - 0.5) < 1e-6; return `${h ? (w ? `${w}½` : '½') : num(n)} ${n <= 1 ? 'παλέτα' : 'παλέτες'}`; };
 
-/** Το portal πελάτη/συνεργάτη: οι ανοιχτές δυναμικές προσφορές που του στάλθηκαν. Server component. */
+/** Αρχική πελάτη/συνεργάτη: τα προϊόντα δυναμικής τιμολόγησης που του στάλθηκαν — επιλέγει και μπαίνει. */
 export async function Portal({ user }: { user: NonNullable<UserWithRole> }) {
-  const [data, company, phone, email] = await Promise.all([
-    portalData(user), getSetting<string>('company.name'), getSetting<string>('company.phone'), getSetting<string>('company.email'),
-  ]);
-  const brand = (company ?? 'ATELIER').trim();
+  const data = await portalData(user);
   const open = data.offers.filter((o) => o.status === 'OPEN');
   const closed = data.offers.filter((o) => o.status === 'CLOSED');
 
   return (
-    <div className="min-h-dvh bg-slate-100 dark:bg-slate-950">
-      <header className="sticky top-0 z-10 border-b border-slate-200 bg-slate-900 text-white dark:border-slate-800">
-        <div className="mx-auto flex max-w-6xl items-center gap-3 px-4 py-3">
-          <span className="text-[length:var(--fs-18)] font-extrabold tracking-wide">{brand}</span>
-          <span className="hidden text-[length:var(--fs-12)] text-slate-300 sm:inline">· {data.org ?? (user.role.key === 'CUSTOMER' ? 'Πελάτης' : 'Συνεργάτης')}</span>
-          <span className="ml-auto truncate text-[length:var(--fs-12)] text-slate-300">{user.name ?? user.email}</span>
-          <form action="/api/auth/logout" method="post">
-            <button className="inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-md px-2.5 text-[length:var(--fs-12)] text-slate-200 transition-colors hover:bg-white/10" aria-label="Αποσύνδεση">
-              <FiLogOut className="size-4" aria-hidden /><span className="hidden sm:inline">Αποσύνδεση</span>
-            </button>
-          </form>
-        </div>
-      </header>
+    <PortalShell user={user} org={data.org}>
+      <Container className="py-14 md:py-20">
+        <Eyebrow>Δυναμικές προσφορές</Eyebrow>
+        <h1 className="font-site mt-4 text-[length:var(--fs-36)] font-light leading-tight">Καλώς ήρθατε{user.name ? `, ${user.name}` : ''}</h1>
+        <p className="mt-4 max-w-2xl text-[length:var(--fs-16)] text-[var(--s-ink-2)]">
+          Κάθε κοινό container αφορά ένα προϊόν. Επιλέξτε το, δείτε το από κοντά και κλείστε όσες παλέτες χρειάζεστε — όσο γεμίζει, η τιμή πέφτει για όλους.
+        </p>
 
-      <main className="mx-auto max-w-6xl space-y-6 px-4 py-6">
-        <section>
-          <h1 className="text-[length:var(--fs-24)] font-bold text-slate-900 dark:text-white">Καλώς ήρθατε{user.name ? `, ${user.name}` : ''}</h1>
-          <p className="mt-1 text-[length:var(--fs-14)] text-slate-600 dark:text-slate-300">
-            Κοινά container: κάθε συνεργάτης κλείνει όσες παλέτες χρειάζεται (από ½) και, όσο γεμίζει το container, η τιμή <strong>πέφτει για όλους</strong>.
-          </p>
-        </section>
-
-        {open.length === 0 && (
-          <div className="rounded-xl border border-dashed border-slate-300 bg-white px-6 py-12 text-center dark:border-slate-700 dark:bg-slate-900">
-            <FiPackage className="mx-auto size-10 text-slate-400" aria-hidden />
-            <p className="mt-3 text-[length:var(--fs-15)] font-semibold">Δεν υπάρχει ανοιχτή προσφορά αυτή τη στιγμή</p>
-            <p className="mt-1 text-[length:var(--fs-13)] text-slate-500">Θα σας ενημερώσουμε με email μόλις ανοίξει νέο κοινό container.</p>
+        {open.length === 0 ? (
+          <div className="mt-14 border border-dashed border-[var(--s-line)] px-6 py-16 text-center">
+            <p className="font-site text-[length:var(--fs-20)] font-light">Δεν υπάρχει ανοιχτή προσφορά αυτή τη στιγμή</p>
+            <p className="mt-2 text-[length:var(--fs-14)] text-[var(--s-ink-2)]">Θα σας ενημερώσουμε με email μόλις ανοίξει νέο κοινό container.</p>
           </div>
+        ) : (
+          <ul className="mt-14 grid gap-x-6 gap-y-14 md:grid-cols-2 lg:grid-cols-3">
+            {open.map((o) => {
+              const idx = Math.max(0, o.tiers.findIndex((t) => t.level === o.current?.level));
+              const color = tierColor(idx, o.tiers.length);
+              return (
+                <li key={o.id}>
+                  <Link href={`/dashboard/offers/${o.id}`} className="group block">
+                    <div className="relative aspect-[4/3] overflow-hidden bg-[var(--s-paper)]">
+                      {o.photo
+                        // eslint-disable-next-line @next/next/no-img-element
+                        ? <img src={o.photo} alt={o.name} className="s-img size-full object-cover" />
+                        : <ProductPlaceholder mtrl={o.mtrl} name={o.name} label={false} />}
+                      <span className="absolute left-3 top-3 bg-white/90 px-2.5 py-1 text-[length:var(--fs-12)] font-medium">{o.title ?? 'Κοινό container'}</span>
+                      {(o.mine > 0 || o.myPending.length > 0) && (
+                        <span className="absolute right-3 top-3 bg-[var(--s-ink)] px-2.5 py-1 text-[length:var(--fs-12)] text-white">
+                          {o.mine > 0 ? `Η κράτησή σας: ${num(o.mine)} παλ.` : 'Αίτημα σε αναμονή'}
+                        </span>
+                      )}
+                    </div>
+                    <div className="mt-5 flex items-start justify-between gap-4">
+                      <div className="min-w-0">
+                        <p className="font-site text-[length:var(--fs-20)] font-light leading-snug group-hover:underline group-hover:underline-offset-4">{o.name}</p>
+                        <p className="mt-1 text-[length:var(--fs-13)] text-[var(--s-mute)]">{o.code}</p>
+                      </div>
+                      <div className="shrink-0 text-right">
+                        <p className="font-num text-[length:var(--fs-24)] font-light" style={{ color }}>{o.current ? eur(o.current.price) : '—'}</p>
+                        <p className="text-[length:var(--fs-12)] text-[var(--s-mute)]">ανά {o.baseUnit ?? 'τ.μ.'}</p>
+                      </div>
+                    </div>
+                    {/* Γέμισμα: λεπτή μπάρα με τα σκαλοπάτια σε χρώμα */}
+                    <div className="relative mt-5 h-1 bg-[var(--s-line)]" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(o.percent)} aria-label="Γέμισμα container">
+                      <div className="absolute inset-y-0 left-0" style={{ width: `${o.percent}%`, background: color }} />
+                      {o.tiers.slice(1).map((t, i) => (
+                        <span key={t.level} className="absolute -top-1 h-3 w-px" style={{ left: `${(t.fromPallets / Math.max(1, o.capacity)) * 100}%`, background: tierColor(i + 1, o.tiers.length) }} />
+                      ))}
+                    </div>
+                    <p className="mt-2 flex justify-between text-[length:var(--fs-13)] text-[var(--s-ink-2)]">
+                      <span className="tabular-nums">{num(o.filled)} / {num(o.capacity)} παλέτες</span>
+                      <span>{o.next ? <>πτώση σε <b className="font-medium tabular-nums">{num(o.next.missing)}</b> παλ. → {eur(o.next.tier.price)}</> : 'καλύτερη τιμή'}</span>
+                    </p>
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
         )}
 
-        {open.map((o) => {
-          const unit = o.baseUnit ?? 'τ.μ.';
-          const subject = encodeURIComponent(`Κράτηση — ${o.title ?? o.name}`);
-          return (
-            <article key={o.id} className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
-              {/* Ζωντανή βιτρίνα: το container γεμίζει ως το πραγματικό γέμισμα, η τιμή πέφτει στα κλιμάκια. */}
-              <div className="site p-5 sm:p-8">
-                <OfferShowcase
-                  mode="live"
-                  product={{ name: o.name, code: o.code, load: loadOf(o.name), unit, perPallet: o.sqmPerPallet, eyebrow: o.title ?? 'Κοινό container' }}
-                  capacity={o.capacity} filled={o.filled}
-                  tiers={o.tiers.map((t) => ({ from: t.fromPallets, value: t.price, label: eur(t.price) }))}
-                  valueCaption={`Τιμή ανά ${unit} · για όλους`}
-                  extra={[
-                    { label: 'Συμμετέχοντες', value: String(o.customers) },
-                    { label: 'Ελάχιστη παραγγελία', value: pal(o.minOrder) },
-                    ...(o.closesAt ? [{ label: 'Συμμετοχή έως', value: new Date(o.closesAt).toLocaleDateString('el-GR', { day: 'numeric', month: 'long' }) }] : []),
-                    ...(o.mine > 0 ? [{ label: 'Η κράτησή σας', value: `${pal(o.mine)} · ${num(o.mine * o.sqmPerPallet)} ${unit}` }] : []),
-                  ]}
-                />
-              </div>
-              <div className="flex flex-wrap items-center gap-2 border-t border-slate-100 px-5 py-4 dark:border-slate-800">
-                {o.mine > 0 && (
-                  <span className="mr-auto flex items-center gap-2 text-[length:var(--fs-13)] text-sky-900 dark:text-sky-200">
-                    <FiCheckCircle className="size-4" aria-hidden /> Η κράτησή σας: <strong>{pal(o.mine)}</strong>
-                  </span>
-                )}
-                {email && <a href={`mailto:${email}?subject=${subject}`} className="inline-flex h-11 items-center gap-2 rounded-lg bg-slate-900 px-4 text-[length:var(--fs-14)] font-semibold text-white transition-colors hover:bg-slate-700"><FiMail className="size-4" aria-hidden /> {o.mine > 0 ? 'Αύξηση κράτησης' : 'Κλείστε παλέτες'}</a>}
-                {phone && <a href={`tel:${phone.replace(/\s/g, '')}`} className="inline-flex h-11 items-center gap-2 rounded-lg border border-slate-300 px-4 text-[length:var(--fs-14)] font-semibold transition-colors hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800"><FiPhone className="size-4" aria-hidden /> {phone}</a>}
-              </div>
-            </article>
-          );
-        })}
-
         {closed.length > 0 && (
-          <section className="space-y-2">
-            <h2 className="text-[length:var(--fs-15)] font-semibold">Κλεισμένα container</h2>
-            <ul className="divide-y divide-slate-200 rounded-xl border border-slate-200 bg-white dark:divide-slate-800 dark:border-slate-800 dark:bg-slate-900">
+          <section className="mt-20">
+            <h2 className="font-site text-[length:var(--fs-20)] font-light">Κλεισμένα container</h2>
+            <ul className="mt-4 border-t border-[var(--s-line)]">
               {closed.map((o) => (
-                <li key={o.id} className="flex flex-wrap items-center gap-2 px-4 py-3 text-[length:var(--fs-13)]">
-                  <span className="font-medium">{o.title ?? o.name}</span>
-                  <span className="ml-auto tabular-nums">τελική τιμή <strong>{o.current ? eur(o.current.price) : '—'}</strong>/{o.baseUnit ?? 'τ.μ.'}</span>
-                  {o.mine > 0 && <span className="rounded bg-sky-50 px-2 py-0.5 text-[length:var(--fs-12)] text-sky-800">η κράτησή σας: {pal(o.mine)}</span>}
+                <li key={o.id} className="flex flex-wrap items-center gap-3 border-b border-[var(--s-line)] py-4 text-[length:var(--fs-14)]">
+                  <span>{o.title ?? o.name}</span>
+                  <span className="ml-auto tabular-nums">τελική τιμή <b className="font-medium">{o.current ? eur(o.current.price) : '—'}</b>/{o.baseUnit ?? 'τ.μ.'}</span>
+                  {o.mine > 0 && <span className="text-[var(--s-mute)]">η κράτησή σας: {num(o.mine)} παλ.</span>}
                 </li>
               ))}
             </ul>
           </section>
         )}
-      </main>
-      <footer className="mx-auto max-w-6xl px-4 pb-8 text-[length:var(--fs-12)] text-slate-500">{brand}{phone ? ` · ${phone}` : ''}{email ? ` · ${email}` : ''}</footer>
-    </div>
+      </Container>
+    </PortalShell>
   );
 }

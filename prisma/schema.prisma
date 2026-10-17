@@ -93,25 +93,25 @@ model RolePermission {
 }
 
 model User {
-  id               String        @id @default(cuid())
-  email            String        @unique
+  id               String           @id @default(cuid())
+  email            String           @unique
   passwordHash     String?
   emailVerified    DateTime?
   name             String?
   image            String?
-  isActive         Boolean       @default(true)
-  locale           String        @default("el")
-  preferredLocales String[]      @default(["el"])
+  isActive         Boolean          @default(true)
+  locale           String           @default("el")
+  preferredLocales String[]         @default(["el"])
   roleId           String
-  role             Role          @relation(fields: [roleId], references: [id])
+  role             Role             @relation(fields: [roleId], references: [id])
   // Εξωτερικοί χρήστες (portal): ποιανού πελάτη (SoftOne TRDR) / συνεργάτη είναι — περιορίζει ό,τι βλέπουν.
   customerTrdr     Int?
   partnerId        String?
   customerContact  CustomerContact?
   partnerContact   PartnerContact?
-  partnerSelf      Partner?          @relation("PartnerSelfUser")
-  createdAt        DateTime      @default(now())
-  updatedAt        DateTime      @updatedAt
+  partnerSelf      Partner?         @relation("PartnerSelfUser")
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
   accounts         Account[]
   sessions         Session[]
   otpTokens        OtpToken[]
@@ -2693,19 +2693,26 @@ model ContainerOfferTier {
 }
 
 model ContainerReservation {
-  id          String         @id @default(cuid())
-  offerId     String
-  offer       ContainerOffer @relation(fields: [offerId], references: [id], onDelete: Cascade)
-  trdr        Int // SoftOne TRDR του πελάτη
-  pallets     Float // πολλαπλάσιο του ½
-  status      String         @default("ACTIVE") // ACTIVE | CANCELLED
-  notes       String?
-  createdById String?
-  createdAt   DateTime       @default(now())
-  updatedAt   DateTime       @updatedAt
+  id           String         @id @default(cuid())
+  offerId      String
+  offer        ContainerOffer @relation(fields: [offerId], references: [id], onDelete: Cascade)
+  // Ποιος κλείνει: πελάτης SoftOne (trdr) Ή συνεργάτης (partnerId) — ακριβώς ένα από τα δύο.
+  trdr         Int? // SoftOne TRDR του πελάτη
+  partnerId    String? // Partner.id
+  pallets      Float // πολλαπλάσιο του ½
+  // PENDING (αίτημα από το portal, ΔΕΝ μετράει στο γέμισμα) → ACTIVE (εγκρίθηκε) | REJECTED · ACTIVE → CANCELLED
+  status       String         @default("ACTIVE")
+  notes        String?
+  createdById  String? // ο χρήστης που την καταχώρισε (διαχειριστής ή ο ίδιος ο πελάτης από το portal)
+  decidedById  String? // ποιος ενέκρινε/απέρριψε
+  decidedAt    DateTime?
+  decisionNote String? // π.χ. λόγος απόρριψης
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
 
   @@index([offerId])
   @@index([trdr])
+  @@index([partnerId])
 }
 
 // Παραλήπτες της δυναμικής προσφοράς: πελάτες (SoftOne) και συνεργάτες (τοπικό μητρώο).

@@ -49,13 +49,21 @@ function validate(input: OfferInput) {
 }
 
 const filledOf = (rs: { pallets: number; status: string }[]) => roundStep(rs.filter((r) => r.status === 'ACTIVE').reduce((a, r) => a + r.pallets, 0));
+/** Αιτήματα από το portal που περιμένουν έγκριση — ΔΕΝ μετράνε στο γέμισμα/τιμή, αλλά «κρατάνε» θέση. */
+const pendingOf = (rs: { pallets: number; status: string }[]) => roundStep(rs.filter((r) => r.status === 'PENDING').reduce((a, r) => a + r.pallets, 0));
+/** Διακριτοί συμμετέχοντες (πελάτες ή συνεργάτες) με ενεργή κράτηση. */
+const participantsOf = (rs: { status: string; trdr: number | null; partnerId: string | null }[]) =>
+  new Set(rs.filter((r) => r.status === 'ACTIVE').map((r) => (r.trdr != null ? `c${r.trdr}` : `p${r.partnerId}`))).size;
+
+/** Ποιος κλείνει: ακριβώς ένα από πελάτη SoftOne ή συνεργάτη. */
+export type Booker = { trdr: number | null; partnerId: string | null };
 
 // ── Ανάγνωση ────────────────────────────────────────────────────────────────────────────────
 
 export async function listOffers() {
   const rows = await prisma.containerOffer.findMany({
     orderBy: [{ status: 'asc' }, { createdAt: 'desc' }],
-    include: { tiers: true, reservations: { select: { pallets: true, status: true, trdr: true } } },
+    include: { tiers: true, reservations: { select: { pallets: true, status: true, trdr: true, partnerId: true } } },
   });
   return rows.map((o) => {
     const tiers = o.tiers.map(({ level, fromPallets, price }) => ({ level, fromPallets, price }));
@@ -66,7 +74,8 @@ export async function listOffers() {
       sqmPerContainer: o.sqmPerContainer, sqmPerPallet: o.sqmPerPallet, minOrder: o.minOrder, baseUnit: o.baseUnit,
       closesAt: o.closesAt?.toISOString() ?? null, notes: o.notes, createdAt: o.createdAt.toISOString(),
       tiers: sortTiers(tiers),
-      customers: new Set(o.reservations.filter((r) => r.status === 'ACTIVE').map((r) => r.trdr)).size,
+      customers: participantsOf(o.reservations),
+      pending: pendingOf(o.reservations),
       ...st,
     };
   });
@@ -75,12 +84,24 @@ export type OfferRow = Awaited<ReturnType<typeof listOffers>>[number];
 
 export async function getReservations(offerId: string) {
   const rs = await prisma.containerReservation.findMany({ where: { offerId }, orderBy: { createdAt: 'asc' } });
-  const traders = await prisma.softoneTrader.findMany({ where: { trdr: { in: rs.map((r) => r.trdr) } }, select: { trdr: true, code: true, name: true } });
-  const byId = new Map(traders.map((t) => [t.trdr, t]));
-  return rs.map((r) => ({
-    id: r.id, trdr: r.trdr, customer: byId.get(r.trdr)?.name ?? `Πελάτης #${r.trdr}`, customerCode: byId.get(r.trdr)?.code ?? null,
-    pallets: r.pallets, status: r.status, notes: r.notes, createdAt: r.createdAt.toISOString(),
-  }));
+  const trdrs = rs.map((r) => r.trdr).filter((t): t is number => t != null);
+  const pids = rs.map((r) => r.partnerId).filter((p): p is string => !!p);
+  const [traders, partners] = await Promise.all([
+    prisma.softoneTrader.findMany({ where: { trdr: { in: trdrs } }, select: { trdr: true, code: true, name: true } }),
+    prisma.partner.findMany({ where: { id: { in: pids } }, select: { id: true, name: true } }),
+  ]);
+  const tById = new Map(traders.map((t) => [t.trdr, t]));
+  const pById = new Map(partners.map((p) => [p.id, p]));
+  return rs.map((r) => {
+    const t = r.trdr != null ? tById.get(r.trdr) : undefined;
+    const p = r.partnerId ? pById.get(r.partnerId) : undefined;
+    return {
+      id: r.id, trdr: r.trdr, partnerId: r.partnerId, kind: (r.partnerId ? 'PARTNER' : 'CUSTOMER') as 'PARTNER' | 'CUSTOMER',
+      customer: t?.name ?? p?.name ?? (r.trdr != null ? `Πελάτης #${r.trdr}` : 'Συνεργάτης'), customerCode: t?.code ?? null,
+      pallets: r.pallets, status: r.status, notes: r.notes, decisionNote: r.decisionNote,
+      fromPortal: r.status === 'PENDING' || r.decidedAt != null, createdAt: r.createdAt.toISOString(),
+    };
+  });
 }
 
 // ── Εγγραφή προσφοράς ──────────────────────────────────────────────────────────────────────
@@ -189,6 +210,86 @@ export async function cancelReservation(offerId: string, id: string) {
   const o = await prisma.containerOffer.findUnique({ where: { id: offerId }, select: { status: true } });
   if (o?.status === 'CLOSED') throw new OfferError('Το container έχει κλείσει — οι κρατήσεις δεν αλλάζουν');
   return prisma.containerReservation.update({ where: { id }, data: { status: 'CANCELLED' } });
+}
+
+// ── Αιτήματα κράτησης από το portal (click στον άδειο χώρο του container) ─────────────────────
+
+export const requestInput = z.object({
+  pallets: z.number().positive().max(1000),
+  notes: z.string().trim().max(500).optional().nullable().transform((v) => v || null),
+});
+
+/** Ο χρήστης του portal → ποιος κλείνει (πελάτης ή συνεργάτης). */
+export function bookerOf(u: { customerTrdr: number | null; partnerId: string | null }): Booker | null {
+  if (u.customerTrdr) return { trdr: u.customerTrdr, partnerId: null };
+  if (u.partnerId) return { trdr: null, partnerId: u.partnerId };
+  return null;
+}
+
+async function isRecipient(offerId: string, b: Booker) {
+  const r = await prisma.offerRecipient.findFirst({
+    where: { offerId, ...(b.trdr != null ? { kind: 'CUSTOMER', refId: String(b.trdr) } : { kind: 'PARTNER', refId: b.partnerId! }) },
+    select: { id: true },
+  });
+  return !!r;
+}
+
+/**
+ * Αίτημα κράτησης (PENDING): μόνο σε ανοιχτή προσφορά, μόνο για παραλήπτη της, σε βήματα ½ ≥ ελάχιστης.
+ * Ελέγχει χώρο έναντι ενεργών ΚΑΙ εκκρεμών αιτημάτων — δύο αιτήματα δεν «πιάνουν» την ίδια θέση.
+ */
+export async function requestReservation(offerId: string, b: Booker, input: z.infer<typeof requestInput>, userId: string | null) {
+  if (!(await isRecipient(offerId, b))) throw new OfferError('Η προσφορά δεν είναι διαθέσιμη για εσάς', 404);
+  return prisma.$transaction(async (tx) => {
+    const o = await tx.containerOffer.findUnique({ where: { id: offerId }, include: { reservations: true } });
+    if (!o) throw new OfferError('Η προσφορά δεν υπάρχει', 404);
+    if (o.status !== 'OPEN') throw new OfferError('Η προσφορά δεν δέχεται πλέον κρατήσεις');
+    if (o.closesAt && o.closesAt.getTime() < Date.now()) throw new OfferError('Έληξε η προθεσμία συμμετοχής');
+    const free = roundStep(capacityPallets(o.sqmPerContainer, o.sqmPerPallet) - filledOf(o.reservations) - pendingOf(o.reservations));
+    const err = checkReservation(input.pallets, Math.max(0, free), o.minOrder);
+    if (err) throw new OfferError(err);
+    return tx.containerReservation.create({
+      data: { offerId, trdr: b.trdr, partnerId: b.partnerId, pallets: input.pallets, notes: input.notes, status: 'PENDING', createdById: userId },
+    });
+  });
+}
+
+/** Ο ίδιος αποσύρει ΔΙΚΟ του αίτημα που δεν έχει εγκριθεί ακόμη. */
+export async function withdrawRequest(offerId: string, id: string, b: Booker) {
+  const r = await prisma.containerReservation.findFirst({ where: { id, offerId, status: 'PENDING', trdr: b.trdr, partnerId: b.partnerId } });
+  if (!r) throw new OfferError('Το αίτημα δεν βρέθηκε ή έχει ήδη απαντηθεί', 404);
+  return prisma.containerReservation.update({ where: { id }, data: { status: 'CANCELLED', decidedAt: new Date(), decisionNote: 'Αποσύρθηκε από τον αιτούντα' } });
+}
+
+/** Έγκριση: PENDING → ACTIVE, αν χωράει στο container (έναντι ενεργών). Μετά: νέα 3D εικόνα + email πτώσης. */
+export async function approveReservation(offerId: string, id: string, userId: string | null) {
+  return prisma.$transaction(async (tx) => {
+    const o = await tx.containerOffer.findUnique({ where: { id: offerId }, include: { reservations: true } });
+    if (!o) throw new OfferError('Η προσφορά δεν υπάρχει', 404);
+    if (o.status !== 'OPEN') throw new OfferError('Εγκρίσεις γίνονται μόνο σε ανοιχτή προσφορά');
+    const r = o.reservations.find((x) => x.id === id);
+    if (!r || r.status !== 'PENDING') throw new OfferError('Το αίτημα δεν βρέθηκε ή έχει ήδη απαντηθεί', 404);
+    const free = roundStep(capacityPallets(o.sqmPerContainer, o.sqmPerPallet) - filledOf(o.reservations));
+    if (r.pallets > free + 1e-9) throw new OfferError(`Δεν χωράει: ελεύθερες ${free} παλέτες, το αίτημα ζητά ${r.pallets}.`);
+    return tx.containerReservation.update({ where: { id }, data: { status: 'ACTIVE', decidedById: userId, decidedAt: new Date() } });
+  });
+}
+
+export async function rejectReservation(offerId: string, id: string, userId: string | null, note: string | null) {
+  const r = await prisma.containerReservation.findFirst({ where: { id, offerId, status: 'PENDING' } });
+  if (!r) throw new OfferError('Το αίτημα δεν βρέθηκε ή έχει ήδη απαντηθεί', 404);
+  return prisma.containerReservation.update({ where: { id }, data: { status: 'REJECTED', decidedById: userId, decidedAt: new Date(), decisionNote: note?.trim().slice(0, 300) || null } });
+}
+
+/** Email προς τον αιτούντα (ή την εταιρεία για νέο αίτημα): ποιος, πού. Επιστρέφει παραλήπτες/στοιχεία. */
+export async function reservationContext(offerId: string, id: string) {
+  const r = await prisma.containerReservation.findFirst({ where: { id, offerId }, include: { offer: { select: { title: true, name: true, code: true, sqmPerPallet: true, baseUnit: true } } } });
+  if (!r) return null;
+  const requester = r.createdById ? await prisma.user.findUnique({ where: { id: r.createdById }, select: { email: true, name: true, role: { select: { key: true } } } }) : null;
+  const who = r.trdr != null
+    ? (await prisma.softoneTrader.findUnique({ where: { trdr: r.trdr }, select: { name: true } }))?.name ?? `Πελάτης #${r.trdr}`
+    : (await prisma.partner.findUnique({ where: { id: r.partnerId ?? '' }, select: { name: true } }))?.name ?? 'Συνεργάτης';
+  return { r, who, requester: requester && (requester.role.key === 'CUSTOMER' || requester.role.key === 'COLLABORATOR') ? requester : null };
 }
 
 /** Προτάσεις για νέο container από τη ρύθμιση μονάδων του είδους (Container → Παλέτα → τ.μ.). */

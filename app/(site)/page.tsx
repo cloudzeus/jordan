@@ -128,6 +128,7 @@ export default async function HomePage() {
               capacity={20} filled={0}
               tiers={[{ from: 0, value: 100, label: 'Βασική' }, { from: 6, value: 94, label: '−6%' }, { from: 11, value: 89, label: '−11%' }, { from: 16, value: 85, label: '−15%' }]}
               valueCaption="Τιμή για όλους"
+              pickHref="/auth/signin"
               footnote="Ενδεικτικά νούμερα. Οι πραγματικές τιμές εμφανίζονται μετά τη σύνδεση."
             />
           </div>

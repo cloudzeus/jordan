@@ -23,7 +23,7 @@ const ContainerScene = dynamic(() => import('@/components/admin/container-scene'
   ssr: false, loading: () => <div className="h-72 animate-pulse rounded-md bg-muted motion-reduce:animate-none" />,
 });
 
-type Reservation = { id: string; trdr: number; customer: string; customerCode: string | null; pallets: number; status: string; notes: string | null; createdAt: string };
+type Reservation = { id: string; trdr: number | null; partnerId: string | null; kind: 'CUSTOMER' | 'PARTNER'; customer: string; customerCode: string | null; pallets: number; status: string; notes: string | null; decisionNote: string | null; fromPortal: boolean; createdAt: string };
 type Recipient = { id: string; kind: string; refId: string; name: string; email: string | null; emails: { kind: string; level: number; status: string; error: string | null; sentAt: string }[] };
 type Customer = { refId: string; name: string; sub: string };
 
@@ -135,6 +135,7 @@ export function OfferDetail({ offer, canManage, onChanged }: { offer: OfferRow; 
   const unit = offer.baseUnit ?? 'τ.μ.';
   const load3d = loadOf(offer.name);
   const active = data?.reservations.filter((r) => r.status === 'ACTIVE') ?? [];
+  const pending = data?.reservations.filter((r) => r.status === 'PENDING') ?? [];
 
   /** Μετά από αλλαγή γεμίσματος: νέα 3D εικόνα (για τα email) και «η τιμή έπεσε» αν πέρασε κλιμάκιο. */
   const refreshSnapshot = async (filled: number) => {
@@ -153,13 +154,33 @@ export function OfferDetail({ offer, canManage, onChanged }: { offer: OfferRow; 
     load(); onChanged();
   };
 
+  /** Αίτημα από το portal: έγκριση (μετράει στο γέμισμα → νέα 3D εικόνα + «η τιμή έπεσε») ή απόρριψη. */
+  const decide = async (r: Reservation, decision: 'approve' | 'reject') => {
+    let note: string | null = null;
+    if (decision === 'reject') {
+      if (!(await confirmAction({ title: 'Απόρριψη αιτήματος', message: `Απόρριψη του αιτήματος ${num(r.pallets)} παλετών του «${r.customer}»; Θα ενημερωθεί με email.`, confirmLabel: 'Απόρριψη', destructive: true }))) return;
+    } else if (!(await confirmAction({ title: 'Έγκριση κράτησης', message: `Έγκριση ${num(r.pallets)} παλετών για «${r.customer}»; Θα μετρήσει στο γέμισμα και αν περάσει κλιμάκιο θα σταλεί «η τιμή έπεσε».`, confirmLabel: 'Έγκριση' }))) return;
+    const res = await fetch(`/api/admin/dynamic-offers/${offer.id}/reservations/${r.id}/decision`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ decision, note }) });
+    if (!res.ok) { toast.error((await res.json().catch(() => ({}))).message ?? 'Αποτυχία'); return; }
+    toast.success(decision === 'approve' ? 'Η κράτηση εγκρίθηκε' : 'Το αίτημα απορρίφθηκε');
+    if (decision === 'approve') await refreshSnapshot(offer.filled + r.pallets);
+    load(); onChanged();
+  };
+
+  const statusCell = (r: Reservation) => {
+    if (r.status === 'ACTIVE') return <span className="inline-flex items-center gap-1 text-emerald-700"><FiCheckCircle className="size-3.5" aria-hidden /> Ενεργή</span>;
+    if (r.status === 'PENDING') return <span className="inline-flex items-center gap-1 font-medium text-amber-700"><FiClock className="size-3.5" aria-hidden /> Αίτημα · αναμονή</span>;
+    if (r.status === 'REJECTED') return <span className="inline-flex items-center gap-1 text-muted-foreground" title={r.decisionNote ?? undefined}><FiXCircle className="size-3.5" aria-hidden /> Απορρίφθηκε</span>;
+    return <span className="inline-flex items-center gap-1 text-muted-foreground" title={r.decisionNote ?? undefined}><FiXCircle className="size-3.5" aria-hidden /> {r.decisionNote ? 'Αποσύρθηκε' : 'Ακυρώθηκε'}</span>;
+  };
+
   return (
     <>
       <Tabs defaultValue="overview" className="gap-3">
         <div className="flex items-center gap-2 border-b border-border">
           <TabsList variant="line" className="h-9 min-w-0 flex-1 justify-start gap-0 overflow-x-auto overflow-y-hidden p-0">
             <TabsTrigger value="overview" className={TRIGGER} style={{ ['--tab-tone' as string]: TONE.over }}><FiActivity className="hidden size-3.5 sm:inline" aria-hidden /> Επισκόπηση</TabsTrigger>
-            <TabsTrigger value="res" className={TRIGGER} style={{ ['--tab-tone' as string]: TONE.res }}><FiShoppingCart className="hidden size-3.5 sm:inline" aria-hidden /> Κρατήσεις <Badge n={active.length} tone={TONE.res} /></TabsTrigger>
+            <TabsTrigger value="res" className={TRIGGER} style={{ ['--tab-tone' as string]: TONE.res }}><FiShoppingCart className="hidden size-3.5 sm:inline" aria-hidden /> Κρατήσεις <Badge n={active.length} tone={TONE.res} />{pending.length > 0 && <Badge n={pending.length} tone="#B45309" />}</TabsTrigger>
             <TabsTrigger value="rec" className={TRIGGER} style={{ ['--tab-tone' as string]: TONE.rec }}><FiUsers className="hidden size-3.5 sm:inline" aria-hidden /> Παραλήπτες <Badge n={data?.recipients.length ?? 0} tone={TONE.rec} /></TabsTrigger>
             <TabsTrigger value="mail" className={TRIGGER} style={{ ['--tab-tone' as string]: TONE.mail }}><FiMail className="hidden size-3.5 sm:inline" aria-hidden /> Email</TabsTrigger>
           </TabsList>
@@ -208,19 +229,26 @@ export function OfferDetail({ offer, canManage, onChanged }: { offer: OfferRow; 
                 <thead className="bg-muted/40"><tr><th className={TH}>Πελάτης</th><th className={cn(TH, 'text-right')}>Παλέτες</th><th className={cn(TH, 'text-right')}>{unit}</th><th className={cn(TH, 'hidden sm:table-cell')}>Ημ/νία</th><th className={TH}>Κατάσταση</th>{canManage && <th className={TH}><span className="sr-only">Ενέργειες</span></th>}</tr></thead>
                 <tbody className="divide-y divide-border">
                   {data.reservations.map((r) => (
-                    <tr key={r.id} className={cn('hover:bg-muted/30', r.status !== 'ACTIVE' && 'opacity-55')}>
-                      <td className={TD}><span className="font-medium">{r.customer}</span>{r.notes && <div className="text-[length:var(--fs-11)] text-muted-foreground">{r.notes}</div>}</td>
+                    <tr key={r.id} className={cn('hover:bg-muted/30', r.status === 'PENDING' && 'bg-amber-50/60 dark:bg-amber-500/5', r.status !== 'ACTIVE' && r.status !== 'PENDING' && 'opacity-55')}>
+                      <td className={TD}><span className="font-medium">{r.customer}</span>{r.kind === 'PARTNER' && <span className="ml-1.5 rounded-sm bg-violet-100 px-1 text-[length:var(--fs-10)] font-semibold text-violet-800">Συνεργάτης</span>}{r.fromPortal && <span className="ml-1.5 rounded-sm bg-sky-100 px-1 text-[length:var(--fs-10)] font-semibold text-sky-800">portal</span>}{r.notes && <div className="text-[length:var(--fs-11)] text-muted-foreground">{r.notes}</div>}</td>
                       <td className={cn(TD, 'text-right font-semibold tabular-nums')}>{num(r.pallets)}</td>
                       <td className={cn(TD, 'text-right tabular-nums')}>{num(r.pallets * offer.sqmPerPallet)}</td>
                       <td className={cn(TD, 'hidden tabular-nums text-muted-foreground sm:table-cell')}>{new Date(r.createdAt).toLocaleDateString('el-GR')}</td>
-                      <td className={TD}>{r.status === 'ACTIVE' ? <span className="inline-flex items-center gap-1 text-emerald-700"><FiCheckCircle className="size-3.5" aria-hidden /> Ενεργή</span> : <span className="inline-flex items-center gap-1 text-muted-foreground"><FiXCircle className="size-3.5" aria-hidden /> Ακυρώθηκε</span>}</td>
+                      <td className={TD}>{statusCell(r)}</td>
                       {canManage && (
                         <td className={cn(TD, 'w-10 text-right')}>
-                          {r.status === 'ACTIVE' && offer.status !== 'CLOSED' && (
+                          {(r.status === 'ACTIVE' || r.status === 'PENDING') && offer.status !== 'CLOSED' && (
                             <DropdownMenu>
                               <DropdownMenuTrigger className="inline-flex size-8 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-muted" aria-label={`Ενέργειες για ${r.customer}`}><FiMoreVertical className="size-4" aria-hidden /></DropdownMenuTrigger>
                               <DropdownMenuContent align="end" className="w-48">
-                                <DropdownMenuItem variant="destructive" className="cursor-pointer gap-2 text-[length:var(--fs-12)]" onSelect={() => cancel(r)}><FiXCircle className="size-3.5" aria-hidden /> Ακύρωση κράτησης</DropdownMenuItem>
+                                {r.status === 'PENDING' ? (
+                                  <>
+                                    <DropdownMenuItem className="cursor-pointer gap-2 text-[length:var(--fs-12)]" disabled={offer.status !== 'OPEN'} onSelect={() => decide(r, 'approve')}><FiCheckCircle className="size-3.5 text-emerald-600" aria-hidden /> Έγκριση</DropdownMenuItem>
+                                    <DropdownMenuItem variant="destructive" className="cursor-pointer gap-2 text-[length:var(--fs-12)]" onSelect={() => decide(r, 'reject')}><FiXCircle className="size-3.5" aria-hidden /> Απόρριψη</DropdownMenuItem>
+                                  </>
+                                ) : (
+                                  <DropdownMenuItem variant="destructive" className="cursor-pointer gap-2 text-[length:var(--fs-12)]" onSelect={() => cancel(r)}><FiXCircle className="size-3.5" aria-hidden /> Ακύρωση κράτησης</DropdownMenuItem>
+                                )}
                               </DropdownMenuContent>
                             </DropdownMenu>
                           )}
