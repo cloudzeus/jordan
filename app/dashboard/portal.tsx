@@ -1,9 +1,16 @@
-import { FiLogOut, FiPackage, FiTrendingDown, FiClock, FiPhone, FiMail, FiCheckCircle } from 'react-icons/fi';
+import { FiLogOut, FiPackage, FiPhone, FiMail, FiCheckCircle } from 'react-icons/fi';
 import { getSetting } from '@/lib/settings';
 import { portalData } from '@/lib/portal-data';
-import { PriceLadder } from '@/app/admin/dynamic-offers/price-ladder';
 import type { UserWithRole } from '@/lib/rbac';
-import { Offer3D } from './offer-3d';
+import { OfferShowcase } from '@/components/site/offer-showcase';
+
+const strip = (s: string) => s.toLocaleLowerCase('el').normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+const loadOf = (name: string): 'stones' | 'boxes' | 'sacks' => {
+  const n = strip(name);
+  if (/κολλ|τσιμεντ|κονιαμ|στοκ|αρμο|σοβα|glue|cement|mortar|grout/.test(n)) return 'sacks';
+  if (/πετρ|stone|τραβερτ|travert/.test(n) && !/πλακακι|gres|porcel/.test(n)) return 'stones';
+  return 'boxes';
+};
 
 const eur = (n: number) => n.toLocaleString('el-GR', { style: 'currency', currency: 'EUR' });
 const num = (n: number) => n.toLocaleString('el-GR', { maximumFractionDigits: 2 });
@@ -54,50 +61,30 @@ export async function Portal({ user }: { user: NonNullable<UserWithRole> }) {
           const subject = encodeURIComponent(`Κράτηση — ${o.title ?? o.name}`);
           return (
             <article key={o.id} className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
-              <div className="grid lg:grid-cols-[1.35fr_1fr]">
-                <Offer3D snapshotUrl={o.snapshotUrl} pallets={o.capacity} perPallet={o.sqmPerPallet} filled={o.filled} name={o.name} unit={unit} />
-                <div className="space-y-4 p-5">
-                  <div>
-                    <p className="text-[length:var(--fs-11)] font-bold uppercase tracking-wider text-sky-700 dark:text-sky-300">{o.title ?? 'Κοινό container'}</p>
-                    <h2 className="mt-1 text-[length:var(--fs-18)] font-bold leading-snug">{o.name}</h2>
-                    <p className="text-[length:var(--fs-12)] text-slate-500">{o.code} · παλέτα {num(o.sqmPerPallet)} {unit}</p>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="rounded-xl bg-emerald-50 px-3 py-2.5 dark:bg-emerald-500/10">
-                      <div className="text-[length:var(--fs-11)] font-semibold uppercase tracking-wide text-emerald-800 dark:text-emerald-300">Τιμή τώρα</div>
-                      <div className="text-[length:var(--fs-28)] font-extrabold tabular-nums text-emerald-700 dark:text-emerald-300">{o.current ? eur(o.current.price) : '—'}</div>
-                      <div className="text-[length:var(--fs-11)] text-slate-500">ανά {unit} · για όλους</div>
-                    </div>
-                    <div className="rounded-xl bg-amber-50 px-3 py-2.5 dark:bg-amber-500/10">
-                      <div className="flex items-center gap-1 text-[length:var(--fs-11)] font-semibold uppercase tracking-wide text-amber-800 dark:text-amber-300"><FiTrendingDown className="size-3.5" aria-hidden /> Επόμενη τιμή</div>
-                      {o.next
-                        ? <><div className="text-[length:var(--fs-28)] font-extrabold tabular-nums text-amber-700 dark:text-amber-300">{eur(o.next.tier.price)}</div><div className="text-[length:var(--fs-11)] text-slate-500">σε {pal(o.next.missing)} ακόμη</div></>
-                        : <div className="pt-2 text-[length:var(--fs-14)] font-semibold text-emerald-700">Καλύτερη τιμή ✓</div>}
-                    </div>
-                  </div>
-                  <div>
-                    <div className="mb-1 flex justify-between text-[length:var(--fs-12)] tabular-nums"><span><strong>{num(o.filled)}</strong> / {num(o.capacity)} παλέτες</span><span className="text-slate-500">{Math.round(o.percent)}% γεμάτο</span></div>
-                    <div className="h-3 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700" role="progressbar" aria-valuenow={Math.round(o.percent)} aria-valuemin={0} aria-valuemax={100} aria-label="Γέμισμα container">
-                      <div className="h-full rounded-full bg-emerald-600" style={{ width: `${o.percent}%` }} />
-                    </div>
-                  </div>
-                  {o.mine > 0 && (
-                    <p className="flex items-center gap-2 rounded-lg bg-sky-50 px-3 py-2 text-[length:var(--fs-13)] text-sky-900 dark:bg-sky-500/10 dark:text-sky-200">
-                      <FiCheckCircle className="size-4" aria-hidden /> Η κράτησή σας: <strong>{pal(o.mine)}</strong> ({num(o.mine * o.sqmPerPallet)} {unit})
-                    </p>
-                  )}
-                  <div className="flex flex-wrap gap-2">
-                    {email && <a href={`mailto:${email}?subject=${subject}`} className="inline-flex h-11 items-center gap-2 rounded-lg bg-sky-700 px-4 text-[length:var(--fs-14)] font-semibold text-white transition-colors hover:bg-sky-800"><FiMail className="size-4" aria-hidden /> {o.mine > 0 ? 'Αύξηση κράτησης' : 'Κλείστε παλέτες'}</a>}
-                    {phone && <a href={`tel:${phone.replace(/\s/g, '')}`} className="inline-flex h-11 items-center gap-2 rounded-lg border border-slate-300 px-4 text-[length:var(--fs-14)] font-semibold transition-colors hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800"><FiPhone className="size-4" aria-hidden /> {phone}</a>}
-                  </div>
-                  <p className="flex flex-wrap gap-x-4 gap-y-1 text-[length:var(--fs-12)] text-slate-500">
-                    <span>Ελάχιστη παραγγελία: {pal(o.minOrder)}</span>
-                    {o.closesAt && <span className="inline-flex items-center gap-1"><FiClock className="size-3.5" aria-hidden /> Συμμετοχή έως {new Date(o.closesAt).toLocaleDateString('el-GR', { day: 'numeric', month: 'long' })}</span>}
-                  </p>
-                </div>
+              {/* Ζωντανή βιτρίνα: το container γεμίζει ως το πραγματικό γέμισμα, η τιμή πέφτει στα κλιμάκια. */}
+              <div className="site p-5 sm:p-8">
+                <OfferShowcase
+                  mode="live"
+                  product={{ name: o.name, code: o.code, load: loadOf(o.name), unit, perPallet: o.sqmPerPallet, eyebrow: o.title ?? 'Κοινό container' }}
+                  capacity={o.capacity} filled={o.filled}
+                  tiers={o.tiers.map((t) => ({ from: t.fromPallets, value: t.price, label: eur(t.price) }))}
+                  valueCaption={`Τιμή ανά ${unit} · για όλους`}
+                  extra={[
+                    { label: 'Συμμετέχοντες', value: String(o.customers) },
+                    { label: 'Ελάχιστη παραγγελία', value: pal(o.minOrder) },
+                    ...(o.closesAt ? [{ label: 'Συμμετοχή έως', value: new Date(o.closesAt).toLocaleDateString('el-GR', { day: 'numeric', month: 'long' }) }] : []),
+                    ...(o.mine > 0 ? [{ label: 'Η κράτησή σας', value: `${pal(o.mine)} · ${num(o.mine * o.sqmPerPallet)} ${unit}` }] : []),
+                  ]}
+                />
               </div>
-              <div className="border-t border-slate-100 px-5 py-4 dark:border-slate-800">
-                <PriceLadder tiers={o.tiers} capacity={o.capacity} filled={o.filled} unit={unit} height={170} />
+              <div className="flex flex-wrap items-center gap-2 border-t border-slate-100 px-5 py-4 dark:border-slate-800">
+                {o.mine > 0 && (
+                  <span className="mr-auto flex items-center gap-2 text-[length:var(--fs-13)] text-sky-900 dark:text-sky-200">
+                    <FiCheckCircle className="size-4" aria-hidden /> Η κράτησή σας: <strong>{pal(o.mine)}</strong>
+                  </span>
+                )}
+                {email && <a href={`mailto:${email}?subject=${subject}`} className="inline-flex h-11 items-center gap-2 rounded-lg bg-slate-900 px-4 text-[length:var(--fs-14)] font-semibold text-white transition-colors hover:bg-slate-700"><FiMail className="size-4" aria-hidden /> {o.mine > 0 ? 'Αύξηση κράτησης' : 'Κλείστε παλέτες'}</a>}
+                {phone && <a href={`tel:${phone.replace(/\s/g, '')}`} className="inline-flex h-11 items-center gap-2 rounded-lg border border-slate-300 px-4 text-[length:var(--fs-14)] font-semibold transition-colors hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800"><FiPhone className="size-4" aria-hidden /> {phone}</a>}
               </div>
             </article>
           );
