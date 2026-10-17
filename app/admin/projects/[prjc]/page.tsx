@@ -32,7 +32,7 @@ function TraderBlock({ t }: { t: Trader }) {
     <>
       <span className="font-medium">{t.name}</span>{' '}
       <span className="font-mono text-[length:var(--fs-11)] text-muted-foreground">{t.code}</span>
-      {meta && <span className="block text-[length:var(--fs-12)] text-muted-foreground">{meta}</span>}
+      {meta && <span className="text-[length:var(--fs-12)] text-muted-foreground"> · {meta}</span>}
     </>
   );
 }
@@ -63,42 +63,21 @@ export default async function ProjectPage({ params }: { params: Promise<{ prjc: 
         actions={<ProjectRowActions prjc={p.prjc} code={p.code} name={p.name} canManage={canManage} financials={canFinancials} />}
       />
 
-      <div className="grid gap-4 md:grid-cols-2">
-        <Card>
-          <CardHeader><CardTitle className="text-[length:var(--fs-14)]">Στοιχεία έργου</CardTitle></CardHeader>
-          <CardContent>
-            <dl className="grid grid-cols-2 gap-x-4 gap-y-3">
-              <Field label="Κωδικός"><span className="font-mono">{p.code}</span></Field>
-              <Field label="Status">{p.statusLabel}</Field>
-              <Field label="Ενεργό">{p.isActive ? 'Ναι' : 'Όχι'}</Field>
-              <Field label="Τύπος">{p.prjType ?? '—'}</Field>
-              <Field label="Δημιουργία">{fmtDate(p.crdDate)}</Field>
-              <Field label="Έναρξη">{fmtDate(p.fromDate)}</Field>
-              <Field label="Λήξη">{fmtDate(p.finalDate)}</Field>
-              <Field label="Κλείσιμο">{fmtDate(p.closeDate)}</Field>
-            </dl>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader><CardTitle className="text-[length:var(--fs-14)]">Συναλλασσόμενοι</CardTitle></CardHeader>
-          <CardContent>
-            <dl className="grid gap-y-3">
-              <Field label="Πελάτης"><TraderBlock t={p.customer} /></Field>
-              <Field label="Προμηθευτής"><TraderBlock t={p.supplier} /></Field>
-            </dl>
-          </CardContent>
-        </Card>
-
-        {p.remarks && (
-          <Card className="md:col-span-2">
-            <CardHeader><CardTitle className="text-[length:var(--fs-14)]">Παρατηρήσεις</CardTitle></CardHeader>
-            <CardContent>
-              <p className="whitespace-pre-wrap text-[length:var(--fs-13)] text-foreground">{p.remarks}</p>
-            </CardContent>
-          </Card>
-        )}
-      </div>
+      {/* Στοιχεία έργου — μία πυκνή λωρίδα: μόνο τα πεδία με τιμή, συναλλασσόμενοι σε μία γραμμή. */}
+      <section aria-label="Στοιχεία έργου" className="rounded-xl border border-border bg-card px-3 py-2.5 shadow-sm sm:px-4">
+        <dl className="flex flex-wrap gap-x-6 gap-y-2">
+          <Field label="Status">{p.statusLabel}</Field>
+          {!p.isActive && <Field label="Ενεργό">Όχι</Field>}
+          {p.prjType != null && <Field label="Τύπος">{p.prjType}</Field>}
+          {p.crdDate && <Field label="Δημιουργία">{fmtDate(p.crdDate)}</Field>}
+          {p.fromDate && <Field label="Έναρξη">{fmtDate(p.fromDate)}</Field>}
+          {p.finalDate && <Field label="Λήξη">{fmtDate(p.finalDate)}</Field>}
+          {p.closeDate && <Field label="Κλείσιμο">{fmtDate(p.closeDate)}</Field>}
+          <Field label="Πελάτης"><TraderBlock t={p.customer} /></Field>
+          {p.supplier && <Field label="Προμηθευτής"><TraderBlock t={p.supplier} /></Field>}
+        </dl>
+        {p.remarks && <p className="mt-2 whitespace-pre-wrap border-t border-border pt-2 text-[length:var(--fs-12)] text-muted-foreground">{p.remarks}</p>}
+      </section>
 
       {fin && <ProjectFinancials profit={fin.profit} issues={fin.issues} computedAt={fin.computedAt} error={fresh?.error ?? null} />}
       {canFinancials && !fin && (
