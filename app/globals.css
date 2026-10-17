@@ -1,0 +1,452 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ============================================================
+   DGEspa — SmartMove-aligned brand system
+   Blue-driven · light · rounded · soft shadows
+   70% white/light · 20% blue · 10% red accent
+   ============================================================ */
+
+@layer base {
+  :root {
+    /* Brand */
+    --color-brand-blue:       #2563EB;
+    --color-brand-blue-deep:  #1E40AF;
+    --color-brand-blue-soft:  #DBEAFE;
+    --color-brand-blue-light: #EFF6FF;
+    --color-brand-red:        #EF4444;
+    --color-brand-red-deep:   #B91C1C;
+    --color-brand-red-light:  #FEE2E2;
+
+    /* Neutrals */
+    --color-bg:               #F8FAFC;
+    --color-surface:          #FFFFFF;
+    --color-border-soft:      #E2E8F0;
+    --color-text-primary:     #0F172A;
+    --color-text-secondary:   #475569;
+    --color-text-muted:       #64748B;
+
+    --color-success: #16A34A;
+    --color-warning: #F59E0B;
+
+    /* shadcn tokens mapped to SmartMove palette */
+    --background:            var(--color-bg);
+    --foreground:            var(--color-text-primary);
+    --card:                  var(--color-surface);
+    --card-foreground:       var(--color-text-primary);
+    --popover:               var(--color-surface);
+    --popover-foreground:    var(--color-text-primary);
+    --primary:               var(--color-brand-blue);
+    --primary-foreground:    #FFFFFF;
+    --secondary:             #F1F5F9;
+    --secondary-foreground:  var(--color-text-primary);
+    --muted:                 #F1F5F9;
+    --muted-foreground:      var(--color-text-muted);
+    --accent:                var(--color-brand-blue-light);
+    --accent-foreground:     var(--color-brand-blue-deep);
+    --destructive:           var(--color-brand-red);
+    --destructive-foreground:#FFFFFF;
+    --border:                var(--color-border-soft);
+    --input:                 var(--color-border-soft);
+    --ring:                  var(--color-brand-blue);
+    --radius:                10px;
+
+    --sidebar:                    var(--color-surface);
+    --sidebar-foreground:         var(--color-text-primary);
+    --sidebar-primary:            var(--color-brand-blue);
+    --sidebar-primary-foreground: #FFFFFF;
+    --sidebar-accent:             var(--color-brand-blue-light);
+    --sidebar-accent-foreground:  var(--color-brand-blue-deep);
+    --sidebar-border:             var(--color-border-soft);
+    --sidebar-ring:               var(--color-brand-blue);
+
+    /* Shadows (soft, marketplace) */
+    --shadow-card: 0 1px 2px rgb(15 23 42 / 0.04), 0 1px 3px rgb(15 23 42 / 0.06);
+    --shadow-pop:  0 4px 12px rgb(15 23 42 / 0.06), 0 12px 32px rgb(15 23 42 / 0.08);
+    --shadow-cta:  0 6px 20px rgb(37 99 235 / 0.25);
+
+    /* cx tokens */
+    --cx-duration: 150ms;
+    --cx-ease: cubic-bezier(0.33, 0, 0.67, 1);
+    --cx-accent: var(--primary);
+    --cx-accent-soft: var(--color-brand-blue-light);
+    --cx-hover: color-mix(in oklab, var(--foreground) 5%, transparent);
+    --cx-divider: color-mix(in oklab, var(--border) 70%, transparent);
+    --cx-shadow-card: var(--shadow-card);
+  }
+}
+
+/* HARD font lock — Inter + Manrope via next/font, fallback to system sans */
+html, body, button, input, select, textarea, table, th, td,
+h1, h2, h3, h4, h5, h6, p, span, div, a, li, ul, ol,
+label, fieldset, legend, code, pre,
+input::placeholder, textarea::placeholder {
+  font-family:
+    var(--font-inter),
+    'Inter',
+    'Manrope',
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    Roboto,
+    'Helvetica Neue',
+    Arial,
+    sans-serif !important;
+}
+
+.font-display {
+  font-family:
+    var(--font-manrope),
+    'Manrope',
+    var(--font-inter),
+    'Inter',
+    system-ui,
+    sans-serif !important;
+}
+
+html, body { height: 100%; }
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+* { box-sizing: border-box; }
+
+@layer utilities {
+  .bg-sidebar            { background-color: var(--sidebar); }
+  .border-sidebar-border { border-color: var(--sidebar-border); }
+  .shadow-card           { box-shadow: var(--shadow-card); }
+  .shadow-pop            { box-shadow: var(--shadow-pop); }
+  .shadow-cta            { box-shadow: var(--shadow-cta); }
+}
+
+@layer components {
+  .cx-transition {
+    transition-property: background-color, color, border-color, box-shadow, opacity, transform;
+    transition-duration: var(--cx-duration);
+    transition-timing-function: var(--cx-ease);
+  }
+  .cx-eyebrow {
+    font-size: 10px; line-height: 1.2; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.06em;
+    color: var(--muted-foreground);
+  }
+  .cx-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    box-shadow: var(--shadow-card);
+  }
+}
+
+/* ===========================
+   Dashboard — διακριτικό grow-in
+   Μπαίνει ΜΟΝΟ όταν ο χρήστης δεν έχει ζητήσει λιγότερη κίνηση· χωρίς το media
+   query οι μπάρες ξεκινούν ήδη στο τελικό τους μέγεθος (τα δεδομένα διαβάζονται
+   αμέσως, η κίνηση είναι στολίδι).
+   =========================== */
+
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes dashBarGrow { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+  @keyframes dashBarWipe { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+
+  .dash-bar-grow {
+    transform-box: fill-box;
+    transform-origin: bottom;
+    animation: dashBarGrow 280ms cubic-bezier(0.1, 0.9, 0.2, 1) both;
+  }
+  .dash-bar-wipe {
+    transform-origin: left center;
+    animation: dashBarWipe 280ms cubic-bezier(0.1, 0.9, 0.2, 1) both;
+  }
+}
+
+/* ===========================
+   Wiki content — friendly UX
+   =========================== */
+
+.wiki-content { color: #1e293b; font-size: 15px; line-height: 1.7; }
+.wiki-content p { margin: 0.85rem 0; color: #1e293b; }
+.wiki-content strong { color: #0f172a; font-weight: 600; }
+.wiki-content li { color: #1e293b; }
+
+/* Headings with colored bar */
+.wiki-content h1, .wiki-content h2, .wiki-content h3, .wiki-content h4 { color: #0f172a !important; }
+.wiki-content h2 {
+  position: relative;
+  padding-left: 0.85rem;
+  font-size: 1.35rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  margin-top: 2.25rem;
+  margin-bottom: 0.85rem;
+}
+.wiki-content h2::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0.35rem; bottom: 0.35rem;
+  width: 4px; border-radius: 2px;
+  background: linear-gradient(180deg, #3b82f6, #8b5cf6);
+}
+.wiki-content h3 { font-size: 1.05rem; font-weight: 600; margin-top: 1.5rem; margin-bottom: 0.5rem; }
+
+/* Lists */
+.wiki-content ul:not(.wiki-steps), .wiki-content ol:not(.wiki-steps) {
+  padding-left: 1.4rem; margin: 0.85rem 0;
+}
+.wiki-content ul:not(.wiki-steps) > li, .wiki-content ol:not(.wiki-steps) > li { margin: 0.4rem 0; }
+
+/* Steps — numbered circles */
+.wiki-content .wiki-steps {
+  counter-reset: step;
+  list-style: none;
+  padding: 0;
+  margin: 1.25rem 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.wiki-content .wiki-steps > li {
+  counter-increment: step;
+  position: relative;
+  padding: 0.85rem 1rem 0.85rem 3rem;
+  background: linear-gradient(135deg, #f8fafc, #ffffff);
+  border: 1px solid #e2e8f0;
+  border-radius: 0.625rem;
+  font-size: 0.925rem;
+}
+.wiki-content .wiki-steps > li::before {
+  content: counter(step);
+  position: absolute;
+  left: 0.8rem; top: 0.7rem;
+  display: inline-flex;
+  align-items: center; justify-content: center;
+  width: 1.6rem; height: 1.6rem;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #3b82f6, #6366f1);
+  color: white;
+  font-size: 0.8rem;
+  font-weight: 700;
+  box-shadow: 0 2px 6px rgba(59,130,246,0.35);
+}
+
+/* Callouts — big colored cards with icon */
+.wiki-content .wiki-callout {
+  margin: 1.25rem 0;
+  padding: 1rem 1.1rem 1rem 3.25rem;
+  border-radius: 0.75rem;
+  border: 1px solid;
+  font-size: 0.925rem;
+  line-height: 1.6;
+  position: relative;
+}
+.wiki-content .wiki-callout::before {
+  position: absolute;
+  left: 1rem; top: 0.95rem;
+  width: 1.6rem; height: 1.6rem;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center; justify-content: center;
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+.wiki-content .wiki-callout > *:first-child { margin-top: 0; }
+.wiki-content .wiki-callout > *:last-child { margin-bottom: 0; }
+
+.wiki-content .wiki-callout-info {
+  background: linear-gradient(135deg, #eff6ff, #ffffff);
+  border-color: #bfdbfe; color: #1e3a8a;
+}
+.wiki-content .wiki-callout-info::before {
+  content: 'ⓘ'; background: #3b82f6; color: white;
+}
+
+.wiki-content .wiki-callout-warning {
+  background: linear-gradient(135deg, #fffbeb, #ffffff);
+  border-color: #fde68a; color: #78350f;
+}
+.wiki-content .wiki-callout-warning::before {
+  content: '!'; background: #f59e0b; color: white;
+}
+
+.wiki-content .wiki-callout-success {
+  background: linear-gradient(135deg, #ecfdf5, #ffffff);
+  border-color: #a7f3d0; color: #064e3b;
+}
+.wiki-content .wiki-callout-success::before {
+  content: '✓'; background: #10b981; color: white;
+}
+
+.wiki-content .wiki-callout-danger {
+  background: linear-gradient(135deg, #fef2f2, #ffffff);
+  border-color: #fecaca; color: #7f1d1d;
+}
+.wiki-content .wiki-callout-danger::before {
+  content: '⚠'; background: #ef4444; color: white;
+}
+
+/* Screenshot */
+.wiki-content .wiki-screenshot {
+  margin: 1.5rem 0;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.75rem;
+  overflow: hidden;
+  background: white;
+  box-shadow: 0 4px 12px rgba(15,23,42,0.06);
+}
+.wiki-content .wiki-screenshot img { width: 100%; height: auto; display: block; }
+.wiki-content .wiki-screenshot figcaption {
+  padding: 0.625rem 0.875rem;
+  font-size: 0.8125rem;
+  color: #475569;
+  border-top: 1px solid #e2e8f0;
+  background: #f8fafc;
+}
+
+/* Role badge */
+.wiki-content .wiki-role-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.15rem 0.5rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-radius: 0.25rem;
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  color: white;
+}
+
+/* Inline code */
+.wiki-content code:not(pre code) {
+  padding: 0.125rem 0.375rem;
+  border-radius: 0.25rem;
+  background: #f1f5f9;
+  color: #be123c;
+  font-size: 0.88em;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+/* Blockquote */
+.wiki-content blockquote {
+  margin: 1rem 0;
+  padding: 0.5rem 1rem;
+  border-left: 4px solid #cbd5e1;
+  background: #f8fafc;
+  color: #475569;
+  font-style: italic;
+}
+
+/* Links */
+.wiki-content a {
+  color: #2563eb;
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  transition: border-color 0.15s;
+}
+.wiki-content a:hover { border-bottom-color: currentColor; }
+
+/* ============================================================
+   ΡΕΥΣΤΗ ΤΥΠΟΓΡΑΦΙΑ — ένα token ανά μέγεθος, σε rem, με clamp()
+   ============================================================
+   ΓΙΑΤΙ: η εφαρμογή είχε 958 καρφωτά μεγέθη σε px (188 στα 10px, 286 στα 11px,
+   327 στα 12px). Σε px δεν κλιμακώνονται πουθενά: ό,τι διαβαζόταν στην οθόνη του
+   προγραμματιστή γινόταν δυσανάγνωστο σε laptop, σε tablet και κυρίως σε κινητό —
+   και τα combo boxes, που έχουν και μικρό ύψος, ήταν τα πρώτα που έσβηναν.
+
+   Ο ΚΑΝΟΝΑΣ (γραμμική ράμπα 360px → 1280px, χωρίς άλματα breakpoint):
+     • ≤ 15px  → +1px στο κινητό  (το μικρό κείμενο ΜΕΓΑΛΩΝΕΙ, ποτέ δεν μικραίνει)
+     • 16–20px → αμετάβλητο
+     • ≥ 22px  → ×0.78 στο κινητό (οι τίτλοι πρέπει να χωρέσουν σε 360px)
+   Σε 1280px κάθε token δίνει ΑΚΡΙΒΩΣ το μέγεθος του ονόματός του, οπότε το desktop
+   μένει pixel-identical με πριν.
+
+   ΧΡΗΣΗ: `text-[length:var(--fs-12)]` ή inline `fontSize: "var(--fs-12)"`.
+   Ο παραγωγός των τιμών: `scripts/fluid-type.mjs`.
+   ============================================================ */
+
+@layer base {
+  :root {
+    /* ΠΥΚΝΟΤΗΤΑ ΑΝΑ ΣΥΣΚΕΥΗ, ΟΧΙ ΑΝΑ ΠΛΑΤΟΣ.
+       Γραμμή 32px είναι σωστή με ποντίκι — με δάχτυλο παραβιάζει τον κανόνα των 44px και
+       ο χρήστης πατά λάθος γραμμή. Το `pointer: coarse` ρωτά αυτό ακριβώς που μετράει
+       (τι δείχνει), αντί να το συμπεράνει από το πλάτος: ένα tablet 1280 με αφή θέλει
+       χοντρές γραμμές, ένα laptop 1280 με trackpad όχι. */
+    --row-h: 2rem;        /* 32px */
+    --row-px: 0.625rem;   /* 10px */
+
+    --fs-8:  clamp(0.5rem, 0.58696rem - 0.1087vw, 0.5625rem);
+    --fs-9:  clamp(0.5625rem, 0.64946rem - 0.1087vw, 0.625rem);
+    --fs-10: clamp(0.625rem, 0.71196rem - 0.1087vw, 0.6875rem);
+    --fs-11: clamp(0.6875rem, 0.77446rem - 0.1087vw, 0.75rem);
+    --fs-11-5: clamp(0.71875rem, 0.80571rem - 0.1087vw, 0.78125rem);
+    --fs-12: clamp(0.75rem, 0.83696rem - 0.1087vw, 0.8125rem);
+    --fs-12-5: clamp(0.78125rem, 0.86821rem - 0.1087vw, 0.84375rem);
+    --fs-13: clamp(0.8125rem, 0.89946rem - 0.1087vw, 0.875rem);
+    --fs-13-5: clamp(0.84375rem, 0.93071rem - 0.1087vw, 0.90625rem);
+    --fs-14: clamp(0.875rem, 0.96196rem - 0.1087vw, 0.9375rem);
+    --fs-15: clamp(0.9375rem, 1.02446rem - 0.1087vw, 1rem);
+    --fs-16: 1rem;
+    --fs-18: 1.125rem;
+    --fs-20: 1.25rem;
+    --fs-28: clamp(1.365rem, 1.21435rem + 0.66957vw, 1.75rem);
+  }
+
+  /* Συσκευή αφής: γραμμές και κελιά στα 44px — ελάχιστος στόχος αφής (Apple HIG / Material). */
+  @media (pointer: coarse) {
+    :root {
+      --row-h: 2.75rem;   /* 44px */
+      --row-px: 0.75rem;  /* 12px */
+    }
+  }
+
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   ΟΙ «ΚΡΥΜΜΕΝΕΣ ΤΙΜΕΣ» ΣΤΑ COMBO — η αιτία, μετρημένη.
+
+   Ο @tailwindcss/forms δίνει σε κάθε `select` padding 0.5rem (8px πάνω + 8px κάτω) και
+   line-height 1.5rem (24px). Σε select με σταθερό ύψος (h-7 = 28px, h-8 = 32px) μένουν
+   12–16px για γραμμή 24px — και το select, ΑΝΤΙΘΕΤΑ με το input, ΚΟΒΕΙ το κείμενο στο
+   όριο. Αποτέλεσμα: η επιλεγμένη τιμή φαινόταν σαν θολή λωρίδα σε όλη την εφαρμογή.
+
+   ΕΚΤΟΣ @layer ΣΚΟΠΙΜΑ: ο κανόνας του plugin είναι κι αυτός εκτός layer, άρα κερδίζει κάθε
+   layered κανόνα — ακόμη και τα utilities (`py-0` δεν θα έπιανε ποτέ). Εδώ κερδίζουμε με
+   εξειδίκευση (0,1,1 έναντι 0,0,1). Ισχύει ΜΟΝΟ για select με ρητό ύψος (`h-*`): όσα δεν
+   έχουν, παίρνουν το ύψος τους από το padding και πρέπει να το κρατήσουν.
+   ───────────────────────────────────────────────────────────────────────────── */
+select:is([class*=" h-"], [class^="h-"]) {
+  padding-top: 0;
+  padding-bottom: 0;
+  line-height: normal;
+}
+
+/* ── Κύλιση μέσα στα παράθυρα ──────────────────────────────────────────────
+   Η μπάρα κύλισης ΔΕΝ ακουμπά τις στρογγυλεμένες γωνίες της κάρτας: λεπτή, με διάφανο κανάλι,
+   «αντίχειρα» με εσοχή (διάφανο περίγραμμα) και κανάλι που σταματά πριν τις γωνίες (margin-block).
+   Ισχύει για ΚΑΘΕ περιοχή κύλισης μέσα σε dialog — και για όσα κυλούν ολόκληρη την κάρτα. */
+[data-slot="dialog-content"],
+[data-slot="dialog-content"] * {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--muted-foreground) 35%, transparent) transparent;
+}
+[data-slot="dialog-content"]::-webkit-scrollbar,
+[data-slot="dialog-content"] *::-webkit-scrollbar { width: 12px; height: 12px; }
+[data-slot="dialog-content"]::-webkit-scrollbar-track,
+[data-slot="dialog-content"] *::-webkit-scrollbar-track { background: transparent; margin-block: 14px; }
+[data-slot="dialog-content"]::-webkit-scrollbar-thumb,
+[data-slot="dialog-content"] *::-webkit-scrollbar-thumb {
+  border: 4px solid transparent;
+  border-radius: 9999px;
+  background-clip: padding-box;
+  background-color: color-mix(in srgb, var(--muted-foreground) 35%, transparent);
+}
+[data-slot="dialog-content"]::-webkit-scrollbar-thumb:hover,
+[data-slot="dialog-content"] *::-webkit-scrollbar-thumb:hover { background-color: color-mix(in srgb, var(--muted-foreground) 60%, transparent); }
+[data-slot="dialog-content"]::-webkit-scrollbar-corner,
+[data-slot="dialog-content"] *::-webkit-scrollbar-corner { background: transparent; }

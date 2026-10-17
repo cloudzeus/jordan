@@ -1,0 +1,72 @@
+// app/api/admin/ocr/[id]/read-region/route.ts
+import { NextResponse } from 'next/server';
+import { z } from 'zod';
+import { prisma } from '@/lib/db';
+import { requirePermission } from '@/lib/rbac';
+import { bunnyDownload } from '@/lib/bunny';
+import { prepareCrop, readCropValue } from '@/lib/templates/vision';
+import { isValidBbox } from '@/lib/templates/schema';
+import { renderPage } from '@/lib/ocr/rasterize';
+
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+
+const norm = z.number().min(0).max(1);
+const Body = z.object({
+  field: z.string().min(1),
+  page: z.number().int().min(0).default(0),
+  bbox: z.tuple([norm, norm, norm, norm]), // x,y,w,h normalized 0..1
+});
+
+export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  await requirePermission('ocr.categorize');
+  const { id } = await params;
+  // safeParse: a thrown ZodError escapes as an unhandled 500 and tells the caller
+  // nothing about which part of the payload was wrong.
+  const parsed = Body.safeParse(await req.json().catch(() => null));
+  if (!parsed.success) return NextResponse.json({ error: 'invalid_body', issues: parsed.error.issues }, { status: 400 });
+  const { field, page, bbox } = parsed.data;
+  // The tuple schema only bounds each number to 0..1; isValidBbox is the shared rule
+  // (positive width/height, stays inside the page) the rest of the template code uses.
+  if (!isValidBbox(bbox)) return NextResponse.json({ error: 'invalid region' }, { status: 422 });
+
+  const doc = await prisma.ocrDocument.findUnique({ where: { id } });
+  if (!doc) return NextResponse.json({ error: 'not found' }, { status: 404 });
+
+  // Fetch original bytes from Bunny private storage (publicUrl is a `bunny:<key>`
+  // reference, not an HTTP URL — download via the storage key like the file route).
+  let imgBuf: Buffer;
+  try {
+    const dl = await bunnyDownload(doc.storageKey);
+    imgBuf = Buffer.isBuffer(dl) ? dl : Buffer.from(dl as ArrayBuffer);
+  } catch {
+    return NextResponse.json({ error: 'file unavailable' }, { status: 502 });
+  }
+
+  // Rasterize through the SHARED pdfium renderer (lib/ocr/rasterize). The previous
+  // inline pdf-to-img/pdfjs path used a different engine than the rest of the OCR
+  // pipeline, so a region marked against one render could land elsewhere on the
+  // other. renderPage passes images through untouched.
+  let pageBuf: Buffer;
+  try {
+    pageBuf = await renderPage(imgBuf, doc.mimeType, page);
+  } catch (e) {
+    const msg = (e as Error).message;
+    if (msg === 'page out of range') return NextResponse.json({ error: 'page out of range' }, { status: 422 });
+    return NextResponse.json({ error: 'render failed' }, { status: 502 });
+  }
+
+  let crop: Buffer;
+  try {
+    crop = await prepareCrop(pageBuf, bbox);
+  } catch (e) {
+    const msg = (e as Error).message;
+    return NextResponse.json({ error: msg === 'unreadable page' ? 'unreadable page' : 'invalid region' }, { status: 422 });
+  }
+  try {
+    const r = await readCropValue({ crop, prompt: `Read the value of the field "${field}".`, operation: 'ocr.region', ref: { refType: 'OcrDocument', refId: id } });
+    return NextResponse.json({ value: r.value });
+  } catch (e) {
+    return NextResponse.json({ error: (e as Error).message }, { status: 502 });
+  }
+}

@@ -1,0 +1,1061 @@
+'use client';
+
+import { confirmAction } from '@/components/ui/confirm-dialog';
+import { UTILITY_KIND_LABEL, type UtilityKind } from '@/lib/ocr/utility-bills';
+import * as React from 'react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { toast } from 'sonner';
+import { type ColumnDef } from '@tanstack/react-table';
+import { FiMoreVertical, FiFile, FiExternalLink, FiSend, FiTrash2, FiEye, FiUserPlus, FiRefreshCw, FiSearch, FiCheck, FiChevronDown, FiChevronRight, FiAlertCircle, FiCheckCircle, FiAlertTriangle, FiSlash, FiRotateCcw, FiPlay, FiFileText, FiLoader } from 'react-icons/fi';
+import { SoftoneAfmDialog } from '@/components/admin/softone-afm-dialog';
+import { OcrDayProblemsModal } from '@/components/admin/ocr-day-problems-modal';
+import { DataTable } from '@/components/ui/data-table';
+import { cn } from '@/lib/utils';
+import { extractSerials } from '@/lib/ocr/serials';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { Badge } from '@/components/ui/badge';
+import {
+  DropdownMenu, DropdownMenuTrigger, DropdownMenuContent,
+  DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator,
+} from '@/components/ui/dropdown-menu';
+import { RunStatusPill } from '@/components/templates/run-status-pill';
+import { reconMeta } from '@/lib/ocr/recon-status';
+import { normalizeDate } from '@/lib/ocr/canonical';
+import { runSeverity } from '@/lib/templates/run-view';
+import type { RunStatus } from '@/lib/templates/schema';
+import { OcrRowDetail } from './row-detail';
+import { ReextractDialog } from './reextract-dialog';
+import type { ExtractDocType } from '@/lib/ocr/templates';
+import { SERIES_SIDE_LABEL, seriesTraderKind } from '@/lib/ocr/posting-target';
+
+export interface OcrRow {
+  id: string;
+  fileName: string;
+  mimeType: string;
+  size: number;
+  docType: string;
+  language: string;
+  status: string;
+  category: string | null;
+  postStatus: string;
+  postedRef: string | null;
+  createdAt: string;
+  thumbUrl: string | null;
+  issuer: string | null;
+  docNumber: string | null;
+  docDate: string | null;
+  vatNumber: string | null;
+  customerVatNumber: string | null;
+  total: number | null;
+  extractedData: any;
+  errorMessage: string | null;
+  softoneTrdr: number | null;
+  softoneCode: string | null;
+  softoneName: string | null;
+  softoneKind: string | null;
+  softoneChecked: string | null;
+  softoneDocExists: boolean | null;
+  reconOverride: string | null;
+  itemsTotal: number | null;
+  itemsMatched: number | null;
+  softoneSeries: string | null;
+  /** Αποτέλεσμα αναγνώρισης τύπου (spec 2026-09-11 §1): ενότητα, βεβαιότητα, αιτιολογία, auto/manual. */
+  seriesSource: number | null;
+  seriesConfidence: number | null;
+  seriesReason: string | null;
+  seriesBy: string | null;
+  /** Latest template run, cached on OcrDocument.reviewFlags by the runner (spec §15.7). */
+  templateName: string | null;
+  templateRunStatus: RunStatus | null;
+  reviewCount: number;
+  blockedCount: number;
+  /** Λογαριασμός κοινής ωφέλειας / μίσθωσης οχημάτων (`lib/ocr/utility-bills.ts`) — `null` = όχι. */
+  utility?: { kind: UtilityKind; provider: string | null } | null;
+  /** §14.7 — κανένα πρότυπο δεν αναγνώρισε αυτό το έντυπο· περιμένει χειροκίνητη επιλογή. */
+  unknownForm: boolean;
+}
+
+/**
+ * Μια σειρά παραστατικών SoftOne στον επιλογέα «Τύπος παραστατικού»: αγορών
+ * (`PurchaseDocType`, SOSOURCE 1251) ή οποιασδήποτε άλλης ενότητας (`SoftoneDocSeries`).
+ */
+export interface SeriesOption {
+  code: string;
+  abbrev: string | null;
+  name: string;
+  section: string | null;
+/**
+   * Ελληνική ετικέτα της ΕΝΟΤΗΤΑΣ («Παραστατικά αγορών», «Παραστατικά πιστωτών», «Λοιπές
+   * συναλλαγές χρεωστών»…). Αντικατέστησε το παλιό δυαδικό `kind`: οι ενότητες που μπορεί να
+   * ενεργοποιήσει ο χρήστης δεν είναι δύο, και μια σειρά δεν πρέπει να εμφανίζεται ως «Αγορών»
+   * επειδή απλώς δεν είναι πιστωτών.
+   */
+  family: string;
+  /** SOSOURCE της ενότητας. Ταυτότητα της σειράς είναι το ζεύγος `sosource:code`. */
+  sosource: number;
+  /** Ενεργοποιημένη στην εφαρμογή — μόνο αυτές βλέπει ο αυτόματος ταξινομητής. */
+  enabled: boolean;
+}
+
+/**
+ * Κουκκίδα βεβαιότητας: πράσινο ≥ 0,8, πορτοκαλί χαμηλότερα, γκρι χωρίς μέτρηση.
+ * Το `word` είναι η ορατή ετικέτα δίπλα στην κουκκίδα (κενή όταν δεν υπάρχει μέτρηση) — μια
+ * κουκκίδα χωρίς λέξη δεν λέει τίποτα σε όποιον δεν ξέρει τον κώδικα χρωμάτων.
+ */
+export function seriesConfidenceTone(confidence: number | null): { color: string; label: string; word: string | null } {
+  if (confidence == null) return { color: '#94A3B8', label: 'χωρίς βεβαιότητα', word: null };
+  if (confidence >= 0.8) return { color: '#047857', label: 'σίγουρο', word: 'σίγουρο' };
+  return { color: '#B45309', label: 'να ελεγχθεί', word: 'έλεγχος' };
+}
+
+const CATEGORY_LABEL: Record<string, string> = {
+  EXPENSE: 'Έξοδο',
+  INVOICE_IN: 'Τιμολόγιο αγοράς',
+  INVOICE_OUT: 'Τιμολόγιο πώλησης',
+  RECEIPT: 'Απόδειξη',
+  CREDIT_NOTE: 'Πιστωτικό',
+  PAYROLL: 'Μισθοδοσία',
+  TAX: 'Φόρος',
+  OTHER: 'Άλλο',
+};
+
+const DOC_LABEL: Record<string, string> = {
+  INVOICE: 'Τιμολόγιο', RECEIPT: 'Απόδειξη', GENERAL_TEXT: 'Κείμενο',
+};
+
+const POST_VARIANT: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
+  POSTED: 'default', PENDING: 'secondary', FAILED: 'destructive', NONE: 'outline',
+};
+const STATUS_VARIANT: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
+  COMPLETED: 'default', PROCESSING: 'secondary', PENDING: 'outline', FAILED: 'destructive',
+};
+
+function fmtMoney(n: number | null) {
+  if (n == null) return '-';
+  return new Intl.NumberFormat('el-GR', { style: 'currency', currency: 'EUR' }).format(n);
+}
+
+/** Stable per-day key in the user's local timezone (YYYY-MM-DD). */
+function localDayKey(iso: string) {
+  const d = new Date(iso);
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${d.getFullYear()}-${m}-${day}`;
+}
+
+/** «25-9-2026» — η ημερομηνία στο κινητό, όπου το ολογράφως τύλιγε σε τρεις γραμμές. */
+function shortDayLabel(key: string) {
+  const [y, m, d] = key.split('-').map(Number);
+  return `${d}-${m}-${y}`;
+}
+
+/** Greek long date label from a YYYY-MM-DD key, parsed as local date. */
+function greekDayLabel(key: string) {
+  const [y, m, d] = key.split('-').map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString('el-GR', {
+    weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
+  });
+}
+
+/* ------------------------------------------------------------------ */
+/* Duplicate-invoice detection                                         */
+/* Same invoice scanned multiple times is allowed. Two scans are the   */
+/* same invoice when their ΜΑΡΚ ΑΑΔΕ matches, or — when no ΜΑΡΚ — when  */
+/* both Αρ. Τιμολογίου and Ημερομηνία match.                           */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Stable invoice fingerprint, or null when the row lacks enough data to dedupe.
+ * The date is normalised first (`normalizeDate`): the same invoice may reach the table as
+ * «22/06/2026» from one scan and «2026-06-22» from another, and a raw string compare would call
+ * those two different invoices.
+ */
+function invoiceFingerprint(r: OcrRow): string | null {
+  const mark = String(r.extractedData?.aadeMark ?? '').trim();
+  if (mark) return `mark:${mark.toUpperCase()}`;
+  const num = String(r.docNumber ?? '').trim().toUpperCase();
+  const date = normalizeDate(r.docDate)?.trim() ?? '';
+  if (num && date) return `num:${num}|${date}`;
+  return null;
+}
+
+/** Distinct invoices among a set of rows (rows with no fingerprint each count as one). */
+function uniqueInvoiceCount(rows: OcrRow[]): number {
+  const seen = new Set<string>();
+  let standalone = 0;
+  for (const r of rows) {
+    const fp = invoiceFingerprint(r);
+    if (fp) seen.add(fp); else standalone++;
+  }
+  return seen.size + standalone;
+}
+
+type TabKey = 'open' | 'posted';
+const TABS: { key: TabKey; label: string }[] = [
+  { key: 'open', label: 'Προς επεξεργασία' },
+  { key: 'posted', label: 'Αναρτημένα' },
+];
+
+export function OcrTable({
+  rows, canCategorize, canPost, canDelete, canCreateCompany, seriesOptions = [],
+}: {
+  rows: OcrRow[];
+  canCategorize: boolean;
+  canPost: boolean;
+  canDelete: boolean;
+  canCreateCompany: boolean;
+  seriesOptions?: SeriesOption[];
+}) {
+  const router = useRouter();
+
+  /** «Αναρτημένο» = έχει φύγει στο SoftOne, με όποιον από τους δύο δείκτες το μαρτυρά. */
+  const { openRows, postedRows } = React.useMemo(() => {
+    const posted: OcrRow[] = [];
+    const open: OcrRow[] = [];
+    for (const r of rows) (r.postStatus === 'POSTED' || r.postedRef ? posted : open).push(r);
+    return { openRows: open, postedRows: posted };
+  }, [rows]);
+
+  const [tab, setTab] = React.useState<TabKey>('open');
+  React.useEffect(() => {
+    try {
+      const saved = localStorage.getItem('admin.ocr.tab');
+      if (saved === 'posted' || saved === 'open') setTab(saved);
+    } catch { /* ιδιωτική περιήγηση */ }
+  }, []);
+  const selectTab = React.useCallback((k: TabKey) => {
+    setTab(k);
+    try { localStorage.setItem('admin.ocr.tab', k); } catch { /* αδιάφορο */ }
+  }, []);
+
+  const visibleRows = tab === 'posted' ? postedRows : openRows;
+
+  // Map of row id → its position within a set of identical-invoice scans.
+  // The oldest scan is the "original" (ordinal 1); later scans are flagged copies.
+  const dupInfo = React.useMemo(() => {
+    const groups = new Map<string, OcrRow[]>();
+    for (const r of rows) {
+      const fp = invoiceFingerprint(r);
+      if (!fp) continue;
+      const list = groups.get(fp);
+      if (list) list.push(r); else groups.set(fp, [r]);
+    }
+    const info = new Map<string, { ordinal: number; total: number }>();
+    for (const list of groups.values()) {
+      if (list.length < 2) continue;
+      // Oldest first → ordinal 1 is the original scan.
+      const sorted = [...list].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+      sorted.forEach((r, i) => info.set(r.id, { ordinal: i + 1, total: sorted.length }));
+    }
+    return info;
+  }, [rows]);
+
+  const [busyId, setBusyId] = React.useState<string | null>(null);
+  /** Τι κάνει τώρα η απασχολημένη γραμμή — για την ένδειξη στη θέση του ⋮. */
+  const [busyLabel, setBusyLabel] = React.useState<string | null>(null);
+  /**
+   * ΚΑΘΕ ενέργεια του μενού δείχνει την πορεία της: ειδοποίηση «σε εξέλιξη» που γίνεται επιτυχία
+   * ή σφάλμα ΣΤΗΝ ΙΔΙΑ θέση, και περιστρεφόμενη ένδειξη στη γραμμή. Πριν, μια ανάρτηση ή μια
+   * επανάγνωση έτρεχε σιωπηλά για δευτερόλεπτα και ο χρήστης δεν ήξερε αν πάτησε σωστά.
+   */
+  function startProgress(row: OcrRow, label: string) {
+    setBusyId(row.id);
+    setBusyLabel(label);
+    const id = toast.loading(`${label}…`, { description: row.fileName });
+    const end = () => { setBusyId(null); setBusyLabel(null); };
+    return {
+      ok: (msg: string, description?: string) => { toast.success(msg, { id, description: description ?? row.fileName }); end(); },
+      fail: (msg: string) => { toast.error(msg, { id, description: row.fileName }); end(); },
+      cancel: () => { toast.dismiss(id); end(); },
+    };
+  }
+  const [reextractingId, setReextractingId] = React.useState<string | null>(null);
+  const [reextractRow, setReextractRow] = React.useState<OcrRow | null>(null);
+  const [lookupAfm, setLookupAfm] = React.useState<string | null>(null);
+  const [lookupCtx, setLookupCtx] = React.useState<string | undefined>(undefined);
+  const [problemsDay, setProblemsDay] = React.useState<{ label: string; rows: OcrRow[] } | null>(null);
+  /**
+   * Το παραστατικό που δείχνεται σε ΠΛΗΡΗ ΠΡΟΒΟΛΗ. Η ανοιγμένη γραμμή του πίνακα είναι στενή:
+   * ένα τιμολόγιο με δεκάδες γραμμές τις κυλάει μέσα σε 480px, με το πρωτότυπο δίπλα να έχει
+   * χαθεί. Το modal δίνει το ύψος του παραθύρου στο ΙΔΙΟ component — καμία δεύτερη εκδοχή.
+   */
+  const [fullRow, setFullRow] = React.useState<OcrRow | null>(null);
+
+  async function handlePost(row: OcrRow) {
+    if (!row.category) { toast.error('Όρισε πρώτα κατηγορία (κάνε expand τη γραμμή).'); return; }
+    const p = startProgress(row, 'Καταχώριση στο SoftOne');
+    try {
+      const res = await fetch(`/api/admin/ocr/${row.id}/post-softone`, { method: 'POST' });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json?.message ?? json?.error ?? `HTTP ${res.status}`);
+      p.ok(`Καταχωρίστηκε στο SoftOne (ref: ${json.ref})`);
+      router.refresh();
+    } catch (err: any) {
+      p.fail(`Αποτυχία καταχώρισης: ${err?.message ?? err}`);
+    }
+  }
+
+  /**
+   * Η ΦΘΗΝΗ ανάγνωση ενός εγγράφου που δεν διαβάστηκε ποτέ (παιδί διαχωρισμένου PDF που έμεινε
+   * PENDING, ή αποτυχημένη ανάγνωση). Χρησιμοποιεί το κανονικό μοντέλο του ανεβάσματος — το
+   * «Επανασκανάρισμα» δίπλα του ανεβάζει σε gemini-2.5-pro, που κοστίζει ~8× και δεν χρειάζεται
+   * όταν το έγγραφο απλώς δεν έχει διαβαστεί ακόμη.
+   */
+  async function handleExtractNow(row: OcrRow) {
+    setReextractingId(row.id);
+    const p = startProgress(row, 'Ανάγνωση εγγράφου');
+    router.refresh();
+    try {
+      const res = await fetch(`/api/admin/ocr/${row.id}/extract`, { method: 'POST' });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json?.error ?? `HTTP ${res.status}`);
+      p.ok('Η ανάγνωση ολοκληρώθηκε');
+      router.refresh();
+    } catch (err: any) {
+      p.fail(`Αποτυχία ανάγνωσης: ${err?.message ?? err}`);
+      router.refresh();
+    } finally {
+      setReextractingId(null);
+    }
+  }
+
+  async function handleReextract(row: OcrRow, docType: ExtractDocType) {
+    setReextractRow(null);
+    setReextractingId(row.id);
+    const p = startProgress(row, 'Επανασκανάρισμα');
+    // Mark row as PROCESSING in UI right away so the progress bar appears.
+    router.refresh();
+    try {
+      const res = await fetch(`/api/admin/ocr/${row.id}/reextract`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ docType }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json?.error ?? `HTTP ${res.status}`);
+      p.ok(`Το επανασκανάρισμα ολοκληρώθηκε (${json.model})`);
+      router.refresh();
+    } catch (err: any) {
+      p.fail(`Αποτυχία επανασκαναρίσματος: ${err?.message ?? err}`);
+      router.refresh();
+    } finally {
+      setReextractingId(null);
+    }
+  }
+
+  async function handleCreateCompany(row: OcrRow, role: 'SUPPLIER' | 'CUSTOMER') {
+    const p = startProgress(row, role === 'CUSTOMER' ? 'Δημιουργία πελάτη' : 'Δημιουργία προμηθευτή');
+    try {
+      const res = await fetch(`/api/admin/ocr/${row.id}/create-supplier?role=${role}`, { method: 'POST' });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json?.error ?? `HTTP ${res.status}`);
+      const name = json.company?.name ?? '';
+      const noun = role === 'CUSTOMER' ? 'πελάτης' : 'προμηθευτής';
+      p.ok(json.reused ? `Υπήρχε ήδη: ${name}` : `Δημιουργήθηκε ${noun}: ${name}`);
+      router.refresh();
+    } catch (err: any) {
+      p.fail(`Αποτυχία: ${err?.message ?? err}`);
+    }
+  }
+
+  async function handleDelete(row: OcrRow) {
+    if (!(await confirmAction(`Διαγραφή του εγγράφου "${row.fileName}";`))) return;
+    const p = startProgress(row, 'Διαγραφή');
+    try {
+      const res = await fetch(`/api/admin/ocr/${row.id}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      p.ok('Διαγράφηκε');
+      router.refresh();
+    } catch (err: any) {
+      p.fail(`Αποτυχία διαγραφής: ${err?.message ?? err}`);
+    }
+  }
+
+  // Hybrid status override: lock a document as RESOLVED / IGNORED, or null = back to auto.
+  async function handleOverride(row: OcrRow, value: 'RESOLVED' | 'IGNORED' | null) {
+    const p = startProgress(row, value === 'RESOLVED' ? 'Σήμανση ως ολοκληρωμένο' : value === 'IGNORED' ? 'Αγνόηση' : 'Επαναφορά σε αυτόματο');
+    try {
+      const res = await fetch(`/api/admin/ocr/${row.id}`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reconOverride: value }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      p.ok(value === 'RESOLVED' ? 'Σημειώθηκε ως ολοκληρωμένο' : value === 'IGNORED' ? 'Αγνοήθηκε' : 'Επαναφορά σε αυτόματο');
+      router.refresh();
+    } catch (err: any) {
+      p.fail(`Αποτυχία: ${err?.message ?? err}`);
+    }
+  }
+
+  // ---- Day-level (group header) bulk actions ----
+  async function handleBulkPost(dayRows: OcrRow[]) {
+    const ready = dayRows.filter((r) => reconMeta(r).status === 'READY');
+    if (ready.length === 0) { toast.info('Κανένα έτοιμο προς ανάρτηση παραστατικό αυτή την ημέρα.'); return; }
+    if (!(await confirmAction(`Ανάρτηση ${ready.length} παραστατικών στο SoftOne;`))) return;
+    const t = toast.loading(`Ανάρτηση 0/${ready.length}…`);
+    let ok = 0, fail = 0;
+    // Ο λόγος της ΠΡΩΤΗΣ αποτυχίας: ένα «3 αποτυχία» χωρίς αιτία στέλνει τον χρήστη να ανοίγει
+    // παραστατικά ένα-ένα. Το `message` του API είναι ήδη ελληνική πρόταση.
+    let firstError: string | null = null;
+    for (const r of ready) {
+      try {
+        const res = await fetch(`/api/admin/ocr/${r.id}/post-softone`, { method: 'POST' });
+        if (!res.ok) {
+          const json = await res.json().catch(() => null);
+          throw new Error(json?.message ?? json?.error ?? `HTTP ${res.status}`);
+        }
+        ok++;
+      } catch (err: any) {
+        fail++;
+        firstError ??= String(err?.message ?? err);
+      }
+      toast.loading(`Ανάρτηση ${ok + fail}/${ready.length}…`, { id: t });
+    }
+    const failNote = fail ? `, ${fail} αποτυχία${firstError ? ` — ${firstError}` : ''}` : '';
+    toast.success(`Ολοκληρώθηκε: ${ok} επιτυχία${failNote}`, { id: t });
+    router.refresh();
+  }
+
+  async function handleBulkDelete(dayRows: OcrRow[], label: string) {
+    if (!(await confirmAction(`Διαγραφή ΟΛΩΝ των ${dayRows.length} παραστατικών της ${label};\nΑυτή η ενέργεια δεν αναιρείται.`))) return;
+    const t = toast.loading(`Διαγραφή 0/${dayRows.length}…`);
+    let ok = 0, fail = 0;
+    for (const r of dayRows) {
+      try {
+        const res = await fetch(`/api/admin/ocr/${r.id}`, { method: 'DELETE' });
+        if (!res.ok) throw new Error();
+        ok++;
+      } catch { fail++; }
+      toast.loading(`Διαγραφή ${ok + fail}/${dayRows.length}…`, { id: t });
+    }
+    toast.success(`Διαγράφηκαν: ${ok}${fail ? `, ${fail} αποτυχία` : ''}`, { id: t });
+    router.refresh();
+  }
+
+  // Σειρές ανά «SOSOURCE:κωδικός» — ο ίδιος κωδικός μπορεί να υπάρχει και στις δύο ενότητες,
+  // οπότε μόνο το ζεύγος με την ενότητα είναι ταυτότητα.
+  const seriesByCode = React.useMemo(
+    () => new Map(seriesOptions.map((o) => [`${o.sosource}:${o.code}`, o])),
+    [seriesOptions],
+  );
+  // Παλιές εγγραφές (πριν αποθηκευτεί το `seriesSource`) έχουν μόνο κωδικό: τελευταία ευκαιρία
+  // να βρεθεί η σύντμηση αντί να δείχνουμε γυμνό κωδικό.
+  const seriesByBareCode = React.useMemo(() => {
+    const m = new Map<string, SeriesOption>();
+    for (const o of seriesOptions) if (!m.has(o.code)) m.set(o.code, o);
+    return m;
+  }, [seriesOptions]);
+  const anyEnabledSeries = React.useMemo(() => seriesOptions.some((o) => o.enabled), [seriesOptions]);
+
+  const columns: ColumnDef<OcrRow>[] = React.useMemo(() => [
+    {
+      id: 'thumb',
+      header: '',
+      size: 56,
+      cell: ({ row }) => {
+        const r = row.original;
+        return (
+          <button
+            type="button"
+            onClick={() => row.toggleExpanded()}
+            className="block size-10 overflow-hidden rounded-md border border-border bg-muted/40 hover:ring-2 hover:ring-primary/40 transition"
+            aria-label="Toggle"
+          >
+            {r.thumbUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={r.thumbUrl} alt="" className="size-full object-cover" />
+            ) : (
+              <span className="flex size-full items-center justify-center text-muted-foreground">
+                <FiFile className="size-4" />
+              </span>
+            )}
+          </button>
+        );
+      },
+    },
+    {
+      accessorKey: 'fileName',
+      header: 'Αρχείο',
+      size: 160,
+      cell: ({ row }) => {
+        const r = row.original;
+        const dup = dupInfo.get(r.id);
+        const isCopy = dup && dup.ordinal > 1;
+        return (
+          <button type="button" onClick={() => row.toggleExpanded()} className="text-left">
+            <div className="flex items-center gap-1.5">
+              <span className="truncate font-medium text-foreground hover:underline">{r.fileName}</span>
+              {isCopy && (
+                <span
+                  className="inline-flex shrink-0 items-center gap-1 rounded-full border px-1.5 py-0.5 text-[length:var(--fs-10)] font-semibold"
+                  style={{ backgroundColor: '#FEF3C7', color: '#92400E', borderColor: '#FDE68A' }}
+                  title="Το ίδιο τιμολόγιο έχει σαρωθεί ξανά (ίδιο ΜΑΡΚ ΑΑΔΕ ή ίδιος αριθμός + ημερομηνία)"
+                >
+                  Διπλότυπο {dup!.ordinal}/{dup!.total}
+                </span>
+              )}
+            </div>
+            <div className="text-xs text-muted-foreground">
+              {DOC_LABEL[r.docType] ?? r.docType} · {r.language.toUpperCase()} · {new Date(r.createdAt).toLocaleString('el-GR')}
+            </div>
+          </button>
+        );
+      },
+    },
+    /*
+      ΔΥΟ ΓΡΑΜΜΕΣ ΑΝΤΙ ΓΙΑ ΔΥΟ ΣΤΗΛΕΣ. Ο πίνακας είχε 14 στήλες και ζητούσε 2118px — σε laptop
+      1280px αυτό σημαίνει μόνιμη ΟΡΙΖΟΝΤΙΑ κύλιση, και μαζί με τους φωλιασμένους κάθετους
+      scrollers ο χρήστης δεν ξέρει πια ποιον κινεί. Το ζητούμενο ήταν ψηλότερη γραμμή, όχι
+      πλατύτερος πίνακας: ό,τι ανήκει μαζί μπαίνει στο ΙΔΙΟ κελί, σε δύο σειρές.
+
+      Το `accessorFn` ΕΝΩΝΕΙ τις τιμές, ώστε η αναζήτηση και η ταξινόμηση να εξακολουθούν να
+      πιάνουν ΚΑΙ τα δύο πεδία — αλλιώς η συγχώνευση θα έκοβε σιωπηλά την αναζήτηση με ΑΦΜ.
+    */
+    {
+      id: 'issuer',
+      size: 160,
+      accessorFn: (r: OcrRow) => [r.issuer, r.vatNumber].filter(Boolean).join(' '),
+      header: 'Εκδότης',
+      cell: ({ row }) => {
+        const r = row.original;
+        return (
+          <div className="flex min-w-0 flex-col leading-tight">
+            <span className="truncate">{r.issuer ?? <span className="text-muted-foreground">-</span>}</span>
+            {r.utility && (
+              <span className="mt-0.5 inline-flex w-fit items-center gap-1 rounded-full bg-sisyphus-500/[0.08] px-1.5 py-px text-[length:var(--fs-10)] font-semibold text-sisyphus-700">
+                Λογαριασμός · {UTILITY_KIND_LABEL[r.utility.kind]}
+              </span>
+            )}
+            {r.vatNumber && (
+              <span className="font-mono text-[length:var(--fs-10)] text-muted-foreground">ΑΦΜ {r.vatNumber}</span>
+            )}
+          </div>
+        );
+      },
+    },
+    {
+      id: 'doc',
+      size: 105,
+      // ΚΑΙ οι σειριακοί: η αναζήτηση «DMV24000146» βρίσκει το τιμολόγιο που αφορά αυτή τη μηχανή.
+      accessorFn: (r: OcrRow) => [r.docNumber, r.docDate, ...rowSerials(r)].filter(Boolean).join(' '),
+      header: 'Παραστατικό',
+      cell: ({ row }) => {
+        const r = row.original;
+        return (
+          <div className="flex min-w-0 flex-col leading-tight">
+            <span className="font-mono text-xs">{r.docNumber ?? '-'}</span>
+            {r.docDate && <span className="text-[length:var(--fs-10)] text-muted-foreground">{r.docDate}</span>}
+            {rowSerials(r).length > 0 && (
+              <span className="text-[length:var(--fs-10)] text-muted-foreground" title={rowSerials(r).join(', ')}>
+                S/N · {rowSerials(r).length}
+              </span>
+            )}
+          </div>
+        );
+      },
+    },
+    {
+      id: 'softone',
+      size: 115,
+      header: 'SoftOne',
+      cell: ({ row }) => {
+        const r = row.original;
+        if (r.softoneTrdr) {
+          // Προμηθευτής = πράσινο, Πιστωτής = πορτοκαλί.
+          const isCreditor = r.softoneKind === 'Πιστωτής';
+          const st = isCreditor
+            ? { bg: '#FFF1E6', fg: '#C2410C', bd: '#FFD8B5' }
+            : { bg: '#ECFDF5', fg: '#047857', bd: '#A7F3D0' };
+          return (
+            <div className="flex flex-col items-start gap-0.5 min-w-[110px]" title={`${r.softoneName ?? ''} (TRDR ${r.softoneTrdr})`}>
+              <span
+                className="inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-[length:var(--fs-10)] font-semibold"
+                style={{ backgroundColor: st.bg, color: st.fg, borderColor: st.bd }}
+              >
+                <FiCheck className="size-3" /> {r.softoneKind ?? 'SoftOne'}
+              </span>
+              <span className="font-mono text-[length:var(--fs-11)] tabular-nums text-muted-foreground">{r.softoneCode ?? r.softoneTrdr}</span>
+            </div>
+          );
+        }
+        if (r.softoneChecked) {
+          return (
+            <span
+              className="inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-[length:var(--fs-11)] font-medium"
+              style={{ backgroundColor: '#FFF8EE', color: '#92400E', borderColor: '#FCD9A8' }}
+              title="Δεν βρέθηκε προμηθευτής με αυτό το ΑΦΜ στο SoftOne"
+            >
+              Δεν βρέθηκε
+            </span>
+          );
+        }
+        return <span className="text-xs text-muted-foreground">—</span>;
+      },
+    },
+    {
+      id: 'series',
+      size: 130,
+      accessorFn: (r: OcrRow) => [r.softoneSeries, r.category].filter(Boolean).join(' '),
+      // «Σειρά»: το αποτέλεσμα του αυτόματου ταξινομητή. Κλικ ανοίγει τη γραμμή, όπου βρίσκεται
+      // ο επιλογέας σειράς (η αλλαγή γίνεται `manual` και δεν ξαναγράφεται αυτόματα).
+      // Χωρίς καμία ενεργοποιημένη σειρά (ούτε αγορών ούτε πιστωτών) η στήλη κρατά το όνομά της
+      // και δείχνει δίπλα τη διαδρομή ενεργοποίησης — ο τίτλος δεν εξαφανίζεται.
+      header: () => (
+        <span className="flex items-center gap-1.5">
+          <span>Σειρά</span>
+          {!anyEnabledSeries && (
+            <>
+              <span aria-hidden className="text-muted-foreground">·</span>
+              <Link href="/admin/doc-series" className="text-[length:var(--fs-12)] font-semibold text-sisyphus-600 underline underline-offset-2 cursor-pointer">
+                Ενεργοποίησε σειρές
+              </Link>
+            </>
+          )}
+        </span>
+      ),
+      cell: ({ row }) => {
+        const r = row.original;
+        if (!r.softoneSeries) return <span className="text-xs text-muted-foreground">—</span>;
+        const opt = seriesByCode.get(`${r.seriesSource ?? 1251}:${r.softoneSeries}`) ?? seriesByBareCode.get(r.softoneSeries);
+        const manual = r.seriesBy === 'manual';
+        const tone = seriesConfidenceTone(manual ? 1 : r.seriesConfidence);
+        const pct = r.seriesConfidence != null ? `${Math.round(r.seriesConfidence * 100)} %` : null;
+        const why = manual ? 'χειροκίνητη επιλογή' : (r.seriesReason ?? 'χωρίς αιτιολογία');
+        return (
+          <button
+            type="button"
+            onClick={() => row.toggleExpanded()}
+            title={`${opt?.name ?? r.softoneSeries}${pct ? ` · ${pct}` : ''} · ${why}`}
+            aria-label={`Σειρά ${opt?.abbrev ?? r.softoneSeries} — ${tone.label}${pct ? ` (${pct})` : ''}. ${why}`}
+            className="flex min-w-[90px] cursor-pointer flex-col items-start gap-0.5 text-left"
+          >
+            <span className="flex items-center gap-1.5">
+              <span aria-hidden className="size-2 shrink-0 rounded-full" style={{ backgroundColor: tone.color }} />
+              <span className="text-[length:var(--fs-12)] font-semibold text-foreground">{opt?.abbrev ?? r.softoneSeries}</span>
+              {/* Λέξη + εικονίδιο αντί για σκέτο ποσοστό: το ακριβές % μένει στο title. */}
+              {tone.word && (
+                <span aria-hidden className="flex items-center gap-0.5 text-[length:var(--fs-10)] font-semibold" style={{ color: tone.color }}>
+                  {tone.word === 'σίγουρο' ? <FiCheckCircle className="size-3" /> : <FiAlertTriangle className="size-3" />}
+                  {tone.word}
+                </span>
+              )}
+            </span>
+            <span className="flex flex-wrap items-center gap-1 text-[length:var(--fs-10)] text-muted-foreground">
+              <span>{opt?.family ?? SERIES_SIDE_LABEL[seriesTraderKind(r.seriesSource ?? 1251)]}{manual ? ' · χειροκίνητη' : ''}</span>
+              {/* Η ΚΑΤΗΓΟΡΙΑ ζει εδώ, όχι σε δική της στήλη: λέει το ίδιο πράγμα με τη σειρά —
+                  «τι είδους παραστατικό είναι» — και ως ξεχωριστή στήλη κόστιζε 105px για ένα chip. */}
+              {r.category && (
+                <Badge variant="outline" className="px-1 py-0 text-[length:var(--fs-10)]">
+                  {CATEGORY_LABEL[r.category] ?? r.category}
+                </Badge>
+              )}
+            </span>
+          </button>
+        );
+      },
+    },
+    {
+      accessorKey: 'total',
+      size: 88,
+      header: () => <span className="block text-right">Σύνολο</span>,
+      cell: ({ row }) => <span className="block text-right font-semibold">{fmtMoney(row.original.total)}</span>,
+    },
+    /*
+      ΜΙΑ στήλη «Κατάσταση» αντί για τρεις (OCR · SoftOne · συμφωνία). Οι τρεις έλεγαν τρία
+      κομμάτια της ΙΔΙΑΣ ιστορίας — «πώς πήγε η ανάγνωση», «ανέβηκε;», «συμφωνούν τα ποσά;» —
+      και μαζί έτρωγαν το τρίτο του πλάτους. Μπαίνουν σε στήλη, με τη σειρά που τα κοιτάζει
+      κανείς: πρώτα αν διαβάστηκε, μετά αν στέκει, μετά αν ανέβηκε.
+    */
+    {
+      id: 'status',
+      size: 155,
+      accessorFn: (r: OcrRow) => [r.status, r.postStatus, r.postedRef, r.templateName].filter(Boolean).join(' '),
+      header: 'Κατάσταση',
+      cell: ({ row }) => {
+        const r = row.original;
+        const isProcessing = r.status === 'PROCESSING' || reextractingId === r.id;
+        const m = reconMeta(r);
+        return (
+          <div className="flex min-w-0 flex-col items-start gap-1">
+            {isProcessing ? (
+              <div className="flex w-full min-w-[120px] flex-col gap-1">
+                <div className="flex items-center gap-1.5 text-[length:var(--fs-10)] font-semibold uppercase tracking-wide text-sisyphus-600">
+                  <span className="inline-block size-1.5 animate-pulse rounded-full bg-sisyphus-500" />
+                  Σκανάρισμα HQ…
+                </div>
+                <div className="relative h-1 overflow-hidden rounded-full bg-neutral-8">
+                  <div className="absolute inset-y-0 w-1/3 animate-[ocrProgress_1.4s_ease-in-out_infinite] rounded-full bg-sisyphus-500" />
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-wrap items-center gap-1">
+                <Badge variant={STATUS_VARIANT[r.status] ?? 'outline'}>{r.status}</Badge>
+                <span
+                  className="inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-[length:var(--fs-10)] font-semibold"
+                  style={{ backgroundColor: m.tone.bg, color: m.tone.fg, borderColor: m.tone.bd }}
+                  title={m.problem ?? m.label}
+                >
+                  {m.pending && <span className="inline-block size-1.5 rounded-full" style={{ backgroundColor: m.tone.fg }} />}
+                  {m.label}
+                </span>
+              </div>
+            )}
+            {/* ΠΡΟΤΥΠΟ: μέρος της ίδιας ιστορίας «πώς πήγε η ανάγνωση», όχι δική του στήλη.
+                Ως ξεχωριστή στήλη κόστιζε 95px για ένα chip που ο χρήστης κοιτάζει μαζί με το OCR. */}
+            {(r.templateRunStatus || r.unknownForm) && (
+              <span className="flex min-w-0 flex-wrap items-center gap-1">
+                {r.templateRunStatus
+                  ? (
+                    <>
+                      <RunStatusPill status={r.templateRunStatus} />
+                      {r.templateName && (
+                        <span className="max-w-[110px] truncate text-[length:var(--fs-10)] text-muted-foreground" title={r.templateName}>
+                          {r.templateName}
+                        </span>
+                      )}
+                      {r.blockedCount > 0 && (
+                        <span
+                          className="inline-flex items-center rounded-full px-1.5 py-0.5 text-[length:var(--fs-10)] font-bold tabular-nums"
+                          style={{ backgroundColor: '#FDE8E8', color: '#B91C1C' }}
+                          title={`${r.blockedCount} μπλοκαρισμένα πεδία`}
+                        >
+                          {r.blockedCount}
+                        </span>
+                      )}
+                    </>
+                  )
+                  : (
+                    <span
+                      className="inline-flex items-center rounded-full px-2 py-0.5 text-[length:var(--fs-10)] font-medium"
+                      style={{ backgroundColor: '#EEF2FF', color: '#4338CA' }}
+                      title="Δεν βρέθηκε πρότυπο ούτε από το ΑΦΜ ούτε από τη διάταξη — διάλεξε πρότυπο στην καρτέλα του εγγράφου"
+                    >
+                      Άγνωστο έντυπο
+                    </span>
+                  )}
+              </span>
+            )}
+            {r.postStatus !== 'NONE' && (
+              <span className="flex flex-wrap items-center gap-1">
+                <Badge variant={POST_VARIANT[r.postStatus] ?? 'outline'}>{r.postStatus}</Badge>
+                {r.postedRef && (
+                  <span className="font-mono text-[length:var(--fs-10)] text-muted-foreground">{r.postedRef}</span>
+                )}
+              </span>
+            )}
+          </div>
+        );
+      },
+    },
+    {
+      id: 'actions',
+      header: '',
+      size: 48,
+      cell: ({ row }) => {
+        const r = row.original;
+        const disabled = busyId === r.id;
+        // Σε εξέλιξη: περιστρεφόμενη ένδειξη ΣΤΗ ΘΕΣΗ του ⋮, με το τι γίνεται (tooltip + αναγνώστης οθόνης).
+        if (disabled) {
+          return (
+            <span role="status" aria-live="polite" title={busyLabel ? `${busyLabel}…` : 'Σε εξέλιξη…'}
+              className="inline-flex size-7 items-center justify-center text-sisyphus-600">
+              <FiLoader aria-hidden className="size-4 animate-spin motion-reduce:animate-none" />
+              <span className="sr-only">{busyLabel ? `${busyLabel}…` : 'Σε εξέλιξη…'}</span>
+            </span>
+          );
+        }
+        return (
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              disabled={disabled}
+              className="inline-flex size-7 items-center justify-center rounded-md border border-transparent hover:bg-muted hover:border-border disabled:opacity-50"
+              aria-label="Ενέργειες"
+            >
+              <FiMoreVertical className="size-4" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuLabel>Ενέργειες</DropdownMenuLabel>
+              <DropdownMenuItem onClick={() => row.toggleExpanded()}>
+                <FiEye className="size-4" /> Προβολή / Κατηγοριοποίηση
+              </DropdownMenuItem>
+              {(r.status === 'PENDING' || r.status === 'FAILED') && (
+                <DropdownMenuItem onClick={() => handleExtractNow(r)}>
+                  <FiPlay className="size-4" /> Διάβασε τώρα
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuItem
+                onClick={() => setReextractRow(r)}
+                disabled={r.status === 'PROCESSING'}
+              >
+                <FiRefreshCw className="size-4" /> Επανασκανάρισμα παραστατικού (HQ)
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <a href={`/api/admin/ocr/${r.id}/file`} target="_blank" rel="noreferrer">
+                  <FiExternalLink className="size-4" /> Άνοιγμα πρωτότυπου
+                </a>
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => { setLookupCtx(r.vatNumber ? `Εκδότης ${r.vatNumber}` : undefined); setLookupAfm(r.vatNumber); }}
+                disabled={!r.vatNumber}
+              >
+                <FiSearch className="size-4" /> Έλεγχος ΑΦΜ στο SoftOne
+              </DropdownMenuItem>
+              {r.customerVatNumber && r.customerVatNumber !== r.vatNumber && (
+                <DropdownMenuItem
+                  onClick={() => { setLookupCtx(`Πελάτης ${r.customerVatNumber}`); setLookupAfm(r.customerVatNumber); }}
+                >
+                  <FiSearch className="size-4" /> Έλεγχος ΑΦΜ πελάτη στο SoftOne
+                </DropdownMenuItem>
+              )}
+              {canCreateCompany && (
+                <>
+                  <DropdownMenuItem
+                    onClick={() => handleCreateCompany(r, 'SUPPLIER')}
+                    disabled={r.status !== 'COMPLETED' || !r.vatNumber}
+                  >
+                    <FiUserPlus className="size-4" /> Προσθήκη Προμηθευτή (ΑΑΔΕ)
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => handleCreateCompany(r, 'CUSTOMER')}
+                    disabled={r.status !== 'COMPLETED' || !r.customerVatNumber}
+                  >
+                    <FiUserPlus className="size-4" /> Προσθήκη Πελάτη (ΑΑΔΕ)
+                  </DropdownMenuItem>
+                </>
+              )}
+              {canPost && (
+                <DropdownMenuItem
+                  onClick={() => handlePost(r)}
+                  disabled={r.status !== 'COMPLETED' || r.postStatus === 'POSTED'}
+                >
+                  <FiSend className="size-4" /> Ανάρτηση στο SoftOne
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuSeparator />
+              <DropdownMenuLabel>Εκκρεμότητα</DropdownMenuLabel>
+              {r.reconOverride ? (
+                <DropdownMenuItem onClick={() => handleOverride(r, null)}>
+                  <FiRotateCcw className="size-4" /> Επαναφορά σε αυτόματο
+                </DropdownMenuItem>
+              ) : (
+                <>
+                  <DropdownMenuItem onClick={() => handleOverride(r, 'RESOLVED')}>
+                    <FiCheckCircle className="size-4" /> Σήμανση ως ολοκληρωμένο
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleOverride(r, 'IGNORED')}>
+                    <FiSlash className="size-4" /> Αγνόηση εκκρεμότητας
+                  </DropdownMenuItem>
+                </>
+              )}
+              {canDelete && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem variant="destructive" onClick={() => handleDelete(r)}>
+                    <FiTrash2 className="size-4" /> Διαγραφή
+                  </DropdownMenuItem>
+                </>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        );
+      },
+    },
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  ], [busyId, busyLabel, canPost, canDelete, reextractingId, dupInfo, seriesByCode, seriesByBareCode, anyEnabledSeries]);
+
+  return (
+    <>
+      {/* ΔΥΟ ΚΟΣΜΟΙ, ΔΥΟ ΚΑΡΤΕΛΕΣ. Τα αναρτημένα είναι τελειωμένη δουλειά: ανακατεμένα με τα
+          υπόλοιπα γέμιζαν τη λίστα με γραμμές που δεν χρειάζονται καμία ενέργεια, και η ημέρα
+          έδειχνε πλήθη που δεν αφορούσαν τον χρήστη. Η επιλογή μένει στο `localStorage`. */}
+      <div className="mb-3 inline-flex rounded-lg border border-border bg-muted/40 p-0.5">
+        {TABS.map((t) => {
+          const active = tab === t.key;
+          return (
+            <button
+              key={t.key} type="button" onClick={() => selectTab(t.key)}
+              aria-pressed={active}
+              className={cn(
+                'inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-[length:var(--fs-12)] font-semibold transition',
+                active ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground',
+              )}
+            >
+              {t.label}
+              <span className={cn(
+                'rounded-full px-1.5 py-0.5 text-[length:var(--fs-10)] tabular-nums',
+                active ? 'bg-sisyphus-500/15 text-sisyphus-700 dark:text-sisyphus-300' : 'bg-muted text-muted-foreground',
+              )}>
+                {t.key === 'posted' ? postedRows.length : openRows.length}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      <DataTable
+        columns={columns}
+        data={visibleRows}
+        searchKey="fileName"
+        searchPlaceholder="Αναζήτηση εγγράφου…"
+        persistKey="admin.ocr.table.v2"
+        /**
+         * ΑΝΤΙ ΓΙΑ ΟΡΙΖΟΝΤΙΟ SCROLL. Μετρημένο: οι στήλες αθροίζουν 1017px, ενώ στα 1280 με
+         * ανοιχτό sidebar (244px) και `p-6` μένουν 988px. Σειρά θυσίας από τη λιγότερο προς την
+         * περισσότερο κρίσιμη για τη ΔΟΥΛΕΙΑ: η μικρογραφία είναι διακόσμηση, η σειρά και ο
+         * κωδικός SoftOne είναι τεχνικά στοιχεία, ενώ εκδότης / παραστατικό / κατάσταση / σύνολο
+         * είναι αυτά που διαβάζει ο λογιστής. Το «Στήλες» επαναφέρει ό,τι θέλει ο χρήστης.
+         */
+        /* Ο ΕΚΔΟΤΗΣ απλώνει: είναι το μακρύτερο κείμενο της γραμμής (επωνυμίες σαν
+           «ΒΙΟΜΗΧΑΝΙΑ ΣΚΥΡΟΔΕΜΑΤΟΣ ΧΡΗΣΤΟΣ ΑΡΓΥΡΙΟΥ Ε.Π.Ε.») και αυτό που κερδίζει
+           περισσότερο από κάθε επιπλέον pixel. */
+        growColumnId="issuer"
+        responsiveHide={['thumb', 'series', 'softone', 'fileName']}
+        enableSelection
+        groupBy={{
+          getKey: (r) => localDayKey(r.createdAt),
+          renderHeader: (key, dayRows, ctx) => {
+            const label = greekDayLabel(key);
+            const count = dayRows.length;
+            const unique = uniqueInvoiceCount(dayRows);
+            const pending = dayRows.filter((r) => reconMeta(r).pending).length;
+            return (
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={ctx.toggleCollapsed}
+                  className="inline-flex size-5 items-center justify-center rounded text-muted-foreground hover:bg-black/5 dark:hover:bg-white/10"
+                  aria-label={ctx.collapsed ? 'Ανάπτυξη ημέρας' : 'Σύμπτυξη ημέρας'}
+                >
+                  {ctx.collapsed ? <FiChevronRight className="size-3.5" /> : <FiChevronDown className="size-3.5" />}
+                </button>
+                {/* ΚΙΝΗΤΟ = ΑΡΙΘΜΟΙ: «25-9-2026» και σκέτοι αριθμοί στα σήματα. Ολογράφως η μέρα και
+                    οι λέξεις τύλιγαν την κεφαλίδα σε τρεις γραμμές. */}
+                <span className="whitespace-nowrap tabular-nums md:hidden" title={label}>{shortDayLabel(key)}</span>
+                <span className="hidden capitalize md:inline">{label}</span>
+                <span
+                  title={`${count} ${count === 1 ? 'σκανάρισμα' : 'σκαναρίσματα'}${unique !== count ? ` · ${unique} μοναδικά` : ''}`}
+                  className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full bg-sisyphus-500/10 px-2 py-0.5 text-[length:var(--fs-10)] font-semibold uppercase tracking-wide text-sisyphus-600"
+                >
+                  <FiFileText aria-hidden className="size-3 md:hidden" />
+                  {count}<span className="hidden md:inline"> {count === 1 ? 'σκανάρισμα' : 'σκαναρίσματα'}</span>
+                  {unique !== count && <span className="hidden text-muted-foreground md:inline">· {unique} μοναδικά</span>}
+                </span>
+                {pending > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setProblemsDay({ label, rows: dayRows })}
+                    className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[length:var(--fs-10)] font-semibold"
+                    style={{ backgroundColor: '#FFF8EE', color: '#92400E', borderColor: '#FCD9A8' }}
+                    title={`${pending} ${pending === 1 ? 'εκκρεμότητα' : 'εκκρεμότητες'} — δες προβλήματα & λύσεις`}
+                  >
+                    <FiAlertCircle className="size-3" /> {pending}<span className="hidden md:inline"> {pending === 1 ? 'εκκρεμότητα' : 'εκκρεμότητες'}</span>
+                  </button>
+                )}
+                <div className="ml-auto">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger
+                      className="inline-flex size-6 items-center justify-center rounded-md border border-transparent hover:bg-black/5 dark:hover:bg-white/10 hover:border-border"
+                      aria-label="Ενέργειες ημέρας"
+                    >
+                      <FiMoreVertical className="size-3.5" />
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuLabel>{label}</DropdownMenuLabel>
+                      <DropdownMenuItem onClick={ctx.toggleCollapsed}>
+                        {ctx.collapsed ? <FiChevronRight className="size-4" /> : <FiChevronDown className="size-4" />}
+                        {ctx.collapsed ? 'Ανάπτυξη ημέρας' : 'Σύμπτυξη ημέρας'}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setProblemsDay({ label, rows: dayRows })}>
+                        <FiAlertCircle className="size-4" /> Προβλήματα & λύσεις
+                      </DropdownMenuItem>
+                      {canPost && (
+                        <DropdownMenuItem onClick={() => handleBulkPost(dayRows)}>
+                          <FiSend className="size-4" /> Ανάρτηση όλων (SoftOne)
+                        </DropdownMenuItem>
+                      )}
+                      {canDelete && (
+                        <>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem variant="destructive" onClick={() => handleBulkDelete(dayRows, label)}>
+                            <FiTrash2 className="size-4" /> Διαγραφή όλων της ημέρας
+                          </DropdownMenuItem>
+                        </>
+                      )}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              </div>
+            );
+          },
+        }}
+        expandable={(row) => (
+          <OcrRowDetail
+            row={row}
+            canCategorize={canCategorize}
+            canPost={canPost}
+            seriesOptions={seriesOptions}
+            onOpenFull={() => setFullRow(row)}
+          />
+        )}
+      />
+      <Dialog open={fullRow !== null} onOpenChange={(v) => { if (!v) setFullRow(null); }}>
+        <DialogContent
+          className="flex h-[92vh] w-[97vw] max-w-[1600px] flex-col gap-0 overflow-hidden p-0 sm:max-w-[1600px]"
+          // Ο επεξεργαστής έχει δικά του πεδία· το αυτόματο focus της Radix στο πρώτο input θα
+          // κυλούσε αμέσως τη σελίδα στα «Πεδία» αντί να δείξει το πρωτότυπο.
+          onOpenAutoFocus={(e) => e.preventDefault()}
+        >
+          <DialogHeader className="shrink-0 flex-row items-center gap-3 border-b border-border px-4 py-2.5 pr-12 text-left">
+            <span aria-hidden className="grid size-8 shrink-0 place-items-center rounded-lg bg-sisyphus-50 text-sisyphus-600 dark:bg-sisyphus-500/15">
+              <FiFileText className="size-4" />
+            </span>
+            <div className="min-w-0 flex-1">
+              <DialogTitle className="truncate text-[length:var(--fs-15)]" title={fullRow?.fileName ?? undefined}>{fullRow?.fileName ?? ''}</DialogTitle>
+              <DialogDescription className="truncate text-[length:var(--fs-11)]">
+                {fullRow
+                  ? `${fullRow.issuer ?? 'Άγνωστος εκδότης'}${fullRow.docNumber ? ` · ${fullRow.docNumber}` : ''}`
+                    + `${fullRow.itemsTotal ? ` · ${fullRow.itemsTotal} γραμμές` : ''}`
+                  : ''}
+              </DialogDescription>
+            </div>
+          </DialogHeader>
+          <div className="min-h-0 flex-1 overflow-auto">
+            {fullRow && (
+              // `key` ανά παραστατικό: ο επεξεργαστής κρατά ΔΙΚΗ του κατάσταση φόρμας — χωρίς
+              // αυτό, ανοίγοντας δεύτερο παραστατικό θα έδειχνε τα πεδία του πρώτου.
+              <OcrRowDetail
+                key={fullRow.id}
+                row={fullRow}
+                canCategorize={canCategorize}
+                canPost={canPost}
+                seriesOptions={seriesOptions}
+                fullscreen
+              />
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+      <SoftoneAfmDialog afm={lookupAfm} contextLabel={lookupCtx} onClose={() => setLookupAfm(null)} />
+      <OcrDayProblemsModal
+        open={problemsDay !== null}
+        onOpenChange={(v) => { if (!v) setProblemsDay(null); }}
+        dayLabel={problemsDay?.label ?? ''}
+        rows={problemsDay?.rows ?? []}
+      />
+      <ReextractDialog
+        open={reextractRow !== null}
+        fileName={reextractRow?.fileName ?? null}
+        busy={reextractingId !== null}
+        onCancel={() => setReextractRow(null)}
+        onConfirm={(t) => { const row = reextractRow; if (row) void handleReextract(row, t); }}
+      />
+    </>
+  );
+}
+
+/** Οι σειριακοί όλων των γραμμών ενός παραστατικού (από την περιγραφή τους — `lib/ocr/serials.ts`). */
+function rowSerials(r: OcrRow): string[] {
+  const items = ((r.extractedData as { items?: { name?: string | null }[] } | null)?.items) ?? [];
+  return [...new Set(items.flatMap((i) => extractSerials(i?.name)))];
+}

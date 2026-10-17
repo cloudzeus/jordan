@@ -1,0 +1,830 @@
+'use client';
+
+import * as React from 'react';
+import {
+  ColumnDef,
+  ColumnFiltersState,
+  ColumnOrderState,
+  ColumnSizingState,
+  ExpandedState,
+  SortingState,
+  VisibilityState,
+  flexRender,
+  getCoreRowModel,
+  getExpandedRowModel,
+  getFilteredRowModel,
+  getPaginationRowModel,
+  getSortedRowModel,
+  useReactTable,
+} from '@tanstack/react-table';
+import {
+  FiSearch, FiChevronDown, FiChevronRight, FiArrowUp, FiArrowDown, FiArrowDownRight,
+  FiColumns, FiChevronLeft, FiChevronsLeft, FiChevronsRight, FiMoreVertical, FiMove,
+} from 'react-icons/fi';
+import {
+  DndContext, PointerSensor, closestCenter, useSensor, useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  SortableContext, arrayMove, useSortable, verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select';
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+
+export interface DataTableProps<TData, TValue> {
+  columns: ColumnDef<TData, TValue>[];
+  data: TData[];
+  searchKey?: keyof TData & string;
+  searchPlaceholder?: string;
+  /**
+   * Let the search box look at EVERY column. TanStack samples the first row to decide
+   * which columns the global filter may read, so a column that is null in row 0 (or
+   * rendered purely from a custom cell) is skipped for the whole table. Opt in when the
+   * table has such columns; off by default so other tables keep TanStack's behaviour.
+   */
+  filterAllColumns?: boolean;
+  pageSize?: number;
+  expandable?: (row: TData) => React.ReactNode;
+  emptyState?: React.ReactNode;
+  toolbar?: React.ReactNode;
+  enableSelection?: boolean;
+  initialColumnVisibility?: VisibilityState;
+  /**
+   * ΟΡΙΖΟΝΤΙΟ SCROLL ΔΕΝ ΥΠΑΡΧΕΙ — ΑΠΟΚΡΥΠΤΟΥΜΕ ΣΤΗΛΕΣ ΜΕΧΡΙ ΝΑ ΧΩΡΕΣΕΙ.
+   *
+   * Λίστα `id` σε **σειρά θυσίας**: πρώτη η λιγότερο χρήσιμη για τη δουλειά. Κρύβονται όσες
+   * χρειαστεί, μετρώντας το πλάτος του ΙΔΙΟΥ του πίνακα — όχι του παραθύρου, γιατί το sidebar
+   * ανοιγοκλείνει ανεξάρτητα και κανένα media query δεν το βλέπει.
+   *
+   * ΓΙΑΤΙ ΟΧΙ ΚΑΤΩΦΛΙΑ `minWidth`: τα χειροκίνητα νούμερα είναι εικασία και αστοχούν. Μετρημένο
+   * στα 768: με κατώφλια ο πίνακας έβγαινε 780px σε δοχείο 671px και οι στήλες ΚΟΒΟΝΤΑΝ από το
+   * `overflow-hidden` της κάρτας — απρόσιτα δεδομένα, χωρίς καν scrollbar. Η άπληστη απόκρυψη
+   * με βάση το ΠΡΑΓΜΑΤΙΚΟ πλάτος δεν αστοχεί.
+   */
+  responsiveHide?: string[];
+  /**
+   * Η στήλη που ΑΠΛΩΝΕΙ. Δεν δηλώνει πλάτος, οπότε απορροφά όλο τον ελεύθερο χώρο — ιδίως όταν
+   * το `responsiveHide` κρύψει στήλες. Χωρίς αυτήν, ο πίνακας θα άφηνε λευκό κενό δεξιά.
+   */
+  growColumnId?: string;
+  /** When set, column visibility + order are persisted to localStorage under this key. */
+  persistKey?: string;
+  className?: string;
+  /**
+   * Stretch the table card to the bottom of the viewport (rows scroll inside, header
+   * sticky, pagination pinned). Default true; pass false for tables embedded in
+   * dialogs or below other content.
+   */
+  /**
+   * ΠΑΡΩΧΗΜΕΝΟ από τον κανόνα «ένας κάθετος scroller». Έδινε στην κάρτα σταθερό ύψος ώστε να
+   * κυλούν οι γραμμές ΜΕΣΑ της· πλέον κυλάει η σελίδα. Μένει `false` ώστε να μη σπάσει καλών.
+   */
+  fullHeight?: boolean;
+  /**
+   * Optional row grouping. When provided, a full-width group-header row is rendered
+   * before the first row of each group on the current page. `rows` is every row in
+   * that group across the entire (filtered) dataset, not just the current page — so
+   * the header can show accurate totals even when a group spans pages.
+   */
+  groupBy?: {
+    getKey: (row: TData) => string;
+    renderHeader: (key: string, rows: TData[], ctx: GroupHeaderCtx) => React.ReactNode;
+  };
+}
+
+/** Context handed to a group header so it can drive collapse state from the shared table. */
+export interface GroupHeaderCtx {
+  collapsed: boolean;
+  toggleCollapsed: () => void;
+}
+
+/** Κατώτατο πλάτος στήλης (px) — αρκετό για μια λέξη ή ένα ποσό. */
+const MIN_COL = 64;
+/** Αποθηκευμένο πλάτος κάτω από αυτό είναι σίγουρα λάθος σύρσιμο (καμία στήλη δεν δηλώνει < 32). */
+const MIN_STORED = 32;
+
+export function DataTable<TData, TValue>({
+  columns,
+  data,
+  searchKey,
+  searchPlaceholder = 'Αναζήτηση...',
+  filterAllColumns = false,
+  pageSize = 50,
+  expandable,
+  emptyState,
+  toolbar,
+  enableSelection = false,
+  initialColumnVisibility,
+  responsiveHide,
+  growColumnId,
+  persistKey,
+  fullHeight = false,
+  className,
+  groupBy,
+}: DataTableProps<TData, TValue>) {
+  const [sorting, setSorting] = React.useState<SortingState>([]);
+  const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
+  const [columnSizing, setColumnSizing] = React.useState<ColumnSizingState>({});
+  const [rowSelection, setRowSelection] = React.useState({});
+  const [expanded, setExpanded] = React.useState<ExpandedState>({});
+  const [globalFilter, setGlobalFilter] = React.useState('');
+  const [collapsedGroups, setCollapsedGroups] = React.useState<Set<string>>(() => new Set());
+
+  const toggleGroupCollapsed = React.useCallback((key: string) => {
+    setCollapsedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  }, []);
+
+  // ---- Persisted state: visibility + order keyed by persistKey ----
+  const visibilityKey = persistKey ? `dt:${persistKey}:visibility` : null;
+  const orderKey = persistKey ? `dt:${persistKey}:order` : null;
+
+  // SSR-safe: start with defaults so server and first client render match,
+  // then hydrate from localStorage after mount.
+  const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>(
+    initialColumnVisibility ?? {},
+  );
+  const [columnOrder, setColumnOrder] = React.useState<ColumnOrderState>([]);
+  const [hydrated, setHydrated] = React.useState(false);
+
+  /**
+   * Το πλάτος του ΙΔΙΟΥ του πίνακα, όχι του παραθύρου. `ResizeObserver` ώστε να αντιδρά και στο
+   * μάζεμα του sidebar, που κανένα media query δεν πιάνει.
+   */
+  /** px → rem για την ΑΠΟΔΟΣΗ. Βάση 16, όπως ορίζει το `--fs-*` σύστημα. */
+  const rem = (px: number) => `${px / 16}rem`;
+
+  const widthRef = React.useRef<HTMLDivElement | null>(null);
+  const [availWidth, setAvailWidth] = React.useState<number | null>(null);
+  React.useEffect(() => {
+    const el = widthRef.current;
+    if (!el || !responsiveHide?.length) return;
+    const ro = new ResizeObserver(([e]) => setAvailWidth(e.contentRect.width));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [responsiveHide]);
+
+
+
+  React.useEffect(() => {
+    if (visibilityKey) {
+      try {
+        const stored = window.localStorage.getItem(visibilityKey);
+        if (stored) setColumnVisibility((v) => ({ ...v, ...JSON.parse(stored) }));
+      } catch {}
+    }
+    if (orderKey) {
+      try {
+        const stored = window.localStorage.getItem(orderKey);
+        if (stored) setColumnOrder(JSON.parse(stored));
+      } catch {}
+    }
+    const sizeKey = persistKey ? `dt:${persistKey}:sizing` : null;
+    if (sizeKey) {
+      try {
+        const stored = window.localStorage.getItem(sizeKey);
+        // Πλάτη κάτω από το ελάχιστο (π.χ. 25px από ένα παλιό λάθος σύρσιμο, όταν το κατώτατο ήταν
+        // 20) ΑΓΝΟΟΥΝΤΑΙ: αλλιώς η στήλη έμενε στριμωγμένη για πάντα και φαινόταν «χαλασμένη».
+        if (stored) {
+          const parsed = JSON.parse(stored) as Record<string, unknown>;
+          const clean: ColumnSizingState = {};
+          for (const [k, v] of Object.entries(parsed)) if (typeof v === 'number' && v >= MIN_STORED) clean[k] = v;
+          setColumnSizing(clean);
+        }
+      } catch {}
+    }
+    setHydrated(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  React.useEffect(() => {
+    if (hydrated && visibilityKey) try { window.localStorage.setItem(visibilityKey, JSON.stringify(columnVisibility)); } catch {}
+  }, [columnVisibility, visibilityKey, hydrated]);
+  React.useEffect(() => {
+    if (hydrated && orderKey) try { window.localStorage.setItem(orderKey, JSON.stringify(columnOrder)); } catch {}
+  }, [columnOrder, orderKey, hydrated]);
+  React.useEffect(() => {
+    const sizeKey = persistKey ? `dt:${persistKey}:sizing` : null;
+    if (hydrated && sizeKey) try { window.localStorage.setItem(sizeKey, JSON.stringify(columnSizing)); } catch {}
+  }, [columnSizing, persistKey, hydrated]);
+
+  const enrichedColumns = React.useMemo<ColumnDef<TData, TValue>[]>(() => {
+    const cols: ColumnDef<TData, TValue>[] = [];
+    if (expandable) {
+      cols.push({
+        id: '__expand',
+        header: () => null,
+        cell: ({ row }) => (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              const opening = !row.getIsExpanded();
+              const tr = (e.currentTarget as HTMLElement).closest('tr');
+              row.toggleExpanded();
+              // Το άνοιγμα πρέπει να ΦΑΙΝΕΤΑΙ: μια γραμμή χαμηλά στη λίστα ανοίγει εκτός
+              // βλέμματος και μοιάζει σαν να μην έγινε τίποτα.
+              if (opening) requestAnimationFrame(() => tr?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }));
+            }}
+            className="inline-flex h-6 w-6 items-center justify-center rounded text-muted-foreground hover:bg-muted dark:hover:bg-muted transition-colors"
+            aria-label={row.getIsExpanded() ? 'Σύμπτυξη' : 'Επέκταση'}
+          >
+            {row.getIsExpanded() ? <FiChevronDown className="h-3.5 w-3.5" /> : <FiChevronRight className="h-3.5 w-3.5" />}
+          </button>
+        ),
+        size: 32, enableResizing: false, enableSorting: false, enableHiding: false,
+      } as ColumnDef<TData, TValue>);
+    }
+    if (enableSelection) {
+      cols.push({
+        id: '__select',
+        header: ({ table }) => (
+          <Checkbox
+            checked={table.getIsAllPageRowsSelected() ? true : table.getIsSomePageRowsSelected() ? 'indeterminate' : false}
+            onCheckedChange={(v) => table.toggleAllPageRowsSelected(!!v)}
+            aria-label="Επιλογή όλων"
+          />
+        ),
+        cell: ({ row }) => (
+          <Checkbox
+            checked={row.getIsSelected()}
+            onCheckedChange={(v) => row.toggleSelected(!!v)}
+            aria-label="Επιλογή σειράς"
+            onClick={(e) => e.stopPropagation()}
+          />
+        ),
+        size: 32, enableResizing: false, enableSorting: false, enableHiding: false,
+      } as ColumnDef<TData, TValue>);
+    }
+    // Κατώτατο πλάτος ΑΝΑ ΣΤΗΛΗ: το 20px της βιβλιοθήκης επέτρεπε να «εξαφανιστεί» μια στήλη με ένα
+    // σύρσιμο (η «Παραστατικό» έμεινε 25px). Κατώτατο = min(64, δηλωμένο πλάτος), ώστε οι μικρές
+    // στήλες (επιλογή 32, ενέργειες 48) να μη φουσκώνουν.
+    return [...cols, ...columns].map((c) => (c.minSize != null ? c : { ...c, minSize: Math.min(MIN_COL, c.size ?? 150) }));
+  }, [columns, expandable, enableSelection]);
+
+  /**
+   * Η ΕΠΙΛΟΓΗ ΤΟΥ ΧΡΗΣΤΗ ΝΙΚΑΕΙ. Η αυτόματη απόκρυψη αγγίζει μόνο στήλες που ΔΕΝ έχει ρυθμίσει
+   * ρητά ο χρήστης — αλλιώς το «Στήλες» θα ήταν ψεύτικο κουμπί που το σύστημα αναιρεί στο
+   * επόμενο resize.
+   */
+  const effectiveVisibility = React.useMemo(() => {
+    if (!responsiveHide?.length || availWidth == null) return columnVisibility;
+    const sizeOf = (id: string) => {
+      const c = enrichedColumns.find(
+        (x) => (x.id ?? (x as { accessorKey?: string }).accessorKey) === id,
+      );
+      return c?.size ?? 150;
+    };
+    let total = enrichedColumns.reduce((t, c) => {
+      const id = c.id ?? (c as { accessorKey?: string }).accessorKey;
+      return columnVisibility[id as string] === false ? t : t + (c.size ?? 150);
+    }, 0);
+    const out: VisibilityState = { ...columnVisibility };
+    for (const id of responsiveHide) {
+      if (total <= availWidth) break;
+      if (Object.prototype.hasOwnProperty.call(columnVisibility, id)) continue;
+      out[id] = false;
+      total -= sizeOf(id);
+    }
+    /**
+     * ΑΝ ΜΕΤΑ ΑΠΟ ΟΛΕΣ ΤΙΣ ΘΥΣΙΕΣ ΔΕΝ ΧΩΡΑΕΙ. Σε πολύ στενό δοχείο μένουν στήλες που δεν
+     * επιτρέπεται να φύγουν (εκδότης, ποσό, κατάσταση) και το άθροισμά τους ξεπερνά τον χώρο —
+     * μετρημένο στα 520: 460px σε δοχείο 438px. Τότε ΠΑΡΑΙΤΟΥΜΑΣΤΕ από τα σταθερά πλάτη και
+     * αφήνουμε τις στήλες να συρρικνωθούν (το κείμενο ήδη κόβεται με `truncate`). Το χειρότερο
+     * θα ήταν να μείνουν σταθερές και να κοπούν από το `overflow-hidden` της κάρτας.
+     */
+    return out;
+  }, [columnVisibility, responsiveHide, availWidth, enrichedColumns]);
+
+  /** `true` όταν ούτε με όλες τις θυσίες χωράει ο πίνακας — τότε τα πλάτη γίνονται ελαστικά. */
+  const mustShrink = React.useMemo(() => {
+    if (availWidth == null) return false;
+    const total = enrichedColumns.reduce((t, c) => {
+      const id = (c.id ?? (c as { accessorKey?: string }).accessorKey) as string;
+      return effectiveVisibility[id] === false ? t : t + (c.size ?? 150);
+    }, 0);
+    return total > availWidth;
+  }, [enrichedColumns, effectiveVisibility, availWidth]);
+
+  const table = useReactTable({
+    data,
+    columns: enrichedColumns,
+    state: { sorting, columnFilters, columnVisibility: effectiveVisibility, columnSizing, columnOrder, rowSelection, expanded, globalFilter },
+    onSortingChange: setSorting,
+    onColumnFiltersChange: setColumnFilters,
+    onColumnVisibilityChange: setColumnVisibility,
+    onColumnSizingChange: setColumnSizing,
+    onColumnOrderChange: setColumnOrder,
+    onRowSelectionChange: setRowSelection,
+    onExpandedChange: setExpanded,
+    onGlobalFilterChange: setGlobalFilter,
+    // Opt-in only: without it TanStack keeps its own first-row sampling (see the prop).
+    ...(filterAllColumns && { getColumnCanGlobalFilter: () => true }),
+    columnResizeMode: 'onChange',
+    enableColumnResizing: true,
+    enableExpanding: !!expandable,
+    getRowCanExpand: () => !!expandable,
+    getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+    getFilteredRowModel: getFilteredRowModel(),
+    getPaginationRowModel: getPaginationRowModel(),
+    getExpandedRowModel: getExpandedRowModel(),
+    initialState: { pagination: { pageSize } },
+  });
+
+  /**
+   * ΠΛΑΤΟΣ ΣΤΗΛΗΣ ΣΤΟ DOM. Δύο κανόνες, γιατί αλλιώς το resize «δεν έκανε τίποτα»:
+   *  • Η ελαστική στήλη (`growColumnId`) δεν δηλώνει πλάτος — παίρνει το περίσσευμα.
+   *  • Όταν δεν χωράει τίποτα (`mustShrink`), τα πλάτη γίνονται ελαστικά — ΕΚΤΟΣ από όσες στήλες
+   *    έχει ρυθμίσει ο ίδιος ο χρήστης (υπάρχουν στο `columnSizing`): η επιλογή του νικάει.
+   */
+  const widthStyle = (colId: string, size: number): React.CSSProperties | undefined => {
+    if (colId === growColumnId) return undefined;
+    if (mustShrink && !Object.prototype.hasOwnProperty.call(columnSizing, colId)) return undefined;
+    return { width: rem(size) };
+  };
+
+  /**
+   * RESIZE — δικός μας χειρισμός για ΟΛΕΣ τις στήλες (ο handler της βιβλιοθήκης, σε `table-layout:
+   * fixed` με ελαστική στήλη, έριχνε τη στήλη στο 0 — έτσι η «Παραστατικό» είχε μείνει 25px).
+   *  • Κανονική στήλη: αλλάζει η ΙΔΙΑ· τη διαφορά την απορροφά η ελαστική στήλη, ο πίνακας χωράει.
+   *  • Ελαστική στήλη: αφού παίρνει ό,τι περισσεύει, «πιο φαρδιά» σημαίνει «η ΕΠΟΜΕΝΗ στήλη πιο
+   *    στενή» (ή η προηγούμενη, αν είναι τελευταία). Σε κάθε περίπτωση το όριο ακολουθεί τον δείκτη.
+   */
+  const [resizingId, setResizingId] = React.useState<string | null>(null);
+  const resizeTarget = (colId: string) => {
+    if (colId !== growColumnId) {
+      const col = table.getColumn(colId);
+      return col ? { col, sign: 1 } : null;
+    }
+    const cols = table.getVisibleLeafColumns();
+    const idx = cols.findIndex((c) => c.id === colId);
+    // Η πρώτη επόμενη στήλη που έχει ΠΕΡΙΘΩΡΙΟ να στενέψει (αν η αμέσως επόμενη είναι ήδη στο ελάχιστο).
+    const room = (c: (typeof cols)[number]) => c.getSize() > Math.max(c.columnDef.minSize ?? MIN_COL, MIN_COL) + 4;
+    const afterAll = cols.slice(idx + 1).filter((c) => c.getCanResize());
+    const after = afterAll.find(room) ?? afterAll[0];
+    if (after) return { col: after, sign: -1 };
+    const before = [...cols.slice(0, idx)].reverse().find((c) => c.getCanResize());
+    return before ? { col: before, sign: 1 } : null;
+  };
+  const startResize = (colId: string) => (e: React.MouseEvent | React.TouchEvent) => {
+    const target = resizeTarget(colId);
+    if (!target) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const { col, sign } = target;
+    const x0 = 'touches' in e ? e.touches[0].clientX : e.clientX;
+    // Από το ΠΡΑΓΜΑΤΙΚΟ πλάτος στην οθόνη (σε ελαστικό πίνακα διαφέρει από το δηλωμένο).
+    const th = (e.currentTarget as HTMLElement).closest('table')?.querySelector<HTMLElement>(`th[data-col="${col.id}"]`);
+    const start = th ? th.getBoundingClientRect().width : col.getSize();
+    const min = Math.max(col.columnDef.minSize ?? MIN_COL, Math.min(MIN_COL, col.columnDef.size ?? MIN_COL));
+    const max = col.columnDef.maxSize ?? 900;
+    setResizingId(colId);
+    const move = (ev: MouseEvent | TouchEvent) => {
+      const x = 'touches' in ev ? ev.touches[0].clientX : ev.clientX;
+      const next = Math.min(max, Math.max(min, Math.round(start + sign * (x - x0))));
+      setColumnSizing((s) => ({ ...s, [col.id]: next }));
+    };
+    const up = () => {
+      setResizingId(null);
+      window.removeEventListener('mousemove', move); window.removeEventListener('mouseup', up);
+      window.removeEventListener('touchmove', move); window.removeEventListener('touchend', up);
+    };
+    window.addEventListener('mousemove', move); window.addEventListener('mouseup', up);
+    window.addEventListener('touchmove', move, { passive: true }); window.addEventListener('touchend', up);
+  };
+  const resetResize = (colId: string) => {
+    const target = resizeTarget(colId);
+    if (target) setColumnSizing((s) => { const n = { ...s }; delete n[target.col.id]; return n; });
+  };
+
+  const totalRows = table.getFilteredRowModel().rows.length;
+  const currentPage = table.getState().pagination.pageIndex + 1;
+  const pageCount = table.getPageCount();
+
+  // Rows per group across the full filtered dataset (not just the current page),
+  // so group headers can show accurate totals even when a group spans pages.
+  const groupRows = React.useMemo(() => {
+    if (!groupBy) return null;
+    const map = new Map<string, TData[]>();
+    for (const r of table.getFilteredRowModel().rows) {
+      const key = groupBy.getKey(r.original);
+      const list = map.get(key);
+      if (list) list.push(r.original); else map.set(key, [r.original]);
+    }
+    return map;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [groupBy, data, globalFilter, columnFilters]);
+
+  // Full-height card: measure where the card starts and give it the rest of the
+  // viewport, minus the page/app paddings below it (mobile bottom nav included).
+  const cardRef = React.useRef<HTMLDivElement>(null);
+  const [minHeight, setMinHeight] = React.useState<number | undefined>(undefined);
+  React.useLayoutEffect(() => {
+    if (!fullHeight) { setMinHeight(undefined); return; }
+    const el = cardRef.current;
+    if (!el) return;
+    const measure = () => {
+      const top = el.getBoundingClientRect().top + window.scrollY;
+      const main = el.closest('main');
+      const pad = (node: Element | null) => (node ? parseFloat(getComputedStyle(node).paddingBottom) || 0 : 0);
+      const bottomGap = pad(main) + pad(main?.parentElement ?? null);
+      const h = Math.floor(window.innerHeight - top - bottomGap);
+      /**
+       * ΠΑΡΑΠΑΝΩ ΑΠΟ 320px, ΑΛΛΙΩΣ ΚΑΘΟΛΟΥ ΟΡΙΟ.
+       *
+       * Το παλιό «πάτωμα» στα 320 έδινε ΓΡΑΜΜΑΤΟΚΙΒΩΤΙΟ όταν πάνω από τον πίνακα υπάρχει πολλή
+       * κεφαλίδα: σε laptop 1280×800 η κάρτα ξεκινά στο y=476, ο τύπος βγάζει 244 και το πάτωμα
+       * το ανέβαζε στα 320 — 269px ορατά πάνω σε 4540px περιεχομένου. Το άνοιγμα μιας γραμμής
+       * αποδιδόταν κανονικά αλλά **2794px πάνω από το ορατό**: ο χρήστης πατούσε και «δεν
+       * γινόταν τίποτα».
+       *
+       * Όταν δεν υπάρχει αρκετό ύψος, το σωστό ΔΕΝ είναι μικρότερο παράθυρο — είναι ΚΑΝΕΝΑ
+       * παράθυρο: η κάρτα μεγαλώνει όσο χρειάζεται και κυλάει η ΣΕΛΙΔΑ. Ένας scroller αντί για
+       * δύο φωλιασμένους, που ήταν και η μεγαλύτερη πηγή σύγχυσης.
+       */
+      setMinHeight(h > 320 ? h : undefined);
+    };
+    measure();
+    window.addEventListener('resize', measure);
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(measure) : null;
+    ro?.observe(document.body);
+    return () => { window.removeEventListener('resize', measure); ro?.disconnect(); };
+  }, [fullHeight]);
+
+  return (
+    <div className={cn('flex flex-col gap-3', className)}>
+      {/* Toolbar */}
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="flex-1 min-w-[200px] max-w-sm relative">
+          <FiSearch className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+          <Input
+            placeholder={searchPlaceholder}
+            value={globalFilter}
+            onChange={(e) => setGlobalFilter(e.target.value)}
+            className="pl-8 h-8"
+          />
+        </div>
+        {toolbar}
+        <div className="ml-auto flex items-center gap-2">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="secondary" size="sm">
+                <FiColumns /> Στήλες
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="max-h-80 w-72 overflow-y-auto p-2">
+              <DropdownMenuLabel className="flex items-center justify-between">
+                <span>Εμφάνιση & σειρά στηλών</span>
+                {persistKey && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      if (visibilityKey) try { window.localStorage.removeItem(visibilityKey); } catch {}
+                      if (orderKey) try { window.localStorage.removeItem(orderKey); } catch {}
+                      setColumnVisibility(initialColumnVisibility ?? {});
+                      setColumnOrder([]);
+                    }}
+                    className="text-[length:var(--fs-10)] text-muted-foreground hover:text-foreground underline"
+                  >
+                    reset
+                  </button>
+                )}
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <ColumnSortableList table={table} />
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </div>
+
+      {/* Table */}
+      <div
+        ref={cardRef}
+        /* ΧΩΡΙΣ σταθερό ύψος: έδινε στην κάρτα δικό της scroll. Μεγαλώνει όσο χρειάζεται. */
+        className="relative flex flex-col rounded-lg border border-border dark:border-border bg-white dark:bg-card shadow-fluent-2 overflow-hidden"
+      >
+        {/* ΧΩΡΙΣ ΔΙΚΟ ΤΟΥ SCROLLER. Κανόνας του design system: ΕΝΑΣ κάθετος scroller σε όλη την
+            εφαρμογή — ο κεντρικός της σελίδας. Δύο ένθετοι scrollers σημαίνουν ότι ο χρήστης δεν
+            ξέρει ποιον κινεί, χάνει τη θέση του, και το ποντίκι αλλάζει στόχο ανάλογα με το πού
+            βρίσκεται. Η κεφαλίδα μένει `sticky` — πλέον κολλάει στο ΠΑΝΩ ΜΕΡΟΣ ΤΗΣ ΟΘΟΝΗΣ, που
+            είναι και το σωστό για μακριές λίστες. */}
+        {/* ΟΥΤΕ ΟΡΙΖΟΝΤΙΟ SCROLL. Η άπληστη απόκρυψη παραπάνω εγγυάται ότι ο πίνακας χωράει. */}
+        <div ref={widthRef} className="min-h-0 flex-1">
+          {/* `width: 100%` ΚΑΙ `minWidth` από το άθροισμα: όταν κρύβονται στήλες ο πίνακας
+              ΑΠΛΩΝΕΤΑΙ αντί να αφήσει κενό δεξιά, ενώ ποτέ δεν συμπιέζεται κάτω από το άθροισμα
+              των στηλών του. Η ελαστική στήλη (`growColumnId`) δεν δηλώνει πλάτος, οπότε σε
+              `table-layout: fixed` παίρνει αυτή όλο το περίσσευμα — αλλιώς θα μοιραζόταν εξίσου
+              και θα φούσκωνε η στήλη των ενεργειών. */}
+          <table
+            className="w-full text-[length:var(--fs-12)]"
+            /* ΧΩΡΙΣ `minWidth`: θα επέβαλλε πλάτος μεγαλύτερο από το δοχείο και θα ξαναέκοβε. */
+            /* ΠΑΝΤΑ `fixed`. Με `auto` το περιεχόμενο επιβάλλει πλάτος και ο πίνακας ΜΕΓΑΛΩΝΕΙ
+               αντί να συρρικνωθεί — μετρημένο στα 520: 1186px σε δοχείο 438px. Με `fixed` και
+               ΧΩΡΙΣ δηλωμένα πλάτη, ο browser μοιράζει ισόποσα το 100% και χωράει πάντα. */
+            style={{ tableLayout: 'fixed', width: '100%' }}
+          >
+            <thead className="sticky top-0 z-10 bg-neutral-4 dark:bg-muted shadow-[inset_0_-1px_0_0_var(--border)]">
+              {table.getHeaderGroups().map((headerGroup) => (
+                <tr key={headerGroup.id}>
+                  {headerGroup.headers.map((header) => {
+                    const canSort = header.column.getCanSort();
+                    const sort = header.column.getIsSorted();
+                    return (
+                      <th
+                        key={header.id}
+                        colSpan={header.colSpan}
+                        data-col={header.column.id}
+                        style={widthStyle(header.column.id, header.getSize())}
+                        className="relative h-8 px-2.5 text-left font-semibold text-[length:var(--fs-10)] uppercase tracking-wider text-muted-foreground dark:text-muted-foreground select-none"
+                      >
+                        {!header.isPlaceholder && (
+                          <div
+                            className={cn('flex items-center gap-1.5 truncate', canSort && 'cursor-pointer hover:text-primary transition-colors')}
+                            onClick={canSort ? header.column.getToggleSortingHandler() : undefined}
+                          >
+                            <span className="truncate">{flexRender(header.column.columnDef.header, header.getContext())}</span>
+                            {canSort && (
+                              <span className="text-muted-foreground">
+                                {sort === 'asc' ? <FiArrowUp className="h-3 w-3" /> :
+                                  sort === 'desc' ? <FiArrowDown className="h-3 w-3" /> :
+                                    <FiArrowDownRight className="h-3 w-3 opacity-40" />}
+                              </span>
+                            )}
+                          </div>
+                        )}
+                        {header.column.getCanResize() && (
+                          <div
+                            role="separator" aria-orientation="vertical" aria-label="Αλλαγή πλάτους στήλης (διπλό κλικ: επαναφορά)"
+                            onDoubleClick={() => resetResize(header.column.id)}
+                            onMouseDown={startResize(header.column.id)}
+                            onTouchStart={startResize(header.column.id)}
+                            onClick={(e) => e.stopPropagation()}
+                            className={cn(
+                              // Πιάνεται εύκολα: 8px ζώνη στο όριο, ορατή γραμμή 2px στο hover/σύρσιμο.
+                              'absolute -right-1 top-0 z-10 flex h-full w-2 cursor-col-resize select-none touch-none justify-center',
+                              'after:block after:h-full after:w-0.5 after:bg-transparent after:transition-colors hover:after:bg-primary/50',
+                              resizingId === header.column.id && 'after:bg-primary',
+                            )}
+                          />
+                        )}
+                      </th>
+                    );
+                  })}
+                </tr>
+              ))}
+            </thead>
+            <tbody>
+              {table.getRowModel().rows.length === 0 ? (
+                <tr>
+                  <td colSpan={enrichedColumns.length} className="h-32 text-center text-muted-foreground">
+                    {emptyState ?? 'Δεν βρέθηκαν αποτελέσματα.'}
+                  </td>
+                </tr>
+              ) : (
+                (() => {
+                  const pageRows = table.getRowModel().rows;
+                  let prevGroupKey: string | null = null;
+                  return pageRows.map((row) => {
+                    let groupHeader: React.ReactNode = null;
+                    let isCollapsed = false;
+                    if (groupBy) {
+                      const key = groupBy.getKey(row.original);
+                      isCollapsed = collapsedGroups.has(key);
+                      if (key !== prevGroupKey) {
+                        prevGroupKey = key;
+                        groupHeader = (
+                          <tr className="border-y border-sisyphus-500/25 bg-sisyphus-500/10 dark:bg-sisyphus-500/20">
+                            <td
+                              colSpan={row.getVisibleCells().length}
+                              className="h-[calc(var(--row-h)+0.25rem)] px-[var(--row-px)] text-[length:var(--fs-11)] font-semibold text-foreground"
+                            >
+                              {groupBy.renderHeader(key, groupRows?.get(key) ?? [], {
+                                collapsed: isCollapsed,
+                                toggleCollapsed: () => toggleGroupCollapsed(key),
+                              })}
+                            </td>
+                          </tr>
+                        );
+                      }
+                    }
+                    if (isCollapsed) return <React.Fragment key={row.id}>{groupHeader}</React.Fragment>;
+                    return (
+                  <React.Fragment key={row.id}>
+                    {groupHeader}
+                    <tr
+                      data-state={row.getIsSelected() ? 'selected' : undefined}
+                      className="border-b border-border dark:border-border last:border-0 hover:bg-muted/40 dark:hover:bg-muted/50 data-[state=selected]:bg-[var(--cx-accent-soft)]/50 dark:data-[state=selected]:bg-[var(--cx-accent-soft)]/30 transition-colors duration-200"
+                    >
+                      {row.getVisibleCells().map((cell) => {
+                        const isActions = cell.column.id === 'actions' || cell.column.id === '__expand' || cell.column.id === '__select';
+                        return (
+                          <td
+                            key={cell.id}
+                            style={widthStyle(cell.column.id, cell.column.getSize())}
+                            className={cn(
+                              'h-[var(--row-h)] px-[var(--row-px)] text-[length:var(--fs-12)] text-foreground',
+                              isActions ? 'overflow-visible text-center' : 'truncate',
+                            )}
+                          >
+                            {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                    {row.getIsExpanded() && expandable && (
+                      <tr className="bg-muted/30 dark:bg-muted/30 border-b border-border dark:border-border animate-fade-in">
+                        {/*
+                          Η ανοιγμένη γραμμή ΔΕΝ ακολουθεί το πλάτος του πίνακα.
+
+                          Ο πίνακας έχει 17 στήλες και πιάνει 2118px· σε laptop 1280px αυτό σημαίνει
+                          ότι ΟΛΟ το περιεχόμενο της ανοιγμένης γραμμής — μαζί και η μπάρα με τον
+                          τύπο παραστατικού, την κατηγορία και τα «Αποθήκευση/Ανάρτηση» — στηνόταν
+                          σε πλάτος 2118px και κατέληγε **εκτός οθόνης δεξιά** (μετρημένο: η μπάρα
+                          ξεκινούσε στο x=714 και τελείωνε στο 2382). Ο χρήστης έπρεπε να σκρολάρει
+                          οριζόντια για να βρει τα κουμπιά του.
+
+                          `sticky left-0` κολλάει το περιεχόμενο στο ΑΡΙΣΤΕΡΟ άκρο του παραθύρου
+                          κύλισης και το `width` το δένει στο ΟΡΑΤΟ πλάτος, όχι στου πίνακα: ό,τι
+                          κι αν κάνει η οριζόντια κύλιση των στηλών, ο επεξεργαστής μένει μπροστά
+                          στα μάτια. Η οριζόντια κύλιση παραμένει εκεί που ανήκει — στις στήλες.
+                        */}
+                        <td
+                          colSpan={row.getVisibleCells().length}
+                          className="p-0"
+                        >
+                          <div
+                            className="sticky left-0 px-4 py-3"
+                            style={{ width: cardRef.current?.clientWidth ?? undefined }}
+                          >
+                            {expandable(row.original)}
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
+                    );
+                  });
+                })()
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Footer / pagination — pinned to the bottom of the card */}
+        <div className="mt-auto flex flex-wrap items-center justify-between gap-2 border-t border-border dark:border-border bg-muted/30 dark:bg-muted/30 px-3 py-2">
+          <div className="text-[length:var(--fs-12)] text-muted-foreground">
+            {enableSelection && Object.keys(rowSelection).length > 0 ? (
+              <span>{Object.keys(rowSelection).length} επιλεγμένα από {totalRows}</span>
+            ) : (
+              <span>{totalRows} εγγραφές</span>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            <Select
+              value={String(table.getState().pagination.pageSize)}
+              onValueChange={(v) => table.setPageSize(Number(v))}
+            >
+              <SelectTrigger className="h-7 w-[110px] text-[length:var(--fs-12)]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {[10, 20, 50, 100].map((s) => (
+                  <SelectItem key={s} value={String(s)}>{s} / σελίδα</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <span className="text-[length:var(--fs-12)] text-muted-foreground px-2">
+              {pageCount === 0 ? '0 / 0' : `${currentPage} / ${pageCount}`}
+            </span>
+            <Button variant="ghost" size="icon-sm" onClick={() => table.setPageIndex(0)} disabled={!table.getCanPreviousPage()}>
+              <FiChevronsLeft />
+            </Button>
+            <Button variant="ghost" size="icon-sm" onClick={() => table.previousPage()} disabled={!table.getCanPreviousPage()}>
+              <FiChevronLeft />
+            </Button>
+            <Button variant="ghost" size="icon-sm" onClick={() => table.nextPage()} disabled={!table.getCanNextPage()}>
+              <FiChevronRight />
+            </Button>
+            <Button variant="ghost" size="icon-sm" onClick={() => table.setPageIndex(pageCount - 1)} disabled={!table.getCanNextPage()}>
+              <FiChevronsRight />
+            </Button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Convenience row-action trigger that pairs with a DropdownMenu
+export const RowActionsTrigger = React.forwardRef<HTMLButtonElement, React.ButtonHTMLAttributes<HTMLButtonElement>>(
+  function RowActionsTrigger(props, ref) {
+    return (
+      <button
+        ref={ref}
+        type="button"
+        aria-label="Ενέργειες"
+        {...props}
+        className={cn(
+          'inline-flex h-7 w-7 items-center justify-center rounded-sm border border-transparent text-muted-foreground hover:bg-muted hover:text-foreground hover:border-border data-[state=open]:bg-muted data-[state=open]:text-foreground data-[state=open]:border-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring transition-colors duration-200',
+          props.className,
+        )}
+      >
+        <FiMoreVertical className="h-4 w-4" />
+      </button>
+    );
+  },
+);
+
+// ---- Sortable column visibility list (used in the "Στήλες" dropdown) ----
+
+function ColumnSortableList<T>({ table }: { table: ReturnType<typeof useReactTable<T>> }) {
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
+
+  // All columns the user is allowed to hide/reorder (skip internal __expand / __select).
+  const columns = table.getAllLeafColumns().filter((c) => c.getCanHide());
+  const ids = columns.map((c) => c.id);
+
+  const onDragEnd = (e: DragEndEvent) => {
+    const { active, over } = e;
+    if (!over || active.id === over.id) return;
+    const oldIndex = ids.indexOf(String(active.id));
+    const newIndex = ids.indexOf(String(over.id));
+    if (oldIndex < 0 || newIndex < 0) return;
+
+    // Compose the full leaf-column id list, replacing the sortable slice with the reordered one.
+    const allIds = table.getAllLeafColumns().map((c) => c.id);
+    const reorderedSlice = arrayMove(ids, oldIndex, newIndex);
+    let cursor = 0;
+    const next = allIds.map((id) => (ids.includes(id) ? reorderedSlice[cursor++] : id));
+    table.setColumnOrder(next);
+  };
+
+  return (
+    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
+      <SortableContext items={ids} strategy={verticalListSortingStrategy}>
+        <ul className="flex flex-col">
+          {columns.map((column) => (
+            <ColumnRow key={column.id} id={column.id} column={column} />
+          ))}
+        </ul>
+      </SortableContext>
+    </DndContext>
+  );
+}
+
+function ColumnRow({ id, column }: { id: string; column: any }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.6 : 1,
+  };
+  const label = typeof column.columnDef.header === 'string' ? column.columnDef.header : column.id;
+  return (
+    <li
+      ref={setNodeRef}
+      style={style}
+      className="flex items-center gap-1.5 px-1 py-1 rounded-sm hover:bg-muted/60 group select-none"
+    >
+      <button
+        type="button"
+        className="cursor-grab text-muted-foreground/60 hover:text-foreground touch-none"
+        {...attributes}
+        {...listeners}
+        aria-label="Σύρε για αναδιάταξη"
+      >
+        <FiMove className="size-3.5" />
+      </button>
+      <Checkbox
+        checked={column.getIsVisible()}
+        onCheckedChange={(v) => column.toggleVisibility(!!v)}
+        aria-label={label}
+      />
+      <span
+        className="text-[length:var(--fs-12)] flex-1 truncate cursor-pointer"
+        onClick={() => column.toggleVisibility(!column.getIsVisible())}
+      >
+        {label}
+      </span>
+    </li>
+  );
+}

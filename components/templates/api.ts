@@ -1,0 +1,162 @@
+// components/templates/api.ts — CLIENT. Typed fetch helpers for the template endpoints + Greek error text.
+import type { SampleDto, TrainingSummary } from '@/lib/templates/samples';
+import type { JobDetail, JobListRow } from '@/lib/templates/jobs';
+import type { TemplateDto } from '@/lib/templates/serialize';
+import type { RunDto } from '@/lib/templates/run-dto';
+import type { FieldDef, FieldValue, Region, RunOutcome } from '@/lib/templates/schema';
+
+export type { JobDetail, JobListRow, RunDto, RunOutcome, SampleDto, TrainingSummary };
+
+/** Τα μεταδεδομένα που πληκτρολογεί ο χρήστης στον διάλογο μιας νέας εργασίας σάρωσης. */
+export type JobMeta = { title?: string; reference?: string; docDate?: string; description?: string; notifyEmails?: string };
+
+export type Cleanup = { mappings: { name: string; removedRows: number }[]; conditions: { id: string; name: string; removedClauses: number; removedActions: number }[] };
+export type TestFieldResult = { raw: string | null; value: unknown; source: string; model: string | null; tokensUsed: number; color: string; durationMs: number };
+export type DetectFieldResult = { label: string; key: string; kind: 'SINGLE' | 'TABLE'; valueType: FieldDef['valueType']; value: string; columns: FieldDef['columns']; model: string; tokensUsed: number; durationMs: number };
+export type DetectedMark = { label: string; key: string; valueType: FieldDef['valueType']; value: string; bbox: [number, number, number, number] };
+export type DetectMarksResult = { marks: DetectedMark[]; model: string; tokensUsed: number; durationMs: number };
+export type TestTemplateResult = { template: string; version: number; extractedAt: string; values: Record<string, unknown>; fields: Record<string, FieldValue>; model: string | null; tokensUsed: number; durationMs: number; errors: { fieldKey: string; message: string }[] };
+
+const ERROR_TEXT: Record<string, string> = {
+  invalid_body: 'Μη έγκυρα δεδομένα.',
+  duplicate_slug: 'Υπάρχει ήδη πρότυπο με αυτό το slug.',
+  slug_locked: 'Το slug κλειδώνει μόλις το πρότυπο αποκτήσει εκτελέσεις.',
+  not_found: 'Δεν βρέθηκε.',
+  not_ready: 'Για ενεργοποίηση χρειάζονται δείγμα και ένα πεδίο με περιοχή — και mapping για ημιαυτόματη/αυτόματη λειτουργία.',
+  forbidden: 'Δεν έχεις δικαίωμα για αυτή την ενέργεια.',
+  has_history: 'Το πρότυπο έχει ιστορικό εκτελέσεων. Απενεργοποίησέ το αντί να το διαγράψεις.',
+  unknown_field: 'Άγνωστο πεδίο.',
+  table_not_editable: 'Τα πεδία πίνακα δεν διορθώνονται χειροκίνητα.',
+  not_latest: 'Μόνο η τελευταία εκτέλεση μπορεί να διορθωθεί.',
+  posted: 'Το έγγραφο έχει αναρτηθεί — δεν επιτρέπονται αλλαγές στην εκτέλεση.',
+  no_template: 'Δεν βρέθηκε πρότυπο για το ΑΦΜ του εκδότη — επίλεξε ένα.',
+  not_completed: 'Το έγγραφο δεν έχει ολοκληρωθεί.',
+  multiple_tables: 'Το mapping χαρτογραφεί γραμμές από δύο πίνακες. Επίλεξε έναν.',
+  table_to_header: 'Πεδίο πίνακα μπορεί να χαρτογραφηθεί μόνο σε στήλες γραμμών.',
+  single_to_line: 'Απλό πεδίο δεν μπορεί να χαρτογραφηθεί σε στήλη γραμμών.',
+  unknown_mapping: 'Άγνωστο mapping στον κανόνα.',
+  foreign_condition: 'Μη έγκυρο αναγνωριστικό κανόνα.',
+  no_sample: 'Ανέβασε πρώτα δείγμα.',
+  no_region: 'Το πεδίο δεν έχει περιοχή.',
+  no_fields: 'Δεν υπάρχουν πεδία με περιοχή.',
+  bad_page: 'Μη έγκυρη σελίδα.',
+  read_failed: 'Η ανάγνωση απέτυχε.',
+  color_cap: 'Μέγιστο 12 πεδία ανά πρότυπο.',
+  // The routes send this code with a space (kept as-is for consistency with the older OCR routes).
+  'file unavailable': 'Το δείγμα δεν είναι διαθέσιμο.',
+  unsupported_type: 'Μη υποστηριζόμενος τύπος αρχείου (PDF, PNG, JPEG, WebP).',
+  too_large: 'Το αρχείο ξεπερνά τα 25 MB.',
+  too_large_total: 'Τα αρχεία μαζί ξεπερνούν το όριο του ενός ανεβάσματος — χώρισέ τα σε δεύτερη εργασία.',
+  file_required: 'Επίλεξε αρχείο.',
+  too_many: 'Πολλά αρχεία σε ένα αίτημα.',
+  primary: 'Το κύριο δείγμα δεν διαγράφεται — αντικατέστησέ το ανεβάζοντας νέο.',
+  copy_failed: 'Το αρχείο του εγγράφου δεν ήταν διαθέσιμο.',
+  no_sample_row: 'Το πρότυπο δεν έχει ακόμη κύριο δείγμα — ανέβασέ το στο βήμα «Δείγμα».',
+  training_gate: 'Το πρότυπο δεν έχει εκπαιδευτεί αρκετά για ενεργοποίηση.',
+  no_files: 'Επίλεξε τουλάχιστον ένα αρχείο.',
+  empty: 'Καμία ολοκληρωμένη ανάγνωση ακόμη — δεν υπάρχει τίποτα να εξαχθεί.',
+  upload_failed: 'Το ανέβασμα απέτυχε. Δοκίμασε ξανά.',
+};
+
+export class ApiError extends Error {
+  constructor(public code: string, public status: number, message: string, public issues?: unknown) { super(message); }
+}
+
+async function handle<T>(res: Response): Promise<T> {
+  if (res.ok) return (await res.json()) as T;
+  let body: { error?: string; message?: string; issues?: unknown } = {};
+  try { body = await res.json(); } catch { /* non-JSON */ }
+  const code = body.error ?? `http_${res.status}`;
+  throw new ApiError(code, res.status, body.message ?? ERROR_TEXT[code] ?? `Σφάλμα (${res.status})`, body.issues);
+}
+
+const json = (body: unknown, method = 'POST'): RequestInit => ({ method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+const base = (id: string) => `/api/admin/ocr/templates/${id}`;
+const runsBase = (docId: string) => `/api/admin/ocr/${docId}/template-runs`;
+
+export const templatesApi = {
+  create: (b: { name: string; slug?: string; department?: string | null; vatNumber?: string | null; traderTrdr?: number | null; supplierName?: string | null }) =>
+    fetch('/api/admin/ocr/templates', json(b)).then((r) => handle<{ ok: true; id: string; slug: string }>(r)),
+  get: (id: string) => fetch(base(id), { cache: 'no-store' }).then((r) => handle<TemplateDto>(r)),
+  patch: (id: string, b: Partial<{ name: string; slug: string; department: string | null; vatNumber: string | null; traderTrdr: number | null; supplierName: string | null; mode: TemplateDto['mode']; status: TemplateDto['status']; notifyEmails: string | null; minTrainingScore: number; minTrainingSamples: number }>) =>
+    fetch(base(id), json(b, 'PATCH')).then((r) => handle<TemplateDto>(r)),
+  remove: (id: string) => fetch(base(id), { method: 'DELETE' }).then((r) => handle<{ ok: true }>(r)),
+  uploadSample: (id: string, file: File) => { const fd = new FormData(); fd.append('file', file); return fetch(`${base(id)}/sample`, { method: 'POST', body: fd }).then((r) => handle<{ ok: true; mimeType: string; pageCount: number }>(r)); },
+  // `demoted` = the write took an ACTIVE template out of readiness and the server set it back to DRAFT.
+  putFields: (id: string, fields: FieldDef[]) => fetch(`${base(id)}/fields`, json({ fields }, 'PUT')).then((r) => handle<TemplateDto & { cleanup?: Cleanup; demoted?: boolean }>(r)),
+  putMappings: (id: string, mappings: TemplateDto['mappings']) => fetch(`${base(id)}/mappings`, json({ mappings }, 'PUT')).then((r) => handle<TemplateDto & { demoted?: boolean }>(r)),
+  putConditions: (id: string, conditions: TemplateDto['conditions']) => fetch(`${base(id)}/conditions`, json({ conditions }, 'PUT')).then((r) => handle<TemplateDto>(r)),
+  testField: (id: string, fieldKey: string, region?: Region) => fetch(`${base(id)}/test-field`, json({ fieldKey, region })).then((r) => handle<TestFieldResult>(r)),
+  // `takenKeys` = keys of unsaved proposals already on screen, so the server does not hand back a duplicate.
+  detectField: (id: string, region: Region, takenKeys: string[] = []) => fetch(`${base(id)}/detect-field`, json({ region, takenKeys })).then((r) => handle<DetectFieldResult>(r)),
+  // `max` = free colour slots in the DRAFT; the server caps against saved fields alone and would pay for extras.
+  detectMarks: (id: string, page: number, mode: 'marks' | 'all' = 'all', takenKeys: string[] = [], max?: number) => fetch(`${base(id)}/detect-marks`, json({ page, mode, takenKeys, max })).then((r) => handle<DetectMarksResult>(r)),
+  test: (id: string) => fetch(`${base(id)}/test`, json({})).then((r) => handle<TestTemplateResult>(r)),
+  searchSuppliers: (q: string) => fetch(`/api/admin/softone/search?type=suppliers&q=${encodeURIComponent(q)}`).then((r) => handle<{ results: { id: number; code: string; name: string; sub: string; afm: string | null }[] }>(r)),
+  pageImageUrl: (id: string, page: number, version: number, scale = 3) => `${base(id)}/page-image?page=${page}&scale=${scale}&v=${version}`,
+
+  /** Δείγματα εκπαίδευσης ενός προτύπου (spec §11). */
+  samples: {
+    list: (id: string) => fetch(`${base(id)}/samples`, { cache: 'no-store' }).then((r) => handle<{ samples: SampleDto[] }>(r)),
+    add: (id: string, files: File[]) => {
+      const fd = new FormData();
+      for (const f of files) fd.append('files', f);
+      return fetch(`${base(id)}/samples`, { method: 'POST', body: fd })
+        .then((r) => handle<{ samples: SampleDto[]; failed: { fileName: string; error: string }[]; training: TrainingSummary }>(r));
+    },
+    read: (id: string, sampleId: string) => fetch(`${base(id)}/samples/${sampleId}/read`, json({})).then((r) => handle<{ sample: SampleDto; model: string | null; tokensUsed: number; errors: { fieldKey: string; message: string }[] }>(r)),
+    readAll: (id: string) => fetch(`${base(id)}/samples/read-all`, json({})).then((r) => handle<{ read: number; failed: number; remaining: number; training: TrainingSummary }>(r)),
+    verify: (id: string, sampleId: string, expected: Record<string, unknown>) => fetch(`${base(id)}/samples/${sampleId}`, json({ expected }, 'PATCH')).then((r) => handle<{ sample: SampleDto; training: TrainingSummary }>(r)),
+    remove: (id: string, sampleId: string) => fetch(`${base(id)}/samples/${sampleId}`, { method: 'DELETE' }).then((r) => handle<{ ok: true; training: TrainingSummary }>(r)),
+    /** Κάνει το κύριο δείγμα (αυτό με τις περιοχές) και δείγμα εκπαίδευσης — για τα παλιά πρότυπα. */
+    adoptPrimary: (id: string) => fetch(`${base(id)}/samples/primary`, json({})).then((r) => handle<{ sample: SampleDto; training: TrainingSummary }>(r)),
+    /** Κάνει ένα ήδη σαρωμένο έγγραφο δείγμα αυτού του προτύπου (§14.7 — «Άγνωστο έντυπο»). */
+    fromDocument: (id: string, documentId: string) => fetch(`${base(id)}/samples/from-document`, json({ documentId })).then((r) => handle<{ sample: SampleDto; training: TrainingSummary }>(r)),
+    pageImageUrl: (id: string, sampleId: string, page: number, scale = 3) => `${base(id)}/samples/${sampleId}/page-image?page=${page}&scale=${scale}`,
+  },
+
+  /** Εργασίες μαζικής σάρωσης (spec §12). Ζουν κάτω από το πρότυπο μόνο όταν δημιουργούνται. */
+  jobs: {
+    /**
+     * Ανεβάζει ΟΛΑ τα αρχεία μιας εργασίας σε ΕΝΑ multipart αίτημα και επιστρέφει το id της. Το route
+     * δεν ξέρει να προσθέτει αρχεία σε υπάρχουσα εργασία, άρα δεν υπάρχουν παρτίδες: τα όρια είναι
+     * `MAX_JOB_FILES` αρχεία και `MAX_JOB_TOTAL_BYTES` συνολικά, και πάνω από αυτά η απάντηση λέει
+     * στον χρήστη να χωρίσει τα αρχεία σε δεύτερη εργασία.
+     */
+    create: (templateId: string, files: File[], meta: JobMeta = {}) => {
+      const fd = new FormData();
+      for (const f of files) fd.append('files', f);
+      for (const [k, v] of Object.entries(meta)) if (v) fd.append(k, v);
+      return fetch(`${base(templateId)}/jobs`, { method: 'POST', body: fd }).then((r) => handle<{ jobId: string }>(r));
+    },
+    list: (q: { templateId?: string; status?: string; limit?: number } = {}) => {
+      const p = new URLSearchParams();
+      for (const [k, v] of Object.entries(q)) if (v != null) p.set(k, String(v));
+      return fetch(`/api/admin/ocr/templates/jobs?${p}`, { cache: 'no-store' }).then((r) => handle<{ jobs: JobListRow[] }>(r));
+    },
+    get: (jobId: string) => fetch(`/api/admin/ocr/templates/jobs/${jobId}`, { cache: 'no-store' }).then((r) => handle<{ job: JobDetail }>(r)),
+    cancel: (jobId: string) => fetch(`/api/admin/ocr/templates/jobs/${jobId}/cancel`, json({})).then((r) => handle<{ status: string; pending: number }>(r)),
+    excelUrl: (jobId: string) => `/api/admin/ocr/templates/jobs/${jobId}/excel`,
+    pageImageUrl: (jobId: string, itemId: string, page: number, scale = 3) =>
+      `/api/admin/ocr/templates/jobs/${jobId}/items/${itemId}/page-image?page=${page}&scale=${scale}`,
+  },
+
+  /** Template runs of one OCR document (spec §15.5) — these live under the document, not the template. */
+  runs: {
+    list: (docId: string) => fetch(runsBase(docId), { cache: 'no-store' }).then((r) => handle<{ runs: RunDto[] }>(r)),
+    // Without a templateId the server matches the issuer ΑΦΜ; `no_template` when nothing matches.
+    run: (docId: string, templateId?: string) => fetch(runsBase(docId), json(templateId ? { templateId } : {})).then((r) => handle<{ run: RunDto | null; outcome: RunOutcome }>(r)),
+    patch: (docId: string, runId: string, values: Record<string, unknown>) => fetch(`${runsBase(docId)}/${runId}`, json({ values }, 'PATCH')).then((r) => handle<{ run: RunDto }>(r)),
+    // Re-read ONE field of the document (spec §16). `region` = a box the user just moved or resized
+    // on the canvas; without it the field is read again from the region the run already used.
+    reread: (docId: string, runId: string, fieldKey: string, region?: Region) =>
+      fetch(`${runsBase(docId)}/${runId}/reread`, json({ fieldKey, region })).then((r) => handle<{ run: RunDto; value: FieldValue }>(r)),
+    outputUrl: (docId: string, runId: string, download = false) => `${runsBase(docId)}/${runId}${download ? '?download=1' : ''}`,
+  },
+};
+
+export function errorMessage(e: unknown): string {
+  if (e instanceof ApiError) return e.message;
+  if (e instanceof Error) return e.message;
+  return 'Απρόσμενο σφάλμα.';
+}

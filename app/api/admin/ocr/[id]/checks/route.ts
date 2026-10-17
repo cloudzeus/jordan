@@ -1,0 +1,178 @@
+import { NextResponse } from 'next/server';
+import { prisma } from '@/lib/db';
+import { requirePermission } from '@/lib/rbac';
+import { getSetting } from '@/lib/settings';
+import { isValidAfm, normalizeAfm, vatCountry } from '@/lib/ocr/validate';
+import { detectIssuerCountry } from '@/lib/country-detect';
+import { guessCountry } from '@/lib/ocr/bulk-trader-plan';
+import { applyVatPrefix } from '@/lib/ocr/vat-prefix';
+import { matchCountryId, softoneFetchCountries } from '@/lib/softone';
+import { postingTargetsForSeries, seriesKey } from '@/lib/ocr/required-trader-kind';
+import { describeTargetShort, SODTYPE_FOR_OBJECT } from '@/lib/ocr/posting-target';
+import { requiredTraderForTarget, allowedLineKinds, lineKindsReason } from '@/lib/ocr/resolution-plan';
+import { VAT_RATE_MAP_SETTING, buildVatRateMap, missingVatRates, parseVatRateOverrides } from '@/lib/ocr/vat-map';
+
+/**
+ * Η συγκεντρωτική κατάσταση των ελέγχων ενός παραστατικού — ό,τι τροφοδοτεί τη
+ * `<SoftoneChecksStrip>`.
+ *
+ * Δεν είναι πια «διπλό / προμηθευτής / είδη». Κουβαλά τον **ΠΡΟΟΡΙΣΜΟ** της σειράς, και μαζί του
+ * τις τρεις απαντήσεις που έλειπαν και έκαναν τη σελίδα αδιέξοδο:
+ *
+ *  1. **ΠΟΙΟΝ τύπο καρτέλας** θέλει το παραστατικό (προμηθευτή / πιστωτή / χρεώστη). Η λωρίδα
+ *     πρότεινε πάντα «Προμηθευτή», οπότε σε παραστατικό πιστωτών ο χρήστης συνέδεε καρτέλα που
+ *     η καταχώριση θα απέρριπτε αργότερα ως `trader_kind_mismatch`.
+ *  2. Ότι μια **ήδη συνδεδεμένη** καρτέλα μπορεί να είναι **λάθος τύπου**. Πριν, η λωρίδα έδειχνε
+ *     πράσινο «βρέθηκε» και το μπλόκο εμφανιζόταν μόνο στην κάρτα καταχώρισης, παρακάτω.
+ *  3. Ποιοι **συντελεστές ΦΠΑ** δεν έχουν κωδικό στο μητρώο — το `no_vat_category` ως κάτι που
+ *     ΛΥΝΕΤΑΙ, όχι ως ανακοίνωση.
+ */
+export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> }) {
+  await requirePermission('ocr.read');
+  const { id } = await ctx.params;
+
+  const doc = await prisma.ocrDocument.findUnique({
+    where: { id },
+    select: {
+      extractedData: true, document: true,
+      softoneSeries: true, seriesSource: true,
+      softoneDocExists: true, softoneDocRef: true, softoneDocChecked: true,
+      softoneTrdr: true, softoneCode: true, softoneName: true, softoneKind: true, softoneChecked: true,
+      items: {
+        orderBy: { rowIndex: 'asc' },
+        select: {
+          id: true, rowIndex: true, code: true, name: true, vatRate: true,
+          softoneMtrl: true, softoneExpn: true, softoneLinMtrl: true, softoneAsset: true,
+          // Ο ΕΠΙΜΕΡΙΣΜΟΣ σε λογαριασμούς είναι κι αυτός αντιστοίχιση — η γραμμή ξέρει πού πάει,
+          // απλώς σε περισσότερους από έναν προορισμούς.
+          allocations: { select: { id: true }, take: 1 },
+        },
+      },
+    },
+  });
+  if (!doc) return NextResponse.json({ error: 'not_found' }, { status: 404 });
+
+  const ed = (doc.extractedData ?? {}) as Record<string, unknown>;
+  const iss = ((doc.document ?? {}) as { issuer?: Record<string, unknown> }).issuer ?? {};
+  const txt = (v: unknown) => (typeof v === 'string' && v.trim() ? v.trim() : null);
+  const issuer = {
+    name: txt(iss.name) ?? txt(ed.companyName),
+    country: txt(iss.country),
+    address: txt(iss.address) ?? txt(ed.companyAddress),
+    city: txt(iss.city),
+  };
+  const supplierAfm = normalizeAfm(ed.vatNumber) ?? '';
+  const prefixCountry = vatCountry(supplierAfm);
+  const issuerCountry = prefixCountry ?? detectIssuerCountry(issuer) ?? guessCountry(issuer.name);
+  const issuerVatId = supplierAfm && issuerCountry && issuerCountry !== 'GR' && !isValidAfm(supplierAfm)
+    ? applyVatPrefix(supplierAfm, issuerCountry) : supplierAfm || null;
+  // Μόνο για ξένο εκδότη (για τον ελληνικό η SoftOne βάζει ήδη Ελλάδα). Το μητρώο είναι cached 24ω·
+  // αν δεν απαντήσει γρήγορα, η λωρίδα απλώς δεν το δείχνει.
+  let softoneCountry: { id: string; name: string } | null | undefined;
+  if (issuerCountry && issuerCountry !== 'GR') {
+    const countries = await Promise.race([
+      softoneFetchCountries().catch(() => null),
+      new Promise<null>((r) => setTimeout(() => r(null), 3000)),
+    ]);
+    if (countries) {
+      const id = matchCountryId(issuerCountry, countries);
+      softoneCountry = id ? { id, name: countries.find((c) => c.id === id)?.name ?? id } : null;
+    }
+  }
+  // Αντιστοιχισμένη = έχει είδος/υπηρεσία (MTRL), ΕΞΟΔΟ (EXPN) ή ΧΡΕΟΠΙΣΤΩΣΗ (LIN) — ίδιος
+  // κανόνας με το `refreshDocTallies` και με την ουρά «Είδη & έξοδα».
+  // «Χωρίς αντιστοίχιση» = η γραμμή δεν ξέρει πού πάει. Μια γραμμή με ΕΠΙΜΕΡΙΣΜΟ ξέρει — και
+  // μάλιστα ακριβέστερα από μια μονή αντιστοίχιση. Όσο η λωρίδα μετρούσε μόνο τις τρεις παλιές
+  // στήλες, έλεγε «1 χωρίς αντιστοίχιση · Λύσε» πάνω από μια δαπάνη που ο χρήστης μόλις είχε
+  // επιμερίσει σωστά — και τον έστελνε να «λύσει» κάτι που δεν ήταν χαλασμένο.
+  const unmatched = doc.items.filter(
+    (i) => i.softoneMtrl == null && i.softoneExpn == null && i.softoneLinMtrl == null && i.softoneAsset == null
+      && i.allocations.length === 0,
+  );
+
+  const ref = { seriesSource: doc.seriesSource, softoneSeries: doc.softoneSeries };
+  const key = seriesKey(ref);
+  const targets = key ? await postingTargetsForSeries([ref]) : null;
+  const target = key ? targets?.get(key) ?? null : null;
+  const required = requiredTraderForTarget(target);
+
+  // Ο ΤΥΠΟΣ της συνδεδεμένης καρτέλας από τον τοπικό καθρέφτη. `null` = δεν τον ξέρουμε, οπότε
+  // δεν κρίνουμε — ίδια στάση με το `trader_kind_mismatch` της καταχώρισης.
+  const linked = doc.softoneTrdr
+    ? await prisma.softoneTrader.findUnique({ where: { trdr: doc.softoneTrdr }, select: { sodtype: true } })
+    : null;
+  const mismatch = Boolean(
+    target?.supported && doc.softoneTrdr && linked?.sodtype != null
+    && linked.sodtype !== SODTYPE_FOR_OBJECT[target.object],
+  );
+
+  const [vats, vatSetting] = await Promise.all([
+    prisma.vatCategory.findMany({
+      where: { isActive: true },
+      orderBy: [{ order: 'asc' }, { code: 'asc' }],
+      select: { code: true, rate: true, descr: true },
+    }),
+    getSetting<unknown>(VAT_RATE_MAP_SETTING, {}).catch(() => ({})),
+  ]);
+  const vatMap = buildVatRateMap(
+    vats.map((v) => ({ code: v.code, rate: v.rate == null ? null : Number(v.rate), descr: v.descr, isActive: true })),
+    parseVatRateOverrides(vatSetting),
+  );
+  const missing = missingVatRates(
+    doc.items.map((i) => (i.vatRate == null ? null : Number(i.vatRate))),
+    vatMap.byRate,
+  );
+
+  return NextResponse.json({
+    duplicate: {
+      checked: doc.softoneDocChecked != null,
+      exists: doc.softoneDocExists === true,
+      ref: doc.softoneDocRef,
+    },
+    supplier: {
+      checked: doc.softoneChecked != null,
+      found: doc.softoneTrdr != null,
+      trdr: doc.softoneTrdr,
+      name: doc.softoneName, code: doc.softoneCode, kind: doc.softoneKind,
+      afm: normalizeAfm(ed.vatNumber) ?? '',
+      /** Ο εκδότης ΟΠΩΣ ΤΟΝ ΓΡΑΦΕΙ το παραστατικό — για δημιουργία καρτέλας χωρίς να ξαναγραφτεί τίποτα. */
+      issuerName: issuer.name,
+      /** Η χώρα του εκδότη από το πεδίο «Χώρα» / τη διεύθυνση / τη νομική μορφή (`null` = άγνωστη). */
+      issuerCountry,
+      /** Το ΑΦΜ όπως θα γραφτεί στη SoftOne (π.χ. «IT01808880270»). */
+      issuerVatId,
+      /** Η γραμμή του μητρώου χωρών της SoftOne που θα μπει στην καρτέλα (`null` = λείπει / άγνωστη). */
+      softoneCountry,
+      /** Στοιχεία επικοινωνίας όπως τα γράφει το παραστατικό → PHONE01/PHONE02/FAX/EMAIL/WEBPAGE. */
+      contacts: {
+        phone: txt(iss.phone) ?? txt(ed.companyPhone), phone2: txt(iss.phone2), fax: txt(iss.fax),
+        email: txt(iss.email) ?? txt(ed.companyEmail), webpage: txt(iss.website),
+      },
+      sodtype: linked?.sodtype ?? null,
+      /** `null` = άγνωστη σειρά ⇒ δεν ξέρουμε τι καρτέλα θέλει, άρα δεν προτείνουμε καμία. */
+      required,
+      /** Συνδεδεμένη καρτέλα ΛΑΘΟΣ τύπου: πράσινο θα ήταν ψέμα. */
+      mismatch,
+    },
+    items: {
+      total: doc.items.length,
+      matched: doc.items.length - unmatched.length,
+      unmatched: unmatched.map((i) => ({ id: i.id, rowIndex: i.rowIndex, code: i.code, name: i.name })),
+      /** Σε ποια μητρώα επιτρέπεται να δείχνουν οι γραμμές — κενό = άγνωστος προορισμός. */
+      allowedKinds: allowedLineKinds(target),
+      reason: lineKindsReason(target),
+    },
+    target: target
+      ? {
+        object: target.object, lines: target.lines, source: target.source,
+        supported: target.supported, reason: target.reason, label: describeTargetShort(target),
+      }
+      : null,
+    vat: {
+      /** Συντελεστές γραμμών χωρίς κωδικό ΦΠΑ. `null` = γραμμή χωρίς συντελεστή. */
+      missing,
+      overridden: vatMap.overridden,
+      ignored: vatMap.ignored,
+    },
+  });
+}

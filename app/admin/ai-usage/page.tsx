@@ -1,0 +1,322 @@
+import { redirect } from 'next/navigation';
+import { FiCalendar, FiClock, FiCpu, FiDownload, FiTrendingUp } from 'react-icons/fi';
+import { StatCard } from '@/components/admin/stat-card';
+import { prisma } from '@/lib/db';
+import { getCurrentUserWithPermissions } from '@/lib/rbac';
+import { getSetting } from '@/lib/settings';
+import { getUsdToEurLatest, getUsdToEurSeries, usdToEurOnDay, dayKey } from '@/lib/ai/fx';
+import { PageHeader } from '@/components/admin/page-header';
+import { AiUsageDailyChart, type DailyPoint } from '@/components/admin/ai-usage-daily-chart';
+
+export const dynamic = 'force-dynamic';
+
+interface Aggregate {
+  count: number;
+  totalTokens: number;
+  totalCost: number;
+}
+
+// Stored costs are USD (lib/ai/pricing.ts). We display EUR using an
+// admin-configurable rate (setting `ai.usdToEur`). Format in el-GR EUR.
+function fmtEur(n: number) {
+  return new Intl.NumberFormat('el-GR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 4 }).format(n);
+}
+function fmtNum(n: number) {
+  return new Intl.NumberFormat('el-GR').format(n);
+}
+
+const SCOPE_LABELS: Record<string, string> = {
+  OCR_TEXT:         'OCR · Digital PDF',
+  OCR_VISION:       'OCR · Vision',
+  OCR_VISION_RETRY: 'OCR · Vision retry (HQ)',
+  TRANSLATION:      'Translation',
+  OTHER:            'Other',
+};
+
+export default async function AiUsagePage() {
+  const u = await getCurrentUserWithPermissions();
+  if (!u) redirect('/auth/signin');
+  if (u.role.key !== 'SUPER_ADMIN') redirect('/admin');
+
+  // USD (stored) → EUR (displayed). Live ECB rates via Frankfurter; the
+  // ai.usdToEur setting is only a fallback when the API is unreachable.
+  const fallbackRate = Number(await getSetting<number>('ai.usdToEur', 0.92)) || 0.92;
+
+  const now = new Date();
+  const startMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  const startToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const start30d = new Date(now.getTime() - 30 * 24 * 3600 * 1000);
+
+  const [overall, today, monthRows, scopeRows, modelRows, recent, dailyRows, docRows] = await Promise.all([
+    prisma.aiUsage.aggregate({
+      _count: { _all: true },
+      _sum: { totalTokens: true, totalCost: true },
+    }),
+    prisma.aiUsage.aggregate({
+      where: { createdAt: { gte: startToday } },
+      _count: { _all: true },
+      _sum: { totalTokens: true, totalCost: true },
+    }),
+    prisma.aiUsage.aggregate({
+      where: { createdAt: { gte: startMonth } },
+      _count: { _all: true },
+      _sum: { totalTokens: true, totalCost: true },
+    }),
+    prisma.aiUsage.groupBy({
+      by: ['scope'],
+      _count: { _all: true },
+      _sum: { totalTokens: true, totalCost: true },
+    }),
+    prisma.aiUsage.groupBy({
+      by: ['model', 'provider'],
+      _count: { _all: true },
+      _sum: { totalTokens: true, totalCost: true },
+      orderBy: { _sum: { totalCost: 'desc' } },
+    }),
+    prisma.aiUsage.findMany({
+      orderBy: { createdAt: 'desc' },
+      take: 50,
+    }),
+    // 30-day daily totals via raw SQL (Postgres)
+    prisma.$queryRaw<Array<{ day: Date; tokens: number; cost: string | null; calls: bigint }>>`
+      SELECT date_trunc('day', "createdAt") AS day,
+             SUM("totalTokens")::int AS tokens,
+             SUM("totalCost")        AS cost,
+             COUNT(*)                AS calls
+      FROM   "AiUsage"
+      WHERE  "createdAt" >= ${start30d}
+      GROUP  BY 1
+      ORDER  BY 1 ASC
+    `,
+    // 30-day daily document counts (OcrDocument) for the chart's "documents" line
+    prisma.$queryRaw<Array<{ day: Date; docs: bigint }>>`
+      SELECT date_trunc('day', "createdAt") AS day, COUNT(*) AS docs
+      FROM   "OcrDocument"
+      WHERE  "createdAt" >= ${start30d}
+      GROUP  BY 1
+    `,
+  ]);
+
+  // Live FX: latest rate for cumulative/current totals; per-day series for the
+  // daily chart and per-record rows (each converted with that day's ECB rate).
+  const latestRate = await getUsdToEurLatest(fallbackRate);
+  const fxSeries = await getUsdToEurSeries(dayKey(start30d), dayKey(now));
+  const toEur = (usd: number) => usd * latestRate;
+
+  const totalCostAll   = Number(overall._sum.totalCost ?? 0);
+  const totalCostMonth = Number(monthRows._sum.totalCost ?? 0);
+  const totalCostToday = Number(today._sum.totalCost ?? 0);
+
+  // Unified continuous 30-day series for the chart: cost/day (EUR, per-day rate),
+  // documents/day (OcrDocument count) and the daily USD→EUR rate.
+  const costByDay = new Map(dailyRows.map((r) => [dayKey(r.day), Number(r.cost ?? 0)]));
+  const docsByDay = new Map(docRows.map((r) => [dayKey(r.day), Number(r.docs)]));
+  const todayUtcMs = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+  const dailySeries: DailyPoint[] = Array.from({ length: 30 }, (_, k) => {
+    const dt = new Date(todayUtcMs - (29 - k) * 86400000);
+    const iso = dt.toISOString().slice(0, 10);
+    return {
+      label: dt.toLocaleDateString('el-GR', { day: '2-digit', month: '2-digit' }),
+      costEur: usdToEurOnDay(costByDay.get(iso) ?? 0, iso, fxSeries, latestRate),
+      docs: docsByDay.get(iso) ?? 0,
+      rate: fxSeries[iso] ?? latestRate,
+    };
+  });
+
+  return (
+    <div className="space-y-5 p-6">
+      <PageHeader
+        title="AI Usage & κόστος"
+        description="Συγκεντρωτική εικόνα της κατανάλωσης AI εργαλείων. Visible only to SUPER_ADMIN."
+        icon={<FiCpu />}
+        actions={
+          <a
+            href="/api/admin/ai-usage/export"
+            className="inline-flex h-9 items-center gap-1.5 rounded-md bg-sisyphus-500 px-3 text-[length:var(--fs-13)] font-semibold text-white shadow-fluent-2 transition hover:bg-sisyphus-600"
+          >
+            <FiDownload className="size-4" />
+            Excel report
+          </a>
+        }
+      />
+
+      {/* KPI strip — ίδια κάρτα με όλη την εφαρμογή */}
+      <section className="grid auto-rows-fr grid-cols-2 gap-3 md:grid-cols-4">
+        <StatCard label="Σήμερα" value={fmtEur(toEur(totalCostToday))} icon={<FiClock />} tone="blue" sub={`${fmtNum(today._count._all)} κλήσεις`} />
+        <StatCard label="Τρέχων μήνας" value={fmtEur(toEur(totalCostMonth))} icon={<FiCalendar />} tone="emerald" sub={`${fmtNum(monthRows._count._all)} κλήσεις`} />
+        <StatCard label="Σύνολο" value={fmtEur(toEur(totalCostAll))} icon={<FiTrendingUp />} tone="amber" sub={`${fmtNum(overall._count._all)} κλήσεις`} />
+        <StatCard label="Tokens (μήνας)" value={fmtNum(Number(monthRows._sum.totalTokens ?? 0))} icon={<FiCpu />} tone="violet" sub="input + output" />
+      </section>
+
+      {/* Tokens per model chart */}
+      <section className="rounded-xl border border-border bg-card p-4 shadow-fluent-2">
+        <h3 className="text-[length:var(--fs-14)] font-semibold tracking-tight">Tokens ανά μοντέλο</h3>
+        <p className="text-[length:var(--fs-11)] text-muted-foreground">Σύνολο tokens που έχουν καταναλωθεί</p>
+        {modelRows.length === 0 ? (
+          <p className="mt-3 text-xs text-muted-foreground">Δεν υπάρχουν δεδομένα.</p>
+        ) : (
+          <div className="mt-3 space-y-2">
+            {modelRows.map((r) => {
+              const tokens = Number(r._sum.totalTokens ?? 0);
+              const maxTokens = Math.max(...modelRows.map((m) => Number(m._sum.totalTokens ?? 0)), 1);
+              const pct = (tokens / maxTokens) * 100;
+              const cost = Number(r._sum.totalCost ?? 0);
+              return (
+                <div key={r.model} className="flex items-center gap-3">
+                  <div className="w-[160px] shrink-0 truncate font-mono text-[length:var(--fs-11)]" title={r.model}>
+                    {r.model}
+                  </div>
+                  <div className="relative flex-1">
+                    <div className="h-5 rounded bg-neutral-8 overflow-hidden">
+                      <div
+                        className="h-full rounded bg-gradient-to-r from-sisyphus-500 to-sisyphus-600 transition-all"
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+                  </div>
+                  <div className="w-[110px] shrink-0 text-right text-[length:var(--fs-11)] tabular-nums">
+                    {fmtNum(tokens)}
+                  </div>
+                  <div className="w-[80px] shrink-0 text-right text-[length:var(--fs-11)] tabular-nums font-semibold">
+                    {fmtEur(toEur(cost))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </section>
+
+      {/* Daily chart: cost (EUR) + documents + FX rate */}
+      <section className="rounded-xl border border-border bg-card p-4 shadow-fluent-2">
+        <h3 className="text-[length:var(--fs-14)] font-semibold tracking-tight">Τελευταίες 30 μέρες</h3>
+        <p className="mb-3 text-[length:var(--fs-11)] text-muted-foreground">
+          Κόστος ανά ημέρα (EUR), έγγραφα ανά ημέρα και ισοτιμία USD→EUR (ΕΚΤ/Frankfurter, ανά ημέρα)
+        </p>
+        <AiUsageDailyChart data={dailySeries} />
+      </section>
+
+      {/* By scope + by model */}
+      <section className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <BreakdownTable
+          title="Ανά λειτουργία"
+          rows={scopeRows.map((r) => ({
+            key: r.scope,
+            label: SCOPE_LABELS[r.scope] ?? r.scope,
+            sublabel: null,
+            count: r._count._all,
+            tokens: Number(r._sum.totalTokens ?? 0),
+            cost: toEur(Number(r._sum.totalCost ?? 0)),
+          }))}
+        />
+        <BreakdownTable
+          title="Ανά μοντέλο"
+          rows={modelRows.map((r) => ({
+            key: r.model,
+            label: r.model,
+            sublabel: r.provider,
+            count: r._count._all,
+            tokens: Number(r._sum.totalTokens ?? 0),
+            cost: toEur(Number(r._sum.totalCost ?? 0)),
+          }))}
+        />
+      </section>
+
+      {/* Recent activity */}
+      <section className="rounded-xl border border-border bg-card shadow-fluent-2 overflow-hidden">
+        <div className="border-b border-border px-4 py-2.5 text-[length:var(--fs-11)] font-semibold uppercase tracking-wide text-muted-foreground">
+          Πρόσφατες κλήσεις (50)
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="border-b border-border bg-neutral-6/60 text-left text-[length:var(--fs-10)] uppercase tracking-wide text-muted-foreground">
+              <tr>
+                <th className="px-3 py-2">Πότε</th>
+                <th className="px-3 py-2">Λειτουργία</th>
+                <th className="px-3 py-2">Μοντέλο</th>
+                <th className="px-3 py-2 text-right">In</th>
+                <th className="px-3 py-2 text-right">Out</th>
+                <th className="px-3 py-2 text-right">Tokens</th>
+                <th className="px-3 py-2 text-right">Κόστος</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {recent.length === 0 ? (
+                <tr><td colSpan={7} className="px-3 py-8 text-center text-muted-foreground">Δεν υπάρχουν κλήσεις.</td></tr>
+              ) : recent.map((r) => (
+                <tr key={r.id} className="hover:bg-neutral-6/40">
+                  <td className="px-3 py-2 text-[length:var(--fs-12)] text-muted-foreground tabular-nums">
+                    {r.createdAt.toLocaleString('el-GR')}
+                  </td>
+                  <td className="px-3 py-2 text-[length:var(--fs-12)]">{SCOPE_LABELS[r.scope] ?? r.scope}</td>
+                  <td className="px-3 py-2 font-mono text-[length:var(--fs-11)]">{r.model}</td>
+                  <td className="px-3 py-2 text-right tabular-nums">{fmtNum(r.inputTokens)}</td>
+                  <td className="px-3 py-2 text-right tabular-nums">{fmtNum(r.outputTokens)}</td>
+                  <td className="px-3 py-2 text-right tabular-nums font-medium">{fmtNum(r.totalTokens)}</td>
+                  <td className="px-3 py-2 text-right tabular-nums font-semibold">
+                    {r.totalCost != null ? fmtEur(usdToEurOnDay(Number(r.totalCost), r.createdAt, fxSeries, latestRate)) : <span className="text-muted-foreground">—</span>}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function BreakdownTable({
+  title, rows,
+}: {
+  title: string;
+  rows: Array<{ key: string; label: string; sublabel: string | null; count: number; tokens: number; cost: number }>;
+}) {
+  const totalCost = rows.reduce((s, r) => s + r.cost, 0);
+  return (
+    <div className="rounded-xl border border-border bg-card shadow-fluent-2 overflow-hidden">
+      <div className="border-b border-border px-4 py-2.5 text-[length:var(--fs-11)] font-semibold uppercase tracking-wide text-muted-foreground">
+        {title}
+      </div>
+      {rows.length === 0 ? (
+        <p className="px-4 py-6 text-sm text-muted-foreground">Δεν υπάρχουν δεδομένα.</p>
+      ) : (
+        <table className="w-full text-sm">
+          <thead className="border-b border-border bg-neutral-6/60 text-left text-[length:var(--fs-10)] uppercase tracking-wide text-muted-foreground">
+            <tr>
+              <th className="px-3 py-2">Όνομα</th>
+              <th className="px-3 py-2 text-right">Κλήσεις</th>
+              <th className="px-3 py-2 text-right">Tokens</th>
+              <th className="px-3 py-2 text-right">Κόστος</th>
+              <th className="px-3 py-2 w-1/4">%</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-border">
+            {rows.map((r) => {
+              const pct = totalCost > 0 ? (r.cost / totalCost) * 100 : 0;
+              return (
+                <tr key={r.key} className="hover:bg-neutral-6/40">
+                  <td className="px-3 py-2">
+                    <div className="font-medium">{r.label}</div>
+                    {r.sublabel && <div className="text-[length:var(--fs-10)] text-muted-foreground">{r.sublabel}</div>}
+                  </td>
+                  <td className="px-3 py-2 text-right tabular-nums">{new Intl.NumberFormat('el-GR').format(r.count)}</td>
+                  <td className="px-3 py-2 text-right tabular-nums">{new Intl.NumberFormat('el-GR').format(r.tokens)}</td>
+                  <td className="px-3 py-2 text-right tabular-nums font-semibold">{fmtEur(r.cost)}</td>
+                  <td className="px-3 py-2">
+                    <div className="flex items-center gap-2">
+                      <div className="h-1.5 flex-1 rounded-full bg-neutral-8 overflow-hidden">
+                        <div className="h-full rounded-full bg-sisyphus-500" style={{ width: `${pct}%` }} />
+                      </div>
+                      <span className="text-[length:var(--fs-10)] tabular-nums text-muted-foreground">{pct.toFixed(0)}%</span>
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      )}
+    </div>
+  );
+}

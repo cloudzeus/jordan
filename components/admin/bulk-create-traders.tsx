@@ -1,0 +1,373 @@
+'use client';
+
+import * as React from 'react';
+import { useRouter } from 'next/navigation';
+import { toast } from 'sonner';
+import {
+  FiUsers, FiCheck, FiAlertTriangle, FiAlertOctagon, FiClock, FiLoader, FiX, FiDatabase,
+} from 'react-icons/fi';
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
+} from '@/components/ui/dialog';
+import { cn } from '@/lib/utils';
+import { planRow, type PlanRow, type TraderKind } from '@/lib/ocr/bulk-trader-plan';
+import { recoverAfm } from '@/components/admin/afm-recover';
+import { Line, Chip, BTN_PRIMARY, BTN_GHOST } from '@/components/admin/bulk-ui';
+
+/** Ό,τι χρειάζεται από κάθε ομάδα της ουράς — ΟΧΙ ολόκληρο το `TraderGroup` (δείγματα, μικρογραφίες). */
+export interface BulkGroup {
+  afm: string;
+  name: string | null;
+  country: string | null;
+  suggestedKind: TraderKind;
+  missingKinds: TraderKind[];
+  docCount: number;
+  /** Τα παραστατικά της ομάδας — για την «Επανάγνωση ΑΦΜ από το αρχείο». */
+  docIds: string[];
+}
+
+type RunState =
+  | { s: 'idle' }
+  | { s: 'running' }
+  | { s: 'done'; code: string | null; docs: number }
+  | { s: 'queued'; msg: string }
+  | { s: 'error'; msg: string };
+
+const KIND_LABEL: Record<TraderKind, string> = { supplier: 'Προμηθευτής', creditor: 'Πιστωτής', debtor: 'Χρεώστης' };
+
+/** Οι χώρες που προσφέρονται για ξένους χωρίς πρόθεμα. Οι προτάσεις του `guessCountry` είναι όλες εδώ. */
+const COUNTRIES: [string, string][] = [
+  ['DE', 'Γερμανία'], ['IT', 'Ιταλία'], ['TR', 'Τουρκία'], ['RS', 'Σερβία'], ['LB', 'Λίβανος'],
+  ['IL', 'Ισραήλ'], ['NL', 'Ολλανδία'], ['FR', 'Γαλλία'], ['PL', 'Πολωνία'], ['AT', 'Αυστρία'],
+  ['BG', 'Βουλγαρία'], ['CY', 'Κύπρος'], ['ES', 'Ισπανία'], ['GB', 'Ηνωμένο Βασίλειο'],
+  ['US', 'ΗΠΑ'], ['CN', 'Κίνα'], ['AE', 'Ηνωμένα Αραβικά Εμιράτα'], ['CH', 'Ελβετία'],
+];
+
+/**
+ * ΓΡΗΓΟΡΟ ΚΟΥΜΠΙ + MODAL μαζικής δημιουργίας συναλλασσομένων.
+ *
+ * Υπάρχει επειδή ο ένας-ένας δρόμος —άνοιξε εκδότη, άντλησε ΑΑΔΕ, πάρε κωδικό, δημιούργησε,
+ * επόμενος— ήταν τρία λεπτά ανά εκδότη. Με 33 εκκρεμείς εκδότες, μιάμιση ώρα για δουλειά που
+ * ο υπολογιστής κάνει σε ένα λεπτό.
+ *
+ * ΔΕΝ είναι «πάτα και φύγε». Κάθε γραμμή κρίνεται πρώτα (`lib/ocr/bulk-trader-plan.ts`) και
+ * προεπιλέγονται ΜΟΝΟ οι ασφαλείς: λάθος ΑΦΜ και ξένοι χωρίς χώρα φαίνονται με τον λόγο τους και
+ * περιμένουν απόφαση. Η εγκατάσταση-στόχος γράφεται ΠΑΝΩ από το κουμπί — μετά από μια αλλαγή
+ * λογαριασμού SoftOne, το «πού θα γραφτούν» δεν είναι αυτονόητο.
+ *
+ * Γράφει μέσω του ΥΠΑΡΧΟΝΤΟΣ route δημιουργίας, έναν-έναν: ίδιοι έλεγχοι Δ.Ο.Υ./κωδικού, ίδια
+ * ουρά αν πέσει η σύνδεση, και φρέσκος κωδικός για κάθε καρτέλα (σειριακά ⇒ καμία σύγκρουση).
+ */
+export function BulkCreateTradersButton({ groups, canManage }: { groups: BulkGroup[]; canManage: boolean }) {
+  const [open, setOpen] = React.useState(false);
+  if (!canManage) return null;
+  return (
+    <>
+      {/* Κρύβεται ΜΟΝΟ το κουμπί όταν η ουρά είναι άδεια — ΟΧΙ το ανοιχτό παράθυρο. Μετά από μια
+          επιτυχημένη μαζική δημιουργία η ουρά αδειάζει (router.refresh), και με το παλιό
+          `groups.length === 0 → return null` το παράθυρο εξαφανιζόταν πριν δείξει τα αποτελέσματα. */}
+      {groups.length > 0 && <button
+        type="button" onClick={() => setOpen(true)}
+        className="inline-flex h-8 items-center gap-1.5 rounded-md bg-sisyphus-500 px-3 text-[length:var(--fs-12)] font-semibold text-white shadow-sm transition hover:bg-sisyphus-600 active:bg-sisyphus-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sisyphus-500/40 focus-visible:ring-offset-1"
+      >
+        <FiUsers className="size-3.5" /> Μαζική δημιουργία ({groups.length})
+      </button>}
+      {open && <BulkCreateTradersModal groups={groups} onClose={() => setOpen(false)} />}
+    </>
+  );
+}
+
+function BulkCreateTradersModal({ groups, onClose }: { groups: BulkGroup[]; onClose: () => void }) {
+  const router = useRouter();
+  const [rows, setRows] = React.useState<PlanRow[]>(() => groups.map((g) => planRow(g)));
+  const [run, setRun] = React.useState<Record<string, RunState>>({});
+  const [phase, setPhase] = React.useState<'edit' | 'confirm' | 'running' | 'finished'>('edit');
+  const [target, setTarget] = React.useState<string | null>(null);
+  const stop = React.useRef(false);
+
+  // ΠΟΥ θα γραφτούν. Χωρίς δικαίωμα στη σύνδεση (403) απλώς δεν εμφανίζεται — δεν μαντεύουμε.
+  React.useEffect(() => {
+    fetch('/api/admin/softone/connection', { cache: 'no-store' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => {
+        const key: string | undefined = j?.tenantKey;
+        if (key) setTarget(key.split('|')[0]);
+      })
+      .catch(() => null);
+  }, []);
+
+  const set = (key: string, patch: Partial<PlanRow>) =>
+    setRows((rs) => rs.map((r) => (r.key === key ? { ...r, ...patch } : r)));
+  const docIdsOf = React.useMemo(() => new Map(groups.map((g) => [g.afm, g.docIds])), [groups]);
+  const [recovering, setRecovering] = React.useState<string | null>(null);
+
+  /**
+   * ΕΠΑΝΑΓΝΩΣΗ ΑΦΜ για γραμμή «λάθος ΑΦΜ». Γράφει ΜΟΝΟ ό,τι επιβεβαιώνει η ΑΑΔΕ (βλ.
+   * `lib/ocr/afm-recovery.ts`). Επιτυχία → η γραμμή γίνεται «έτοιμη» με το σωστό ΑΦΜ, ή «υπάρχει
+   * ήδη» αν βρέθηκε καρτέλα με αυτό. Αδύναμη απόδειξη → ΔΕΝ εφαρμόζεται· ο χρήστης κοιτά το αρχείο.
+   */
+  async function recover(r: PlanRow) {
+    setRecovering(r.key);
+    try {
+      // ΚΑΘΕ παραστατικό της ομάδας, με ΔΙΚΗ του επιβεβαίωση — όχι «διορθώθηκε το πρώτο, άρα και
+      // τα υπόλοιπα». Αλλιώς τα επόμενα θα έμεναν με το λάθος ΑΦΜ και θα ξαναγεννούσαν την ομάδα.
+      let first: Awaited<ReturnType<typeof recoverAfm>> | null = null;
+      let last: Awaited<ReturnType<typeof recoverAfm>> | null = null;
+      for (const id of docIdsOf.get(r.key) ?? []) {
+        const x = await recoverAfm(id);
+        last = x;
+        if (x.applied && x.afm && !first) first = x;
+      }
+      if (first?.afm) {
+        set(r.key, first.linkedTrader
+          ? { afm: first.afm, status: 'linked', selected: false, reason: `Σωστό ΑΦΜ ${first.afm} — υπάρχει ήδη στο SoftOne, συνδέθηκε (${first.linkedTrader.code ?? first.linkedTrader.trdr}).` }
+          : { afm: first.afm, country: 'GR', useAade: true, status: 'ready', selected: true, reason: `Διορθώθηκε από το αρχείο (${first.previousAfm ?? '—'} → ${first.afm}) — ΑΑΔΕ: ${first.aadeName}` });
+      } else if (last) {
+        set(r.key, { reason: last.status === 'confirmed' ? `${last.message} Άνοιξε το παραστατικό για να το εγκρίνεις.` : last.message });
+      }
+    } finally { setRecovering(null); }
+  }
+
+  /** Επιλέξιμη = όχι λάθος ΑΦΜ, και ξένος μόνο ΑΦΟΥ έχει χώρα. */
+  const selectable = (r: PlanRow) => r.status !== 'invalid_afm' && r.status !== 'linked' && r.country != null;
+  const chosen = rows.filter((r) => r.selected && selectable(r));
+  const counts = {
+    ready: rows.filter((r) => r.status === 'ready').length,
+    country: rows.filter((r) => r.status === 'needs_country').length,
+    invalid: rows.filter((r) => r.status === 'invalid_afm').length,
+  };
+  const busy = phase === 'running';
+
+  async function runOne(r: PlanRow): Promise<RunState> {
+    let aade: any = null;
+    if (r.useAade) {
+      const res = await fetch('/api/admin/ocr/supplier-preview', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ afm: r.afm }),
+      });
+      aade = await res.json().catch(() => null);
+      // ΔΕΝ δημιουργούμε με τα στοιχεία του OCR όταν η ΑΑΔΕ δεν βρίσκει το ΑΦΜ: είναι ακριβώς η
+      // περίπτωση που το ΑΦΜ είναι λάθος — και η καρτέλα θα έμενε στο ERP με ψεύτικα στοιχεία.
+      if (!res.ok || !aade?.name) {
+        return { s: 'error', msg: aade?.error === 'not_found' ? 'Δεν βρέθηκε στην ΑΑΔΕ — έλεγξε το ΑΦΜ.' : (aade?.message ?? 'Αποτυχία ΑΑΔΕ.') };
+      }
+    }
+
+    const next = await fetch(`/api/admin/ocr/new-traders/next-code?kind=${r.kind}&fresh=1`, { cache: 'no-store' })
+      .then((x) => (x.ok ? x.json() : null)).catch(() => null);
+    let code: string | null = next?.code ?? null;
+
+    // Μία ΜΟΝΟ επανάληψη, και μόνο όταν το ERP αρνήθηκε τον ΚΩΔΙΚΟ και πρότεινε άλλον — ποτέ
+    // βρόχος, ποτέ επανάληψη σε άλλο σφάλμα.
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const res = await fetch(`/api/admin/ocr/new-traders/${encodeURIComponent(r.afm)}/create`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          kind: r.kind,
+          name: (aade?.name ?? r.name).trim(),
+          code,
+          country: r.country,
+          irsData: aade?.softoneDoy?.office?.key ?? null,
+          profession: aade?.profession ?? null,
+          address: aade?.address ?? null,
+          zip: aade?.zip ?? null,
+          city: aade?.city ?? null,
+        }),
+      });
+      const d = await res.json().catch(() => ({}));
+      if (res.ok) return { s: 'done', code: d.code ?? code, docs: d.docsUpdated ?? 0 };
+      if (res.status === 202 && d.queued) return { s: 'queued', msg: 'Σε ουρά — θα δημιουργηθεί στην επανασύνδεση.' };
+      if (d.field === 'code' && d.suggestion && attempt === 0) { code = d.suggestion; continue; }
+      return { s: 'error', msg: d.userMessage ?? d.message ?? `HTTP ${res.status}` };
+    }
+    return { s: 'error', msg: 'Ο κωδικός απορρίφθηκε δύο φορές.' };
+  }
+
+  async function start() {
+    setPhase('running');
+    stop.current = false;
+    const todo = chosen;
+    setRun(Object.fromEntries(todo.map((r) => [r.key, { s: 'idle' } as RunState])));
+    let ok = 0, failed = 0, queued = 0;
+    for (const r of todo) {
+      if (stop.current) break;
+      setRun((m) => ({ ...m, [r.key]: { s: 'running' } }));
+      let out: RunState;
+      try { out = await runOne(r); } catch (e) { out = { s: 'error', msg: (e as Error).message }; }
+      setRun((m) => ({ ...m, [r.key]: out }));
+      if (out.s === 'done') ok++; else if (out.s === 'queued') queued++; else failed++;
+    }
+    setPhase('finished');
+    toast[failed === 0 ? 'success' : 'warning'](
+      `Δημιουργήθηκαν ${ok}${queued ? ` · σε ουρά ${queued}` : ''}${failed ? ` · απέτυχαν ${failed}` : ''}.`,
+    );
+    router.refresh();
+  }
+
+  return (
+    <Dialog open onOpenChange={(o) => { if (!o && !busy) onClose(); }}>
+      {/* 60–70% του πλάτους στην επιφάνεια εργασίας, όπως ζητήθηκε: ο πίνακας έχει έξι στήλες και
+          τα ονόματα είναι μακριά. Στο κινητό όλη η οθόνη. Το modal ΚΥΛΑ μέσα του — εξαιρείται από
+          τον κανόνα του ενός scroller, γιατί κάθεται πάνω από τη σελίδα. */}
+      <DialogContent className="flex max-h-[90dvh] w-[calc(100vw-1rem)] max-w-none flex-col gap-0 p-0 sm:max-w-none lg:w-[65vw] lg:min-w-[60vw] lg:max-w-[70vw]">
+        <DialogHeader className="flex-row items-center gap-3 border-b border-border px-4 py-2.5 pr-12">
+          <span aria-hidden className="grid size-8 shrink-0 place-items-center rounded-lg bg-sisyphus-50 text-sisyphus-600 dark:bg-sisyphus-500/15 [&_svg]:size-4"><FiUsers /></span>
+          <div className="min-w-0 flex-1">
+            <DialogTitle className="text-[length:var(--fs-15)]">Μαζική δημιουργία συναλλασσομένων</DialogTitle>
+            <DialogDescription className="truncate text-[length:var(--fs-11)]" title="Προεπιλεγμένοι είναι μόνο όσοι μπορούν να δημιουργηθούν με ασφάλεια. Οι υπόλοιποι φαίνονται με τον λόγο τους.">
+              Προεπιλεγμένοι είναι μόνο όσοι μπορούν να δημιουργηθούν με ασφάλεια. Οι υπόλοιποι φαίνονται με τον λόγο τους.
+            </DialogDescription>
+          </div>
+          <div className="hidden shrink-0 flex-wrap items-center justify-end gap-1.5 text-[length:var(--fs-11)] sm:flex">
+            <Chip icon={FiCheck} fg="#047857">{counts.ready} έτοιμοι</Chip>
+            {counts.country > 0 && <Chip icon={FiAlertTriangle} fg="#B45309">{counts.country} θέλουν χώρα</Chip>}
+            {counts.invalid > 0 && <Chip icon={FiAlertOctagon} fg="#B91C1C">{counts.invalid} με λάθος ΑΦΜ</Chip>}
+          </div>
+        </DialogHeader>
+        {/* Στο κινητό οι μετρητές κατεβαίνουν σε δική τους λωρίδα (η κεφαλίδα δεν χωρά). */}
+        <div className="flex flex-wrap items-center gap-1.5 border-b border-border bg-card px-4 py-1.5 text-[length:var(--fs-11)] sm:hidden">
+          <Chip icon={FiCheck} fg="#047857">{counts.ready} έτοιμοι</Chip>
+          {counts.country > 0 && <Chip icon={FiAlertTriangle} fg="#B45309">{counts.country} θέλουν χώρα</Chip>}
+          {counts.invalid > 0 && <Chip icon={FiAlertOctagon} fg="#B91C1C">{counts.invalid} με λάθος ΑΦΜ</Chip>}
+        </div>
+
+        <div className="min-h-0 flex-1 overflow-y-auto bg-muted/20 px-4 py-3">
+          <div className="overflow-clip rounded-lg border border-border bg-card">
+          <table className="w-full table-fixed text-[length:var(--fs-12)]">
+            <thead className="sticky top-0 z-10 border-b border-border bg-muted text-left text-[length:var(--fs-11)] font-semibold uppercase tracking-wide text-muted-foreground">
+              <tr>
+                <th className="w-10 px-3 py-1.5">
+                  <input
+                    type="checkbox" aria-label="Επιλογή όλων των επιλέξιμων" disabled={busy || phase === 'finished'}
+                    checked={chosen.length > 0 && chosen.length === rows.filter(selectable).length}
+                    onChange={(e) => setRows((rs) => rs.map((r) => ({ ...r, selected: e.target.checked && selectable(r) })))}
+                    className="size-4 cursor-pointer accent-sisyphus-500"
+                  />
+                </th>
+                <th className="px-2 py-1.5">Επωνυμία</th>
+                <th className="w-[8.5rem] px-2 py-1.5">ΑΦΜ</th>
+                <th className="w-[8.5rem] px-2 py-1.5">Τύπος</th>
+                <th className="w-[7.5rem] px-2 py-1.5">Χώρα</th>
+                <th className="w-[30%] px-2 py-1.5">Κατάσταση</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {rows.map((r) => {
+                const st = run[r.key];
+                const locked = busy || phase === 'finished' || st?.s === 'done';
+                return (
+                  <tr key={r.key} className={cn('align-top transition-colors hover:bg-muted/30', !selectable(r) && 'bg-muted/30', st?.s === 'done' && 'bg-emerald-500/5 dark:bg-emerald-500/10')}>
+                    <td className="px-3 py-1.5">
+                      <input
+                        type="checkbox" aria-label={`Επιλογή ${r.name}`}
+                        disabled={locked || !selectable(r)} checked={r.selected && selectable(r)}
+                        onChange={(e) => set(r.key, { selected: e.target.checked })}
+                        className="size-4 cursor-pointer accent-sisyphus-500 disabled:cursor-not-allowed"
+                      />
+                    </td>
+                    <td className="min-w-0 px-2 py-1">
+                      <p className="truncate pt-0.5 font-medium text-foreground" title={r.name}>{r.name}</p>
+                      {r.useAade && <p className="text-[length:var(--fs-10)] text-muted-foreground">Η επωνυμία θα έρθει από την ΑΑΔΕ</p>}
+                    </td>
+                    <td className="px-2 py-1.5 font-mono tabular-nums text-foreground">{r.afm}</td>
+                    <td className="px-2 py-1">
+                      <select
+                        value={r.kind} disabled={locked} aria-label={`Τύπος για ${r.name}`}
+                        onChange={(e) => set(r.key, { kind: e.target.value as TraderKind })}
+                        className="h-7 w-full rounded-md border border-input bg-background px-1.5 text-[length:var(--fs-12)] text-foreground focus:border-sisyphus-500 focus:outline-none focus:ring-2 focus:ring-sisyphus-500/25 disabled:opacity-60"
+                      >
+                        {(['supplier', 'creditor', 'debtor'] as TraderKind[]).map((k) => <option key={k} value={k}>{KIND_LABEL[k]}</option>)}
+                      </select>
+                    </td>
+                    <td className="px-2 py-1">
+                      {r.status === 'needs_country' ? (
+                        <select
+                          value={r.country ?? ''} disabled={locked} aria-label={`Χώρα για ${r.name}`}
+                          onChange={(e) => set(r.key, { country: e.target.value || null, countryGuessed: false })}
+                          className={cn(
+                            'h-7 w-full rounded-md border bg-background px-1.5 text-[length:var(--fs-12)] text-foreground focus:outline-none focus:ring-2 focus:ring-sisyphus-500/25 disabled:opacity-60',
+                            r.countryGuessed ? 'border-amber-400' : 'border-input',
+                          )}
+                        >
+                          <option value="">— Χώρα —</option>
+                          {COUNTRIES.map(([cc, label]) => <option key={cc} value={cc}>{cc} · {label}</option>)}
+                        </select>
+                      ) : (
+                        <span className="block pt-0.5 text-foreground">{r.country ?? '—'}</span>
+                      )}
+                    </td>
+                    <td className="px-2 py-1">
+                      <div className="pt-0.5"><StatusCell row={r} st={st} /></div>
+                      {r.status === 'invalid_afm' && !locked && (
+                        <button type="button" onClick={() => recover(r)} disabled={recovering != null}
+                          className="mt-1 inline-flex h-6 items-center gap-1 rounded-md bg-sisyphus-500 px-2 text-[length:var(--fs-10)] font-semibold text-white shadow-sm transition hover:bg-sisyphus-600 disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground disabled:shadow-none">
+                          <FiLoader className={cn('size-3', recovering === r.key ? 'animate-spin' : 'hidden')} />
+                          {recovering === r.key ? 'Επανάγνωση…' : 'Επανάγνωση από το αρχείο'}
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+          </div>
+        </div>
+
+        {/* `mx-0 mb-0`: το DialogFooter έχει `-mx-4 -mb-4` για modal με padding· εδώ είναι `p-0`. */}
+        <DialogFooter className="mx-0 mb-0 flex-col items-stretch gap-2 border-t border-border bg-card px-4 py-2.5 sm:flex-row sm:items-center sm:justify-between">
+          <p className="flex items-center gap-1.5 text-[length:var(--fs-11)] text-muted-foreground">
+            <FiDatabase className="size-3.5 shrink-0" aria-hidden />
+            {target
+              ? <>Θα γραφτούν στο SoftOne: <strong className="font-semibold text-foreground">{target}</strong></>
+              : 'Θα γραφτούν στο συνδεδεμένο SoftOne.'}
+          </p>
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            {phase === 'running' ? (
+              <button type="button" onClick={() => { stop.current = true; }} className={BTN_GHOST}>
+                <FiX className="size-3.5" /> Διακοπή μετά την τρέχουσα
+              </button>
+            ) : (
+              <button type="button" onClick={onClose} className={BTN_GHOST}>
+                {phase === 'finished' ? 'Κλείσιμο' : 'Ακύρωση'}
+              </button>
+            )}
+            {phase === 'edit' && (
+              <button type="button" disabled={chosen.length === 0} onClick={() => setPhase('confirm')} className={BTN_PRIMARY}>
+                Δημιουργία {chosen.length} στο SoftOne
+              </button>
+            )}
+            {phase === 'confirm' && (
+              <>
+                <span className="text-[length:var(--fs-11)] font-semibold text-foreground">
+                  {chosen.length} νέες καρτέλες{target ? ` στο ${target}` : ''}. Σίγουρα;
+                </span>
+                <button type="button" onClick={() => setPhase('edit')} className={BTN_GHOST}>Πίσω</button>
+                <button type="button" onClick={start} className={BTN_PRIMARY}>Ναι, δημιούργησέ τες</button>
+              </>
+            )}
+          </div>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function StatusCell({ row, st }: { row: PlanRow; st?: RunState }) {
+  if (st?.s === 'running') return <Line icon={FiLoader} fg="#1F6FEB" spin>Δημιουργείται…</Line>;
+  if (st?.s === 'idle') return <Line icon={FiClock} fg="#6B7280">Σε αναμονή</Line>;
+  if (st?.s === 'done') {
+    return (
+      <Line icon={FiCheck} fg="#047857">
+        Δημιουργήθηκε{st.code ? ` · ${st.code}` : ''}{st.docs ? ` · ${st.docs} παραστατικ${st.docs === 1 ? 'ό' : 'ά'}` : ''}
+      </Line>
+    );
+  }
+  if (st?.s === 'queued') return <Line icon={FiClock} fg="#1F6FEB">{st.msg}</Line>;
+  if (st?.s === 'error') return <Line icon={FiAlertOctagon} fg="#B91C1C">{st.msg}</Line>;
+  if (row.status === 'invalid_afm') return <Line icon={FiAlertOctagon} fg="#B91C1C">{row.reason}</Line>;
+  if (row.status === 'linked') return <Line icon={FiCheck} fg="#047857">{row.reason}</Line>;
+  if (row.status === 'needs_country') {
+    return <Line icon={FiAlertTriangle} fg="#B45309">{row.country && !row.countryGuessed ? 'Χώρα επιλεγμένη.' : row.reason}</Line>;
+  }
+  return <Line icon={FiCheck} fg="#047857">{row.reason}</Line>;
+}

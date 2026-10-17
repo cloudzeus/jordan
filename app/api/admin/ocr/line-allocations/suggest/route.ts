@@ -1,0 +1,182 @@
+import { NextResponse } from 'next/server';
+import { prisma } from '@/lib/db';
+import { requirePermission } from '@/lib/rbac';
+import { normalizeLineText } from '@/lib/ocr/line-match';
+import { parseShapeParts } from '@/lib/ocr/allocation-shape';
+
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+
+/**
+ * ΠΡΟΤΑΣΗ λογαριασμού δαπάνης για μια γραμμή, από τη ΜΝΗΜΗ (`LineMatchRule`).
+ *
+ * Κλειδί: **ΑΦΜ εκδότη + κανονικοποιημένο κείμενο γραμμής** — το ίδιο που χρησιμοποιεί ήδη η
+ * αντιστοίχιση ειδών/εξόδων. Δηλαδή: «το προηγούμενο τιμολόγιο της PwC με αυτή τη γραμμή πήγε
+ * στον 61.00.06.0024· να το ξανακάνω;»
+ *
+ * ΓΙΑΤΙ ΠΡΟΤΑΣΗ ΚΑΙ ΟΧΙ ΑΥΤΟΜΑΤΗ ΕΦΑΡΜΟΓΗ: ο λογαριασμός δαπάνης είναι ΛΟΓΙΣΤΙΚΗ απόφαση. Μια
+ * σιωπηλή εφαρμογή σημαίνει ότι ένα λάθος της πρώτης φοράς αντιγράφεται σε κάθε επόμενο
+ * παραστατικό του ίδιου εκδότη χωρίς να το δει ποτέ άνθρωπος. Η οθόνη δείχνει την πρόταση, ο
+ * χρήστης πατά «Χρήση».
+ *
+ * Επιστρέφει ΜΟΝΟ κανόνες που έγραψε άνθρωπος (`targetSource: 'manual'`) και δείχνουν σε
+ * χρεοπίστωση — οι υπόλοιποι στόχοι (είδος/έξοδο) δεν είναι λογαριασμοί δαπάνης.
+ */
+export async function GET(req: Request) {
+  await requirePermission('ocr.read');
+  const lineId = new URL(req.url).searchParams.get('lineId')?.trim();
+  if (!lineId) return NextResponse.json({ message: 'Λείπει το lineId.' }, { status: 400 });
+
+  const line = await prisma.ocrInvoiceItem.findUnique({
+    where: { id: lineId },
+    select: {
+      name: true, total: true,
+      document: { select: { issuerAfm: true, document: true } },
+    },
+  });
+  if (!line) return NextResponse.json({ message: 'Η γραμμή δεν βρέθηκε.' }, { status: 404 });
+
+  // ΤΟ ΧΕΙΡΟΓΡΑΦΟ ΥΠΟΛΟΓΙΖΕΤΑΙ ΠΡΩΤΑ και επιστρέφεται ΠΑΝΤΑ: οι έξοδοι «δεν βρέθηκε κανόνας»
+  // παρακάτω δεν επιτρέπεται να το κρύψουν — είναι ανεξάρτητη πηγή από τη μνήμη.
+  const total = line.total == null ? null : Number(line.total);
+  /**
+   * ΕΝΑΣ ΛΟΓΑΡΙΑΣΜΟΣ ΕΙΝΑΙ ΚΙ ΑΥΤΟΣ ΣΧΗΜΑ — στο 100 %. Τα περισσότερα χαρτιά δεν έχουν επιμερισμό:
+   * έχουν ΕΝΑΝ λογαριασμό γραμμένο με στυλό πάνω δεξιά. Αν κοιτούσαμε μόνο το `allocations`, όλα
+   * αυτά έμεναν αόρατα — δηλαδή η συνηθέστερη μορφή χειρόγραφου δεν θα φαινόταν ποτέ.
+   */
+  const single = (() => {
+    const h = (line.document?.document as { handwritten?: { glAccount?: unknown } } | null)?.handwritten;
+    const raw = String(h?.glAccount ?? '').trim();
+    // Πολλοί λογαριασμοί σε ένα πεδίο (π.χ. εκτελωνιστής): τότε ΔΕΝ ξέρουμε τα ποσά, οπότε
+    // τους δείχνουμε αλλά δεν τους εφαρμόζουμε.
+    return raw && !raw.includes(',') ? raw : null;
+  })();
+  const parts = asHandwritten(line.document?.document);
+  if (parts.length === 0 && single) parts.push({ label: single, amount: total });
+  const resolved: { label: string; amount: number; percent: number; registryMtrl: number; code: string; name: string }[] = [];
+  // `accountLike` = η ετικέτα ΕΙΝΑΙ κωδικός λογαριασμού αλλά δεν βρέθηκε στο μητρώο ΑΥΤΗΣ της
+  // εγκατάστασης. Ριζικά διαφορετικό από «είναι κέντρο κόστους»: το πρώτο λύνεται μόλις
+  // συγχρονιστεί το σχέδιο του πελάτη, το δεύτερο θέλει νέα διάσταση στον επιμερισμό.
+  const unresolved: (HandwrittenPart & { accountLike: boolean })[] = [];
+  for (const p of parts) {
+    // Τελεία στο ΤΕΛΟΣ είναι στίξη του χειρογράφου, όχι μέρος του κωδικού: το «61.03.07.027.023.»
+    // δεν έβρισκε το «61.03.07.027.023» για έναν χαρακτήρα.
+    const code = p.label.replace(/\s+/g, '').replace(/\.+$/, '');
+    const accountLike = looksLikeAccount(code);
+    if (!accountLike || p.amount == null || !total) { unresolved.push({ ...p, accountLike }); continue; }
+    const hit = await prisma.softoneLineItem.findFirst({
+      where: { code, isActive: true },
+      select: { mtrl: true, code: true, name: true },
+    });
+    if (!hit) { unresolved.push({ ...p, accountLike: true }); continue; }
+    resolved.push({
+      label: p.label, amount: p.amount,
+      percent: Math.round((p.amount / total) * 1000000) / 10000,
+      registryMtrl: hit.mtrl, code: hit.code, name: hit.name,
+    });
+  }
+  const handwritten = parts.length === 0 ? null : {
+    /** Εφαρμόσιμο ΜΟΝΟ όταν ΚΑΘΕ κομμάτι λύθηκε σε λογαριασμό — μερική εφαρμογή θα έχανε ποσά. */
+    applicable: resolved.length > 0 && unresolved.length === 0,
+    parts: resolved,
+    unresolved,
+  };
+
+  const pattern = normalizeLineText(line.name);
+  if (!pattern) return NextResponse.json({ suggestion: null, handwritten, shape: null });
+
+  // ΤΟ ΣΧΗΜΑ ΠΡΩΤΑ: αν ο ίδιος εκδότης έσπασε ήδη αυτή τη γραμμή, αυτό είναι η ισχυρότερη
+  // πρόταση που έχουμε — προέρχεται από ανθρώπινη απόφαση που επαναλήφθηκε.
+  const afmKey = String(line.document?.issuerAfm ?? '').trim();
+  const shapeRow = await prisma.allocationShapeRule.findFirst({
+    where: { pattern, afm: { in: afmKey ? [afmKey, ''] : [''] } },
+    orderBy: [{ afm: 'desc' }, { timesUsed: 'desc' }],
+    select: { parts: true, kind: true, timesUsed: true, afm: true },
+  });
+  const shapeParts = shapeRow ? parseShapeParts(shapeRow.parts) : null;
+  // Κάθε κομμάτι πρέπει να δείχνει σε μητρώο που ΥΠΑΡΧΕΙ ΚΑΙ ΕΙΝΑΙ ΕΝΕΡΓΟ ακόμη. Ένα νεκρό
+  // κομμάτι κάνει ολόκληρο το σχήμα άχρηστο — δεν προτείνουμε μισό.
+  let shape: null | { kind: string; timesUsed: number; sameIssuer: boolean;
+    parts: { registryMtrl: number; code: string; name: string; percent: number }[] } = null;
+  if (shapeParts && shapeRow) {
+    const live = await prisma.softoneLineItem.findMany({
+      where: { mtrl: { in: shapeParts.map((p) => p.registryMtrl) }, isActive: true },
+      select: { mtrl: true, code: true, name: true },
+    });
+    const byMtrl = new Map(live.map((l) => [l.mtrl, l]));
+    if (shapeParts.every((p) => byMtrl.has(p.registryMtrl))) {
+      shape = {
+        kind: shapeRow.kind, timesUsed: shapeRow.timesUsed,
+        sameIssuer: Boolean(afmKey) && shapeRow.afm === afmKey,
+        parts: shapeParts.map((p) => ({
+          registryMtrl: p.registryMtrl, percent: p.percent,
+          code: byMtrl.get(p.registryMtrl)!.code, name: byMtrl.get(p.registryMtrl)!.name,
+        })),
+      };
+    }
+  }
+
+  // Πρώτα ο κανόνας ΑΥΤΟΥ του εκδότη· αν δεν υπάρχει, ο γενικός (κενό ΑΦΜ) για την ίδια γραμμή.
+  const afm = String(line.document?.issuerAfm ?? '').trim();
+  const rule = await prisma.lineMatchRule.findFirst({
+    where: { pattern, lin: { not: null }, targetSource: 'manual', afm: { in: afm ? [afm, ''] : [''] } },
+    orderBy: [{ afm: 'desc' }, { timesUsed: 'desc' }],
+    select: { lin: true, timesUsed: true, afm: true },
+  });
+  if (!rule?.lin) return NextResponse.json({ suggestion: null, handwritten, shape });
+
+  const account = await prisma.softoneLineItem.findUnique({
+    where: { mtrl: rule.lin },
+    select: { mtrl: true, code: true, name: true, isActive: true },
+  });
+  // Κανόνας που δείχνει σε μητρώο που δεν υπάρχει πια: δεν προτείνουμε νεκρό λογαριασμό.
+  if (!account?.isActive) return NextResponse.json({ suggestion: null, handwritten, shape });
+
+  return NextResponse.json({
+    suggestion: {
+      registryMtrl: account.mtrl,
+      kind: 'LINEITEM' as const,
+      code: account.code,
+      name: account.name,
+      timesUsed: rule.timesUsed,
+      /** `true` όταν ο κανόνας είναι ΑΥΤΟΥ του εκδότη, όχι γενικός — το λέει η οθόνη. */
+      sameIssuer: Boolean(afm) && rule.afm === afm,
+    },
+    handwritten,
+    shape,
+  });
+}
+
+/**
+ * ΤΟ ΣΧΗΜΑ ΠΟΥ ΕΓΡΑΨΕ Ο ΛΟΓΙΣΤΗΣ ΜΕ ΤΟ ΣΤΥΛΟ.
+ *
+ * Το `handwritten.allocations` το διαβάζει ΗΔΗ το μοντέλο («an allocation of the amount») και
+ * αποθηκεύεται στο κανονικό JSON — και μέχρι τώρα δεν το έβλεπε **κανείς**: η εφαρμογή διάβαζε
+ * τον χειρόγραφο επιμερισμό και τον πετούσε.
+ *
+ * Μετρημένο σε 63 σαρωμένα: 6 παραστατικά κουβαλούν χειρόγραφο σπάσιμο — σε κέντρο κόστους
+ * («Αλκυδικές 2.391,60»), σε συντελεστή ΦΠΑ («0% 3.298,53») ή σε ΛΟΓΑΡΙΑΣΜΟ
+ * («62.03.90.020023 = 1.395,18»). Μόνο το τελευταίο μπορεί να εφαρμοστεί σήμερα, γιατί ο
+ * επιμερισμός κρατά λογαριασμό και όχι κέντρο κόστους.
+ *
+ * Γι' αυτό επιστρέφουμε ΚΑΙ τα ανεπίλυτα: ο χρήστης πρέπει να δει «ο λογιστής το έσπασε σε 6»
+ * ακόμη κι όταν δεν μπορούμε να το περάσουμε αυτόματα. Το να μην το δείξουμε καθόλου είναι που
+ * κάνει τη δουλειά του αόρατη.
+ */
+type HandwrittenPart = { label: string; amount: number | null };
+
+const asHandwritten = (doc: unknown): HandwrittenPart[] => {
+  const h = (doc as { handwritten?: { allocations?: unknown } } | null)?.handwritten;
+  const raw = Array.isArray(h?.allocations) ? h!.allocations : [];
+  return raw
+    .map((a) => {
+      const o = a as { label?: unknown; amount?: unknown };
+      const label = String(o?.label ?? '').trim();
+      const amount = typeof o?.amount === 'number' && Number.isFinite(o.amount) ? o.amount : null;
+      return { label, amount };
+    })
+    .filter((p) => p.label !== '' || p.amount != null);
+};
+
+/** Ετικέτα που ΕΙΝΑΙ λογαριασμός (π.χ. «62.03.90.020023»), όχι περιγραφή κέντρου κόστους. */
+const looksLikeAccount = (label: string) => /^\d{2}[\d.]{4,}$/.test(label.replace(/\s+/g, ''));

@@ -1,0 +1,63 @@
+import { notFound } from 'next/navigation';
+import { FiFolder } from 'react-icons/fi';
+import { prisma } from '@/lib/db';
+import { requirePermission } from '@/lib/rbac';
+import { PageHeader } from '@/components/admin/page-header';
+import { BatchDetailClient } from './batch-detail-client';
+import type { ReviewFlags } from '@/lib/templates/run-logic';
+
+export const dynamic = 'force-dynamic';
+
+export default async function BatchDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  await requirePermission('ocr.read');
+  const { id } = await params;
+
+  const batch = await prisma.ocrBatch.findUnique({ where: { id } });
+  if (!batch) notFound();
+
+  const docs = await prisma.ocrDocument.findMany({
+    where: { batchId: id },
+    orderBy: { fileName: 'asc' },
+    select: {
+      id: true, fileName: true, status: true, invoiceKind: true,
+      softoneTrdr: true, softoneCode: true, softoneName: true, softoneKind: true, softoneChecked: true,
+      softoneDocExists: true, softoneDocRef: true,
+      reviewFlags: true,
+      _count: { select: { items: true } },
+      items: { where: { softoneMtrl: { not: null } }, select: { id: true } },
+    },
+  });
+
+  const rows = docs.map((d) => {
+    // The latest template run, cached on the document by the runner (spec §15.4/§15.7).
+    const rf = (d.reviewFlags ?? null) as Partial<ReviewFlags> | null;
+    return {
+      id: d.id, fileName: d.fileName, status: d.status, invoiceKind: d.invoiceKind,
+      supplierName: d.softoneName, supplierCode: d.softoneCode, supplierKind: d.softoneKind,
+      supplierChecked: !!d.softoneChecked, supplierFound: d.softoneTrdr != null,
+      duplicate: d.softoneDocExists === true, duplicateRef: d.softoneDocRef,
+      totalLines: d._count.items, matchedLines: d.items.length,
+      templateName: rf?.templateName ?? null,
+      templateRunStatus: rf?.runStatus ?? null,
+    };
+  });
+
+  return (
+    <div className="w-full">
+      <PageHeader icon={<FiFolder />} title={batch.name}
+        description={`${rows.length} παραστατικά · δημιουργήθηκε ${batch.createdAt.toLocaleString('el-GR')}`} />
+      {batch.sourceKey && (
+        // Φάκελος από διαχωρισμό πολυ-παραστατικού PDF: το πρωτότυπο μένει μία αναφορά μακριά.
+        <p className="mb-3 text-[length:var(--fs-12)] text-muted-foreground">
+          Προέκυψε από διαχωρισμό του{' '}
+          <a href={`/api/admin/ocr/batches/${id}/source`} target="_blank" rel="noreferrer"
+            className="font-medium text-sisyphus-600 underline underline-offset-2">
+            {batch.sourceName ?? 'πρωτότυπου PDF'}
+          </a>
+          {batch.sourcePages ? ` (${batch.sourcePages} σελίδες)` : ''}.
+        </p>
+      )}
+      <BatchDetailClient batchId={id} rows={rows} />
+    </div>
+  );
+}

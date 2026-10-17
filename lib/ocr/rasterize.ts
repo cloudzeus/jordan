@@ -1,0 +1,180 @@
+import sharp from 'sharp';
+import { PDFiumLibrary } from '@hyzyla/pdfium';
+
+/** True if the buffer begins with the PDF magic header (`%PDF-`). */
+export function isPdfBuffer(buf: Buffer): boolean {
+  return buf.subarray(0, 5).toString('latin1') === '%PDF-';
+}
+
+/**
+ * Identify an image by its magic bytes. Browsers (and some mobile pickers) hand us
+ * an empty or bogus `file.type` — rejecting those as unsupported turned away files
+ * we can read perfectly well. PDFs are covered by isPdfBuffer, so this returns null
+ * for them. Returns null whenever the bytes are not a PNG / JPEG / WebP.
+ */
+export function sniffImageType(buf: Buffer): 'image/png' | 'image/jpeg' | 'image/webp' | null {
+  if (buf.length >= 8 && buf.subarray(0, 4).toString('hex') === '89504e47') return 'image/png';
+  if (buf.length >= 3 && buf.subarray(0, 3).toString('hex') === 'ffd8ff') return 'image/jpeg';
+  if (buf.length >= 12 && buf.subarray(0, 4).toString('latin1') === 'RIFF' && buf.subarray(8, 12).toString('latin1') === 'WEBP') return 'image/webp';
+  return null;
+}
+
+// PDFium (Chrome's PDF engine, WASM) renders embedded fonts reliably — unlike the
+// pdf-to-img canvas backend, which throws on TrueType glyphs ("Value is none of
+// these types String, Path" at paintChar). The WASM library is initialized once
+// and reused across requests.
+let _libPromise: Promise<Awaited<ReturnType<typeof PDFiumLibrary.init>>> | null = null;
+/** Η ΜΙΑ (lazy) PDFium instance της διεργασίας — τη μοιράζονται render και εξαγωγή κειμένου. */
+export function getPdfiumLibrary() {
+  if (!_libPromise) _libPromise = PDFiumLibrary.init();
+  return _libPromise;
+}
+const getLibrary = getPdfiumLibrary;
+
+/** Counts the pages of a PDF buffer. Returns 1 on failure (never throws). */
+export async function countPdfPages(buf: Buffer): Promise<number> {
+  try {
+    const library = await getLibrary();
+    const doc = await library.loadDocument(new Uint8Array(buf));
+    try {
+      const n = doc.getPageCount();
+      return n > 0 ? n : 1;
+    } finally {
+      doc.destroy();
+    }
+  } catch {
+    return 1;
+  }
+}
+
+/**
+ * What a page looks like WITHOUT rasterising it: its printed text and its aspect ratio
+ * (height / width). Both are what a layout fingerprint is built from (spec §14.7), and both are
+ * cheap — pdfium reads them straight out of the page object, no bitmap, no vision call.
+ *
+ * Never throws: a page we cannot open simply has nothing to say about the layout.
+ */
+export async function pageOutline(buffer: Buffer, mimeType: string, page = 0): Promise<{ text: string; aspect: number | null }> {
+  const treatAsPdf = mimeType === 'application/pdf' || isPdfBuffer(buffer);
+  try {
+    if (!treatAsPdf) {
+      const meta = await sharp(buffer).metadata();
+      const w = meta.width ?? 0;
+      const h = meta.height ?? 0;
+      return { text: '', aspect: w > 0 && h > 0 ? h / w : null };
+    }
+    const library = await getLibrary();
+    const doc = await library.loadDocument(new Uint8Array(buffer));
+    try {
+      if (page < 0 || page >= doc.getPageCount()) return { text: '', aspect: null };
+      const p = doc.getPage(page);
+      const { originalWidth, originalHeight } = p.getOriginalSize();
+      return {
+        text: p.getText() ?? '',
+        aspect: originalWidth > 0 && originalHeight > 0 ? originalHeight / originalWidth : null,
+      };
+    } finally {
+      doc.destroy();
+    }
+  } catch (e) {
+    console.warn(`[rasterize] page outline unavailable: ${(e as Error).message}`);
+    return { text: '', aspect: null };
+  }
+}
+
+/** Renders a single PDF page to a full-resolution PNG (no resize) via pdfium. */
+async function renderPdfPagePng(buffer: Buffer, page: number, scale: number): Promise<Buffer> {
+  const library = await getLibrary();
+  const doc = await library.loadDocument(new Uint8Array(buffer));
+  try {
+    const count = doc.getPageCount();
+    if (page < 0 || page >= count) throw new Error('page out of range');
+    const pdfPage = doc.getPage(page);
+    const rendered = await pdfPage.render({
+      scale,
+      render: (o: { data: Uint8Array; width: number; height: number }) =>
+        sharp(Buffer.from(o.data), { raw: { width: o.width, height: o.height, channels: 4 } }).png().toBuffer(),
+    });
+    return Buffer.from(rendered.data);
+  } finally {
+    doc.destroy();
+  }
+}
+
+/**
+ * Crops a normalized region [x,y,w,h] (0..1) of a page to a PNG, so the vision
+ * model sees ONLY the marked area (a textual region hint alone is unreliable —
+ * the model otherwise picks a different/more prominent table).
+ */
+export async function cropRegionToImage(
+  buffer: Buffer,
+  mimeType: string,
+  region: { page: number; bbox: [number, number, number, number] },
+  scale = 3,
+): Promise<Buffer> {
+  const treatAsPdf = mimeType === 'application/pdf' || isPdfBuffer(buffer);
+  const pageBuf = treatAsPdf ? await renderPdfPagePng(buffer, region.page, scale) : buffer;
+  const meta = await sharp(pageBuf).metadata();
+  const W = meta.width ?? 0;
+  const H = meta.height ?? 0;
+  if (!W || !H) throw new Error('could not read page dimensions');
+  const [x, y, w, h] = region.bbox;
+  const left = Math.min(W - 1, Math.max(0, Math.round(x * W)));
+  const top = Math.min(H - 1, Math.max(0, Math.round(y * H)));
+  const width = Math.max(1, Math.min(W - left, Math.round(w * W)));
+  const height = Math.max(1, Math.min(H - top, Math.round(h * H)));
+  return sharp(pageBuf).extract({ left, top, width, height }).png().toBuffer();
+}
+
+/**
+ * Rasterizes a page of a PDF (or re-encodes an image) to WebP for crisp browser preview.
+ * 2400px cap, quality 82 — matches the original page-image behavior.
+ */
+export async function rasterizeToWebp(
+  buffer: Buffer,
+  mimeType: string,
+  opts: { page?: number; scale?: number } = {},
+): Promise<Buffer> {
+  const page = opts.page ?? 0;
+  const scale = Math.min(5, Math.max(2, opts.scale ?? 3));
+
+  // Trust the bytes over the declared mime type: some uploads arrive with an
+  // empty or wrong Content-Type, which previously made us treat PDFs as images.
+  const treatAsPdf = mimeType === 'application/pdf' || isPdfBuffer(buffer);
+
+  if (treatAsPdf) {
+    const library = await getLibrary();
+    const doc = await library.loadDocument(new Uint8Array(buffer));
+    try {
+      const count = doc.getPageCount();
+      if (page < 0 || page >= count) throw new Error('page out of range');
+      const pdfPage = doc.getPage(page);
+      const rendered = await pdfPage.render({
+        scale,
+        render: (o: { data: Uint8Array; width: number; height: number }) =>
+          sharp(Buffer.from(o.data), { raw: { width: o.width, height: o.height, channels: 4 } })
+            .resize({ width: 2400, height: 2400, fit: 'inside', withoutEnlargement: true })
+            .webp({ quality: 82 })
+            .toBuffer(),
+      });
+      return Buffer.from(rendered.data);
+    } finally {
+      doc.destroy();
+    }
+  }
+
+  if (!mimeType.startsWith('image/')) {
+    throw new Error('unsupported type');
+  }
+
+  return sharp(buffer)
+    .resize({ width: 2400, height: 2400, fit: 'inside', withoutEnlargement: true })
+    .webp({ quality: 82 })
+    .toBuffer();
+}
+
+/** Page bitmap (PNG) for a PDF page, or the original bytes for an image. Shared by the template extractor. */
+export async function renderPage(buffer: Buffer, mimeType: string, page: number, scale = 3): Promise<Buffer> {
+  const treatAsPdf = mimeType === 'application/pdf' || isPdfBuffer(buffer);
+  return treatAsPdf ? renderPdfPagePng(buffer, page, scale) : buffer;
+}
