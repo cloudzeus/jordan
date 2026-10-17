@@ -1,6 +1,7 @@
 import 'server-only';
 import { z } from 'zod';
 import { prisma } from '@/lib/db';
+import { lastPurchasePrices } from '@/lib/last-purchase-price';
 
 /** Γραμμή προϋπολογισμού έργου όπως τη βλέπει το UI. */
 export type BudgetLine = {
@@ -15,6 +16,8 @@ export type BudgetLine = {
   value: number;
   notes: string | null;
   createdAt: string;
+  /** Τελευταία τιμή αγοράς από τα παραστατικά αγορών του SoftOne (null αν δεν αγοράστηκε ποτέ). */
+  lastPurchase: { unitCost: number; date: string; fincode: string } | null;
 };
 
 export const budgetLineInput = z.object({
@@ -35,12 +38,16 @@ const toLine = (r: {
 }): BudgetLine => ({
   id: r.id, mtrl: r.mtrl, code: r.code, name: r.name, isService: r.isService, unit: r.unit,
   qty: r.qty, unitPrice: r.unitPrice, value: r.qty * r.unitPrice, notes: r.notes,
-  createdAt: r.createdAt.toISOString(),
+  createdAt: r.createdAt.toISOString(), lastPurchase: null,
 });
 
 export async function listBudget(prjc: number): Promise<BudgetLine[]> {
   const rows = await prisma.projectBudgetLine.findMany({ where: { prjc }, orderBy: { createdAt: 'asc' } });
-  return rows.map(toLine);
+  const lp = await lastPurchasePrices(rows.map((r) => r.mtrl)).catch(() => new Map());
+  return rows.map((r) => {
+    const l = lp.get(r.mtrl);
+    return { ...toLine(r), lastPurchase: l ? { unitCost: l.unitCost, date: l.date, fincode: l.fincode } : null };
+  });
 }
 
 /**

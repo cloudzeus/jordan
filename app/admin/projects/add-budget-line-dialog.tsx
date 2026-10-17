@@ -48,13 +48,30 @@ export function AddBudgetLineDialog({
   const [touched, setTouched] = React.useState(false);
   const [busy, setBusy] = React.useState(false);
   const [serverError, setServerError] = React.useState<string | null>(null);
+  const [lastBuy, setLastBuy] = React.useState<{ unitCost: number; date: string; fincode: string } | null | 'loading'>(null);
 
   // Κάθε άνοιγμα ξεκινά καθαρό — δεν κουβαλά την προηγούμενη επιλογή σε άλλο έργο.
   React.useEffect(() => {
     if (!open) return;
     setKind(defaultKind); setPick(null); setQty('1'); setPrice(''); setNotes('');
-    setTouched(false); setServerError(null);
+    setTouched(false); setServerError(null); setLastBuy(null);
   }, [open, defaultKind]);
+
+  // Τελευταία τιμή αγοράς του είδους (από τα παραστατικά αγορών) — προσυμπληρώνει την τιμή
+  // μονάδας ΜΟΝΟ αν ο χρήστης δεν έχει ήδη γράψει δική του.
+  const choose = async (p: RegistryPick) => {
+    setPick(p);
+    setLastBuy('loading');
+    try {
+      const res = await fetch(`/api/admin/softone/last-purchase?mtrl=${p.id}`, { cache: 'no-store' });
+      const body = res.ok ? await res.json() : { prices: {} };
+      const lp = body.prices?.[p.id] ?? null;
+      setLastBuy(lp ? { unitCost: lp.unitCost, date: lp.date, fincode: lp.fincode } : null);
+      if (lp) setPrice((cur) => (cur.trim() === '' ? lp.unitCost.toLocaleString('el-GR', { maximumFractionDigits: 4, useGrouping: false }) : cur));
+    } catch {
+      setLastBuy(null);
+    }
+  };
 
   const qtyN = parseNum(qty);
   const priceN = price.trim() === '' ? 0 : parseNum(price);
@@ -143,7 +160,7 @@ export function AddBudgetLineDialog({
                   </div>
                   <button
                     type="button"
-                    onClick={() => setPick(null)}
+                    onClick={() => { setPick(null); setLastBuy(null); }}
                     className="inline-flex size-8 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
                     aria-label="Αλλαγή επιλογής"
                   >
@@ -151,7 +168,7 @@ export function AddBudgetLineDialog({
                   </button>
                 </div>
               ) : (
-                <RegistrySearch key={kind} id="budget-item" kind={kind} onPick={setPick} label="" />
+                <RegistrySearch key={kind} id="budget-item" kind={kind} onPick={choose} label="" />
               )}
               {fieldErr(pickError)}
             </div>
@@ -176,6 +193,18 @@ export function AddBudgetLineDialog({
                   aria-invalid={touched && !!priceError} className="tabular-nums"
                 />
                 {fieldErr(priceError)}
+                {lastBuy === 'loading' && (
+                  <p className="mt-1 text-[length:var(--fs-11)] text-muted-foreground">Αναζήτηση τελευταίας τιμής αγοράς…</p>
+                )}
+                {lastBuy && lastBuy !== 'loading' && (
+                  <p className="mt-1 text-[length:var(--fs-11)] text-muted-foreground">
+                    Τελευταία αγορά: <span className="font-medium tabular-nums text-foreground">{eur.format(lastBuy.unitCost)}</span>
+                    {' '}· {new Date(lastBuy.date).toLocaleDateString('el-GR', { timeZone: 'UTC' })} · {lastBuy.fincode}
+                  </p>
+                )}
+                {lastBuy === null && pick && (
+                  <p className="mt-1 text-[length:var(--fs-11)] text-muted-foreground">Δεν υπάρχει αγορά του είδους στο SoftOne.</p>
+                )}
               </div>
             </div>
 

@@ -1,6 +1,7 @@
 import 'server-only';
 import { prisma } from '@/lib/db';
 import { softoneGetTable, s1DateOrNull, sosourceLabel } from '@/lib/softone';
+import { lastPurchasePrices } from '@/lib/last-purchase-price';
 
 /**
  * Κινήσεις ενός έργου, ΖΩΝΤΑΝΑ από το SoftOne (όχι καθρέφτης): τα παραστατικά (FINDOC) και οι
@@ -47,6 +48,8 @@ export type ProjectMaterial = {
   qty: number;
   value: number;
   docs: number;
+  /** Τελευταία τιμή αγοράς (καθαρό κόστος μονάδας) από τα παραστατικά αγορών — όχι μόνο του έργου. */
+  lastPurchase: { unitCost: number; date: string; fincode: string } | null;
 };
 
 export type FamilyTotal = { sosource: number; family: string; docs: number; net: number; vat: number; total: number };
@@ -124,7 +127,7 @@ export async function fetchProjectActivity(prjc: number): Promise<ProjectActivit
   const docById = new Map(docs.map((d) => [d.findoc, d]));
 
   // Υλικά & υπηρεσίες: ΣΥΓΚΕΝΤΡΩΤΙΚΑ ανά είδος και ενότητα (αγορές ≠ πωλήσεις — δεν αθροίζονται).
-  const agg = new Map<string, ProjectMaterial & { docSet: Set<number> }>();
+  const agg = new Map<string, Omit<ProjectMaterial, 'lastPurchase'> & { docSet: Set<number> }>();
   for (const r of lineRows) {
     const mtrl = int(r.MTRL);
     const doc = docById.get(num(r.FINDOC));
@@ -150,8 +153,14 @@ export async function fetchProjectActivity(prjc: number): Promise<ProjectActivit
     e.value += num(r.LINEVAL);
     e.docSet.add(doc.findoc);
   }
+  // Κόστος από την ΤΕΛΕΥΤΑΙΑ αγορά του είδους σε όλη την εταιρία. Αν το SoftOne δεν απαντήσει,
+  // οι κινήσεις φαίνονται κανονικά — απλώς χωρίς κόστος.
+  const lp = await lastPurchasePrices([...new Set([...agg.values()].map((m) => m.mtrl))]).catch(() => new Map());
   const materials: ProjectMaterial[] = [...agg.values()]
-    .map(({ docSet, ...m }) => ({ ...m, docs: docSet.size }))
+    .map(({ docSet, ...m }) => {
+      const l = lp.get(m.mtrl);
+      return { ...m, docs: docSet.size, lastPurchase: l ? { unitCost: l.unitCost, date: l.date, fincode: l.fincode } : null };
+    })
     .sort((a, b) => a.sosource - b.sosource || b.value - a.value);
 
   const fam = new Map<number, FamilyTotal>();

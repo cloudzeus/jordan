@@ -133,6 +133,16 @@ function FamilyBadge({ sosource, label }: { sosource: number; label: string }) {
   );
 }
 
+function LastPurchaseCell({ lp }: { lp: { unitCost: number; date: string; fincode: string } | null }) {
+  if (!lp) return <span className="text-[length:var(--fs-11)] text-muted-foreground/60">καμία αγορά</span>;
+  return (
+    <span title={`Από ${lp.fincode}`}>
+      <span className="whitespace-nowrap text-foreground">{eur.format(lp.unitCost)}</span>
+      <span className="block text-[length:var(--fs-10)] text-muted-foreground">{fmtDate(lp.date)}</span>
+    </span>
+  );
+}
+
 function MaterialsTable({ rows, kind }: { rows: ProjectMaterial[]; kind: 'materials' | 'services' }) {
   if (rows.length === 0) {
     return (
@@ -153,6 +163,7 @@ function MaterialsTable({ rows, kind }: { rows: ProjectMaterial[]; kind: 'materi
           <tr>
             <th scope="col" className={TH}>{kind === 'materials' ? 'Υλικό' : 'Υπηρεσία'}</th>
             <th scope="col" className={cn(TH, 'text-right')}>Ποσότητα</th>
+            <th scope="col" className={cn(TH, 'hidden text-right md:table-cell')} title="Καθαρό κόστος μονάδας από το πιο πρόσφατο παραστατικό αγοράς του είδους">Τελ. τιμή αγοράς</th>
             <th scope="col" className={cn(TH, 'text-right')}>Αξία</th>
             <th scope="col" className={cn(TH, 'hidden text-right sm:table-cell')}>Παραστατικά</th>
           </tr>
@@ -162,7 +173,7 @@ function MaterialsTable({ rows, kind }: { rows: ProjectMaterial[]; kind: 'materi
           return (
             <tbody key={sosource}>
               <tr style={{ backgroundColor: soft(t.fg, 7) }}>
-                <th scope="rowgroup" colSpan={4} className="px-2 py-1 text-left" style={{ boxShadow: `inset 3px 0 0 ${t.fg}` }}>
+                <th scope="rowgroup" colSpan={5} className="px-2 py-1 text-left" style={{ boxShadow: `inset 3px 0 0 ${t.fg}` }}>
                   <span className="text-[length:var(--fs-11)] font-semibold" style={{ color: t.fg }}>{items[0].family}</span>
                   <span className="ml-2 text-[length:var(--fs-11)] font-normal tabular-nums text-muted-foreground">
                     {items.length} · {eur.format(items.reduce((s, m) => s + m.value, 0))}
@@ -179,6 +190,9 @@ function MaterialsTable({ rows, kind }: { rows: ProjectMaterial[]; kind: 'materi
                     <span className="whitespace-nowrap">{qtyFmt.format(m.qty)}</span>
                     {/* Η μονάδα («Τετραγωνικά μέτρα») κάτω από τον αριθμό στο κινητό, δίπλα του από sm. */}
                     {m.unit && <span className="block text-[length:var(--fs-11)] text-muted-foreground sm:ml-1 sm:inline">{m.unit}</span>}
+                  </td>
+                  <td className={cn(TD, 'hidden text-right tabular-nums md:table-cell')}>
+                    <LastPurchaseCell lp={m.lastPurchase} />
                   </td>
                   <td className={cn(TD, NUM, 'font-semibold text-foreground')}>{eur.format(m.value)}</td>
                   <td className={cn(TD, NUM, 'hidden text-muted-foreground sm:table-cell')}>{m.docs}</td>
@@ -263,6 +277,9 @@ function BudgetSection({
 }) {
   const [busyId, setBusyId] = React.useState<string | null>(null);
   const total = lines.reduce((s, l) => s + l.value, 0);
+  // Κόστος με την τελευταία τιμή αγοράς — μόνο για γραμμές με γνωστή αγορά.
+  const cost = lines.reduce((s, l) => s + (l.lastPurchase ? l.qty * l.lastPurchase.unitCost : 0), 0);
+  const costKnown = lines.some((l) => l.lastPurchase);
   const noun = kind === 'materials' ? 'υλικό' : 'υπηρεσία';
 
   const remove = async (l: BudgetLine) => {
@@ -305,7 +322,9 @@ function BudgetSection({
       <div className="flex flex-wrap items-center gap-2 px-2 py-1.5" style={{ backgroundColor: soft(BUDGET_TONE, 8), boxShadow: `inset 3px 0 0 ${BUDGET_TONE}` }}>
         <FiTarget className="size-3.5" style={{ color: BUDGET_TONE }} aria-hidden />
         <span className="text-[length:var(--fs-11)] font-semibold" style={{ color: BUDGET_TONE }}>Προϋπολογισμός</span>
-        <span className="text-[length:var(--fs-11)] tabular-nums text-muted-foreground">{lines.length} · {eur.format(total)}</span>
+        <span className="text-[length:var(--fs-11)] tabular-nums text-muted-foreground">
+          {lines.length} · {eur.format(total)}{costKnown && <> · κόστος {eur.format(cost)}</>}
+        </span>
         {canManage && (
           <button type="button" onClick={onAdd} className="ml-auto inline-flex h-7 cursor-pointer items-center gap-1 rounded-md px-2 text-[length:var(--fs-11)] font-medium transition-colors duration-150 hover:bg-background" style={{ color: BUDGET_TONE }}>
             <FiPlus className="size-3.5" aria-hidden /> Προσθήκη
@@ -319,6 +338,7 @@ function BudgetSection({
             <th scope="col" className={cn(TH, 'text-right')}>Πρόβλεψη</th>
             <th scope="col" className={cn(TH, 'hidden text-right sm:table-cell')}>Αγοράστηκαν</th>
             <th scope="col" className={cn(TH, 'hidden text-right md:table-cell')}>Τιμή</th>
+            <th scope="col" className={cn(TH, 'hidden text-right lg:table-cell')} title="Πρόβλεψη × τελευταία τιμή αγοράς">Κόστος (τελ. αγοράς)</th>
             <th scope="col" className={cn(TH, 'text-right')}>Αξία</th>
             {canManage && <th scope="col" className={TH}><span className="sr-only">Ενέργειες</span></th>}
           </tr>
@@ -345,6 +365,14 @@ function BudgetSection({
                   </span>
                 </td>
                 <td className={cn(TD, NUM, 'hidden text-muted-foreground md:table-cell')}>{eur.format(l.unitPrice)}</td>
+                <td className={cn(TD, 'hidden text-right tabular-nums lg:table-cell')}>
+                  {l.lastPurchase ? (
+                    <span title={`${eur.format(l.lastPurchase.unitCost)} / μονάδα · ${l.lastPurchase.fincode} · ${fmtDate(l.lastPurchase.date)}`}>
+                      <span className="whitespace-nowrap text-foreground">{eur.format(l.qty * l.lastPurchase.unitCost)}</span>
+                      <span className="block text-[length:var(--fs-10)] text-muted-foreground">{eur.format(l.lastPurchase.unitCost)} · {fmtDate(l.lastPurchase.date)}</span>
+                    </span>
+                  ) : <span className="text-[length:var(--fs-11)] text-muted-foreground/60">καμία αγορά</span>}
+                </td>
                 <td className={cn(TD, NUM, 'font-semibold text-foreground')}>{eur.format(l.value)}</td>
                 {canManage && (
                   <td className={cn(TD, 'w-10 text-right')}>
