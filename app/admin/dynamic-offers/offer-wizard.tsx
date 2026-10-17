@@ -23,6 +23,7 @@ import { UnitThumb } from '@/components/admin/unit-visual';
 import { presetIds, type UnitMeta } from '@/components/admin/item-unit-setup-panel';
 import { uploadOfferSnapshot } from '@/components/admin/container-snapshot';
 import { checkLevels, checkPrices, isStep, itemTiers, MAX_TIERS, PALLET_STEP, priceField, roundStep, type Level } from '@/lib/container-pricing';
+import { applyUnits, unitsPatch } from '@/lib/offer-units';
 import { PriceLadder } from './price-ladder';
 
 const ContainerScene = dynamic(() => import('@/components/admin/container-scene'), {
@@ -210,26 +211,31 @@ export function OfferWizard({ open, onOpenChange, offerId, onDone }: {
   // ── Αποθήκευση: μονάδες (προαιρετικά) → προσφορά → παραλήπτες → 3D εικόνα ──
   const persist = async (): Promise<string> => {
     if (!rows.length) throw new Error('Δεν επιλέχθηκαν προϊόντα');
+    // Προαιρετικά οι μονάδες των ειδών στο SoftOne — ΠΟΤΕ δεν σταματά την αποθήκευση της προσφοράς
+    // (τ.μ./παλέτα και παλέτες/container ζουν στην προσφορά). Ανά είδος· με παραστατικά μόνο μονάδα αγορών.
     if (syncUnits && ids) {
-      const eligible = rows.filter((r) => r.hasMovements !== true);
-      const skipped = rows.filter((r) => r.hasMovements === true);
+      const locked = rows.filter((r) => r.hasMovements === true);
       const ok = await confirmAction({
         title: 'Ενημέρωση μονάδων στο SoftOne',
-        message: `Σε ${eligible.length} είδη θα γραφτούν: Μ.Μ.2 = Παλέτα και Μονάδα αγορών = Container (${fmt(capacity)} παλέτες × τ.μ. παλέτας).${skipped.length ? ` Παραλείπονται ${skipped.length} με κινήσεις (το SoftOne δεν αλλάζει μονάδες σε είδη με παραστατικά): ${skipped.map((s) => s.code).join(', ')}.` : ''} Συνέχεια;`,
+        message: `Σε ${rows.length} είδη: Μονάδα αγορών = Container (${fmt(capacity)} παλέτες × τ.μ. παλέτας) και, όπου επιτρέπεται, Μ.Μ.2 = Παλέτα.${locked.length ? ` ${locked.length} είδη έχουν παραστατικά (${locked.map((s) => s.code).join(', ')}) — εκεί η Μ.Μ.2 δεν αλλάζει, ενημερώνεται μόνο η μονάδα αγορών.` : ''} Η προσφορά αποθηκεύεται ό,τι κι αν γίνει. Συνέχεια;`,
         confirmLabel: 'Ενημέρωση',
       });
       if (ok) {
-        const failed: string[] = [];
-        for (const r of eligible) {
+        const results = [];
+        for (const r of rows) {
           setBusy(`Μονάδες στο SoftOne · ${r.code}…`);
-          const pp = parse(r.sqmPerPallet);
-          const res = await fetch(`/api/admin/softone/items/${r.mtrl}/full`, {
-            method: 'PUT', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ unit2: ids.pallet, ratio2: pp, strict2: false, unitBuy: ids.container, buyRatio: roundStep(capacity * pp, 0.0001) }),
-          });
-          if (!res.ok) failed.push(`${r.code}: ${(await res.json().catch(() => ({}))).message ?? 'αποτυχία'}`);
+          const patch = unitsPatch({ ids, perPallet: parse(r.sqmPerPallet), capacity, hasMovements: r.hasMovements, current: r.rec ? { unit2: r.rec.unit2, ratio2: r.rec.ratio2 } : null });
+          results.push(await applyUnits(r.code, patch, async (body) => {
+            const res = await fetch(`/api/admin/softone/items/${r.mtrl}/full`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+            const d = await res.json().catch(() => ({}));
+            return { ok: res.ok, message: d.message ?? null, code: d.error ?? null };
+          }));
         }
-        if (failed.length) toast.warning(`Οι μονάδες δεν άλλαξαν σε ${failed.length} είδη`, { description: failed.join(' · ') });
+        const failed = results.filter((x) => !x.ok);
+        const partial = results.filter((x) => x.ok && x.partial);
+        if (failed.length) toast.warning(`Οι μονάδες δεν άλλαξαν σε ${failed.length} από ${results.length} είδη — η προσφορά αποθηκεύεται κανονικά`, { description: failed.map((f) => `${f.code}: ${f.message}`).join(' · ') });
+        else if (partial.length) toast.message(`Μονάδες ενημερώθηκαν · σε ${partial.length} είδη μόνο η μονάδα αγορών (έχουν παραστατικά)`);
+        else toast.success('Οι μονάδες των ειδών ενημερώθηκαν');
       }
     }
     setBusy('Αποθήκευση προσφοράς…');
@@ -398,7 +404,8 @@ export function OfferWizard({ open, onOpenChange, offerId, onDone }: {
         <input type="checkbox" className="mt-0.5 size-4 accent-[#B45309]" checked={syncUnits} disabled={!ids} onChange={(e) => setSyncUnits(e.target.checked)} />
         <span>
           <strong>Ενημέρωση και των μονάδων των ειδών στο SoftOne</strong> — σε κάθε είδος: Μ.Μ.2 = Παλέτα (τα τ.μ. του), Μονάδα αγορών = Container ({fmt(capacity) || '…'} παλέτες).
-          {rows.some((r) => r.hasMovements) && <span className="block text-amber-800">Είδη με κινήσεις παραλείπονται — το SoftOne δεν αλλάζει μονάδες σε είδη που έχουν παραστατικά ({rows.filter((r) => r.hasMovements).map((r) => r.code).join(', ')}).</span>}
+          {rows.some((r) => r.hasMovements) && <span className="block text-amber-800">Το είδος έχει παραστατικά — το SoftOne δεν επιτρέπει αλλαγή της Μ.Μ.2· θα ενημερωθεί μόνο η μονάδα αγορών ({rows.filter((r) => r.hasMovements).map((r) => r.code).join(', ')}).</span>}
+          <span className="block text-muted-foreground">Η προσφορά δεν εξαρτάται από αυτό: αν το SoftOne αρνηθεί, αποθηκεύεται κανονικά με προειδοποίηση.</span>
           {!ids && <span className="block text-muted-foreground">Λείπουν οι μονάδες Παλέτα/Container — φτιάξε τες στο Operations → Μονάδες μέτρησης.</span>}
         </span>
       </label>
