@@ -358,7 +358,11 @@ export function DataTable<TData, TValue>({
    */
   const widthStyle = (colId: string, size: number): React.CSSProperties | undefined => {
     if (colId === growColumnId) return undefined;
-    if (mustShrink && !Object.prototype.hasOwnProperty.call(columnSizing, colId)) return undefined;
+    // Οι στήλες-εργαλεία (βελάκι, checkbox, ⋮ — `enableResizing: false`) κρατούν ΠΑΝΤΑ το πλάτος
+    // τους: χωρίς αυτό, σε κινητό το `table-layout: fixed` μοίραζε τον χώρο ΕΞΙΣΟΥ και το βελάκι
+    // των 32px έπαιρνε όσο το όνομα (το όνομα κοβόταν σε «ΔΟΚΙ…»).
+    const fixedTool = table.getColumn(colId)?.columnDef.enableResizing === false;
+    if (mustShrink && !fixedTool && !Object.prototype.hasOwnProperty.call(columnSizing, colId)) return undefined;
     return { width: rem(size) };
   };
 

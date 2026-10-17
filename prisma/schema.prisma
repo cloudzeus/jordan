@@ -2502,3 +2502,88 @@ model VatCheck {
 
   @@index([vat, createdAt])
 }
+
+// ── Συνεργάτες (Operations) ─────────────────────────────────────────────────────────────────────
+// Τοπικό μητρώο (ΟΧΙ καθρέφτης SoftOne): εταιρίες ή φυσικά πρόσωπα που συνεργάζονται με την εταιρία
+// (μηχανικοί, εργολάβοι, σχεδιαστές…). Μια εταιρία έχει πολλά πρόσωπα επικοινωνίας με ιδιότητα.
+// Ο συνεργάτης συσχετίζεται με πολλούς πελάτες (SoftoneTrader.trdr) και με έργα (SoftoneProject.prjc)
+// αυτών των πελατών.
+enum PartnerType {
+  COMPANY
+  PERSON
+}
+
+model Partner {
+  id        String      @id @default(cuid())
+  type      PartnerType @default(COMPANY)
+  // Εταιρία: name = επωνυμία, tradeName = διακριτικός τίτλος.
+  // Πρόσωπο: firstName + lastName· το name κρατά το «Επώνυμο Όνομα» για ταξινόμηση/αναζήτηση.
+  name      String
+  tradeName String?
+  firstName String?
+  lastName  String?
+  specialty String? // ιδιότητα / ειδικότητα (π.χ. «Αρχιτέκτονας», «Ηλεκτρολόγος»)
+  afm       String?
+  doy       String?
+  country   String?     @default("GR")
+  address   String?
+  city      String?
+  zip       String?
+  phone     String?
+  mobile    String?
+  email     String?
+  website   String?
+  notes     String?
+  isActive  Boolean     @default(true)
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  contacts  PartnerContact[]
+  customers PartnerCustomer[]
+  projects  PartnerProject[]
+
+  @@index([name])
+  @@index([afm])
+  @@index([type])
+}
+
+model PartnerContact {
+  id        String   @id @default(cuid())
+  partnerId String
+  partner   Partner  @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  name      String
+  role      String? // ιδιότητα στην εταιρία (π.χ. «Διευθυντής έργου»)
+  phone     String?
+  mobile    String?
+  email     String?
+  notes     String?
+  isPrimary Boolean  @default(false)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([partnerId])
+}
+
+model PartnerCustomer {
+  partnerId String
+  partner   Partner  @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  trdr      Int // SoftOne TRDR του πελάτη
+  notes     String?
+  createdAt DateTime @default(now())
+
+  @@id([partnerId, trdr])
+  @@index([trdr])
+}
+
+model PartnerProject {
+  partnerId String
+  partner   Partner  @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  prjc      Int // SoftOne PRJC του έργου
+  role      String? // ρόλος του συνεργάτη στο έργο
+  notes     String?
+  createdAt DateTime @default(now())
+
+  @@id([partnerId, prjc])
+  @@index([prjc])
+}

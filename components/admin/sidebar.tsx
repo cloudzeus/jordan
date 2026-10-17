@@ -51,6 +51,7 @@ const NAV_GROUPS: NavGroup[] = [
     label: 'Operations',
     items: [
       { href: '/admin/projects', label: 'Έργα', icon: FiBriefcase, permissions: ['metadata.read'] },
+      { href: '/admin/partners', label: 'Συνεργάτες', icon: FiUsers, permissions: ['metadata.read'] },
     ],
   },
   {
