@@ -74,6 +74,21 @@ function unitValues(f: Form): UnitFormValues {
   };
 }
 
+const strip = (s: string) => s.toLocaleLowerCase('el').normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+/**
+ * Πέτρα ή πλακάκι για την 3D προβολή: από την ομάδα («Πέτρες») ή την περιγραφή. Η πλάκα παίρνει τις
+ * διαστάσεις του είδους (Διάσταση 1/2/3, σε εκατοστά) — αλλιώς ενδεικτική.
+ */
+function sceneLoad(f: Form, r: Rec, o: Options): { load: 'boxes' | 'stones' | 'sacks'; slab: { l: number; w: number; t: number } | null } {
+  const group = o.groups.find((g) => g.id === String(f.group))?.name ?? '';
+  const isStone = /πετρ|stone|τραβερτ|travert/.test(strip(`${group} ${f.name ?? ''} ${r.name ?? ''}`)) && !/πλακακι|gres|porcel/.test(strip(String(f.name ?? '')));
+  const cm = (k: keyof Form) => parseNum(String(f[k] ?? ''));
+  const [l, w, t] = [cm('dim1'), cm('dim2'), cm('dim3')];
+  // Κόλλες, τσιμέντα, κονιάματα, στόκοι, αρμόστοκοι, σοβάδες, χρωστικές σκόνες → σακιά.
+  const isSack = /κολλ|τσιμεντ|κονιαμ|στοκ|αρμο|σοβα|μπετ|glue|adhesive|cement|mortar|grout/.test(strip(`${f.name ?? ''} ${r.name ?? ''}`));
+  return { load: isSack ? 'sacks' : isStone ? 'stones' : 'boxes', slab: l > 0 && w > 0 ? { l: l / 100, w: w / 100, t: (t > 0 ? t : 2) / 100 } : null };
+}
+
 function toForm(r: Rec): Form {
   const f: Partial<Form> = {};
   for (const [k, v] of Object.entries(r)) {
@@ -337,6 +352,7 @@ export function ItemEditDialog({ mtrl, open, onOpenChange, onSaved }: {
                 value={unitValues(form)}
                 onChange={(patch) => setForm((f) => (f ? { ...f, ...patch } : f))}
                 opts={opts.units} meta={unitsMeta} originalUnit1={rec.unit1} hasMovements={hasMovements} isService={rec.isService}
+                scene={sceneLoad(form, rec, opts)}
               />
               <FormSection tone="emerald" icon={<FiDollarSign />} title="Τιμές" aside={
                 lastBuy

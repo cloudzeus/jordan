@@ -5,15 +5,26 @@
 // Εδώ γίνονται τα περισσότερα λάθη (ανάποδος συντελεστής, σχέση 1 σε διαφορετικές μονάδες).
 import * as React from 'react';
 import { FiBox, FiLock, FiAlertTriangle, FiAlertCircle, FiZap, FiHelpCircle, FiArrowRight } from 'react-icons/fi';
+import dynamic from 'next/dynamic';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { FormSection, FormSelect, RowHint, fieldCls } from '@/components/admin/form-kit';
+import { inferUnitVisual, UnitThumb, type UnitVisualKind } from '@/components/admin/unit-visual';
 import {
   checkUnitSetup, containerPalletSqmPreset, describeChain, UNIT_SLOT_HELP, type UnitIssue, type UnitSetup,
 } from '@/lib/item-unit-setup';
 
 type Opt = { id: string; name: string };
+
+// three.js μόνο στον browser και μόνο όταν χρειάζεται (βαρύ bundle — όχι στο αρχικό φόρτωμα της φόρμας).
+const ContainerScene = dynamic(() => import('@/components/admin/container-scene'), {
+  ssr: false,
+  loading: () => <div className="h-64 animate-pulse rounded-md bg-muted motion-reduce:animate-none sm:h-72" aria-label="Φόρτωση 3D προβολής" />,
+});
+
+/** Τι φορτώνεται στις παλέτες στην 3D προβολή: πλάκες πέτρας (με τις διαστάσεις του είδους) ή κιβώτια. */
+export type SceneLoad = { load: 'boxes' | 'stones' | 'sacks'; slab: { l: number; w: number; t: number } | null };
 export type UnitMeta = { id: string; shortcut: string; name: string; interCode: string | null; decimals: number };
 
 /** Οι τιμές όπως τις κρατά η φόρμα: λίστες ως id ή '', αριθμοί ως κείμενο. */
@@ -50,11 +61,11 @@ function presetIds(meta: UnitMeta[]) {
 }
 
 function SlotRow({
-  title, help, unit, onUnit, ratio, onRatio, strict, onStrict, opts, optional, baseLabel, unitLabel, issues, locked, lockNote, children, idPrefix, baseId,
+  title, help, unit, onUnit, ratio, onRatio, strict, onStrict, opts, optional, baseLabel, unitLabel, issues, locked, lockNote, children, idPrefix, baseId, visual,
 }: {
   title: string; help: string; unit: string; onUnit: (v: string) => void; ratio?: string; onRatio?: (v: string) => void;
   strict?: boolean; onStrict?: (v: boolean) => void; opts: Opt[]; optional?: boolean; baseLabel: string; unitLabel: string;
-  issues: UnitIssue[]; locked?: boolean; lockNote?: string; children?: React.ReactNode; idPrefix: string; baseId?: string;
+  issues: UnitIssue[]; locked?: boolean; lockNote?: string; children?: React.ReactNode; idPrefix: string; baseId?: string; visual?: UnitVisualKind | null;
 }) {
   const own = !!unit && unit !== baseId; // διαφορετική από τη βασική ⇒ χρειάζεται σχέση
   const bad = issues.some((i) => i.level === 'error');
@@ -65,13 +76,15 @@ function SlotRow({
           <div className="text-[length:var(--fs-12)] font-semibold">{title}</div>
           <p className="text-[length:var(--fs-11)] leading-snug text-muted-foreground">{help}</p>
         </div>
-        <div className="col-span-12 sm:col-span-3">
+        <div className="col-span-12 flex items-center gap-2 sm:col-span-3">
+          {visual ? <UnitThumb kind={visual} size={36} /> : <span className="size-9 shrink-0 rounded-md border border-dashed border-border" aria-hidden />}
           <FormSelect
             id={`${idPrefix}-unit`} ariaLabel={title} disabled={locked}
             value={unit || (optional ? NONE : '')}
             onChange={(v) => onUnit(v === NONE ? '' : v)}
             opts={optional ? [{ id: NONE, name: '— καμία —' }, ...opts] : opts}
             invalid={!unit && !optional}
+            className="min-w-0 flex-1"
           />
         </div>
         {onRatio && (
@@ -108,11 +121,12 @@ function SlotRow({
 }
 
 export function ItemUnitSetupPanel({
-  value, onChange, opts, meta, originalUnit1, hasMovements, isService,
+  value, onChange, opts, meta, originalUnit1, hasMovements, isService, scene,
 }: {
   value: UnitFormValues; onChange: (patch: Partial<UnitFormValues>) => void; opts: Opt[]; meta: UnitMeta[];
-  originalUnit1: string | null; hasMovements: boolean | null; isService: boolean;
+  originalUnit1: string | null; hasMovements: boolean | null; isService: boolean; scene?: SceneLoad;
 }) {
+  const [show3d, setShow3d] = React.useState(true);
   const [preset, setPreset] = React.useState<{ sqmPerPallet: string; palletsPerContainer: string } | null>(null);
   const setup = toSetup(value);
   const byId = React.useMemo(() => new Map(meta.map((u) => [u.id, u])), [meta]);
@@ -121,6 +135,11 @@ export function ItemUnitSetupPanel({
   const at = (...fields: (keyof UnitSetup)[]) => issues.filter((i) => fields.includes(i.field));
   const ids = presetIds(meta);
   const baseLabel = label(setup.unit1);
+  const visualOf = (id: string | null): UnitVisualKind | null => {
+    if (!id) return null;
+    const m = byId.get(id);
+    return inferUnitVisual(m ?? { name: opts.find((o) => o.id === id)?.name });
+  };
   const baseLocked = !!hasMovements && !!originalUnit1;
   const chain = describeChain(setup, label);
 
@@ -131,7 +150,7 @@ export function ItemUnitSetupPanel({
   if (isService) {
     return (
       <FormSection tone="amber" icon={<FiBox />} title="Μονάδα μέτρησης">
-        <SlotRow idPrefix="u1" title="Βασική μονάδα" help="Η υπηρεσία έχει μία μονάδα (το SoftOne δεν κρατά μονάδες αγορών/πώλησης για υπηρεσίες)."
+        <SlotRow visual={visualOf(setup.unit1)} idPrefix="u1" title="Βασική μονάδα" help="Η υπηρεσία έχει μία μονάδα (το SoftOne δεν κρατά μονάδες αγορών/πώλησης για υπηρεσίες)."
           unit={value.unit1} onUnit={(v) => onChange({ unit1: v })} opts={opts} baseLabel={baseLabel} unitLabel={baseLabel} issues={at('unit1')} />
       </FormSection>
     );
@@ -202,10 +221,10 @@ export function ItemUnitSetupPanel({
         <SlotRow idPrefix="u1" title="Βασική (αποθήκη)" help={UNIT_SLOT_HELP.unit1} unit={value.unit1} onUnit={(v) => onChange({ unit1: v })}
           opts={opts} baseLabel={baseLabel} unitLabel={baseLabel} issues={at('unit1')}
           locked={baseLocked} lockNote="Κλειδωμένη: το είδος έχει ήδη κινήσεις στο SoftOne." />
-        <SlotRow baseId={value.unit1} idPrefix="u2" title="Μ.Μ.2 (παράλληλη)" help={UNIT_SLOT_HELP.unit2} optional unit={value.unit2} onUnit={(v) => onChange({ unit2: v, ...(v ? {} : { ratio2: '', strict2: false }) })}
+        <SlotRow visual={visualOf(setup.unit2)} baseId={value.unit1} idPrefix="u2" title="Μ.Μ.2 (παράλληλη)" help={UNIT_SLOT_HELP.unit2} optional unit={value.unit2} onUnit={(v) => onChange({ unit2: v, ...(v ? {} : { ratio2: '', strict2: false }) })}
           ratio={value.ratio2} onRatio={(v) => onChange({ ratio2: v })} strict={value.strict2} onStrict={(v) => onChange({ strict2: v })}
           opts={opts} baseLabel={baseLabel} unitLabel={label(setup.unit2)} issues={at('unit2', 'ratio2')} />
-        <SlotRow baseId={value.unit1} idPrefix="u3" title="Αγορών" help={UNIT_SLOT_HELP.unitBuy} optional unit={value.unitBuy} onUnit={(v) => onChange({ unitBuy: v, ...(v === value.unit1 || !v ? { buyRatio: '1' } : {}) })}
+        <SlotRow visual={visualOf(setup.unitBuy)} baseId={value.unit1} idPrefix="u3" title="Αγορών" help={UNIT_SLOT_HELP.unitBuy} optional unit={value.unitBuy} onUnit={(v) => onChange({ unitBuy: v, ...(v === value.unit1 || !v ? { buyRatio: '1' } : {}) })}
           ratio={value.buyRatio} onRatio={(v) => onChange({ buyRatio: v })} strict={value.buyStrict} onStrict={(v) => onChange({ buyStrict: v })}
           opts={opts} baseLabel={baseLabel} unitLabel={label(setup.unitBuy)} issues={at('unitBuy', 'buyRatio')}>
           {showPalletsPerBuy && (
@@ -221,10 +240,59 @@ export function ItemUnitSetupPanel({
             </div>
           )}
         </SlotRow>
-        <SlotRow baseId={value.unit1} idPrefix="u4" title="Πώλησης" help={UNIT_SLOT_HELP.unitSell} optional unit={value.unitSell} onUnit={(v) => onChange({ unitSell: v, ...(v === value.unit1 || !v ? { sellRatio: '1' } : {}) })}
+        <SlotRow visual={visualOf(setup.unitSell)} baseId={value.unit1} idPrefix="u4" title="Πώλησης" help={UNIT_SLOT_HELP.unitSell} optional unit={value.unitSell} onUnit={(v) => onChange({ unitSell: v, ...(v === value.unit1 || !v ? { sellRatio: '1' } : {}) })}
           ratio={value.sellRatio} onRatio={(v) => onChange({ sellRatio: v })} strict={value.sellStrict} onStrict={(v) => onChange({ sellStrict: v })}
           opts={opts} baseLabel={baseLabel} unitLabel={label(setup.unitSell)} issues={at('unitSell', 'sellRatio')} />
       </div>
+
+      {(setup.unitBuy && setup.unitBuy !== setup.unit1) || (setup.unit2 && setup.unit2 !== setup.unit1) ? (
+        <div className="rounded-md border border-border bg-card px-3 py-2">
+          <p className="mb-1.5 text-[length:var(--fs-11)] font-semibold uppercase tracking-wide text-muted-foreground">Με μια ματιά</p>
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-2 text-[length:var(--fs-13)] tabular-nums">
+            {setup.unitBuy && setup.unitBuy !== setup.unit1 && setup.buyRatio > 0 && (
+              <>
+                <span className="inline-flex items-center gap-1.5"><UnitThumb kind={visualOf(setup.unitBuy)!} size={52} /><strong>1</strong> {label(setup.unitBuy)}</span>
+                <span className="text-muted-foreground">=</span>
+                {showPalletsPerBuy && palletsPerBuy > 0 && (
+                  <>
+                    <span className="inline-flex items-center gap-1.5"><UnitThumb kind={visualOf(setup.unit2)!} size={52} /><strong>{palletsPerBuy.toLocaleString('el-GR', { maximumFractionDigits: 2 })}</strong> {label(setup.unit2)}</span>
+                    <span className="text-muted-foreground">=</span>
+                  </>
+                )}
+                <span className="inline-flex items-center gap-1.5"><UnitThumb kind={visualOf(setup.unit1)!} size={52} /><strong>{setup.buyRatio.toLocaleString('el-GR', { maximumFractionDigits: 4 })}</strong> {baseLabel}</span>
+              </>
+            )}
+            {!(setup.unitBuy && setup.unitBuy !== setup.unit1 && setup.buyRatio > 0) && setup.unit2 && setup.ratio2 > 0 && (
+              <>
+                <span className="inline-flex items-center gap-1.5"><UnitThumb kind={visualOf(setup.unit2)!} size={52} /><strong>1</strong> {label(setup.unit2)}</span>
+                <span className="text-muted-foreground">=</span>
+                <span className="inline-flex items-center gap-1.5"><UnitThumb kind={visualOf(setup.unit1)!} size={52} /><strong>{setup.ratio2.toLocaleString('el-GR', { maximumFractionDigits: 4 })}</strong> {baseLabel}</span>
+              </>
+            )}
+          </div>
+          <p className="mt-1.5 text-[length:var(--fs-11)] text-muted-foreground">Αγοράζεις σε {label(setup.unitBuy ?? setup.unit1)}, η αποθήκη μετράει σε {baseLabel}, πουλάς σε {label(setup.unitSell ?? setup.unit1)}.</p>
+        </div>
+      ) : null}
+
+      {showPalletsPerBuy && palletsPerBuy > 0 && (
+        <div className="space-y-1">
+          <div className="flex items-center justify-between">
+            <span className="text-[length:var(--fs-11)] font-semibold uppercase tracking-wide text-muted-foreground">3D προβολή φόρτωσης</span>
+            <button type="button" onClick={() => setShow3d((v) => !v)} className="cursor-pointer text-[length:var(--fs-11)] text-muted-foreground underline-offset-2 hover:text-foreground hover:underline">
+              {show3d ? 'Απόκρυψη' : 'Εμφάνιση'}
+            </button>
+          </div>
+          {show3d && (
+            <ContainerScene
+              pallets={Math.round(palletsPerBuy * 100) / 100}
+              perPallet={setup.ratio2}
+              labels={{ container: label(setup.unitBuy), pallet: label(setup.unit2), base: baseLabel }}
+              load={scene?.load ?? 'boxes'}
+              slab={scene?.slab ?? null}
+            />
+          )}
+        </div>
+      )}
 
       {chain.length > 0 && (
         <div className="rounded-md border border-sisyphus-500/25 bg-sisyphus-50/50 px-3 py-2 dark:bg-sisyphus-500/10" aria-live="polite">

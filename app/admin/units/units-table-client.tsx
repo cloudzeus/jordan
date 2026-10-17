@@ -21,6 +21,7 @@ import {
 import { Field, FormSection, FormSelect, RowHint, fieldCls } from '@/components/admin/form-kit';
 import { syncErrorMessage } from '@/lib/softone-sync/sync-error';
 import type { UnitRow } from '@/lib/units';
+import { inferUnitVisual, UnitThumb, UNIT_VISUAL_LABEL } from '@/components/admin/unit-visual';
 
 const DASH = <span className="text-muted-foreground/40">—</span>;
 const soft = (hex: string, pct: number) => `color-mix(in srgb, ${hex} ${pct}%, var(--background))`;
@@ -99,7 +100,12 @@ function UnitDialog({ open, onOpenChange, row, onSaved }: { open: boolean; onOpe
           </div>
         </DialogHeader>
         <DialogBody className="space-y-3 bg-muted/20 px-4 py-3">
-          <FormSection tone="blue" icon={<FiMaximize2 />} title="Μονάδα">
+          <FormSection tone="blue" icon={<FiMaximize2 />} title="Μονάδα" aside={(
+            <span className="inline-flex items-center gap-1.5 text-muted-foreground">
+              <UnitThumb kind={inferUnitVisual({ shortcut: f.shortcut, name: f.name, interCode: f.interCode })} size={44} />
+              {UNIT_VISUAL_LABEL[inferUnitVisual({ shortcut: f.shortcut, name: f.name, interCode: f.interCode })]}
+            </span>
+          )}>
             <div className="grid gap-2.5 sm:grid-cols-[6rem_1fr]">
               <Field label="Σύντμηση" required htmlFor="unit-short" error={errors.shortcut}>
                 <Input id="unit-short" value={f.shortcut} maxLength={5} onChange={(e) => set('shortcut')(e.target.value)} className={fieldCls} autoFocus />
@@ -276,6 +282,7 @@ export function UnitsTableClient({ rows, usageError, canManage, lastSync }: { ro
         const r = row.original;
         return (
           <div className={cn('flex min-w-0 items-center gap-2', !r.isActive && 'opacity-60')}>
+            <UnitThumb kind={inferUnitVisual(r)} size={36} />
             <span className="inline-flex h-7 min-w-11 shrink-0 items-center justify-center rounded-md px-1.5 font-mono text-[length:var(--fs-11)] font-semibold" style={{ color: TONE, backgroundColor: soft(TONE, 12) }}>{r.shortcut}</span>
             <span className="truncate text-[length:var(--fs-12)] font-medium">{r.name}</span>
           </div>
