@@ -23,12 +23,14 @@ function getClient(): MailgunClient {
   return cached;
 }
 
-export async function sendTransactionalEmail(to: string, subject: string, html: string) {
+export async function sendTransactionalEmail(to: string, subject: string, html: string, opts: { replyTo?: string | null; fromName?: string | null } = {}) {
   const domain = process.env.MAILGUN_DOMAIN ?? 'dgsmart.gr';
+  const address = process.env.SHARED_MAILBOX_ADDRESS ?? 'connect@dgsmart.gr';
   return getClient().messages.create(domain, {
-    from: process.env.SHARED_MAILBOX_ADDRESS ?? 'connect@dgsmart.gr',
+    from: opts.fromName ? `${opts.fromName.replace(/[<>"]/g, '').trim()} <${address}>` : address,
     to,
     subject,
     html,
+    ...(opts.replyTo ? { 'h:Reply-To': opts.replyTo } : {}),
   });
 }

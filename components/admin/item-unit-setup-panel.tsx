@@ -52,7 +52,7 @@ export function toSetup(v: UnitFormValues): UnitSetup {
 }
 
 /** Βρίσκει τις μονάδες του προτύπου: τ.μ. (m² / «τετραγων»), παλέτα (ΠΑΛ), container (CONT). */
-function presetIds(meta: UnitMeta[]) {
+export function presetIds(meta: UnitMeta[]) {
   const norm = (s: string) => s.toLocaleLowerCase('el').normalize('NFD').replace(/[̀-ͯ]/g, '');
   const sqm = meta.find((u) => u.interCode === 'm²' || /τετραγων/.test(norm(u.name)));
   const pallet = meta.find((u) => /^παλ/.test(norm(u.shortcut)) || /^παλετ/.test(norm(u.name)));

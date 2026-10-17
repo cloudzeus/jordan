@@ -2624,3 +2624,105 @@ model SoftoneUnit {
   isActive   Boolean  @default(true)
   syncedAt   DateTime @default(now())
 }
+
+// ── Κοινό container (Operations) ────────────────────────────────────────────────────────────────
+// Ένα προϊόν, ένα container που γεμίζει με παραγγελίες ΠΟΛΛΩΝ πελατών (από ½ παλέτα). Όσο γεμίζει,
+// η τιμή πέφτει για ΟΛΟΥΣ: κλιμάκια σε παλέτες → PRICEW01…05 του είδους στο SoftOne.
+enum ContainerOfferStatus {
+  DRAFT
+  SCHEDULED // δημοσιεύεται αυτόματα στο `publishAt` (cron)
+  OPEN
+  CLOSED
+  CANCELLED
+}
+
+model ContainerOffer {
+  id              String               @id @default(cuid())
+  mtrl            Int // SoftOne MTRL του προϊόντος
+  code            String // στιγμιότυπο κωδικού/περιγραφής
+  name            String
+  title           String? // π.χ. «Travertino Classic — Container Νοεμβρίου»
+  status          ContainerOfferStatus @default(DRAFT)
+  sqmPerContainer Float // βασικές μονάδες (τ.μ.) που χωρούν στο container
+  sqmPerPallet    Float // βασικές μονάδες ανά παλέτα
+  minOrder        Float                @default(0.5) // ελάχιστη παραγγελία σε παλέτες
+  baseUnit        String? // σύντμηση βασικής μονάδας (π.χ. Μετ²)
+  closesAt        DateTime? // προθεσμία συμμετοχής
+  publishAt       DateTime? // πότε δημοσιεύεται (στέλνονται τα email)
+  publishedAt     DateTime?
+  snapshotUrl     String? // 3D εικόνα για τα email (Bunny)
+  notifiedLevel   Int? // μέχρι ποιο κλιμάκιο έχουν ενημερωθεί οι παραλήπτες για πτώση τιμής
+  notes           String?
+  createdById     String?
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+
+  tiers        ContainerOfferTier[]
+  reservations ContainerReservation[]
+  recipients   OfferRecipient[]
+  emails       OfferEmail[]
+
+  @@index([mtrl])
+  @@index([status])
+}
+
+// Κλιμάκιο τιμής: από `fromPallets` και πάνω ισχύει η PRICEW0{level} (στιγμιότυπο τιμής).
+model ContainerOfferTier {
+  id          String         @id @default(cuid())
+  offerId     String
+  offer       ContainerOffer @relation(fields: [offerId], references: [id], onDelete: Cascade)
+  level       Int // 1…5 → PRICEW01…PRICEW05
+  fromPallets Float
+  price       Float
+
+  @@unique([offerId, level])
+}
+
+model ContainerReservation {
+  id          String         @id @default(cuid())
+  offerId     String
+  offer       ContainerOffer @relation(fields: [offerId], references: [id], onDelete: Cascade)
+  trdr        Int // SoftOne TRDR του πελάτη
+  pallets     Float // πολλαπλάσιο του ½
+  status      String         @default("ACTIVE") // ACTIVE | CANCELLED
+  notes       String?
+  createdById String?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  @@index([offerId])
+  @@index([trdr])
+}
+
+// Παραλήπτες της δυναμικής προσφοράς: πελάτες (SoftOne) και συνεργάτες (τοπικό μητρώο).
+model OfferRecipient {
+  id        String         @id @default(cuid())
+  offerId   String
+  offer     ContainerOffer @relation(fields: [offerId], references: [id], onDelete: Cascade)
+  kind      String // CUSTOMER | PARTNER
+  refId     String // TRDR ή Partner.id
+  name      String
+  email     String?
+  createdAt DateTime       @default(now())
+  emails    OfferEmail[]
+
+  @@unique([offerId, kind, refId])
+  @@index([offerId])
+}
+
+// Ημερολόγιο αποστολών: ΜΙΑ αποστολή ανά παραλήπτη/τύπο/κλιμάκιο (ιδεμποτέντ — καμία διπλή).
+model OfferEmail {
+  id          String         @id @default(cuid())
+  offerId     String
+  offer       ContainerOffer @relation(fields: [offerId], references: [id], onDelete: Cascade)
+  recipientId String
+  recipient   OfferRecipient @relation(fields: [recipientId], references: [id], onDelete: Cascade)
+  kind        String // PUBLISH | PRICE_DROP
+  level       Int            @default(0) // κλιμάκιο (για PRICE_DROP)
+  status      String // SENT | FAILED
+  error       String?
+  sentAt      DateTime       @default(now())
+
+  @@unique([recipientId, kind, level])
+  @@index([offerId])
+}
