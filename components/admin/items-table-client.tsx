@@ -3,7 +3,11 @@
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { type ColumnDef } from '@tanstack/react-table';
-import { FiRefreshCw, FiEdit2, FiSlash, FiHash, FiAlertTriangle } from 'react-icons/fi';
+import { FiRefreshCw, FiEdit2, FiSlash, FiHash, FiAlertTriangle, FiMoreVertical, FiEdit3, FiCopy } from 'react-icons/fi';
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { ItemEditDialog } from '@/components/admin/item-edit-dialog';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -31,6 +35,7 @@ export type ItemRecord = {
  */
 function ItemActions({ row, onDone }: { row: ItemRecord; onDone: () => void }) {
   const [mode, setMode] = React.useState<'code' | 'deactivate' | null>(null);
+  const [editing, setEditing] = React.useState(false);
   const [code, setCode] = React.useState('');
   const [busy, setBusy] = React.useState(false);
 
@@ -64,16 +69,39 @@ function ItemActions({ row, onDone }: { row: ItemRecord; onDone: () => void }) {
 
   return (
     <div className="flex justify-end gap-1">
-      <button type="button" onClick={openCode} title="Αλλαγή κωδικού στο SoftOne" aria-label={`Αλλαγή κωδικού ${row.code}`}
-        className="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground">
-        <FiEdit2 className="size-3.5" aria-hidden />
-      </button>
-      {row.isActive !== false && (
-        <button type="button" onClick={() => setMode('deactivate')} title="Αδρανοποίηση στο SoftOne" aria-label={`Αδρανοποίηση ${row.code}`}
-          className="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-destructive">
-          <FiSlash className="size-3.5" aria-hidden />
-        </button>
-      )}
+      {/* Οι ενέργειες διαχείρισης ζουν ΠΑΝΤΑ σε dropdown (κανόνας του project). */}
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          className="inline-flex size-8 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors duration-150 hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring data-[state=open]:bg-muted"
+          aria-label={`Ενέργειες για ${row.code}`}
+        >
+          <FiMoreVertical className="size-4" aria-hidden />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-56">
+          <DropdownMenuLabel className="truncate text-[length:var(--fs-11)] font-semibold text-muted-foreground">{row.code} · {row.name}</DropdownMenuLabel>
+          <DropdownMenuItem className="cursor-pointer gap-2 text-[length:var(--fs-12)]" onSelect={() => setEditing(true)}>
+            <FiEdit3 className="size-3.5" aria-hidden /> Επεξεργασία στοιχείων
+          </DropdownMenuItem>
+          <DropdownMenuItem className="cursor-pointer gap-2 text-[length:var(--fs-12)]" onSelect={() => void openCode()}>
+            <FiEdit2 className="size-3.5" aria-hidden /> Αλλαγή κωδικού
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            className="cursor-pointer gap-2 text-[length:var(--fs-12)]"
+            onSelect={() => { navigator.clipboard.writeText(row.code).then(() => toast.success(`Αντιγράφηκε ο κωδικός ${row.code}`), () => toast.error('Δεν επετράπη η αντιγραφή')); }}
+          >
+            <FiCopy className="size-3.5" aria-hidden /> Αντιγραφή κωδικού
+          </DropdownMenuItem>
+          {row.isActive !== false && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem variant="destructive" className="cursor-pointer gap-2 text-[length:var(--fs-12)]" onSelect={() => setMode('deactivate')}>
+                <FiSlash className="size-3.5" aria-hidden /> Αδρανοποίηση
+              </DropdownMenuItem>
+            </>
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
+      <ItemEditDialog mtrl={editing ? row.mtrl : null} open={editing} onOpenChange={setEditing} onSaved={onDone} />
       <Dialog open={mode !== null} onOpenChange={(o) => { if (!o && !busy) setMode(null); }}>
         <DialogContent className="w-[95vw] gap-0 overflow-hidden p-0 sm:max-w-md">
           <DialogHeader className="flex-row items-center gap-3 border-b border-border px-4 py-2.5 pr-12">
@@ -194,7 +222,7 @@ export function ItemsTableClient({
     });
     if (canManage) {
       base.push({
-        id: 'actions', header: () => <span className="sr-only">Ενέργειες</span>, size: 90, enableSorting: false,
+        id: 'actions', header: () => <span className="sr-only">Ενέργειες</span>, size: 48, enableSorting: false,
         cell: ({ row }) => <ItemActions row={row.original} onDone={() => router.refresh()} />,
       });
     }

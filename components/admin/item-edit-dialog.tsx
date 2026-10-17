@@ -1,0 +1,355 @@
+'use client';
+
+import * as React from 'react';
+import { FiEdit3, FiInfo, FiLayers, FiBox, FiDollarSign, FiSliders, FiLoader, FiAlertTriangle } from 'react-icons/fi';
+import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { confirmAction } from '@/components/ui/confirm-dialog';
+import {
+  Dialog, DialogBody, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
+} from '@/components/ui/dialog';
+import { Field, FormSection, FormSelect, RowHint, Segmented, fieldCls } from '@/components/admin/form-kit';
+
+type Opt = { id: string; name: string };
+type Options = { units: Opt[]; categories: Opt[]; groups: Opt[]; manufacturers: Opt[]; brands: Opt[]; vats: (Opt & { rate: number | null })[] };
+
+type Rec = {
+  mtrl: number; code: string; isService: boolean; object: 'ITEM' | 'SERVICE';
+  name: string | null; name2: string | null; code1: string | null; code2: string | null; remarks: string | null;
+  isActive: boolean; vat: string | null; category: string | null; group: string | null;
+  manufacturer: string | null; brand: string | null; unit1: string | null; unitBuy: string | null;
+  buyRatio: number; unitSell: string | null; sellRatio: number;
+  priceRetail: number; priceWholesale: number; weight: number; volume: number;
+};
+
+type LastPurchase = { unitCost: number; date: string; fincode: string } | null;
+
+/** Τα πεδία σε μορφή φόρμας: αριθμοί ως κείμενο (ελληνική υποδιαστολή), λίστες ως id ή ''. */
+type Form = Record<keyof Omit<Rec, 'mtrl' | 'isService' | 'object'>, string | boolean>;
+
+const NONE = '__none__';
+const NUMERIC = ['buyRatio', 'sellRatio', 'priceRetail', 'priceWholesale', 'weight', 'volume'] as const;
+const LABEL: Record<string, string> = {
+  code: 'Κωδικός', name: 'Περιγραφή', name2: 'Περιγραφή 2', code1: 'Barcode / EAN', code2: 'Κωδ. εργοστασίου',
+  remarks: 'Παρατηρήσεις', isActive: 'Ενεργό', vat: 'ΦΠΑ', category: 'Εμπορική κατηγορία', group: 'Ομάδα',
+  manufacturer: 'Κατασκευαστής', brand: 'Μάρκα', unit1: 'Βασική μονάδα', unitBuy: 'Μονάδα αγορών',
+  buyRatio: 'Σχέση αγορών', unitSell: 'Μονάδα πώλησης', sellRatio: 'Σχέση πώλησης',
+  priceRetail: 'Τιμή λιανικής', priceWholesale: 'Τιμή χονδρικής', weight: 'Βάρος', volume: 'Όγκος',
+};
+
+const eur = new Intl.NumberFormat('el-GR', { style: 'currency', currency: 'EUR' });
+const fmtNum = (n: number) => (n ? n.toLocaleString('el-GR', { maximumFractionDigits: 6, useGrouping: false }) : '');
+/** «1.234,5» ή «1234.5» → 1234.5 · κενό → 0 · άκυρο → NaN. */
+function parseNum(v: string): number {
+  const s = v.trim().replace(/\s/g, '');
+  if (!s) return 0;
+  return Number(s.includes(',') ? s.replace(/\./g, '').replace(',', '.') : s);
+}
+
+function toForm(r: Rec): Form {
+  const f: Partial<Form> = {};
+  for (const [k, v] of Object.entries(r)) {
+    if (k === 'mtrl' || k === 'isService' || k === 'object') continue;
+    f[k as keyof Form] = typeof v === 'boolean' ? v : typeof v === 'number' ? fmtNum(v) : (v ?? '');
+  }
+  return f as Form;
+}
+
+/** Οι τιμές της φόρμας στη μορφή του API· `null` για κενές λίστες/κείμενα. */
+function fromForm(f: Form): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(f)) {
+    if ((NUMERIC as readonly string[]).includes(k)) out[k] = parseNum(String(v));
+    else if (typeof v === 'boolean') out[k] = v;
+    else out[k] = String(v).trim() === '' ? null : String(v).trim();
+  }
+  return out;
+}
+
+/** Λίστα με επιλογή «— χωρίς —» για τα προαιρετικά πεδία (το form-kit δεν έχει «κενό»). */
+function OptSelect({ id, value, onChange, opts, optional, invalid }: {
+  id: string; value: string; onChange: (v: string) => void; opts: Opt[]; optional?: boolean; invalid?: boolean;
+}) {
+  // Τρέχουσα τιμή που δεν υπάρχει στο τοπικό μητρώο: φαίνεται ως «#id», ώστε να μη χαθεί σιωπηλά.
+  const all = value && !opts.some((o) => o.id === value) ? [{ id: value, name: `#${value} (εκτός μητρώου)` }, ...opts] : opts;
+  return (
+    <FormSelect
+      id={id}
+      value={value || (optional ? NONE : '')}
+      onChange={(v) => onChange(v === NONE ? '' : v)}
+      opts={optional ? [{ id: NONE, name: '— χωρίς —' }, ...all] : all}
+      invalid={invalid}
+    />
+  );
+}
+
+export function ItemEditDialog({ mtrl, open, onOpenChange, onSaved }: {
+  mtrl: number | null;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSaved?: () => void;
+}) {
+  const [rec, setRec] = React.useState<Rec | null>(null);
+  const [opts, setOpts] = React.useState<Options | null>(null);
+  const [lastBuy, setLastBuy] = React.useState<LastPurchase>(null);
+  const [form, setForm] = React.useState<Form | null>(null);
+  const [loadError, setLoadError] = React.useState<string | null>(null);
+  const [saveError, setSaveError] = React.useState<string | null>(null);
+  const [busy, setBusy] = React.useState(false);
+
+  const load = React.useCallback(async () => {
+    if (!mtrl) return;
+    setRec(null); setForm(null); setLoadError(null); setSaveError(null);
+    try {
+      const res = await fetch(`/api/admin/softone/items/${mtrl}/full`, { cache: 'no-store' });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.message || 'Αποτυχία ανάγνωσης από το SoftOne');
+      setRec(body.record); setOpts(body.options); setLastBuy(body.lastPurchase ?? null); setForm(toForm(body.record));
+    } catch (e) {
+      setLoadError((e as Error).message);
+    }
+  }, [mtrl]);
+
+  React.useEffect(() => { if (open) void load(); }, [open, load]);
+
+  const set = (k: keyof Form) => (v: string | boolean) => setForm((f) => (f ? { ...f, [k]: v } : f));
+  const text = (k: keyof Form) => ({
+    value: String(form?.[k] ?? ''),
+    onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => set(k)(e.target.value),
+  });
+
+  // Αλλαγές = πεδία που διαφέρουν από τη ζωντανή καρτέλα (μόνο αυτά φεύγουν στο SoftOne).
+  const original = React.useMemo(() => (rec ? fromForm(toForm(rec)) : null), [rec]);
+  const current = React.useMemo(() => (form ? fromForm(form) : null), [form]);
+  const changes = React.useMemo(() => {
+    if (!original || !current) return [] as string[];
+    return Object.keys(current).filter((k) => {
+      if (rec?.isService && ['unitBuy', 'buyRatio', 'unitSell', 'sellRatio'].includes(k)) return false;
+      const a = original[k]; const b = current[k];
+      return typeof a === 'number' || typeof b === 'number' ? Math.abs(Number(a) - Number(b)) > 1e-9 : a !== b;
+    });
+  }, [original, current, rec]);
+
+  const errors = React.useMemo(() => {
+    const e: Record<string, string> = {};
+    if (!current) return e;
+    if (!current.name) e.name = 'Η περιγραφή είναι υποχρεωτική.';
+    if (!current.code) e.code = 'Ο κωδικός είναι υποχρεωτικός.';
+    if (!current.unit1) e.unit1 = 'Υποχρεωτική.';
+    if (!current.vat) e.vat = 'Υποχρεωτικό.';
+    for (const k of NUMERIC) {
+      const n = Number(current[k]);
+      if (!Number.isFinite(n) || n < 0) e[k] = 'Μη έγκυρος αριθμός.';
+    }
+    if (!rec?.isService) {
+      if (Number(current.buyRatio) <= 0) e.buyRatio = 'Πρέπει να είναι > 0.';
+      if (Number(current.sellRatio) <= 0) e.sellRatio = 'Πρέπει να είναι > 0.';
+    }
+    return e;
+  }, [current, rec]);
+  const valid = Object.keys(errors).length === 0;
+
+  const save = async () => {
+    if (!rec || !current || changes.length === 0 || !valid) return;
+    const ok = await confirmAction({
+      title: 'Αποθήκευση στο SoftOne',
+      message: `Θα αλλάξουν στο SoftOne (${rec.code}): ${changes.map((k) => LABEL[k] ?? k).join(', ')}. Συνέχεια;`,
+      confirmLabel: 'Αποθήκευση',
+    });
+    if (!ok) return;
+    setBusy(true); setSaveError(null);
+    try {
+      const payload = Object.fromEntries(changes.map((k) => [k, current[k]]));
+      const res = await fetch(`/api/admin/softone/items/${rec.mtrl}/full`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.message || 'Η αποθήκευση απέτυχε');
+      toast.success(`Αποθηκεύτηκε στο SoftOne και επαληθεύτηκε: ${body.changed.map((c: { label: string }) => c.label).join(', ')}`);
+      onSaved?.();
+      onOpenChange(false);
+    } catch (e) {
+      setSaveError((e as Error).message);
+      // Μερική αποθήκευση: ξαναδιάβασε την καρτέλα ώστε η φόρμα να δείχνει την αλήθεια του SoftOne.
+      void load();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const err = (k: string) => (errors[k] ? errors[k] : null);
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => !busy && onOpenChange(o)}>
+      <DialogContent className="flex max-h-[92dvh] w-[96vw] flex-col gap-0 overflow-hidden p-0 sm:max-w-3xl">
+        <DialogHeader className="flex-row items-center gap-3 border-b border-border px-4 py-2.5 pr-12">
+          <span aria-hidden className="grid size-8 shrink-0 place-items-center rounded-lg bg-sisyphus-50 text-sisyphus-600 dark:bg-sisyphus-500/15 [&_svg]:size-4">
+            <FiEdit3 />
+          </span>
+          <div className="min-w-0 flex-1">
+            <DialogTitle className="text-[length:var(--fs-15)]">
+              {rec ? (rec.isService ? 'Επεξεργασία υπηρεσίας' : 'Επεξεργασία είδους') : 'Επεξεργασία'}
+            </DialogTitle>
+            <DialogDescription className="truncate text-[length:var(--fs-11)]">
+              {rec ? `${rec.code} — ${rec.name ?? ''} · ζωντανά από το SoftOne` : 'Φόρτωση από το SoftOne…'}
+            </DialogDescription>
+          </div>
+        </DialogHeader>
+
+        <DialogBody className="space-y-3 bg-muted/20 px-4 py-3">
+          {loadError && (
+            <div role="alert" className="flex flex-wrap items-center gap-2 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-[length:var(--fs-12)]">
+              <FiAlertTriangle className="size-4 text-destructive" aria-hidden />
+              <span className="flex-1">{loadError}</span>
+              <Button size="sm" variant="outline" onClick={load}>Δοκιμή ξανά</Button>
+            </div>
+          )}
+
+          {!form && !loadError && (
+            <div className="space-y-3" aria-busy="true" aria-label="Φόρτωση">
+              {[0, 1, 2].map((i) => <div key={i} className="h-28 animate-pulse rounded-lg bg-muted motion-reduce:animate-none" />)}
+            </div>
+          )}
+
+          {form && rec && opts && (
+            <>
+              <FormSection tone="blue" icon={<FiInfo />} title="Γενικά" aside={
+                <Segmented
+                  ariaLabel="Κατάσταση" value={form.isActive ? 'on' : 'off'}
+                  onChange={(v) => set('isActive')(v === 'on')}
+                  options={[{ value: 'on', label: 'Ενεργό' }, { value: 'off', label: 'Ανενεργό' }]}
+                />
+              }>
+                <div className="grid grid-cols-12 gap-x-3 gap-y-2">
+                  <Field label="Κωδικός" required htmlFor="it-code" className="col-span-12 sm:col-span-4" error={err('code')}>
+                    <Input id="it-code" {...text('code')} className={cn(fieldCls, 'font-mono')} aria-invalid={!!err('code')} />
+                  </Field>
+                  <Field label="Περιγραφή" required htmlFor="it-name" className="col-span-12 sm:col-span-8" error={err('name')}>
+                    <Input id="it-name" {...text('name')} maxLength={128} className={fieldCls} aria-invalid={!!err('name')} />
+                  </Field>
+                  <Field label="Περιγραφή 2" htmlFor="it-name2" className="col-span-12">
+                    <Input id="it-name2" {...text('name2')} maxLength={128} className={fieldCls} />
+                  </Field>
+                  <Field label="Barcode / EAN" htmlFor="it-code1" className="col-span-6">
+                    <Input id="it-code1" {...text('code1')} maxLength={50} className={cn(fieldCls, 'font-mono')} />
+                  </Field>
+                  <Field label="Κωδ. εργοστασίου" htmlFor="it-code2" className="col-span-6">
+                    <Input id="it-code2" {...text('code2')} maxLength={50} className={cn(fieldCls, 'font-mono')} />
+                  </Field>
+                </div>
+                {String(form.code) !== rec.code && (
+                  <RowHint tone="warn">Αλλαγή κωδικού: ελέγχεται η μάσκα και η μοναδικότητα σε όλο το μητρώο του SoftOne.</RowHint>
+                )}
+              </FormSection>
+
+              <FormSection tone="violet" icon={<FiLayers />} title="Εμπορική ταξινόμηση">
+                <div className="grid grid-cols-12 gap-x-3 gap-y-2">
+                  <Field label="Εμπορική κατηγορία" htmlFor="it-cat" className="col-span-12 sm:col-span-6">
+                    <OptSelect id="it-cat" value={String(form.category)} onChange={set('category')} opts={opts.categories} optional />
+                  </Field>
+                  <Field label="Ομάδα" htmlFor="it-grp" className="col-span-12 sm:col-span-6">
+                    <OptSelect id="it-grp" value={String(form.group)} onChange={set('group')} opts={opts.groups} optional />
+                  </Field>
+                  {!rec.isService && (
+                    <>
+                      <Field label="Κατασκευαστής" htmlFor="it-man" className="col-span-12 sm:col-span-6">
+                        <OptSelect id="it-man" value={String(form.manufacturer)} onChange={set('manufacturer')} opts={opts.manufacturers} optional />
+                      </Field>
+                      <Field label="Μάρκα" htmlFor="it-brand" className="col-span-12 sm:col-span-6">
+                        <OptSelect id="it-brand" value={String(form.brand)} onChange={set('brand')} opts={opts.brands} optional />
+                      </Field>
+                    </>
+                  )}
+                  <Field label="Κατηγορία ΦΠΑ" required htmlFor="it-vat" className="col-span-12 sm:col-span-6" error={err('vat')}>
+                    <OptSelect id="it-vat" value={String(form.vat)} onChange={set('vat')} opts={opts.vats} invalid={!!err('vat')} />
+                  </Field>
+                </div>
+              </FormSection>
+
+              <FormSection tone="amber" icon={<FiBox />} title="Μονάδες μέτρησης">
+                <div className="grid grid-cols-12 gap-x-3 gap-y-2">
+                  <Field label="Βασική μονάδα" required htmlFor="it-u1" className="col-span-12 sm:col-span-4" error={err('unit1')}>
+                    <OptSelect id="it-u1" value={String(form.unit1)} onChange={set('unit1')} opts={opts.units} invalid={!!err('unit1')} />
+                  </Field>
+                  {!rec.isService && (
+                    <>
+                      <Field label="Μονάδα αγορών" htmlFor="it-u3" className="col-span-7 sm:col-span-5">
+                        <OptSelect id="it-u3" value={String(form.unitBuy)} onChange={set('unitBuy')} opts={opts.units} optional />
+                      </Field>
+                      <Field label="Σχέση με βασική" htmlFor="it-mu31" className="col-span-5 sm:col-span-3" error={err('buyRatio')}>
+                        <Input id="it-mu31" inputMode="decimal" {...text('buyRatio')} className={cn(fieldCls, 'tabular-nums')} aria-invalid={!!err('buyRatio')} />
+                      </Field>
+                      <div className="hidden sm:col-span-4 sm:block" />
+                      <Field label="Μονάδα πώλησης" htmlFor="it-u4" className="col-span-7 sm:col-span-5">
+                        <OptSelect id="it-u4" value={String(form.unitSell)} onChange={set('unitSell')} opts={opts.units} optional />
+                      </Field>
+                      <Field label="Σχέση με βασική" htmlFor="it-mu41" className="col-span-5 sm:col-span-3" error={err('sellRatio')}>
+                        <Input id="it-mu41" inputMode="decimal" {...text('sellRatio')} className={cn(fieldCls, 'tabular-nums')} aria-invalid={!!err('sellRatio')} />
+                      </Field>
+                    </>
+                  )}
+                </div>
+                {!rec.isService && <RowHint>«Σχέση με βασική»: πόσες βασικές μονάδες κάνει 1 μονάδα αγορών/πώλησης (π.χ. 1 κιβώτιο = 12 τεμάχια).</RowHint>}
+              </FormSection>
+
+              <FormSection tone="emerald" icon={<FiDollarSign />} title="Τιμές" aside={
+                lastBuy
+                  ? <span className="tabular-nums">Τελ. αγορά: <strong>{eur.format(lastBuy.unitCost)}</strong> · {new Date(lastBuy.date).toLocaleDateString('el-GR', { timeZone: 'UTC' })} · {lastBuy.fincode}</span>
+                  : <span>Καμία αγορά στο SoftOne</span>
+              }>
+                <div className="grid grid-cols-12 gap-x-3 gap-y-2">
+                  <Field label="Τιμή λιανικής (€)" htmlFor="it-pr" className="col-span-6 sm:col-span-4" error={err('priceRetail')}>
+                    <Input id="it-pr" inputMode="decimal" {...text('priceRetail')} placeholder="0,00" className={cn(fieldCls, 'tabular-nums')} aria-invalid={!!err('priceRetail')} />
+                  </Field>
+                  <Field label="Τιμή χονδρικής (€)" htmlFor="it-pw" className="col-span-6 sm:col-span-4" error={err('priceWholesale')}>
+                    <Input id="it-pw" inputMode="decimal" {...text('priceWholesale')} placeholder="0,00" className={cn(fieldCls, 'tabular-nums')} aria-invalid={!!err('priceWholesale')} />
+                  </Field>
+                </div>
+              </FormSection>
+
+              <FormSection tone="slate" icon={<FiSliders />} title="Λοιπά">
+                <div className="grid grid-cols-12 gap-x-3 gap-y-2">
+                  {!rec.isService && (
+                    <>
+                      <Field label="Βάρος" htmlFor="it-w" className="col-span-6 sm:col-span-3" error={err('weight')}>
+                        <Input id="it-w" inputMode="decimal" {...text('weight')} className={cn(fieldCls, 'tabular-nums')} />
+                      </Field>
+                      <Field label="Όγκος" htmlFor="it-v" className="col-span-6 sm:col-span-3" error={err('volume')}>
+                        <Input id="it-v" inputMode="decimal" {...text('volume')} className={cn(fieldCls, 'tabular-nums')} />
+                      </Field>
+                    </>
+                  )}
+                  <Field label="Παρατηρήσεις" htmlFor="it-rem" className="col-span-12">
+                    <textarea
+                      id="it-rem" rows={2} maxLength={2000} {...text('remarks')}
+                      className="w-full rounded-lg border border-input bg-transparent px-2.5 py-1.5 text-[length:var(--fs-13)] outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                    />
+                  </Field>
+                </div>
+              </FormSection>
+
+              {saveError && (
+                <p role="alert" className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-[length:var(--fs-12)] text-destructive">
+                  {saveError}
+                </p>
+              )}
+            </>
+          )}
+        </DialogBody>
+
+        <DialogFooter className="mx-0 mb-0 items-center gap-2 border-t border-border bg-card px-4 py-2.5">
+          <span className="mr-auto text-[length:var(--fs-11)] text-muted-foreground" aria-live="polite">
+            {changes.length === 0 ? 'Καμία αλλαγή' : `${changes.length} ${changes.length === 1 ? 'αλλαγή' : 'αλλαγές'}: ${changes.map((k) => LABEL[k] ?? k).join(', ')}`}
+          </span>
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={busy}>Άκυρο</Button>
+          <Button onClick={save} disabled={busy || changes.length === 0 || !valid}>
+            {busy && <FiLoader className="mr-1.5 size-3.5 animate-spin motion-reduce:animate-none" aria-hidden />}
+            {busy ? 'Αποστολή…' : 'Αποθήκευση στο SoftOne'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
