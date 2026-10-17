@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import { ConfirmHost } from '@/components/ui/confirm-dialog';
-import { Inter, Manrope } from 'next/font/google';
+import { Commissioner, Inter, Manrope, Noto_Serif_Display } from 'next/font/google';
 import './globals.css';
 import { Toaster } from 'sonner';
 import { TooltipProvider } from '@/components/ui/tooltip';
@@ -17,6 +17,21 @@ const manrope = Manrope({
   display: 'swap',
 });
 
+// Δημόσιο website (μόνο κάτω από `.site`): τίτλοι σε Commissioner Light (σχεδιασμένη με σωστά ελληνικά)·
+// η κομψή serif ΜΟΝΟ για αριθμούς και το λατινικό λογότυπο (ύφος Porcelanosa).
+const siteSans = Commissioner({
+  variable: '--font-site',
+  subsets: ['latin', 'greek'],
+  weight: ['300', '400', '500'],
+  display: 'swap',
+});
+const siteSerif = Noto_Serif_Display({
+  variable: '--font-num',
+  subsets: ['latin', 'greek'],
+  weight: ['300', '400'],
+  display: 'swap',
+});
+
 export const metadata: Metadata = {
   title: { default: 'DGEspa', template: '%s · DGEspa' },
   description: 'DGEspa — διαχείριση και ροές εργασίας ΕΣΠΑ.',
@@ -30,7 +45,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="el" className={`${inter.variable} ${manrope.variable}`}>
+    <html lang="el" className={`${inter.variable} ${manrope.variable} ${siteSans.variable} ${siteSerif.variable}`}>
       <body className="min-h-screen bg-background text-foreground antialiased">
         <TooltipProvider delayDuration={200}>{children}</TooltipProvider>
         <ConfirmHost />

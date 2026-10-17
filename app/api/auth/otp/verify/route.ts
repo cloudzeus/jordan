@@ -2,51 +2,41 @@ import bcrypt from 'bcryptjs';
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/db';
 import { verifyOtpToken } from '@/lib/otp';
-import { createSessionToken, createAuthenticatedResponse } from '@/lib/session';
+import { createSessionToken, sessionCookie } from '@/lib/session';
+import { logAudit } from '@/lib/audit';
+import { homeFor, passwordProblem } from '@/lib/auth-home';
+import { PENDING_COOKIE, parsePending, pendingCookie, redirectTo } from '@/lib/auth-flow';
 
 export async function POST(request: NextRequest) {
-  const formData = await request.formData();
-  const email = formData.get('email')?.toString().trim().toLowerCase();
-  const code = formData.get('code')?.toString().trim();
-  const mode = formData.get('mode')?.toString() as 'register' | 'reset' | 'login';
-  const password = formData.get('password')?.toString();
+  const pending = parsePending(request.cookies.get(PENDING_COOKIE)?.value);
+  if (!pending) return redirectTo('/auth/signin?error=expired');
+  const { email, mode } = pending;
 
-  if (!email || !code || !mode) {
-    return new Response(null, { status: 302, headers: { Location: `/auth/verify-otp?email=${encodeURIComponent(email ?? '')}&mode=${mode ?? 'reset'}&error=missing` } });
+  const form = await request.formData();
+  const code = form.get('code')?.toString().replace(/\s/g, '') ?? '';
+  const password = form.get('password')?.toString();
+  const confirm = form.get('confirm')?.toString() ?? '';
+
+  // Ο νέος κωδικός ελέγχεται ΠΡΙΝ «καεί» το OTP — αλλιώς ένα τυπογραφικό θα ζητούσε νέο email.
+  if (mode === 'reset') {
+    const problem = passwordProblem(password, confirm);
+    if (problem) return redirectTo(`/auth/verify-otp?error=${problem}`);
   }
 
-  const validOtp = await verifyOtpToken(email, code, mode);
-  if (!validOtp) {
-    return new Response(null, { status: 302, headers: { Location: `/auth/verify-otp?email=${encodeURIComponent(email)}&mode=${mode}&error=invalid` } });
-  }
+  if (!(await verifyOtpToken(email, code, mode))) return redirectTo('/auth/verify-otp?error=invalid');
 
   const user = await prisma.user.findUnique({ where: { email }, include: { role: true } });
-  if (!user) {
-    return new Response(null, { status: 302, headers: { Location: '/auth/signin?error=notfound' } });
-  }
-
-  if (mode === 'register') {
-    await prisma.user.update({ where: { id: user.id }, data: { emailVerified: new Date() } });
-    return new Response(null, { status: 302, headers: { Location: '/auth/signin?success=verified' } });
-  }
+  if (!user || !user.isActive) return redirectTo('/auth/signin?error=invalid', pendingCookie(null));
 
   if (mode === 'reset') {
-    if (!password) {
-      return new Response(null, { status: 302, headers: { Location: `/auth/verify-otp?email=${encodeURIComponent(email)}&mode=reset&error=missing_password` } });
-    }
-    const passwordHash = await bcrypt.hash(password, 12);
-    await prisma.user.update({ where: { id: user.id }, data: { passwordHash, emailVerified: user.emailVerified ?? new Date() } });
-    return new Response(null, { status: 302, headers: { Location: '/auth/signin?success=reset' } });
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { passwordHash: await bcrypt.hash(password!, 12), emailVerified: user.emailVerified ?? new Date() },
+    });
+    await logAudit({ userId: user.id, userEmail: user.email, action: 'auth.password_reset', resource: 'user', metadata: { method: 'otp' } });
+    return redirectTo('/auth/signin?success=reset', pendingCookie(null));
   }
 
-  if (mode === 'login') {
-    const token = createSessionToken(user.id);
-    const key = user.role.key;
-    const redirectUrl = key === 'SUPER_ADMIN' || key === 'ADMIN'
-      ? '/admin'
-      : key ? `/dashboard/${key.toLowerCase()}` : '/admin';
-    return createAuthenticatedResponse(redirectUrl, token);
-  }
-
-  return new Response(null, { status: 302, headers: { Location: '/auth/signin?error=invalid' } });
+  await logAudit({ userId: user.id, userEmail: user.email, action: 'auth.login', resource: 'session', metadata: { method: 'otp' } });
+  return redirectTo(homeFor(user.role.key), pendingCookie(null), sessionCookie(createSessionToken(user.id)));
 }

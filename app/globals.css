@@ -400,7 +400,10 @@ body {
     --fs-32: clamp(1.56rem, 1.38783rem + 0.76522vw, 2rem);
     --fs-36: clamp(1.755rem, 1.5613rem + 0.86087vw, 2.25rem);
     --fs-40: clamp(1.95rem, 1.73478rem + 0.95652vw, 2.5rem);
+    --fs-48: clamp(2.34rem, 2.08174rem + 1.14783vw, 3rem);
     --fs-56: clamp(2.73rem, 2.4287rem + 1.33913vw, 3.5rem);
+    --fs-64: clamp(3.12rem, 2.77565rem + 1.53043vw, 4rem);
+    --fs-72: clamp(3.51rem, 3.12261rem + 1.72174vw, 4.5rem);
   }
 
   /* Συσκευή αφής: γραμμές και κελιά στα 44px — ελάχιστος στόχος αφής (Apple HIG / Material). */
@@ -456,3 +459,34 @@ select:is([class*=" h-"], [class^="h-"]) {
 [data-slot="dialog-content"] *::-webkit-scrollbar-thumb:hover { background-color: color-mix(in srgb, var(--muted-foreground) 60%, transparent); }
 [data-slot="dialog-content"]::-webkit-scrollbar-corner,
 [data-slot="dialog-content"] *::-webkit-scrollbar-corner { background: transparent; }
+
+/* ============================================================
+   Δημόσιο website — λιτό, εκδοτικό (αρχές δανέζικου design, ύφος Porcelanosa):
+   λευκό + ζεστό χαρτί, βαθύ μπλε-γκρι μελάνι, ελαφριοί τίτλοι, serif μόνο στους αριθμούς,
+   φωτογραφία σε όλο το πλάτος, λεπτές γραμμές, καθόλου σκιές.
+   Όλες οι αντιθέσεις κειμένου ≥ 4.5:1 σε λευκό και σε χαρτί.
+   ============================================================ */
+.site {
+  --s-bg: #FFFFFF;
+  --s-paper: #F6F4F0;
+  --s-ink: #1C3241;
+  --s-ink-2: #4F5B63;
+  --s-mute: #6B7378;
+  --s-line: #E7E3DD;
+  --s-accent: #7A5C43;
+  --s-ease: cubic-bezier(0.2, 0, 0, 1);
+  background: var(--s-bg);
+  color: var(--s-ink);
+  font-family: var(--font-inter), system-ui, sans-serif;
+  font-size: var(--fs-16);
+  line-height: 1.6;
+}
+/* Πιο ειδικό από το «HARD font lock» (επίσης !important) — ισχύει ΜΟΝΟ στο website. */
+.site .font-site, .site .font-site * { font-family: var(--font-site), var(--font-inter), system-ui, sans-serif !important; letter-spacing: -0.015em; }
+.site .font-num, .site .font-num * { font-family: var(--font-num), Georgia, serif !important; letter-spacing: 0; font-variant-numeric: lining-nums tabular-nums; }
+.site :focus-visible { outline: 2px solid var(--s-ink); outline-offset: 3px; border-radius: 2px; }
+.site .s-link { text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 4px; text-decoration-color: var(--s-line); transition: text-decoration-color 200ms var(--s-ease); }
+.site .s-link:hover { text-decoration-color: currentColor; }
+.site .s-img { transition: transform 600ms var(--s-ease); }
+.site .group:hover .s-img { transform: scale(1.025); }
+@media (prefers-reduced-motion: reduce) { .site .s-img { transition: none; } .site .group:hover .s-img { transform: none; } }

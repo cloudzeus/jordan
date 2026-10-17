@@ -39,6 +39,8 @@ export type ContainerSceneProps = {
   /** Κουμπί πλήρους οθόνης (false στο ίδιο το παράθυρο πλήρους οθόνης). */
   expandable?: boolean;
   className?: string;
+  /** Απόσταση κάμερας ως συντελεστής του «χωράει ολόκληρο» (προεπιλογή 0.92· μικρότερο = πιο κοντά). */
+  fitScale?: number;
 };
 
 type Slab = { l: number; w: number; t: number };
@@ -493,7 +495,7 @@ export function buildScene(scene: THREE.Scene, pallets: number, filled: number, 
 }
 
 export default function ContainerScene({
-  pallets, perPallet, labels, filled, load = 'boxes', slab, heightClass = 'h-72 sm:h-80', expandable = true, className,
+  pallets, perPallet, labels, filled, load = 'boxes', slab, heightClass = 'h-72 sm:h-80', expandable = true, className, fitScale = 0.92,
 }: ContainerSceneProps) {
   const host = React.useRef<HTMLDivElement>(null);
   const [failed, setFailed] = React.useState(false);
@@ -604,6 +606,10 @@ export default function ContainerScene({
     return () => built.dispose();
   }, [ready, pallets, fill, load, slabKey, perPallet]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Πόσο «κοντά» κάθεται η κάμερα (0.92 = ολόκληρο με αέρα· μικρότερο = πιο κοντινό κάδρο).
+  const fitScaleRef = React.useRef(fitScale);
+  fitScaleRef.current = fitScale;
+
   // Κάμερα/ήλιος ανάλογα με το container (20ft / 40ft): κάδρο που χωράει ολόκληρο το container.
   const size = info.size;
   React.useEffect(() => {
@@ -621,7 +627,7 @@ export default function ContainerScene({
     const fit = () => {
       const v = THREE.MathUtils.degToRad(st.camera.fov / 2);
       const hz = Math.atan(Math.tan(v) * st.camera.aspect);
-      const dist = (radius / Math.sin(Math.min(v, hz))) * 0.92;
+      const dist = (radius / Math.sin(Math.min(v, hz))) * fitScaleRef.current;
       const dir = new THREE.Vector3(0.55, 0.6, 1).normalize();
       st.camera.position.copy(st.controls.target).add(dir.multiplyScalar(dist));
       st.controls.minDistance = dist * 0.3;

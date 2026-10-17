@@ -446,10 +446,10 @@ export const openapiSpec = {
     '/api/auth/register': {
       post: {
         tags: ['Auth'],
-        summary: 'Εγγραφή νέου χρήστη',
+        summary: 'Αίτημα πρόσβασης (B2B)',
         description:
-          'Δημιουργεί νέο λογαριασμό με προεπιλεγμένο ρόλο CUSTOMER, χωρίς email verification. ' +
-          'Στέλνει OTP για ενεργοποίηση και κάνει redirect στο /auth/verify-otp.',
+          'ΔΕΝ δημιουργεί λογαριασμό. Στέλνει τα στοιχεία στο email της εταιρείας (Reply-To = αιτών)· ' +
+          'η πρόσβαση δίνεται από την καρτέλα πελάτη/συνεργάτη. Το πεδίο `website` είναι honeypot.',
         security: [],
         requestBody: {
           required: true,
@@ -457,17 +457,21 @@ export const openapiSpec = {
             'application/x-www-form-urlencoded': {
               schema: {
                 type: 'object',
-                required: ['name', 'email', 'password'],
+                required: ['name', 'company', 'email'],
                 properties: {
+                  kind: { type: 'string', enum: ['customer', 'partner'] },
                   name: { type: 'string' },
+                  company: { type: 'string' },
                   email: { type: 'string', format: 'email' },
-                  password: { type: 'string', minLength: 8 },
+                  phone: { type: 'string' },
+                  vat: { type: 'string' },
+                  message: { type: 'string', maxLength: 2000 },
                 },
               },
             },
           },
         },
-        responses: { 302: { description: 'Redirect (σε /auth/verify-otp ή /auth/register?error=...)' } },
+        responses: { 302: { description: 'Redirect σε /auth/register?success=1 ή ?error=missing|email|send' } },
       },
     },
     '/api/auth/otp/send': {
@@ -475,8 +479,9 @@ export const openapiSpec = {
         tags: ['Auth'],
         summary: 'Αποστολή κωδικού OTP',
         description:
-          'Αποστέλλει 6-ψήφιο OTP στο email σε mode `login`, `register` ή `reset`. ' +
-          'Σε mode `reset` ή `login` ο χρήστης πρέπει να υπάρχει ήδη. Λήξη OTP: 10 λεπτά.',
+          'Αποστέλλει 6-ψήφιο OTP (λήξη 15′, 5 προσπάθειες, έως 3 αποστολές/15′) σε mode `login` ή `reset`. ' +
+          'Απαντά ΠΑΝΤΑ το ίδιο (δεν προδίδει αν υπάρχει το email)· στέλνει μόνο σε ενεργό χρήστη. ' +
+          'Το email της ροής κρατιέται σε httpOnly cookie `auth_pending`, όχι στο URL.',
         security: [],
         requestBody: {
           required: true,
@@ -487,13 +492,13 @@ export const openapiSpec = {
                 required: ['email', 'mode'],
                 properties: {
                   email: { type: 'string', format: 'email' },
-                  mode: { type: 'string', enum: ['login', 'register', 'reset'] },
+                  mode: { type: 'string', enum: ['login', 'reset'] },
                 },
               },
             },
           },
         },
-        responses: { 302: { description: 'Redirect σε /auth/verify-otp' } },
+        responses: { 302: { description: 'Redirect σε /auth/verify-otp (+ Set-Cookie auth_pending)' } },
       },
     },
     '/api/auth/otp/verify': {

@@ -32,6 +32,11 @@ function buildCookie(value: string, maxAge: number) {
   return `${COOKIE_NAME}=${value}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAge}${secure}`;
 }
 
+/** Set-Cookie της συνεδρίας (για routes που στέλνουν κι άλλα cookies μαζί). */
+export function sessionCookie(token: string) {
+  return buildCookie(token, MAX_AGE);
+}
+
 export function createAuthenticatedResponse(url: string, token: string) {
   return new Response(null, {
     status: 302,
