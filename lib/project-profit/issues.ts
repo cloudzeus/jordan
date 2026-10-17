@@ -263,6 +263,33 @@ export function detectIssues(
     });
   }
 
+  // ── 6. INTEGRATOR: επίσημο PDF παρόχου / ΜΑΡΚ που δεν φτάνουν στο SoftOne ──
+  const projectDocs = docs.filter((d) => countsDoc(d) && hasProject(d) && (d.sosource === SALES || d.sosource === PURCHASES));
+  if (projectDocs.some((d) => d.mydata)) {
+    const stat = (sosource: number) => {
+      const ds = projectDocs.filter((d) => d.sosource === sosource);
+      return {
+        n: ds.length,
+        mark: ds.filter((d) => d.mydata?.mark).length,
+        pdf: ds.filter((d) => d.mydata?.providerUrl).length,
+        att: ds.filter((d) => (d.mydata?.attachments ?? 0) > 0).length,
+      };
+    };
+    const sales = stat(SALES);
+    const purch = stat(PURCHASES);
+    const rows: string[] = [];
+    if (sales.n && sales.pdf + sales.att < sales.n) rows.push(`Πωλήσεις έργων: ${sales.n} παραστατικά · με ΜΑΡΚ ${sales.mark} · με URL παρόχου ${sales.pdf} · με συνημμένο PDF ${sales.att}`);
+    if (purch.n && purch.mark < purch.n) rows.push(`Αγορές έργων: ${purch.n} τιμολόγια · με ΜΑΡΚ εκδότη ${purch.mark} · με συνημμένο PDF ${purch.att}`);
+    if (rows.length) {
+      issues.push({
+        key: 'provider-pdf-missing', audience: 'integrator', severity: 'mid', prjcs: [], rows,
+        title: 'Έργα: το επίσημο PDF του παρόχου (με ΜΑΡΚ/QR) δεν είναι διαθέσιμο στο SoftOne',
+        detail: 'Για να κατεβαίνει από την εφαρμογή το επίσημο παραστατικό του παρόχου ηλεκτρονικής τιμολόγησης, το SoftOne πρέπει να το κρατά. Σήμερα το πεδίο «QR Url Παρόχου» (MYDATAHEADER.INVOICEURL) είναι κενό και δεν υπάρχουν συνημμένα στα «Σχετικά έγγραφα» (XTRDOCDATA) των παραστατικών· υπάρχει μόνο ο ΜΑΡΚ και το QR της ΑΑΔΕ. Ενέργεια integrator: η διασύνδεση με τον πάροχο να γράφει κατά τη διαβίβαση το URL του παραστατικού στο INVOICEURL (ή να επισυνάπτει το PDF στα Σχετικά έγγραφα του παραστατικού). Για τις αγορές: να καταχωρείται ο ΜΑΡΚ του εκδότη (λήψη/αντιστοίχιση παραστατικών από το myDATA), ώστε κάθε τιμολόγιο αγοράς να δένεται με την εγγραφή του στην ΑΑΔΕ.',
+        amount: null, docs: [],
+      });
+    }
+  }
+
   return issues;
 }
 

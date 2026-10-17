@@ -47,6 +47,18 @@ export type FinDoc = {
   vat: number;
   total: number;
   cancelled: boolean;
+  /** myDATA (πίνακας MYDATAHEADER) + συνημμένα (XTRDOCDATA) — ό,τι βρέθηκε, αλλιώς null/0. */
+  mydata?: MyDataInfo;
+};
+
+export type MyDataInfo = {
+  mark: string | null;
+  /** QR URL της ΑΑΔΕ (σελίδα επαλήθευσης myDATA) — όχι PDF. */
+  qrUrl: string | null;
+  /** INVOICEURL «QR Url Παρόχου» — το επίσημο παραστατικό του παρόχου ηλεκτρονικής τιμολόγησης. */
+  providerUrl: string | null;
+  /** Πλήθος συνημμένων αρχείων στο SoftOne. */
+  attachments: number;
 };
 
 export type FinLine = {
@@ -96,6 +108,10 @@ export type DocRef = {
   gross: number;
   /** Μόνο μέρος του παραστατικού αφορά το έργο. */
   partial: boolean;
+  mark: string | null;
+  qrUrl: string | null;
+  /** Υπάρχει επίσημο PDF παρόχου για λήψη. */
+  providerPdf: boolean;
 };
 
 export type StockLine = {
@@ -194,6 +210,7 @@ export function projectShare(doc: FinDoc, lines: FinLine[], prjc: number): { net
 const ref = (d: FinDoc, net: number, gross: number, partial: boolean): DocRef => ({
   findoc: d.findoc, fincode: d.fincode, date: d.date, sosource: d.sosource, series: d.series, seriesName: d.seriesName,
   kind: d.kind, traderName: d.traderName, net: round2(net), gross: round2(gross), partial,
+  mark: d.mydata?.mark ?? null, qrUrl: d.mydata?.qrUrl ?? null, providerPdf: !!d.mydata?.providerUrl,
 });
 
 const daysBetween = (fromIso: string, toIso: string) => Math.floor((Date.parse(toIso.slice(0, 10)) - Date.parse(fromIso.slice(0, 10))) / 86_400_000);

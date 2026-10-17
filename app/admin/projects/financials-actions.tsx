@@ -3,7 +3,7 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { FiMoreVertical, FiRefreshCw, FiPercent, FiHelpCircle, FiTool, FiTrash2, FiLoader } from 'react-icons/fi';
+import { FiMoreVertical, FiRefreshCw, FiPercent, FiHelpCircle, FiTool, FiTrash2, FiLoader, FiFileText } from 'react-icons/fi';
 import { toast } from 'sonner';
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger,
@@ -26,7 +26,7 @@ const fmtDay = (d: string | null) => (d ? new Date(`${d}T00:00:00Z`).toLocaleDat
  * Ενέργειες οικονομικών έργων ως στοιχεία μενού + ο διάλογος ποσοστών — για να μπαίνουν στο ΙΔΙΟ ⋮
  * με τις υπόλοιπες ενέργειες (λίστα: δικό τους ⋮ στην κεφαλίδα· καρτέλα έργου: μέσα στο ⋮ του έργου).
  */
-export function useFinancialsActions(canManage: boolean) {
+export function useFinancialsActions(canManage: boolean, prjc?: number) {
   const router = useRouter();
   const [busy, setBusy] = React.useState(false);
   const [ratesOpen, setRatesOpen] = React.useState(false);
@@ -58,6 +58,8 @@ export function useFinancialsActions(canManage: boolean) {
           <FiPercent className="size-3.5" aria-hidden /> Ποσοστά γενικών εξόδων…
         </DropdownMenuItem>
       )}
+      {prjc != null && <ExportItem prjc={prjc} />}
+      <ExportItem prjc={null} />
       <DropdownMenuItem className={ITEM} onSelect={() => router.push('/admin/accounting/questions')}>
         <FiHelpCircle className="size-3.5" aria-hidden /> Ερωτήματα λογιστή
       </DropdownMenuItem>
@@ -68,6 +70,18 @@ export function useFinancialsActions(canManage: boolean) {
   );
   const dialog = canManage ? <OverheadRatesDialog open={ratesOpen} onOpenChange={setRatesOpen} /> : null;
   return { items, dialog, busy };
+}
+
+/** Λήψη του Word με τις κατευθύνσεις (ανά ομάδα παραληπτών) — ενός έργου ή όλων των ανοιχτών θεμάτων. */
+export function ExportItem({ prjc }: { prjc: number | null }) {
+  return (
+    <DropdownMenuItem className={ITEM} asChild>
+      <a href={prjc == null ? '/api/admin/projects/instructions' : `/api/admin/projects/${prjc}/instructions`} download onClick={(e) => e.stopPropagation()}>
+        <FiFileText className="size-3.5" style={{ color: '#2B579A' }} aria-hidden />
+        {prjc == null ? 'Κατευθύνσεις όλων των έργων (Word)' : 'Κατευθύνσεις έργου (Word)'}
+      </a>
+    </DropdownMenuItem>
+  );
 }
 
 /** ⋮ ενέργειες οικονομικών στην κεφαλίδα της λίστας έργων. */

@@ -193,11 +193,11 @@ export function ProjectsTableClient({
       enableSorting: false, enableHiding: false, enableResizing: false,
       cell: ({ row }) => (
         <div className="flex justify-end">
-          <ProjectRowActions prjc={row.original.prjc} code={row.original.code} name={row.original.name} canManage={canManage} />
+          <ProjectRowActions prjc={row.original.prjc} code={row.original.code} name={row.original.name} canManage={canManage} exportDoc={showFinancials && (row.original.fin?.issues ?? 0) > 0} />
         </div>
       ),
     },
-  ], [canManage, finColumns]);
+  ], [canManage, finColumns, showFinancials]);
 
   const chip = (active: boolean) => cn(
     'inline-flex h-7 items-center gap-1 rounded-md border px-2.5 text-[length:var(--fs-11)] font-medium transition',

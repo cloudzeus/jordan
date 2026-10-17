@@ -9,13 +9,13 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { AddBudgetLineDialog } from './add-budget-line-dialog';
 import { emitProjectRefresh } from './project-events';
-import { useFinancialsActions } from './financials-actions';
+import { ExportItem, useFinancialsActions } from './financials-actions';
 
 const ITEM = 'cursor-pointer gap-2 text-[length:var(--fs-12)]';
 
 /** Μενού ενεργειών δεξιά σε κάθε έργο (λίστα) ή στην κεφαλίδα της καρτέλας του. */
 export function ProjectRowActions({
-  prjc, code, name, canManage, financials = false,
+  prjc, code, name, canManage, financials = false, exportDoc = false,
 }: {
   prjc: number;
   code: string;
@@ -23,9 +23,11 @@ export function ProjectRowActions({
   canManage: boolean;
   /** Καρτέλα έργου με projects.financials: οι ενέργειες οικονομικών μπαίνουν στο ίδιο μενού. */
   financials?: boolean;
+  /** Λίστα έργων με projects.financials: «Κατευθύνσεις έργου (Word)» στο μενού της γραμμής. */
+  exportDoc?: boolean;
 }) {
   const router = useRouter();
-  const fin = useFinancialsActions(canManage);
+  const fin = useFinancialsActions(canManage, prjc);
   const [dialog, setDialog] = React.useState<'product' | 'service' | null>(null);
 
   const copy = async () => {
@@ -80,6 +82,7 @@ export function ProjectRowActions({
               {fin.items}
             </>
           )}
+          {!financials && exportDoc && <ExportItem prjc={prjc} />}
         </DropdownMenuContent>
       </DropdownMenu>
       {financials && fin.dialog}

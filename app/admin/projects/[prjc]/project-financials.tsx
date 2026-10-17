@@ -3,6 +3,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import { COST_CATEGORIES, COST_CATEGORY_LABEL, type DocRef, type ProjectProfit } from '@/lib/project-profit/calc';
 import type { DataIssue } from '@/lib/project-profit/issues';
 import { IssueLinks } from '../financials-actions';
+import { DocRowActions } from './doc-row-actions';
 
 const eur = new Intl.NumberFormat('el-GR', { style: 'currency', currency: 'EUR' });
 const pct = (n: number | null) => (n == null ? '—' : `${n.toLocaleString('el-GR', { maximumFractionDigits: 1 })}%`);
@@ -46,6 +47,7 @@ function DocsTable({ docs, gross }: { docs: DocRef[]; gross?: boolean }) {
             <th className="py-1 pr-3 font-medium">Συναλλασσόμενος</th>
             {!gross && <th className="py-1 pr-3 text-right font-medium">Καθαρή</th>}
             <th className="py-1 text-right font-medium">{gross ? 'Ποσό' : 'Μικτή'}</th>
+            <th className="w-8 py-1"><span className="sr-only">Ενέργειες</span></th>
           </tr>
         </thead>
         <tbody>
@@ -55,12 +57,16 @@ function DocsTable({ docs, gross }: { docs: DocRef[]; gross?: boolean }) {
                 <span className="font-mono text-foreground">{d.fincode}</span>
                 <span className="ml-1.5 font-mono text-[length:var(--fs-11)] text-muted-foreground">#{d.findoc}</span>
                 {d.partial && <span className="ml-1.5 rounded-sm bg-muted px-1 text-[length:var(--fs-11)] text-muted-foreground" title="Μόνο μέρος των γραμμών αφορά το έργο">μερικό</span>}
+                {d.mark && <span className="block font-mono text-[length:var(--fs-11)] text-muted-foreground">ΜΑΡΚ {d.mark}</span>}
               </td>
               <td className="py-1 pr-3 tabular-nums text-muted-foreground">{fmtDate(d.date)}</td>
               <td className="py-1 pr-3 text-muted-foreground">{d.seriesName ?? d.series}</td>
               <td className="py-1 pr-3">{d.traderName ?? '—'}</td>
               {!gross && <td className="py-1 pr-3 text-right tabular-nums">{eur.format(d.net)}</td>}
               <td className="py-1 text-right tabular-nums">{eur.format(d.gross)}</td>
+              <td className="py-0.5 pl-1 text-right">
+                <DocRowActions findoc={d.findoc} fincode={d.fincode} mark={d.mark ?? null} qrUrl={d.qrUrl ?? null} providerPdf={!!d.providerPdf} />
+              </td>
             </tr>
           ))}
         </tbody>

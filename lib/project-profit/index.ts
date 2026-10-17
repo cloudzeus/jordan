@@ -9,6 +9,10 @@ import {
   type DocKind, type FinDoc, type FinLine, type ProjectProfit, type ProjectRef,
 } from './calc';
 import { detectIssues, type DataIssue } from './issues';
+import { safeUrl } from './url';
+import { issueFingerprint } from './issues';
+import { issuesToInstructions, PROJECT_NOTES, PROJECT_RECIPIENTS, projectQuestionKey } from './instructions';
+import { buildInstructionsDocx } from '@/lib/instructions-doc';
 
 /**
  * ΚΕΡΔΟΦΟΡΙΑ ΕΡΓΩΝ — φόρτωση από το SoftOne (ΜΟΝΟ ανάγνωση, GetTable) και στιγμιότυπο στη βάση.
@@ -28,6 +32,8 @@ const SOURCES = [SALES, PURCHASES, CUSTOMER_REMITTANCES, SUPPLIER_REMITTANCES, S
 
 const DOC_FIELDS = ['FINDOC', 'FINCODE', 'TRNDATE', 'SERIES', 'SOSOURCE', 'TRDR', 'PRJC', 'NETAMNT', 'VATAMNT', 'SUMAMNT', 'ISCANCEL'];
 const LINE_FIELDS = ['FINDOC', 'MTRL', 'PRJC', 'QTY1', 'LINEVAL', 'SODTYPE', 'FINDOCS'];
+export const MYDATA_FIELDS = ['SOSOURCE', 'SOID', 'MARK', 'QRURL', 'INVOICEURL', 'ISCANCEL'];
+
 
 const num = (v: string | undefined) => {
   const n = Number(v);
@@ -51,11 +57,23 @@ export type FinancialsRun = { computedAt: string; projects: number; issues: numb
 export type StoredIssues = { computedAt: string; issues: DataIssue[] };
 
 async function computeAll(): Promise<FinancialsRun> {
-  const [heads, lineRows] = await Promise.all([
+  const [heads, lineRows, mydataRows, attachRows] = await Promise.all([
     softoneGetTable('FINDOC', DOC_FIELDS, `SOSOURCE IN (${SOURCES.join(',')})`),
     // Γραμμές με έργο + γραμμές παραστατικών με έργο στην κεφαλή + γραμμές που μετασχηματίστηκαν από άλλο.
     softoneGetTable('MTRLINES', LINE_FIELDS, 'PRJC>0 OR FINDOCS>0 OR FINDOC IN (SELECT FINDOC FROM FINDOC WHERE PRJC>0)'),
+    // myDATA ανά παραστατικό (SOID = FINDOC): ΜΑΡΚ, QR ΑΑΔΕ, URL παρόχου. Επιβεβαιωμένο ζωντανά 2026-10-17.
+    softoneGetTable('MYDATAHEADER', MYDATA_FIELDS, `SOSOURCE IN (${SALES},${PURCHASES})`).catch(() => [] as Record<string, string>[]),
+    // Συνημμένα αρχεία («Σχετικά έγγραφα»).
+    softoneGetTable('XTRDOCDATA', ['REFOBJID', 'SOSOURCE'], `SOSOURCE IN (${SALES},${PURCHASES})`).catch(() => [] as Record<string, string>[]),
   ]);
+  const mydataBy = new Map<number, { mark: string | null; qrUrl: string | null; providerUrl: string | null }>();
+  for (const r of mydataRows) {
+    const soid = id(r.SOID);
+    if (soid == null || num(r.ISCANCEL) !== 0) continue;
+    mydataBy.set(soid, { mark: r.MARK || null, qrUrl: safeUrl(r.QRURL), providerUrl: safeUrl(r.INVOICEURL) });
+  }
+  const attachBy = new Map<number, number>();
+  for (const r of attachRows) { const f = id(r.REFOBJID); if (f != null) attachBy.set(f, (attachBy.get(f) ?? 0) + 1); }
 
   const [series, purchaseSeries, kinds, projects, budget, rates] = await Promise.all([
     prisma.softoneDocSeries.findMany({ select: { sosource: true, code: true, name: true } }),
@@ -97,6 +115,11 @@ async function computeAll(): Promise<FinancialsRun> {
       vat: num(r.VATAMNT),
       total: num(r.SUMAMNT),
       cancelled: num(r.ISCANCEL) !== 0,
+      ...(sosource === SALES || sosource === PURCHASES ? (() => {
+        const findoc = num(r.FINDOC);
+        const m = mydataBy.get(findoc);
+        return { mydata: { mark: m?.mark ?? null, qrUrl: m?.qrUrl ?? null, providerUrl: m?.providerUrl ?? null, attachments: attachBy.get(findoc) ?? 0 } };
+      })() : {}),
     };
   });
   const lines: FinLine[] = lineRows.map((r) => {
@@ -199,4 +222,48 @@ export async function getProjectFinancials(prjc: number): Promise<{ profit: Proj
     issues: (stored?.issues ?? []).filter((i) => i.prjcs.includes(prjc)),
     computedAt: row.computedAt.toISOString(),
   };
+}
+
+/**
+ * Έγγραφο κατευθύνσεων (.docx) για τα «Δεδομένα που λείπουν» — ενός έργου ή όλων των ανοιχτών
+ * (γενικά θέματα integrator μόνο στο «όλα»). Δημιουργία: lib/instructions-doc (γενικό).
+ */
+export async function buildProjectInstructions(prjc: number | null): Promise<{ buffer: Buffer; filename: string; items: number }> {
+  const [stored, projects, answers, companyName] = await Promise.all([
+    loadStoredIssues(),
+    prisma.softoneProject.findMany({ select: { prjc: true, code: true, name: true } }),
+    prisma.accountingAnswer.findMany({ where: { questionKey: { startsWith: 'project:' } } }),
+    getSetting<string>('company.name'),
+  ]);
+  const issues = (stored?.issues ?? []).filter((i) => prjc == null || i.prjcs.includes(prjc));
+  const trdrs = [...new Set(issues.map((i) => Number(i.key.split(':')[1])).filter((n) => Number.isInteger(n) && n > 0))];
+  const traders = trdrs.length ? await prisma.softoneTrader.findMany({ where: { trdr: { in: trdrs } }, select: { trdr: true, code: true, name: true } }) : [];
+  const issueBy = new Map(issues.map((i) => [projectQuestionKey(i.key), i]));
+  const answerLabel = new Map(answers.flatMap((a) => {
+    const i = issueBy.get(a.questionKey);
+    if (!i) return [];
+    const when = a.answeredAt.toLocaleDateString('el-GR');
+    const label = a.fingerprint !== issueFingerprint(i) ? `Απαντήθηκε ${when}, αλλά άλλαξαν τα παραστατικά — θέλει νέα απάντηση`
+      : a.status === 'NEEDS_ERP' ? `Ο λογιστής ζήτησε ενέργεια στο SoftOne (${when})${a.comment ? `: «${a.comment}»` : ''}`
+        : `Ελήφθη από τον λογιστή (${a.answeredBy ?? '—'}, ${when})${a.comment ? `: «${a.comment}»` : ''}`;
+    return [[a.questionKey, { label }] as const];
+  }));
+  const project = prjc != null ? projects.find((p) => p.prjc === prjc) : null;
+  const items = issuesToInstructions(issues, {
+    projects: new Map(projects.map((p) => [p.prjc, { code: p.code, name: p.name }])),
+    traders: new Map(traders.map((t) => [t.trdr, { code: t.code, name: t.name }])),
+    answers: answerLabel,
+  });
+  const now = new Date();
+  const buffer = await buildInstructionsDocx({
+    title: 'Κατευθύνσεις για δεδομένα που λείπουν στο SoftOne',
+    subtitle: project ? `Έργο ${project.code} «${project.name}»` : 'Όλα τα ανοιχτά θέματα των έργων',
+    companyName: companyName || 'Εταιρία',
+    generatedAt: now,
+    recipients: PROJECT_RECIPIENTS,
+    items,
+    notes: [...PROJECT_NOTES, `Στοιχεία από τον υπολογισμό της ${stored ? new Date(stored.computedAt).toLocaleString('el-GR') : '—'}`],
+  });
+  const day = now.toISOString().slice(0, 10);
+  return { buffer, items: items.length, filename: project ? `Κατευθύνσεις έργου ${project.code} ${day}.docx` : `Κατευθύνσεις έργων ${day}.docx` };
 }
