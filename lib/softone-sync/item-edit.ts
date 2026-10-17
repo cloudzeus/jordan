@@ -222,7 +222,15 @@ export async function editSoftoneItem(mtrl: number, input: ItemEditInput): Promi
     const res = await softoneCall<{ success?: boolean; error?: string }>('setData', {
       OBJECT: before.object, KEY: String(mtrl), DATA: { [before.object]: [patch] },
     });
-    if (res.success === false) throw new ItemMaintenanceError('softone_error', res.error ?? `setData ${before.object} ${mtrl} απέτυχε`, 502);
+    if (res.success === false) {
+      // Μ.Μ.2 σε είδος με παραστατικά: το Web Service δεν «απαντά» την ερώτηση επιβεβαίωσης του client.
+      // Ξεχωριστός κωδικός ώστε η φόρμα να προτείνει την εγκεκριμένη αλλαγή μέσω script (unit2-script.ts).
+      const touchesUnit2 = 'MTRUNIT2' in patch || 'MU21' in patch || 'MU12MODE' in patch;
+      if (touchesUnit2 && res.error && /Μ\.Μ\.2/.test(res.error)) {
+        throw new ItemMaintenanceError('unit2_locked', `${res.error.trim()} Τα άλλα πεδία ΔΕΝ αποθηκεύτηκαν.`, 409);
+      }
+      throw new ItemMaintenanceError('softone_error', res.error ?? `setData ${before.object} ${mtrl} απέτυχε`, 502);
+    }
   }
   // Ο κωδικός ΜΕΤΑ τα υπόλοιπα: έχει δικό του έλεγχο μάσκας/μοναδικότητας και δική του επαλήθευση.
   if (codeChange) {

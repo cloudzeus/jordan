@@ -138,6 +138,8 @@ export function ItemEditDialog({ mtrl, open, onOpenChange, onSaved }: {
   const [form, setForm] = React.useState<Form | null>(null);
   const [loadError, setLoadError] = React.useState<string | null>(null);
   const [saveError, setSaveError] = React.useState<string | null>(null);
+  // Το SoftOne αρνήθηκε αλλαγή Μ.Μ.2 (είδος με παραστατικά) → προτείνεται η εγκεκριμένη αλλαγή μέσω script.
+  const [unit2Locked, setUnit2Locked] = React.useState(false);
   const [busy, setBusy] = React.useState(false);
   const [attrs, setAttrs] = React.useState<Attr[]>([]);
   const [attrsOrig, setAttrsOrig] = React.useState<Attr[]>([]);
@@ -226,7 +228,7 @@ export function ItemEditDialog({ mtrl, open, onOpenChange, onSaved }: {
       confirmLabel: 'Αποθήκευση',
     });
     if (!ok) return;
-    setBusy(true); setSaveError(null);
+    setBusy(true); setSaveError(null); setUnit2Locked(false);
     try {
       // Πρώτα τα χαρακτηριστικά (δικά μας, ασφαλή) — έτσι μια αποτυχία του SoftOne δεν τα χάνει.
       if (attrsChanged) {
@@ -245,7 +247,10 @@ export function ItemEditDialog({ mtrl, open, onOpenChange, onSaved }: {
           method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
         });
         const body = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(body.message || 'Η αποθήκευση απέτυχε');
+        if (!res.ok) {
+          if (body.error === 'unit2_locked') setUnit2Locked(true);
+          throw new Error(body.message || 'Η αποθήκευση απέτυχε');
+        }
         toast.success(`Αποθηκεύτηκε στο SoftOne και επαληθεύτηκε: ${body.changed.map((c: { label: string }) => c.label).join(', ')}`);
       }
       onSaved?.();
@@ -253,6 +258,51 @@ export function ItemEditDialog({ mtrl, open, onOpenChange, onSaved }: {
     } catch (e) {
       setSaveError((e as Error).message);
       // Μερική αποθήκευση: ξαναδιάβασε την καρτέλα ώστε η φόρμα να δείχνει την αλήθεια του SoftOne.
+      void load();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  /**
+   * ΕΞΑΙΡΕΣΗ (εγκεκριμένη): Μ.Μ.2 μέσω του script του SoftOne, μετά οι υπόλοιπες αλλαγές από το επίσημο setData.
+   * Ο server κάνει dry-run, εγγραφή, ανάγνωση και καταγραφή στο ιστορικό.
+   */
+  const applyUnit2ViaScript = async () => {
+    if (!rec || !current) return;
+    const unit2 = current.unit2 as string | null;
+    if (!unit2) return;
+    const ok = await confirmAction({
+      title: 'Αλλαγή Μ.Μ.2 μέσω script',
+      message: `Το SoftOne δεν αλλάζει τη Μ.Μ.2 μέσω Web Services επειδή το ${rec.code} έχει παραστατικά. Θα γραφτεί απευθείας η Μ.Μ.2 με σχέση ${current.ratio2} προς τη βασική (script με ελέγχους: καμία γραμμή με ποσότητα Μ.Μ.2, ίδια εταιρεία, έγκυρη μονάδα). Τα παλιά παραστατικά μένουν όπως είναι. Συνέχεια;`,
+      confirmLabel: 'Αλλαγή Μ.Μ.2',
+      destructive: true,
+    });
+    if (!ok) return;
+    setBusy(true); setSaveError(null);
+    try {
+      const res = await fetch(`/api/admin/softone/items/${rec.mtrl}/unit2`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ unit2, ratio2: Number(current.ratio2), strict2: !!current.strict2 }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.message || 'Η αλλαγή Μ.Μ.2 απέτυχε');
+      toast.success('Η Μ.Μ.2 άλλαξε μέσω script και επαληθεύτηκε από το SoftOne');
+      setUnit2Locked(false);
+      // Οι υπόλοιπες αλλαγές (χωρίς Μ.Μ.2) από το επίσημο setData.
+      const rest = changes.filter((k) => k !== 'unit2' && k !== 'ratio2' && k !== 'strict2');
+      if (rest.length) {
+        const r2 = await fetch(`/api/admin/softone/items/${rec.mtrl}/full`, {
+          method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(Object.fromEntries(rest.map((k) => [k, current[k]]))),
+        });
+        const b2 = await r2.json().catch(() => ({}));
+        if (!r2.ok) throw new Error(`Η Μ.Μ.2 άλλαξε, αλλά τα υπόλοιπα όχι: ${b2.message || 'σφάλμα'}`);
+        toast.success(`Αποθηκεύτηκαν και: ${b2.changed.map((c: { label: string }) => c.label).join(', ')}`);
+      }
+      onSaved?.();
+      onOpenChange(false);
+    } catch (e) {
+      setSaveError((e as Error).message);
       void load();
     } finally {
       setBusy(false);
@@ -451,6 +501,18 @@ export function ItemEditDialog({ mtrl, open, onOpenChange, onSaved }: {
                 <p role="alert" className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-[length:var(--fs-12)] text-destructive">
                   {saveError}
                 </p>
+              )}
+              {unit2Locked && (
+                <div className="flex flex-wrap items-center gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-[length:var(--fs-12)] text-amber-900 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-200">
+                  <FiAlertTriangle className="size-4 shrink-0" aria-hidden />
+                  <span className="min-w-0 flex-1">Το SoftOne ζητά επιβεβαίωση για αλλαγή Μ.Μ.2 σε είδος με παραστατικά — μέσω Web Services δεν γίνεται. Διαχειριστές μπορούν να την περάσουν με το εγκεκριμένο script.</span>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger className="inline-flex size-8 cursor-pointer items-center justify-center rounded-md hover:bg-amber-100 dark:hover:bg-amber-500/20" aria-label="Ενέργειες Μ.Μ.2"><FiMoreVertical className="size-4" aria-hidden /></DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-60">
+                      <DropdownMenuItem className="cursor-pointer gap-2 text-[length:var(--fs-12)]" disabled={busy} onSelect={() => void applyUnit2ViaScript()}><FiLayers className="size-3.5" aria-hidden /> Αλλαγή Μ.Μ.2 μέσω script</DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
               )}
             </>
           )}
