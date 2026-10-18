@@ -69,7 +69,7 @@ function logUsage(model: string, operation: string, u: Usage, started: number, u
 /** Μία κλήση συνομιλίας. Με αποτυχία του κύριου μοντέλου δοκιμάζει το εφεδρικό. */
 export async function chat(
   messages: ChatMessage[],
-  opts: { tools?: ToolDef[]; userId?: string | null; conversationId?: string | null; signal?: AbortSignal } = {},
+  opts: { tools?: ToolDef[]; userId?: string | null; conversationId?: string | null; signal?: AbortSignal; /** Υποχρεωτικό εργαλείο σε αυτόν τον γύρο. */ toolChoice?: string } = {},
 ): Promise<ChatResult> {
   const key = await apiKey();
   const primary = await setting('ai.assistantModel', DEFAULT_CHAT_MODEL);
@@ -86,7 +86,7 @@ export async function chat(
           model,
           temperature: 0.1,
           messages,
-          ...(opts.tools?.length ? { tools: opts.tools, tool_choice: 'auto' } : {}),
+          ...(opts.tools?.length ? { tools: opts.tools, tool_choice: opts.toolChoice ? { type: 'function', function: { name: opts.toolChoice } } : 'auto' } : {}),
           usage: { include: true },
         }),
         signal: opts.signal,

@@ -20,6 +20,8 @@ import { parsePeriod, type Period } from './period';
 import { projectCustomerBalance, turnover } from './finance';
 import { appointmentsBetween, checkSlot, findParties, freeSlots, pickParty, signProposal } from './calendar';
 import { parseWhen } from './when';
+import { documentView, findocByCode, pendingWork, statementView, tasksView, todayOverview, type PendingArea } from './daily';
+import type { Choice } from './intents';
 import { formatSlotEl, zonedParts, zonedToUtc } from '@/lib/appointments-core';
 import { appointmentsSoftoneEnabled } from '@/lib/appointment-softone';
 
@@ -44,7 +46,7 @@ export interface AppointmentCard {
   overlap: boolean;
   saveTo: string[];
 }
-export interface ToolResult { data: unknown; refs: Ref[]; card?: AppointmentCard }
+export interface ToolResult { data: unknown; refs: Ref[]; card?: AppointmentCard; /** Επιλογές-κουμπιά προς τον χρήστη (offer_choices). */ choices?: { question: string; options: Choice[] } }
 
 const SOURCE_ENUM = ['project', 'document', 'trader', 'item', 'service', 'unit', 'classification', 'lookup', 'partner', 'offer', 'order_request', 'appointment', 'lead', 'wiki', 'glossary'];
 
@@ -178,6 +180,69 @@ export const TOOL_DEFS: ToolDef[] = [
           topic: { type: 'string' },
           notes: { type: 'string' },
         },
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'get_today',
+      description: '«Τι έχω σήμερα»: ραντεβού σήμερα/αύριο, οι εργασίες μου που λήγουν, καθυστερημένες εργασίες, και πόσα εκκρεμούν ανά ενότητα (αιτήματα παραγγελίας, κρατήσεις, προσφορές που λήγουν, OCR για έλεγχο, ερωτήματα λογιστή). Για «καλημέρα», «ατζέντα», «τι έχω να κάνω».',
+      parameters: { type: 'object', properties: {} },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'get_pending_work',
+      description: 'Λεπτομέρειες εκκρεμοτήτων: OCR έγγραφα που θέλουν έλεγχο ή απέτυχαν, αιτήματα παραγγελίας πελατών, αιτήματα κράτησης/προσφορές, ερωτήματα λογιστή και θέματα integrator — με σύνδεσμο στη σελίδα κάθε ενότητας.',
+      parameters: { type: 'object', properties: { area: { type: 'string', enum: ['all', 'ocr', 'orders', 'reservations', 'offers', 'accounting'] } } },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'get_tasks',
+      description: 'Εργασίες έργων (Gantt): οι δικές μου, οι καθυστερημένες, όσες λήγουν σε 7 μέρες, ή ενός έργου.',
+      parameters: { type: 'object', properties: { scope: { type: 'string', enum: ['mine', 'overdue', 'soon', 'all'] }, prjc: { type: 'integer' }, project_code: { type: 'string' } } },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'get_document',
+      description: 'Ένα παραστατικό (τιμολόγιο, δελτίο, παραγγελία, πιστωτικό…) με τον αριθμό του (π.χ. ΤΙΜΚ000009): ημερομηνία, συναλλασσόμενος, έργο, γραμμές ειδών, ποσά, ΜΑΡΚ, από ποιο παραστατικό προήλθε, PDF.',
+      parameters: { type: 'object', properties: { code: { type: 'string', description: 'Αριθμός παραστατικού (FINCODE)' }, findoc: { type: 'integer' } } },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'get_statement',
+      description: 'Κατάσταση λογαριασμού ΠΕΛΑΤΗ (ό,τι στέλνουμε στον πελάτη): προηγούμενο υπόλοιπο, χρεώσεις, πληρωμές, τελικό υπόλοιπο, ανοιχτά τιμολόγια με ημέρες, ληξιπρόθεσμα >30 ημερών, σύνδεσμος PDF και σελίδα αποστολής με email. ΔΕΝ στέλνει τίποτα — η αποστολή γίνεται από τη σελίδα.',
+      parameters: { type: 'object', properties: { trdr: { type: 'integer' }, code: { type: 'string' }, from: { type: 'string', description: 'yyyy-mm-dd' }, to: { type: 'string', description: 'yyyy-mm-dd' } } },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'how_to',
+      description: 'Οδηγίες χρήσης της εφαρμογής («πώς κάνω…», «πού βρίσκω…») και εξήγηση όρων («τι σημαίνει ΜΑΡΚ/καθαρά/μικτά»): από τον Οδηγό Χρήστη και το γλωσσάρι, με σύνδεσμο στη σελίδα.',
+      parameters: { type: 'object', properties: { question: { type: 'string' } }, required: ['question'] },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'offer_choices',
+      description: 'Όταν το ερώτημα είναι αόριστο ή υπάρχουν πολλοί υποψήφιοι: δείξε στον χρήστη 2–5 επιλογές ως ΚΟΥΜΠΙΑ αντί να μαντέψεις. Κάθε επιλογή έχει σύντομη ετικέτα και το πλήρες μήνυμα που θα σταλεί αν πατηθεί (με ονόματα/κωδικούς). Μετά από αυτό ΣΤΑΜΑΤΑ και γράψε μόνο την ερώτηση.',
+      parameters: {
+        type: 'object',
+        properties: {
+          question: { type: 'string' },
+          options: { type: 'array', minItems: 2, maxItems: 5, items: { type: 'object', properties: { label: { type: 'string' }, prompt: { type: 'string' } }, required: ['label', 'prompt'] } },
+        },
+        required: ['question', 'options'],
       },
     },
   },
@@ -581,6 +646,70 @@ export async function runTool(name: string, args: Record<string, unknown>, ctx: 
       };
     }
 
+    case 'get_today': {
+      const d = await todayOverview(ctx.userId);
+      return { data: d, refs: [{ refKey: 'calendar', label: 'Ημερολόγιο ραντεβού', url: '/admin/appointments' }, { refKey: 'tasks', label: 'Εργασίες & Gantt', url: '/admin/tasks' }] };
+    }
+
+    case 'get_pending_work': {
+      const area = (['all', 'ocr', 'orders', 'reservations', 'offers', 'accounting'] as const).includes(args.area as PendingArea) ? (args.area as PendingArea) : 'all';
+      return { data: await pendingWork(area), refs: [] };
+    }
+
+    case 'get_tasks': {
+      const prjc = await resolveProject({ prjc: args.prjc, code: args.project_code });
+      const scope = (['mine', 'overdue', 'soon', 'all'] as const).includes(args.scope as 'mine') ? (args.scope as 'mine') : 'mine';
+      const t = await tasksView(ctx.userId, scope, prjc);
+      return { data: t, refs: [{ refKey: 'tasks', label: 'Εργασίες & Gantt', url: t.page }] };
+    }
+
+    case 'get_document': {
+      const findoc = int(args.findoc) ?? (str(args.code) ? await findocByCode(String(args.code)).catch(() => null) : null);
+      if (!findoc) return notFound('παραστατικό με αυτόν τον αριθμό');
+      try {
+        const d = await documentView(findoc);
+        if (!d) return notFound('παραστατικό');
+        const refs: Ref[] = [{ refKey: `document:${findoc}`, label: `Παραστατικό ${d.fincode}`, url: d.refs.prjc ? `/admin/projects/${d.refs.prjc}` : null }];
+        if (d.refs.trdr && d.trader) refs.push({ refKey: `trader:${d.refs.trdr}`, label: `Συναλλασσόμενος ${d.trader}`, url: '/admin/traders' });
+        const { refs: _r, ...data } = d;
+        return { data: { source: 'SoftOne ζωντανά', ...data }, refs };
+      } catch (e) {
+        return { data: { error: liveError(e) }, refs: [] };
+      }
+    }
+
+    case 'get_statement': {
+      const trdr = await resolveTrader(args);
+      if (!trdr) return notFound('πελάτης');
+      try {
+        const s = await statementView(trdr, typeof args.from === 'string' ? args.from : null, typeof args.to === 'string' ? args.to : null);
+        return {
+          data: { source: 'Καρτέλα SoftOne (ζωντανά)', ...s, note: 'Για αποστολή στον πελάτη: σελίδα «sendPage» (εκεί γίνεται προεπισκόπηση και αποστολή). Ο βοηθός δεν στέλνει email.' },
+          refs: [{ refKey: `trader:${trdr}`, label: `Πελάτης ${s.customer}`, url: s.sendPage }],
+        };
+      } catch (e) {
+        return { data: { error: (e as Error).message?.slice(0, 200) }, refs: [] };
+      }
+    }
+
+    case 'how_to': {
+      const q = str(args.question) ?? '';
+      const hits = await searchKnowledge(q, { sources: ['wiki', 'glossary'], limit: 4, userId: ctx.userId });
+      return {
+        data: hits.length ? hits.map((h) => ({ title: h.title, page: h.url, text: h.body.slice(0, 1500) })) : { result: 'Δεν βρέθηκε οδηγία — πες το και πρότεινε τον Οδηγό Χρήστη (/wiki).' },
+        refs: hits.slice(0, 3).map((h) => ({ refKey: h.refKey, label: h.title, url: h.url })),
+      };
+    }
+
+    case 'offer_choices': {
+      const question = str(args.question) ?? 'Τι από τα παρακάτω εννοείτε;';
+      const options = Array.isArray(args.options)
+        ? (args.options as { label?: unknown; prompt?: unknown }[]).filter((o) => typeof o?.label === 'string' && typeof o?.prompt === 'string').slice(0, 5).map((o) => ({ label: String(o.label).slice(0, 60), prompt: String(o.prompt).slice(0, 300) }))
+        : [];
+      if (options.length < 2) return { data: { error: 'Χρειάζονται τουλάχιστον 2 επιλογές' }, refs: [] };
+      return { data: { shown: true, note: 'Οι επιλογές εμφανίστηκαν ως κουμπιά. Γράψε ΜΟΝΟ την ερώτηση, σύντομα.' }, refs: [], choices: { question, options } };
+    }
+
     case 'remember': {
       const kind = String(args.kind) as MemoryKind;
       if (!MEMORY_KINDS.includes(kind) || kind === 'answer') return { data: { error: 'Μη έγκυρο είδος μνήμης' }, refs: [] };
@@ -605,6 +734,13 @@ export function stepLabel(name: string, args: Record<string, unknown>): string {
     case 'get_trader': return args.include_ledger === false ? 'Διαβάζω τον συναλλασσόμενο' : 'Διαβάζω την καρτέλα από το SoftOne';
     case 'get_item': return 'Διαβάζω το είδος, απόθεμα & αγορές';
     case 'remember': return 'Το κρατώ στη μνήμη';
+    case 'get_today': return 'Μαζεύω τι έχετε σήμερα';
+    case 'get_pending_work': return 'Κοιτάζω τις εκκρεμότητες';
+    case 'get_tasks': return 'Κοιτάζω τις εργασίες';
+    case 'get_document': return 'Ανοίγω το παραστατικό';
+    case 'get_statement': return 'Ετοιμάζω την κατάσταση λογαριασμού';
+    case 'how_to': return 'Ψάχνω στον Οδηγό Χρήστη';
+    case 'offer_choices': return 'Ετοιμάζω επιλογές';
     case 'get_appointments': return 'Κοιτάζω το ημερολόγιο';
     case 'propose_appointment': return 'Ετοιμάζω το ραντεβού για επιβεβαίωση';
     case 'get_turnover': return args.side === 'purchases' ? 'Υπολογίζω τις αγορές της περιόδου από το SoftOne' : 'Υπολογίζω τον τζίρο της περιόδου από το SoftOne';

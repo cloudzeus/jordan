@@ -6,6 +6,7 @@ import { chat, type ChatMessage, type ToolCall } from './openrouter';
 import { embedQuery, searchKnowledge, searchMemories, type MemoryHit } from './search';
 import { detectIntent } from './text';
 import { parsePeriod } from './period';
+import { analyze, clarifyChoices, followups, INTENT_LABEL, INTENT_TOOL, type Choice, type FocusEntity } from './intents';
 import { runTool, stepLabel, TOOL_DEFS, type AppointmentCard, type Ref, type ToolContext } from './tools';
 import { pickCitations } from './citations';
 import { reindexIfStale } from './indexer';
@@ -13,10 +14,12 @@ import { reindexIfStale } from './indexer';
 export type AgentEvent =
   | { type: 'conversation'; id: string; title: string }
   | { type: 'step'; label: string }
-  | { type: 'answer'; messageId: string; text: string; citations: Ref[]; model: string; cards?: AppointmentCard[] }
+  | { type: 'answer'; messageId: string; text: string; citations: Ref[]; model: string; cards?: AppointmentCard[]; choices?: { question: string; options: Choice[] }; followups?: Choice[] }
   | { type: 'error'; message: string };
 
 const MAX_ROUNDS = 6;
+/** Προθέσεις όπου ο πρώτος γύρος καλεί υποχρεωτικά το εργαλείο τους. */
+const FORCED = new Set(['how_to', 'explain_term', 'today', 'pending_work', 'tasks', 'document']);
 const MAX_TOOL_CHARS = 14_000;
 const HISTORY = 10;
 
@@ -26,6 +29,14 @@ function systemPrompt(opts: { name: string | null; canFinancials: boolean; memor
     : '- (τίποτα σχετικό ακόμη)';
   return `Είσαι ο «Air Jordan», ο βοηθός AI της εφαρμογής ATELIER (κατασκευές, μελέτες, διακόσμηση, εμπόριο υλικών) για τους διαχειριστές.
 Σήμερα: ${opts.today}. Χρήστης: ${opts.name ?? 'διαχειριστής'}.
+
+ΟΙ ΧΡΗΣΤΕΣ ΔΕΝ ΕΙΝΑΙ ΠΡΟΧΩΡΗΜΕΝΟΙ: μίλα απλά, σαν συνάδελφος που βοηθά.
+• Ξεκίνα με ΜΙΑ πρόταση που απαντά ευθέως («Ο Κουνάς σάς χρωστά 1.250,00 €.»), μετά λίγες λεπτομέρειες.
+• Εξήγησε με λίγες λέξεις κάθε όρο την πρώτη φορά: καθαρά (χωρίς ΦΠΑ), μικτά (με ΦΠΑ), υπόλοιπο, πιστωτικό (υπέρ του πελάτη), ΜΑΡΚ (ο αριθμός της ΑΑΔΕ), περιθώριο (κέρδος στα 100 €).
+• Ποτέ μόνο κωδικοί: πάντα όνομα + κωδικός («Κουνάς Δημήτριος, 0123»).
+• Αν η ερώτηση είναι αόριστη ή ταιριάζουν πολλά, κάλεσε offer_choices με 2–4 επιλογές (κουμπιά) αντί να μαντέψεις.
+• Αν ζητήσει κάτι που γίνεται από οθόνη της εφαρμογής (αποστολή email, αλλαγή, διαγραφή), πες σε ποια σελίδα και πώς ΜΟΝΟ από το how_to (Οδηγός Χρήστη) με τον σύνδεσμο της σελίδας — ΠΟΤΕ μην επινοείς μενού, καρτέλες ή κουμπιά. Αν ο Οδηγός δεν το καλύπτει, πες το. Σύνδεσμοι πάντα ως markdown με ελληνική ετικέτα, π.χ. [Εργασίες](/admin/tasks) — ΠΟΤΕ σκέτο «/admin/…» στο κείμενο, ποτέ με domain.
+• Η «Ανάλυση ερωτήματος» στο τέλος του μηνύματος λέει τι μάλλον θέλει και ποιο εργαλείο ταιριάζει — χρησιμοποίησέ τη, αλλά κρίνε κι εσύ.
 
 ΚΑΝΟΝΕΣ
 1. Απαντάς ΠΑΝΤΑ στα Ελληνικά, σύντομα και ουσιαστικά. Ο χρήστης μιλά Ελληνικά με αγγλικούς όρους, συχνά από φωνή: περίμενε λάθη μεταγραφής, greeklish, χωρίς τόνους, κομμάτια κωδικών, παρατσούκλια. Κατάλαβε τι εννοεί.
@@ -75,9 +86,21 @@ export async function runAgent(input: AgentInput, emit: (e: AgentEvent) => void)
   emit({ type: 'conversation', id: conv.id, title: conv.title });
 
   const history = await prisma.assistantMessage.findMany({
-    where: { conversationId: conv.id }, orderBy: { createdAt: 'desc' }, take: HISTORY, select: { role: true, content: true },
+    where: { conversationId: conv.id }, orderBy: { createdAt: 'desc' }, take: HISTORY, select: { role: true, content: true, citations: true },
   });
   const userMsg = await prisma.assistantMessage.create({ data: { conversationId: conv.id, role: 'user', content: question } });
+
+  // Εννοιολογική ανάλυση: τι ζητά, για ποιον, πότε. Πολύ σύντομο ΚΑΙ αόριστο («υπόλοιπο;», «τζίρος») ⇒
+  // απαντάμε αμέσως με επιλογές-κουμπιά, χωρίς μοντέλο — ο χρήστης δεν χρειάζεται να ξέρει τι να γράψει.
+  const analysis = analyze(question);
+  const lastFocus = await focusFromRefs(history.filter((h) => h.role === 'assistant').flatMap((h) => (Array.isArray(h.citations) ? (h.citations as unknown as Ref[]) : [])));
+  const clarify = clarifyChoices(analysis);
+  if (clarify && question.split(/\s+/).length <= 3 && !(analysis.refersToPrevious && lastFocus)) {
+    const saved = await prisma.assistantMessage.create({ data: { conversationId: conv.id, role: 'assistant', content: clarify.question, model: 'intent' } });
+    await prisma.assistantConversation.update({ where: { id: conv.id }, data: { updatedAt: new Date() } });
+    emit({ type: 'answer', messageId: saved.id, text: clarify.question, citations: [], model: 'intent', choices: { question: clarify.question, options: clarify.choices } });
+    return;
+  }
 
   emit({ type: 'step', label: 'Θυμάμαι τι ξέρω' });
   // Το ερώτημα μαζί με την προηγούμενη ερώτηση: «και η τελευταία τιμή;» χρειάζεται συμφραζόμενα.
@@ -98,13 +121,14 @@ export async function runAgent(input: AgentInput, emit: (e: AgentEvent) => void)
     ...history.reverse().map((h) => ({ role: h.role === 'assistant' ? 'assistant' as const : 'user' as const, content: h.content })),
     {
       role: 'user',
-      content: `${question}\n\n---\n(Αυτόματο πλαίσιο — όχι από τον χρήστη)\nΠιθανή πρόθεση: ${JSON.stringify({ entities: intent.entities, side: intent.traderSide, turnover: intent.wantsTurnover, period: period ?? undefined, financials: intent.wantsFinancials, balance: intent.wantsBalance, documents: intent.wantsDocuments, stock: intent.wantsStock, price: intent.wantsPrice, contacts: intent.wantsContacts, location: intent.wantsLocation, codes: intent.codes })}\nΣχετικά από τη μνήμη (ref · τίτλος):\n${visibleHints.map((h) => `- ${h.refKey} · ${h.title}`).join('\n') || '- κανένα'}`,
+      content: `${question}\n\n---\n(Αυτόματο πλαίσιο — όχι από τον χρήστη)\nΑνάλυση ερωτήματος: ${JSON.stringify({ intent: INTENT_LABEL[analysis.intent], suggestedTool: INTENT_TOOL[analysis.intent], confidence: analysis.confidence, alternatives: analysis.alternatives.map((a) => INTENT_LABEL[a]), nameHint: analysis.nameHint, refersToPrevious: analysis.refersToPrevious || undefined })}${analysis.refersToPrevious && lastFocus ? `\nΗ συζήτηση αφορά (για «αυτός/αυτό/του»): ${lastFocus.kind === 'trader' ? (lastFocus.side === 'supplier' ? 'Προμηθευτής' : 'Πελάτης') : lastFocus.kind === 'project' ? 'Έργο' : lastFocus.kind === 'item' ? 'Είδος' : 'Παραστατικό'} ${lastFocus.code} · ${lastFocus.name} (${lastFocus.kind}:${lastFocus.id})` : ''}\nΣήματα: ${JSON.stringify({ entities: intent.entities, side: intent.traderSide, turnover: intent.wantsTurnover, period: period ?? undefined, financials: intent.wantsFinancials, balance: intent.wantsBalance, documents: intent.wantsDocuments, stock: intent.wantsStock, price: intent.wantsPrice, contacts: intent.wantsContacts, location: intent.wantsLocation, codes: intent.codes })}\nΣχετικά από τη μνήμη (ref · τίτλος):\n${visibleHints.map((h) => `- ${h.refKey} · ${h.title}`).join('\n') || '- κανένα'}`,
     },
   ];
 
   const hintRefs: Ref[] = visibleHints.map((h) => ({ refKey: h.refKey, label: h.title, url: h.url }));
   const refs: Ref[] = [];
   const cards: AppointmentCard[] = [];
+  let choices: { question: string; options: Choice[] } | undefined;
   const toolLog: { name: string; args: Record<string, unknown>; ms: number; ok: boolean }[] = [];
   let cost = 0;
   let model = '';
@@ -112,7 +136,12 @@ export async function runAgent(input: AgentInput, emit: (e: AgentEvent) => void)
 
   for (let round = 0; round < MAX_ROUNDS && answer == null; round++) {
     const last = round === MAX_ROUNDS - 1;
-    const res = await chat(messages, { tools: last ? undefined : TOOL_DEFS, userId: input.userId, conversationId: conv.id, signal: input.signal });
+    // Σαφής πρόθεση με «δικό της» εργαλείο ⇒ πρώτος γύρος υποχρεωτικά με αυτό (π.χ. οδηγίες ΜΟΝΟ από τον Οδηγό, ποτέ επινοημένα μενού).
+    const forcedOk = FORCED.has(analysis.intent) && !(analysis.intent === 'document' && !analysis.codes.length);
+    // Κατάσταση λογαριασμού: μόνο όταν ξέρουμε ποιος πελάτης (από τα προηγούμενα ή από το όνομα).
+    const statementOk = analysis.intent === 'statement' && ((analysis.refersToPrevious && lastFocus?.kind === 'trader') || !!analysis.nameHint);
+    const forced = round === 0 && analysis.confidence === 'high' && (forcedOk || statementOk) ? INTENT_TOOL[analysis.intent] : undefined;
+    const res = await chat(messages, { tools: last ? undefined : TOOL_DEFS, userId: input.userId, conversationId: conv.id, signal: input.signal, toolChoice: forced });
     cost += res.costUsd;
     model = res.model;
     if (!res.toolCalls.length) {
@@ -130,6 +159,7 @@ export async function runAgent(input: AgentInput, emit: (e: AgentEvent) => void)
         // Αποτελέσματα αναζήτησης = υποψήφιοι, όχι πηγές: μετρούν μόνο αν η απάντηση τα ονομάζει.
         (tc.function.name === 'search_knowledge' ? hintRefs : refs).push(...r.refs);
         if (r.card) cards.push(r.card);
+        if (r.choices) choices = { question: r.choices.question, options: r.choices.options };
         toolLog.push({ name: tc.function.name, args, ms: Date.now() - t, ok: true });
         return { id: tc.id, content: JSON.stringify(r.data).slice(0, MAX_TOOL_CHARS) };
       } catch (e) {
@@ -140,12 +170,37 @@ export async function runAgent(input: AgentInput, emit: (e: AgentEvent) => void)
     for (const o of outputs) messages.push({ role: 'tool', tool_call_id: o.id, content: o.content });
   }
 
-  const text = answer ?? 'Δεν κατάφερα να ολοκληρώσω την απάντηση — δοκιμάστε να το διατυπώσετε πιο συγκεκριμένα.';
+  // Σύνδεσμοι της εφαρμογής ΠΑΝΤΑ σχετικοί: το μοντέλο καμιά φορά «επινοεί» domain μπροστά από /wiki/… ή /admin/….
+  const text = (answer ?? 'Δεν κατάφερα να ολοκληρώσω την απάντηση — δοκιμάστε να το διατυπώσετε πιο συγκεκριμένα.')
+    .replace(/https?:\/\/[^/\s)\]]+(\/(?:wiki|admin|api\/admin)\/[^\s)\]]*)/g, '$1');
   const citations = pickCitations(text, refs, hintRefs);
   const saved = await prisma.assistantMessage.create({
     data: { conversationId: conv.id, role: 'assistant', content: text, citations: citations as never, toolCalls: toolLog as never, model, costUsd: cost },
   });
   await prisma.assistantConversation.update({ where: { id: conv.id }, data: { updatedAt: new Date() } });
   // Μόνο η τελευταία πρόταση ραντεβού (αν ο βοηθός ξαναπρότεινε μετά από διόρθωση).
-  emit({ type: 'answer', messageId: saved.id, text, citations, model, cards: cards.slice(-1) });
+  // «Τι άλλο»: κουμπιά επόμενων βημάτων για την οντότητα της απάντησης (όχι όταν ρωτάμε επιλογή/επιβεβαίωση).
+  const focus = await focusFromRefs(refs) ?? (analysis.refersToPrevious ? lastFocus : null);
+  const next = choices || cards.length ? [] : followups(analysis.intent, focus).slice(0, 4);
+  emit({ type: 'answer', messageId: saved.id, text, citations, model, cards: cards.slice(-1), choices, followups: next.length ? next : undefined });
+}
+
+/** Η κύρια οντότητα μιας απάντησης (η πρώτη πηγή εργαλείου) — για «αυτός ο πελάτης» και τα επόμενα βήματα. */
+async function focusFromRefs(refs: Ref[]): Promise<FocusEntity | null> {
+  for (const r of refs) {
+    const [kind, id] = r.refKey.split(':');
+    if (kind === 'trader' && Number(id)) {
+      const t = await prisma.softoneTrader.findUnique({ where: { trdr: Number(id) }, select: { trdr: true, code: true, name: true, sodtype: true } });
+      if (t) return { kind: 'trader', id: String(t.trdr), code: t.code, name: t.name, side: t.sodtype === 13 || t.sodtype === 15 ? 'customer' : 'supplier' };
+    }
+    if (kind === 'project' && Number(id)) {
+      const p = await prisma.softoneProject.findUnique({ where: { prjc: Number(id) }, select: { prjc: true, code: true, name: true } });
+      if (p) return { kind: 'project', id: String(p.prjc), code: p.code, name: p.name };
+    }
+    if (kind === 'item' && Number(id)) {
+      const i = await prisma.softoneItem.findUnique({ where: { mtrl: Number(id) }, select: { mtrl: true, code: true, name: true } });
+      if (i) return { kind: 'item', id: String(i.mtrl), code: i.code, name: i.name };
+    }
+  }
+  return null;
 }

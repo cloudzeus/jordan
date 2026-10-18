@@ -14,6 +14,7 @@ import { MarkdownView } from './markdown-view';
 import { useVoiceInput } from './use-voice-input';
 import { AppointmentConfirmCard } from './appointment-card';
 import type { AppointmentCard } from '@/lib/assistant/tools';
+import { STARTERS, type Choice } from '@/lib/assistant/intents';
 
 export interface Citation { refKey: string; label: string; url: string | null }
 export interface ChatMsg {
@@ -24,17 +25,14 @@ export interface ChatMsg {
   feedback?: number | null;
   error?: boolean;
   cards?: AppointmentCard[];
+  /** Διευκρίνιση με κουμπιά (η ερώτηση είναι το content). */
+  choices?: Choice[];
+  /** «Τι άλλο»: επόμενα βήματα. */
+  followups?: Choice[];
 }
 
 const ITEM = 'cursor-pointer gap-2 text-[length:var(--fs-12)]';
 const TRIGGER = 'inline-flex size-8 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors duration-150 hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring data-[state=open]:bg-muted data-[state=open]:text-foreground';
-
-const SUGGESTIONS = [
-  'Ποια έργα είναι ενεργά και πόσο κέρδος έχουν;',
-  'Πόσα χρωστάμε στον προμηθευτή…',
-  'Τελευταία τιμή αγοράς και απόθεμα για…',
-  'Τι υλικά πήγαν στο έργο…',
-];
 
 function cn(...c: (string | false | null | undefined)[]) { return c.filter(Boolean).join(' '); }
 
@@ -76,6 +74,18 @@ export function AirJordanChat({
     if (!el) return;
     el.style.height = 'auto';
     el.style.height = `${Math.min(el.scrollHeight, 180)}px`;
+  };
+
+  // Συμπλήρωση πεδίου: τιμή + δρομέας στο τέλος ΑΜΕΣΑ (όχι σε rAF — αλλιώς ό,τι πληκτρολογηθεί μπαίνει μπροστά).
+  const fill = (t: string) => {
+    const el = inputRef.current;
+    if (el) {
+      el.value = t;
+      el.focus();
+      el.setSelectionRange(t.length, t.length);
+    }
+    setInput(t);
+    requestAnimationFrame(autoSize);
   };
 
   const newConversation = () => {
@@ -122,7 +132,7 @@ export function AirJordanChat({
           const ev = JSON.parse(line);
           if (ev.type === 'conversation') { setConversationId(ev.id); onConversation?.(ev.id, ev.title); }
           else if (ev.type === 'step') setSteps((s) => (s.at(-1) === ev.label ? s : [...s, ev.label]));
-          else if (ev.type === 'answer') { answered = true; setMessages((m) => [...m, { id: ev.messageId, role: 'assistant', content: ev.text, citations: ev.citations, cards: ev.cards }]); }
+          else if (ev.type === 'answer') { answered = true; setMessages((m) => [...m, { id: ev.messageId, role: 'assistant', content: ev.text, citations: ev.citations, cards: ev.cards, choices: ev.choices?.options, followups: ev.followups }]); }
           else if (ev.type === 'error') { answered = true; setMessages((m) => [...m, { role: 'assistant', content: ev.message, error: true }]); }
         }
       }
@@ -208,20 +218,10 @@ export function AirJordanChat({
             <div>
               <p className="text-[length:var(--fs-16)] font-semibold text-foreground">Γεια! Είμαι ο Air Jordan.</p>
               <p className="mt-1 text-[length:var(--fs-13)] text-muted-foreground">
-                Ρωτήστε με — γραπτά ή με τη φωνή — για έργα, πελάτες, προμηθευτές, υλικά και προϊόντα. Απαντώ με βάση τα δεδομένα της εφαρμογής και του SoftOne, με παραπομπές.
+                Ρωτήστε με — γραπτά ή με τη φωνή — για τη μέρα σας, πελάτες, προμηθευτές, έργα, υλικά, ραντεβού ή πώς γίνεται κάτι στην εφαρμογή. Απαντώ με βάση τα δεδομένα της εφαρμογής και του SoftOne, με παραπομπές.
               </p>
             </div>
-            <div className="flex w-full flex-col gap-1.5">
-              {SUGGESTIONS.map((s) => (
-                <button
-                  key={s} type="button"
-                  onClick={() => (s.endsWith('…') ? (setInput(s.replace(/…$/, ' ')), inputRef.current?.focus()) : void send(s))}
-                  className="min-h-11 cursor-pointer rounded-md border border-border bg-card px-3 py-2 text-left text-[length:var(--fs-13)] text-foreground/80 transition-colors hover:border-primary/40 hover:bg-[var(--cx-accent-soft)]"
-                >
-                  {s}
-                </button>
-              ))}
-            </div>
+            <StarterGroups onPick={(text) => (text.endsWith('…') ? (setInput(text.replace(/…$/, ' ')), requestAnimationFrame(() => inputRef.current?.focus())) : void send(text))} />
           </div>
         )}
 
@@ -238,6 +238,19 @@ export function AirJordanChat({
                   {m.error ? <p className="text-[length:var(--fs-13)]">{m.content}</p> : <MarkdownView text={m.content} />}
                 </div>
                 {m.cards?.map((c) => <AppointmentConfirmCard key={c.token} card={c} conversationId={conversationId} />)}
+                {m.choices && m.choices.length > 0 && (
+                  <div className="mt-2 flex flex-col gap-1.5 sm:flex-row sm:flex-wrap">
+                    {m.choices.map((c) => <ChoiceButton key={c.label} c={c} primary disabled={busy || i !== messages.length - 1} onPrompt={(t) => void send(t)} onFill={fill} />)}
+                  </div>
+                )}
+                {m.followups && m.followups.length > 0 && i === messages.length - 1 && (
+                  <div className="mt-2">
+                    <p className="mb-1 text-[length:var(--fs-11)] font-medium text-muted-foreground">Τι άλλο θέλετε να δείτε;</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {m.followups.map((c) => <ChoiceButton key={c.label} c={c} disabled={busy} onPrompt={(t) => void send(t)} onFill={fill} />)}
+                    </div>
+                  </div>
+                )}
                 {!m.error && (
                   <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
                     {(m.citations ?? []).map((c) => (
@@ -347,6 +360,54 @@ export function AirJordanChat({
           )}
         </form>
       </div>
+    </div>
+  );
+}
+
+function ChoiceButton({ c, primary, disabled, onPrompt, onFill }: { c: Choice; primary?: boolean; disabled?: boolean; onPrompt: (t: string) => void; onFill: (t: string) => void }) {
+  const cls = cn(
+    'inline-flex min-h-11 cursor-pointer items-center gap-1.5 rounded-lg border px-3 text-left text-[length:var(--fs-13)] transition-colors disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-9',
+    primary ? 'border-primary/40 bg-[var(--cx-accent-soft)] font-medium text-primary hover:bg-primary hover:text-primary-foreground' : 'border-border bg-card text-foreground/80 hover:border-primary/40 hover:text-primary',
+  );
+  if (c.href) {
+    const external = c.href.startsWith('/api/');
+    return external
+      ? <a href={c.href} target="_blank" rel="noreferrer" className={cls}><FiExternalLink className="size-3.5 shrink-0" aria-hidden />{c.label}</a>
+      : <Link href={c.href} className={cls}><FiExternalLink className="size-3.5 shrink-0" aria-hidden />{c.label}</Link>;
+  }
+  return (
+    <button type="button" disabled={disabled} className={cls} onClick={() => (c.fill ? onFill(c.fill) : c.prompt && onPrompt(c.prompt))}>
+      {c.label}{c.fill && <span aria-hidden className="text-muted-foreground">…</span>}
+    </button>
+  );
+}
+
+/** Άδεια συνομιλία: παραδείγματα ανά ενότητα — για χρήστες που δεν ξέρουν τι μπορούν να ρωτήσουν. */
+function StarterGroups({ onPick }: { onPick: (text: string) => void }) {
+  const [g, setG] = React.useState(0);
+  return (
+    <div className="w-full text-left">
+      <div role="tablist" className="mb-2 flex flex-wrap justify-center gap-1">
+        {STARTERS.map((s, i) => (
+          <button
+            key={s.group} type="button" role="tab" aria-selected={g === i} onClick={() => setG(i)}
+            className={cn('min-h-9 cursor-pointer rounded-full border px-3 text-[length:var(--fs-12)] font-medium transition-colors', g === i ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-card text-foreground/70 hover:border-primary/40')}
+          >
+            {s.group}
+          </button>
+        ))}
+      </div>
+      <div className="flex flex-col gap-1.5">
+        {STARTERS[g].items.map((s) => (
+          <button
+            key={s} type="button" onClick={() => onPick(s)}
+            className="min-h-11 cursor-pointer rounded-md border border-border bg-card px-3 py-2 text-left text-[length:var(--fs-13)] text-foreground/80 transition-colors hover:border-primary/40 hover:bg-[var(--cx-accent-soft)]"
+          >
+            {s}
+          </button>
+        ))}
+      </div>
+      <p className="mt-2 text-center text-[length:var(--fs-11)] text-muted-foreground">Ό,τι τελειώνει με «…» το συμπληρώνετε εσείς (π.χ. το όνομα του πελάτη).</p>
     </div>
   );
 }
