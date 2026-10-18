@@ -95,6 +95,9 @@ export const PERMISSIONS: PermissionDef[] = [
   { key: 'units.manage', resource: 'units', action: 'manage', description: 'Δημιουργία/επεξεργασία μονάδων μέτρησης στο SoftOne' },
   // Είδη — ευαίσθητες ενέργειες
   { key: 'items.unit2_override', resource: 'items', action: 'unit2_override', description: 'Αλλαγή Μ.Μ.2 μέσω script σε είδος με παραστατικά (παράκαμψη ελέγχου SoftOne)' },
+  // Air Jordan — βοηθός AI (μόνο ADMIN / SUPER_ADMIN: ο ρόλος ελέγχεται ΚΑΙ στον server, όποιος κι αν πάρει το δικαίωμα)
+  { key: 'assistant.use', resource: 'assistant', action: 'use', description: 'Air Jordan: ερωτήσεις (κείμενο/φωνή) για έργα, συναλλασσόμενους, υλικά — μόνο ανάγνωση' },
+  { key: 'assistant.memory', resource: 'assistant', action: 'memory', description: 'Air Jordan: διαχείριση μνήμης (ό,τι έμαθε) και επανευρετηρίαση' },
 
   // System
   { key: 'system.audit', resource: 'system', action: 'audit', description: 'View audit log' },
@@ -122,6 +125,7 @@ export const ROLE_DEFAULTS: Record<string, string[]> = {
     'classifications.read', 'classifications.manage',
     'units.read', 'units.manage',
     'items.unit2_override',
+    'assistant.use', 'assistant.memory',
   ],
   EMPLOYEE: ['users.read', 'appointments.read', 'appointments.manage', 'appointments.schedule', 'leads.read'],
   COLLABORATOR: ['users.read'],
@@ -134,7 +138,7 @@ export const RESOURCE_LABELS: Record<string, string> = {
   users: 'Χρήστες', roles: 'Ρόλοι', permissions: 'Δικαιώματα', media: 'Media', companies: 'Εταιρείες',
   kad: 'ΚΑΔ', metadata: 'Μητρώα αναφοράς', ocr: 'OCR / Έγγραφα', system: 'Σύστημα',
   projects: 'Έργα', dynamic_offers: 'Δυναμικές προσφορές', payments: 'Πληρωμές (Viva)', order_requests: 'Αιτήματα παραγγελίας', appointments: 'Ραντεβού', leads: 'Leads & newsletter', partners: 'Συνεργάτες',
-  classifications: 'Κατηγορίες & ομάδες', units: 'Μονάδες μέτρησης', items: 'Είδη',
+  classifications: 'Κατηγορίες & ομάδες', units: 'Μονάδες μέτρησης', items: 'Είδη', assistant: 'Air Jordan (βοηθός AI)',
 };
 
 /**

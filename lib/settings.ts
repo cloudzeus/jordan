@@ -125,6 +125,10 @@ export const SETTING_CATALOG: SettingDef[] = [
     type: 'boolean',
     defaultValue: true,
   },
+  { key: 'ai.assistantModel', category: 'ai', label: 'Air Jordan — μοντέλο συνομιλίας (OpenRouter)', type: 'text', defaultValue: 'openrouter/auto', description: 'openrouter/auto = το OpenRouter διαλέγει το κατάλληλο μοντέλο για κάθε ερώτημα. Ή συγκεκριμένο, π.χ. google/gemini-2.5-flash. Κλειδί: το OpenRouter API Key παραπάνω.' },
+  { key: 'ai.assistantFallbackModel', category: 'ai', label: 'Air Jordan — εφεδρικό μοντέλο', type: 'text', defaultValue: 'google/gemini-2.5-flash', description: 'Αν το κύριο αποτύχει ή δεν υποστηρίζει εργαλεία.' },
+  { key: 'ai.assistantEmbeddingModel', category: 'ai', label: 'Air Jordan — μοντέλο embeddings (pgvector)', type: 'text', defaultValue: 'openai/text-embedding-3-small', description: '1536 διαστάσεις. Αλλαγή μοντέλου απαιτεί «Επανευρετηρίαση» της μνήμης.' },
+  { key: 'ai.assistantSttModel', category: 'ai', label: 'Air Jordan — μοντέλο φωνής (μεταγραφή)', type: 'text', defaultValue: 'google/gemini-2.5-flash', description: 'Μεταγραφή ελληνικής ομιλίας με αγγλικούς όρους. Αν αποτύχει, ο browser χρησιμοποιεί την ενσωματωμένη αναγνώριση (el-GR).' },
   { key: 'ai.usdToEur',       category: 'ai', label: 'Ισοτιμία USD→EUR (fallback)', description: 'Εφεδρική ισοτιμία δολαρίου→ευρώ για την οθόνη κόστους AI. Κανονικά οι ισοτιμίες λαμβάνονται ζωντανά από το Frankfurter (ΕΚΤ), ανά ημέρα· αυτή χρησιμοποιείται μόνο αν το API δεν είναι διαθέσιμο.', type: 'number', defaultValue: 0.92 },
 
   // Integrations — SoftOne ERP Web Services (two-step login → authenticate)

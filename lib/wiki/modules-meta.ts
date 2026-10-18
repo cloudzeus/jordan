@@ -4,6 +4,7 @@ import {
   FiCpu, FiLayers, FiTag, FiActivity, FiHome, FiMapPin, FiFileText,
 } from 'react-icons/fi';
 import type { IconType } from 'react-icons';
+import { AirJordanIcon } from '@/components/assistant/air-jordan-icon';
 
 export interface ModuleMeta {
   label: string;
@@ -96,6 +97,12 @@ export const MODULE_META: Record<string, ModuleMeta> = {
     icon: FiBriefcase,
     gradientFrom: '#34d399', gradientTo: '#059669',
     accent: '#047857', accentSoft: '#d1fae5',
+  },
+  assistant: {
+    label: 'Air Jordan', description: 'Ο βοηθός AI: ερωτήσεις με φωνή ή κείμενο για έργα, συναλλασσόμενους και υλικά',
+    icon: AirJordanIcon as unknown as IconType,
+    gradientFrom: '#2563EB', gradientTo: '#1E40AF',
+    accent: '#1D4ED8', accentSoft: '#DBEAFE',
   },
 };
 

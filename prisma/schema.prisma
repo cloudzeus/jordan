@@ -1350,6 +1350,7 @@ enum AiScope {
   OCR_VISION_RETRY // upgraded-model retry firing on missing-fields
   TRANSLATION // DeepSeek translation
   TAX_FORM // Tax-form field extraction via vision pipeline
+  ASSISTANT // Air Jordan: συνομιλία, embeddings, μεταγραφή φωνής
   OTHER
 }
 
@@ -3080,4 +3081,86 @@ model NewsletterSubscriber {
   updatedAt      DateTime  @updatedAt
 
   @@index([status])
+}
+
+// ── Air Jordan (βοηθός AI για ADMIN / SUPER_ADMIN) ────────────────────────────────────────────────
+// Μνήμη RAG σε pgvector: η «γνώση» (AssistantChunk) χτίζεται από τα δεδομένα της εφαρμογής (καθρέφτες
+// SoftOne, έργα, συναλλασσόμενοι, είδη, wiki, γλωσσάρι SoftOne) και η «εμπειρία» (AssistantMemory)
+// από ό,τι μαθαίνει στις συνομιλίες (συνώνυμα, διορθώσεις, επιβεβαιωμένες απαντήσεις).
+// Ο βοηθός ΜΟΝΟ διαβάζει — γράφει μόνο σε αυτούς τους πίνακες.
+
+model AssistantChunk {
+  id          String                       @id @default(cuid())
+  /// project | trader | item | service | lookup | classification | unit | partner | offer | appointment | lead | order_request | wiki | glossary
+  source      String
+  /// Μοναδικό κλειδί πηγής, π.χ. «project:123», «trader:45», «wiki:operations/projects».
+  refKey      String                       @unique
+  title       String
+  body        String
+  /// Σύνδεσμος στην εφαρμογή (π.χ. /admin/projects/123).
+  url         String?
+  meta        Json?
+  /// Κείμενο αναζήτησης: πεζά, χωρίς τόνους + greeklish μεταγραφή (pg_trgm).
+  searchText  String
+  contentHash String
+  embedding   Unsupported("vector(1536)")?
+  updatedAt   DateTime                     @updatedAt
+  createdAt   DateTime                     @default(now())
+  // + HNSW (vector_cosine_ops) στο embedding — μόνο στο migration, το Prisma δεν εκφράζει HNSW.
+
+  @@index([source])
+  @@index([searchText(ops: raw("gin_trgm_ops"))], map: "AssistantChunk_searchText_trgm_idx", type: Gin)
+}
+
+model AssistantMemory {
+  id         String                       @id @default(cuid())
+  /// alias (όρος → οντότητα) | fact (γεγονός) | preference (προτίμηση απάντησης) | answer (επιβεβαιωμένη απάντηση)
+  kind       String
+  text       String
+  /// Προαιρετικά η οντότητα που αφορά (π.χ. «trader:45»).
+  refKey     String?
+  searchText String
+  embedding  Unsupported("vector(1536)")?
+  userId     String?
+  messageId  String?
+  uses       Int                          @default(0)
+  lastUsedAt DateTime?
+  createdAt  DateTime                     @default(now())
+  updatedAt  DateTime                     @updatedAt
+  // + HNSW (vector_cosine_ops) στο embedding — μόνο στο migration.
+
+  @@index([kind])
+  @@index([userId])
+  @@index([searchText(ops: raw("gin_trgm_ops"))], map: "AssistantMemory_searchText_trgm_idx", type: Gin)
+}
+
+model AssistantConversation {
+  id        String             @id @default(cuid())
+  userId    String
+  title     String
+  messages  AssistantMessage[]
+  createdAt DateTime           @default(now())
+  updatedAt DateTime           @updatedAt
+
+  @@index([userId, updatedAt])
+}
+
+model AssistantMessage {
+  id             String                @id @default(cuid())
+  conversationId String
+  conversation   AssistantConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  /// user | assistant
+  role           String
+  content        String
+  /// Πηγές της απάντησης: [{ refKey, label, url }]
+  citations      Json?
+  /// Κλήσεις εργαλείων (για έλεγχο): [{ name, args, ms, ok }]
+  toolCalls      Json?
+  model          String?
+  costUsd        Float?
+  /// 1 = σωστή (θα τη θυμάται), -1 = λάθος
+  feedback       Int?
+  createdAt      DateTime              @default(now())
+
+  @@index([conversationId, createdAt])
 }

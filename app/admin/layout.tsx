@@ -4,6 +4,8 @@ import { DEFAULT_LOCALE, isValidLocale, type LocaleCode } from '@/i18n/locales';
 import { SoftoneConnectionBar } from '@/components/admin/softone-connection-bar';
 import { countPendingOrderRequests } from '@/lib/order-requests';
 import { countPendingAppointments } from '@/lib/appointments';
+import { AirJordanLauncher } from '@/components/assistant/air-jordan-launcher';
+import { assistantAllowed } from '@/lib/assistant/access-rules';
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   // Πελάτες/συνεργάτες ΔΕΝ μπαίνουν στη διαχείριση — πάνε στο portal τους.
@@ -12,6 +14,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   const locale: LocaleCode = isValidLocale(user.locale) ? user.locale : DEFAULT_LOCALE;
   const canSeeRequests = user.role.key === 'SUPER_ADMIN' || user.permissionKeys.has('order_requests.read');
   const canSeeAppointments = user.role.key === 'SUPER_ADMIN' || user.permissionKeys.has('appointments.read');
+  // Air Jordan: μόνο ADMIN / SUPER_ADMIN (το ίδιο ελέγχεται σε κάθε API του).
+  const canAssistant = assistantAllowed(user.role.key, user.permissionKeys, 'assistant.use');
+  const canAssistantMemory = assistantAllowed(user.role.key, user.permissionKeys, 'assistant.memory');
   const [orderRequests, appointments] = await Promise.all([
     canSeeRequests ? countPendingOrderRequests().catch(() => 0) : 0,
     canSeeAppointments ? countPendingAppointments().catch(() => 0) : 0,
@@ -37,6 +42,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         </main>
       </div>
       <AdminBottomNav />
+      {canAssistant && <AirJordanLauncher canMemory={canAssistantMemory} />}
     </div>
   );
 }

@@ -52,6 +52,9 @@ const PERMISSIONS = [
   { key: 'units.read', resource: 'units', action: 'read', description: 'Προβολή μονάδων μέτρησης' },
   { key: 'units.manage', resource: 'units', action: 'manage', description: 'Δημιουργία/επεξεργασία μονάδων μέτρησης στο SoftOne' },
   { key: 'items.unit2_override', resource: 'items', action: 'unit2_override', description: 'Αλλαγή Μ.Μ.2 μέσω script σε είδος με παραστατικά (παράκαμψη ελέγχου SoftOne)' },
+  // Air Jordan — βοηθός AI (μόνο ADMIN / SUPER_ADMIN: ο ρόλος ελέγχεται ΚΑΙ στον server, όποιος κι αν πάρει το δικαίωμα)
+  { key: 'assistant.use', resource: 'assistant', action: 'use', description: 'Air Jordan: ερωτήσεις (κείμενο/φωνή) για έργα, συναλλασσόμενους, υλικά — μόνο ανάγνωση' },
+  { key: 'assistant.memory', resource: 'assistant', action: 'memory', description: 'Air Jordan: διαχείριση μνήμης (ό,τι έμαθε) και επανευρετηρίαση' },
   { key: 'system.audit', resource: 'system', action: 'audit', description: 'View audit log' },
   { key: 'system.settings', resource: 'system', action: 'settings', description: 'Modify system settings' },
   { key: 'system.backups', resource: 'system', action: 'backups', description: 'Manage database backups' },
@@ -117,7 +120,7 @@ const SYSTEM_ROLES = [
 
 const ROLE_DEFAULTS = {
   SUPER_ADMIN: PERMISSIONS.map((p) => p.key),
-  ADMIN: ['users.read', 'users.create', 'users.update', 'users.assign_role', 'users.softone_link', 'roles.read', 'permissions.read', 'companies.read', 'companies.create', 'companies.update', 'companies.delete', 'companies.manage_types', 'kad.read', 'kad.manage', 'metadata.read', 'metadata.manage', 'ocr.read', 'ocr.create', 'ocr.delete', 'ocr.categorize', 'ocr.post', 'projects.read', 'projects.manage', 'projects.financials', 'dynamic_offers.read', 'dynamic_offers.manage', 'dynamic_offers.reservations', 'payments.read', 'payments.manage', 'payments.refund', 'order_requests.read', 'order_requests.manage', 'appointments.read', 'appointments.manage', 'appointments.schedule', 'leads.read', 'leads.manage', 'partners.read', 'partners.manage', 'partners.access', 'classifications.read', 'classifications.manage', 'units.read', 'units.manage', 'items.unit2_override'],
+  ADMIN: ['users.read', 'users.create', 'users.update', 'users.assign_role', 'users.softone_link', 'roles.read', 'permissions.read', 'companies.read', 'companies.create', 'companies.update', 'companies.delete', 'companies.manage_types', 'kad.read', 'kad.manage', 'metadata.read', 'metadata.manage', 'ocr.read', 'ocr.create', 'ocr.delete', 'ocr.categorize', 'ocr.post', 'projects.read', 'projects.manage', 'projects.financials', 'dynamic_offers.read', 'dynamic_offers.manage', 'dynamic_offers.reservations', 'payments.read', 'payments.manage', 'payments.refund', 'order_requests.read', 'order_requests.manage', 'appointments.read', 'appointments.manage', 'appointments.schedule', 'leads.read', 'leads.manage', 'partners.read', 'partners.manage', 'partners.access', 'classifications.read', 'classifications.manage', 'units.read', 'units.manage', 'items.unit2_override', 'assistant.use', 'assistant.memory'],
   EMPLOYEE: ['users.read', 'appointments.read', 'appointments.manage', 'appointments.schedule', 'leads.read'],
   COLLABORATOR: ['users.read'],
   SUPPLIER: [],

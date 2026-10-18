@@ -1,7 +1,7 @@
 import { prisma } from '@/lib/db';
 import { computeCost } from '@/lib/ai/pricing';
 
-export type AiScope = 'OCR_TEXT' | 'OCR_VISION' | 'OCR_VISION_RETRY' | 'TRANSLATION' | 'TAX_FORM' | 'OTHER';
+export type AiScope = 'OCR_TEXT' | 'OCR_VISION' | 'OCR_VISION_RETRY' | 'TRANSLATION' | 'TAX_FORM' | 'ASSISTANT' | 'OTHER';
 
 interface LogInput {
   scope: AiScope;
@@ -15,6 +15,8 @@ interface LogInput {
   userId?: string | null;
   refType?: string | null;
   refId?: string | null;
+  /** Πραγματικό κόστος σε USD όπως το δίνει ο πάροχος (OpenRouter `usage.cost`) — υπερισχύει του τιμοκαταλόγου. */
+  costUsd?: number | null;
 }
 
 /**
@@ -26,11 +28,13 @@ export async function logAiUsage(input: LogInput): Promise<void> {
     const totalTokens = input.totalTokens
       ?? ((input.inputTokens ?? 0) + (input.outputTokens ?? 0));
 
-    const cost = computeCost(input.model, {
-      input: input.inputTokens,
-      output: input.outputTokens,
-      total: input.totalTokens,
-    });
+    const cost = input.costUsd != null && Number.isFinite(input.costUsd)
+      ? { inputCost: 0, outputCost: input.costUsd, totalCost: input.costUsd, matched: true }
+      : computeCost(input.model, {
+        input: input.inputTokens,
+        output: input.outputTokens,
+        total: input.totalTokens,
+      });
 
     await prisma.aiUsage.create({
       data: {

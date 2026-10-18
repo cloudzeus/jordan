@@ -22,7 +22,8 @@
     "wiki:screenshots": "node ./scripts/wiki/screenshot.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
-    "permissions:sync": "npx tsx scripts/sync-permissions.ts"
+    "permissions:sync": "npx tsx scripts/sync-permissions.ts",
+    "assistant:reindex": "npx tsx --import ./scripts/templates/register.mjs scripts/assistant-reindex.ts"
   },
   "dependencies": {
     "@auth/core": "^0.34.3",

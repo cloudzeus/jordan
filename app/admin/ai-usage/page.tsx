@@ -30,6 +30,7 @@ const SCOPE_LABELS: Record<string, string> = {
   OCR_VISION:       'OCR · Vision',
   OCR_VISION_RETRY: 'OCR · Vision retry (HQ)',
   TRANSLATION:      'Translation',
+  ASSISTANT:        'Air Jordan (βοηθός)',
   OTHER:            'Other',
 };
 

@@ -7,6 +7,7 @@ import {
   FiGrid, FiUsers, FiShield, FiKey, FiImage, FiChevronDown, FiList, FiTag, FiMaximize2, FiTrendingDown, FiShoppingCart,
   FiActivity, FiSettings, FiFileText, FiLogOut, FiDatabase, FiBriefcase, FiLayers, FiCpu, FiBookOpen, FiBook, FiUserCheck, FiBox, FiTool, FiFolder, FiAlertCircle, FiUserPlus, FiPackage, FiPlayCircle, FiUploadCloud, FiHelpCircle, FiClipboard, FiCalendar, FiTarget,
 } from 'react-icons/fi';
+import { AirJordanIcon } from '@/components/assistant/air-jordan-icon';
 
 type IconType = React.ComponentType<{ className?: string }>;
 
@@ -18,6 +19,8 @@ type NavItem = {
   permissions?: string[];
   /** When set, only users with this role.key can see this item. */
   requireRoleKey?: string;
+  /** When set, only these role.keys can see this item (π.χ. Air Jordan: ADMIN / SUPER_ADMIN). */
+  roleKeys?: string[];
   badgeKey?: keyof Badges;
 };
 type NavGroup = { label: string; items: NavItem[] };
@@ -49,6 +52,7 @@ const NAV_GROUPS: NavGroup[] = [
     label: 'Επισκόπηση',
     items: [
       { href: '/admin', label: 'Dashboard', icon: FiGrid, exact: true },
+      { href: '/admin/assistant', label: 'Air Jordan', icon: AirJordanIcon, permissions: ['assistant.use'], roleKeys: ['SUPER_ADMIN', 'ADMIN'] },
     ],
   },
   {
@@ -141,7 +145,7 @@ export function AdminSidebar({ user, roleName, roleKey, locale, permissionKeys, 
     .split(/[\s@]/).map((p) => p[0]).filter(Boolean).slice(0, 2).join('').toUpperCase();
 
   const allowed = (perms?: string[]) => !perms || perms.length === 0 || perms.some((p) => permissionKeys.includes(p));
-  const allowedItem = (it: NavItem) => allowed(it.permissions) && (!it.requireRoleKey || it.requireRoleKey === roleKey);
+  const allowedItem = (it: NavItem) => allowed(it.permissions) && (!it.requireRoleKey || it.requireRoleKey === roleKey) && (!it.roleKeys || (!!roleKey && it.roleKeys.includes(roleKey)));
   const isActive = (item: NavItem) => item.exact ? path === item.href : (path === item.href || path.startsWith(`${item.href}/`));
 
   // Collapsible groups: all open by default, remembered per browser, and the
