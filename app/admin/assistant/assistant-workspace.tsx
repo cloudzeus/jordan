@@ -45,11 +45,10 @@ export function AssistantWorkspace(props: {
     window.history.replaceState(null, '', url);
   };
 
+  // ΔΕΝ γράφουμε το ?c= στο URL όσο τρέχει η συνομιλία: στο Next 16 το replaceState ξαναφορτώνει τη
+  // σελίδα (RSC) και κόβει τη ροή της απάντησης (επιβεβαιωμένο: POST chat → ERR_ABORTED).
   const onConversation = (id: string | null, title?: string) => {
     setActive(id);
-    const url = new URL(window.location.href);
-    if (id) url.searchParams.set('c', id); else url.searchParams.delete('c');
-    window.history.replaceState(null, '', url);
     if (id && title) setConvs((cs) => [{ id, title, updatedAt: new Date().toISOString() }, ...cs.filter((c) => c.id !== id)]);
   };
 

@@ -5,6 +5,7 @@ import { prisma } from '@/lib/db';
 import { chat, type ChatMessage, type ToolCall } from './openrouter';
 import { embedQuery, searchKnowledge, searchMemories, type MemoryHit } from './search';
 import { detectIntent } from './text';
+import { parsePeriod } from './period';
 import { runTool, stepLabel, TOOL_DEFS, type Ref, type ToolContext } from './tools';
 import { pickCitations } from './citations';
 import { reindexIfStale } from './indexer';
@@ -29,13 +30,14 @@ function systemPrompt(opts: { name: string | null; canFinancials: boolean; memor
 ΚΑΝΟΝΕΣ
 1. Απαντάς ΠΑΝΤΑ στα Ελληνικά, σύντομα και ουσιαστικά. Ο χρήστης μιλά Ελληνικά με αγγλικούς όρους, συχνά από φωνή: περίμενε λάθη μεταγραφής, greeklish, χωρίς τόνους, κομμάτια κωδικών, παρατσούκλια. Κατάλαβε τι εννοεί.
 2. ΠΟΤΕ δεν μαντεύεις. Κάθε αριθμό, όνομα, κωδικό τον παίρνεις από εργαλείο. Ψάξε πρώτα με search_knowledge για να βρεις την οντότητα, μετά ζήτα λεπτομέρειες (get_project / get_trader / get_item / get_project_materials / list_projects).
-3. Αν βρεις πολλές πιθανές οντότητες, διάλεξε την πιο πιθανή και ανέφερε τις άλλες σε μία γραμμή («Εννοείτε μήπως…;»). Αν δεν βρεις τίποτα, πες το καθαρά.
+3. Αν βρεις πολλές πιθανές οντότητες: όταν η ερώτηση ζητά ΠΟΣΑ (υπόλοιπο, τζίρο, χρέος) και δύο ή περισσότερες ταιριάζουν εξίσου (π.χ. δύο «Παπαδόπουλος»), ΜΗΝ διαλέξεις — ρώτα ποια εννοεί, με κωδικό και επωνυμία της καθεμιάς. Αλλιώς διάλεξε την πιο πιθανή και ανέφερε τις άλλες σε μία γραμμή («Εννοείτε μήπως…;»). Αν δεν βρεις τίποτα, πες το καθαρά.
 4. Αν λείπουν δεδομένα (π.χ. δεν έχουν υπολογιστεί οικονομικά, το SoftOne δεν απάντησε, δεν υπάρχει αγορά), ΠΕΣ ΤΟ ρητά — μην το καλύπτεις με γενικότητες.
 5. Παραπομπές: ανέφερε πάντα τους κωδικούς στους οποίους βασίζεσαι (κωδικός έργου, αριθμός παραστατικού, κωδικός είδους/συναλλασσομένου) μέσα στο κείμενο, π.χ. «(έργο 2026-015, τιμ. ΤΔΑ0000123)».
 6. Μόνο ΑΝΑΓΝΩΣΗ: δεν δημιουργείς, δεν αλλάζεις, δεν διαγράφεις τίποτα στο SoftOne ή στην εφαρμογή. Αν σου ζητηθεί, εξήγησε σε ποια σελίδα της εφαρμογής γίνεται.
 7. ${opts.canFinancials ? 'Τα οικονομικά έργων (κέρδος, περιθώριο) είναι ΕΣΩΤΕΡΙΚΗ πληροφορία — δίνονται μόνο σε αυτόν τον χρήστη.' : 'Ο χρήστης ΔΕΝ έχει δικαίωμα στα οικονομικά έργων — μην τα αναφέρεις.'}
-8. Μορφή: ποσά σε € με ελληνική μορφή (1.234,56 €), ημερομηνίες ηη/μμ/εεεε. Markdown με λίστες ή μικρό πίνακα μόνο όταν βοηθά. Χωρίς εισαγωγές τύπου «Φυσικά!».
-9. ΜΑΘΗΣΗ: όταν ο χρήστης σε διορθώνει ή σου εξηγεί τι εννοεί («όταν λέω Χ εννοώ Υ», «ο Γιώργος είναι ο προμηθευτής Ζ», «θέλω τα ποσά χωρίς ΦΠΑ»), κάλεσε remember με μία αυτοτελή πρόταση, και συνέχισε την απάντηση. Μην αποθηκεύεις μεταβλητά νούμερα.
+8. ΟΙΚΟΝΟΜΙΚΑ: πες ΠΑΝΤΑ την περίοδο (με ημερομηνίες) και αν τα ποσά είναι καθαρά (χωρίς ΦΠΑ) ή μικτά (με ΦΠΑ). Τζίρος/αγορές περιόδου → get_turnover (μετρά τιμολόγια μείον πιστωτικά — ανέφερε πόσα παραστατικά και τα μεγαλύτερα). Υπόλοιπο προμηθευτή/πελάτη → get_trader (η καρτέλα του SoftOne). Υπόλοιπο πελάτη ΣΕ ΕΡΓΟ → get_customer_project_balance (ανέφερε τα «Δεδομένα που λείπουν» αν υπάρχουν). Αν η περίοδος δεν είναι σαφής, ρώτα.
+9. Μορφή: ποσά σε € με ελληνική μορφή (1.234,56 €), ημερομηνίες ηη/μμ/εεεε. Markdown με λίστες ή μικρό πίνακα μόνο όταν βοηθά. Χωρίς εισαγωγές τύπου «Φυσικά!».
+10. ΜΑΘΗΣΗ: όταν ο χρήστης σε διορθώνει ή σου εξηγεί τι εννοεί («όταν λέω Χ εννοώ Υ», «ο Γιώργος είναι ο προμηθευτής Ζ», «θέλω τα ποσά χωρίς ΦΠΑ»), κάλεσε remember με μία αυτοτελή πρόταση, και συνέχισε την απάντηση. Μην αποθηκεύεις μεταβλητά νούμερα.
 
 ΤΙ ΕΧΕΙΣ ΜΑΘΕΙ (από προηγούμενες συνομιλίες — ισχύουν, αλλά τα νούμερα τα ξαναελέγχεις):
 ${mem}`;
@@ -85,6 +87,7 @@ export async function runAgent(input: AgentInput, emit: (e: AgentEvent) => void)
     searchKnowledge(recallText, { vector: vec, limit: 6, userId: input.userId }),
   ]);
   const intent = detectIntent(question);
+  const period = parsePeriod(question);
 
   const ctx: ToolContext = { userId: input.userId, canFinancials: input.canFinancials, messageId: userMsg.id, vector: vec };
   const visibleHints = input.canFinancials ? hints : hints.map((h) => ({ ...h, body: h.body.replace(/^Οικονομικά.*$/gm, '') }));
@@ -93,7 +96,7 @@ export async function runAgent(input: AgentInput, emit: (e: AgentEvent) => void)
     ...history.reverse().map((h) => ({ role: h.role === 'assistant' ? 'assistant' as const : 'user' as const, content: h.content })),
     {
       role: 'user',
-      content: `${question}\n\n---\n(Αυτόματο πλαίσιο — όχι από τον χρήστη)\nΠιθανή πρόθεση: ${JSON.stringify({ entities: intent.entities, side: intent.traderSide, financials: intent.wantsFinancials, balance: intent.wantsBalance, documents: intent.wantsDocuments, stock: intent.wantsStock, price: intent.wantsPrice, contacts: intent.wantsContacts, location: intent.wantsLocation, codes: intent.codes })}\nΣχετικά από τη μνήμη (ref · τίτλος):\n${visibleHints.map((h) => `- ${h.refKey} · ${h.title}`).join('\n') || '- κανένα'}`,
+      content: `${question}\n\n---\n(Αυτόματο πλαίσιο — όχι από τον χρήστη)\nΠιθανή πρόθεση: ${JSON.stringify({ entities: intent.entities, side: intent.traderSide, turnover: intent.wantsTurnover, period: period ?? undefined, financials: intent.wantsFinancials, balance: intent.wantsBalance, documents: intent.wantsDocuments, stock: intent.wantsStock, price: intent.wantsPrice, contacts: intent.wantsContacts, location: intent.wantsLocation, codes: intent.codes })}\nΣχετικά από τη μνήμη (ref · τίτλος):\n${visibleHints.map((h) => `- ${h.refKey} · ${h.title}`).join('\n') || '- κανένα'}`,
     },
   ];
 
@@ -121,7 +124,8 @@ export async function runAgent(input: AgentInput, emit: (e: AgentEvent) => void)
       const t = Date.now();
       try {
         const r = await runTool(tc.function.name, args, ctx);
-        refs.push(...r.refs);
+        // Αποτελέσματα αναζήτησης = υποψήφιοι, όχι πηγές: μετρούν μόνο αν η απάντηση τα ονομάζει.
+        (tc.function.name === 'search_knowledge' ? hintRefs : refs).push(...r.refs);
         toolLog.push({ name: tc.function.name, args, ms: Date.now() - t, ok: true });
         return { id: tc.id, content: JSON.stringify(r.data).slice(0, MAX_TOOL_CHARS) };
       } catch (e) {

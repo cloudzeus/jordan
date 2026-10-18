@@ -105,6 +105,8 @@ export interface Intent {
   /** Πελάτης / προμηθευτής, αν φαίνεται. */
   traderSide: 'customer' | 'supplier' | null;
   wantsFinancials: boolean;
+  /** Τζίρος / πωλήσεις / αγορές περιόδου. */
+  wantsTurnover: boolean;
   wantsBalance: boolean;
   wantsDocuments: boolean;
   wantsStock: boolean;
@@ -136,6 +138,7 @@ export function detectIntent(q: string): Intent {
     entities,
     traderSide: supplier && !customer ? 'supplier' : customer && !supplier ? 'customer' : null,
     wantsFinancials: has(t, /κερδ|ζημι|περιθωρ|κοστ|εσοδ|τζιρ|κερδοφορ|οικονομικ|profit|margin|revenue|cost|kerd|kost|esod/),
+    wantsTurnover: has(t, /τζιρ|πωλησ|πουλησ|τιμολογησ|εσοδ|αγορεσ (του|τησ|τον|φετοσ|περσι)|turnover|sales|revenue|tzir|poulis|polis|timologis/),
     wantsBalance: has(t, /υπολοιπ|οφειλ|χρωστ|ανοιχτ|εισπραξ|πληρωμ|εξοφλ|balance|ipolip|ofil|hrost|isprak|pliromi/),
     wantsDocuments: has(t, /τιμολογ|παραστατ|δελτι|παραγγελ|πιστωτικ|αποδειξ|μαρκ|mydata|invoice|timolog|parastat|delti/),
     wantsStock: has(t, /αποθεμ|στοκ|διαθεσιμ|αποθηκ|stock|apothem|diathesim/),

@@ -67,6 +67,20 @@ describe('detectIntent', () => {
     expect(i.wantsPrice).toBe(true);
   });
 
+  it('τζίρος περιόδου (και greeklish)', () => {
+    expect(detectIntent('τι τζίρο έκανα αυτό τον μήνα;').wantsTurnover).toBe(true);
+    expect(detectIntent('poso tziro kaname fetos').wantsTurnover).toBe(true);
+    expect(detectIntent('πόσα τιμολογήσαμε πέρσι').wantsTurnover).toBe(true);
+    expect(detectIntent('ποιο είναι το υπόλοιπο του πελάτη').wantsTurnover).toBe(false);
+  });
+
+  it('υπόλοιπο πελάτη σε έργο', () => {
+    const i = detectIntent('ποιο είναι το υπόλοιπο του πελάτη στο έργο Κουνάς;');
+    expect(i.entities).toEqual(expect.arrayContaining(['project', 'trader']));
+    expect(i.wantsBalance).toBe(true);
+    expect(i.traderSide).toBe('customer');
+  });
+
   it('τηλέφωνο / τοποθεσία', () => {
     const i = detectIntent('Τι τηλέφωνο έχει ο πελάτης και πού βρίσκεται;');
     expect(i.wantsContacts).toBe(true);
@@ -160,5 +174,13 @@ describe('πρόσβαση — μόνο ADMIN / SUPER_ADMIN', () => {
   });
   it('κανένας άλλος ρόλος, ακόμη κι αν του δοθεί το δικαίωμα', () => {
     for (const r of ['EMPLOYEE', 'COLLABORATOR', 'SUPPLIER', 'CUSTOMER', null]) expect(assistantAllowed(r, perms, 'assistant.use')).toBe(false);
+  });
+});
+
+describe('παραπομπές — ολόκληρος κωδικός', () => {
+  it('ο κωδικός 0001 δεν ταιριάζει μέσα σε αριθμό παραστατικού', () => {
+    const sup = { refKey: 'trader:1', label: 'Προμηθευτής 0001 · D ΥΛΙΚΑ ΠΑΡΑΔΟΣΙΑΚΗΣ', url: null };
+    const cust = { refKey: 'trader:123', label: 'Πελάτης 0123 · ΚΟΥΝΑΣ ΔΗΜΗΤΡΙΟΣ', url: null };
+    expect(pickCitations('Πελάτης 0123: τιμ. ΤΙΜΚ000038, είσπραξη ΧΑΕ0000111.', [cust, sup])).toEqual([cust]);
   });
 });

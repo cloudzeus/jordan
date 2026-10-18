@@ -15,6 +15,8 @@ import { lastPurchasePrices } from '@/lib/last-purchase-price';
 import type { ToolDef } from './openrouter';
 import { MEMORY_KINDS, remember, searchKnowledge, type MemoryKind } from './search';
 import { fold } from './text';
+import { parsePeriod, type Period } from './period';
+import { projectCustomerBalance, turnover } from './finance';
 
 export interface Ref { refKey: string; label: string; url: string | null }
 export interface ToolContext { userId: string; canFinancials: boolean; messageId?: string | null; vector?: string | null }
@@ -88,6 +90,34 @@ export const TOOL_DEFS: ToolDef[] = [
       name: 'get_item',
       description: 'Είδος/υλικό/υπηρεσία: κωδικοί, μονάδες, τιμή λιανικής, απόθεμα ανά αποθήκη, και (ζωντανά) τελευταία τιμή αγοράς, μέσο κόστος, προμηθευτές, σε ποια έργα χρησιμοποιήθηκε. Δώσε mtrl ή code.',
       parameters: { type: 'object', properties: { mtrl: { type: 'integer' }, code: { type: 'string' } } },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'get_turnover',
+      description: 'Τζίρος (πωλήσεις) ή αγορές μιας ΠΕΡΙΟΔΟΥ, ζωντανά από το SoftOne: καθαρά (χωρίς ΦΠΑ) και μικτά, τιμολόγια μείον πιστωτικά (παραγγελίες/δελτία/προσφορές δεν μετρούν), ανά μήνα, κορυφαίοι πελάτες/προμηθευτές, μεγαλύτερα παραστατικά. Προαιρετικά για έναν πελάτη/προμηθευτή ή ένα έργο. Για «τι τζίρο έκανα αυτό τον μήνα», «πωλήσεις πέρσι», «αγορές Q3».',
+      parameters: {
+        type: 'object',
+        properties: {
+          period: { type: 'string', description: 'Η περίοδος όπως την είπε ο χρήστης: «αυτό τον μήνα», «πέρσι», «Q3 2025», «Μάιος», «φέτος», «από 1/3/2026 έως 15/4/2026».' },
+          from: { type: 'string', description: 'Εναλλακτικά: yyyy-mm-dd (συμπεριλαμβάνεται)' },
+          to: { type: 'string', description: 'Εναλλακτικά: yyyy-mm-dd (συμπεριλαμβάνεται)' },
+          side: { type: 'string', enum: ['sales', 'purchases'], description: 'sales = τζίρος/πωλήσεις (προεπιλογή), purchases = αγορές' },
+          trdr: { type: 'integer', description: 'Μόνο για αυτόν τον πελάτη/προμηθευτή' },
+          trader_code: { type: 'string' },
+          prjc: { type: 'integer', description: 'Μόνο για αυτό το έργο' },
+          project_code: { type: 'string' },
+        },
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'get_customer_project_balance',
+      description: 'Υπόλοιπο του ΠΕΛΑΤΗ ΣΕ ΕΝΑ ΕΡΓΟ: μικτά τιμολογημένα, εισπράξεις, ανοιχτό υπόλοιπο με παλαιότητα, τα τιμολόγια και οι εισπράξεις του έργου, και τα «Δεδομένα που λείπουν». Για «πόσα μας χρωστά ο πελάτης στο έργο Χ». (Το συνολικό υπόλοιπο του πελάτη σε όλα τα έργα: get_trader.)',
+      parameters: { type: 'object', properties: { prjc: { type: 'integer' }, code: { type: 'string' } } },
     },
   },
   {
@@ -336,6 +366,75 @@ export async function runTool(name: string, args: Record<string, unknown>, ctx: 
       };
     }
 
+    case 'get_turnover': {
+      let period: Period | null = null;
+      const iso = /^\d{4}-\d{2}-\d{2}$/;
+      if (typeof args.from === 'string' && iso.test(args.from) && typeof args.to === 'string' && iso.test(args.to)) {
+        const end = new Date(`${args.to}T00:00:00Z`);
+        end.setUTCDate(end.getUTCDate() + 1);
+        period = { from: args.from, to: end.toISOString().slice(0, 10), label: `${args.from.split('-').reverse().join('/')} – ${args.to.split('-').reverse().join('/')}` };
+      } else if (str(args.period)) {
+        period = parsePeriod(String(args.period));
+      }
+      if (!period) return { data: { error: 'Δεν κατάλαβα την περίοδο — ρώτα τον χρήστη (π.χ. «αυτό τον μήνα», «πέρσι», «Q3 2025»).' }, refs: [] };
+      const trdr = await resolveTrader({ trdr: args.trdr, code: args.trader_code });
+      const prjc = await resolveProject({ prjc: args.prjc, code: args.project_code });
+      if ((args.trdr || args.trader_code) && !trdr) return notFound('συναλλασσόμενος');
+      if ((args.prjc || args.project_code) && !prjc) return notFound('έργο');
+      try {
+        const t = await turnover({ period, side: args.side === 'purchases' ? 'purchases' : 'sales', trdr, prjc });
+        const refs: Ref[] = [];
+        if (prjc && t.filter.project) refs.push({ refKey: `project:${prjc}`, label: `Έργο ${t.filter.project}`, url: `/admin/projects/${prjc}` });
+        if (trdr && t.filter.trader) refs.push({ refKey: `trader:${trdr}`, label: `Συναλλασσόμενος ${t.filter.trader}`, url: '/admin/traders' });
+        // Τα έργα των μεγαλύτερων παραστατικών — σύνδεσμος στην καρτέλα τους.
+        const projCodes = [...new Set(t.largest.map((d) => d.project?.split(' · ')[0]).filter((c): c is string => !!c))];
+        if (projCodes.length) {
+          const ps = await prisma.softoneProject.findMany({ where: { code: { in: projCodes } }, select: { prjc: true, code: true, name: true } });
+          refs.push(...ps.map(projectRef));
+        }
+        return {
+          data: {
+            what: t.side === 'sales' ? 'Τζίρος (πωλήσεις 1351): τιμολόγια+αποδείξεις − πιστωτικά' : 'Αγορές (1251): τιμολόγια − πιστωτικά',
+            source: 'SoftOne ζωντανά',
+            period: { label: t.period.label, fromInclusive: t.period.from, toInclusive: new Date(Date.parse(`${t.period.to}T00:00:00Z`) - 86_400_000).toISOString().slice(0, 10) },
+            filter: t.filter,
+            netExclVat: t.net, grossInclVat: t.gross, invoices: t.invoices, credits: t.credits,
+            byMonth: t.byMonth, topTraders: t.topTraders,
+            largestDocs: t.largest.map((d) => ({ fincode: d.fincode, date: d.date, series: d.seriesName ?? d.series, kind: d.kind, trader: d.trader, project: d.project, net: d.net, gross: d.gross })),
+            notCounted: t.excluded,
+            unknownSeries: t.unknownSeries.length ? `Σειρές άγνωστες στην εφαρμογή (δεν μετρήθηκαν): ${t.unknownSeries.join(', ')} — ο αριθμός ίσως είναι ελλιπής` : undefined,
+            fetchedAt: t.fetchedAt,
+          },
+          refs,
+        };
+      } catch (e) {
+        return { data: { error: liveError(e) }, refs: [] };
+      }
+    }
+
+    case 'get_customer_project_balance': {
+      if (!ctx.canFinancials) return { data: { error: 'Ο χρήστης δεν έχει δικαίωμα στα οικονομικά έργων.' }, refs: [] };
+      const prjc = await resolveProject(args);
+      const b = prjc ? await projectCustomerBalance(prjc) : null;
+      if (!b) return notFound('έργο');
+      const refs: Ref[] = [projectRef(b.project)];
+      if (b.customer) refs.push({ refKey: `trader:${b.customer.trdr}`, label: `Πελάτης ${b.customer.code} · ${b.customer.name}`, url: '/admin/traders?type=13' });
+      if (!b.computed) return { data: { project: `${b.project.code} · ${b.project.name}`, error: 'Τα οικονομικά του έργου δεν έχουν υπολογιστεί ακόμη.' }, refs };
+      return {
+        data: {
+          source: `Στιγμιότυπο κερδοφορίας έργου (υπολογισμός ${b.computedAt.slice(0, 16).replace('T', ' ')} UTC)`,
+          project: `${b.project.code} · ${b.project.name}`, customer: b.customer ? `${b.customer.code} · ${b.customer.name}` : null,
+          amountsAre: 'ΜΙΚΤΑ (με ΦΠΑ) — όπως πληρώνει ο πελάτης',
+          invoicedGross: b.invoicedGross, invoicedNet: b.invoicedNet, received: b.received, refunds: b.refunds, collected: b.collected,
+          openBalance: b.open, openMeaning: b.open > 0 ? 'ο πελάτης χρωστά' : b.open < 0 ? 'πιστωτικό (εισπράχθηκαν περισσότερα)' : 'εξοφλημένο',
+          ageing: b.ageing, invoices: b.invoices, collections: b.collections,
+          caveat: 'Μετρούν μόνο παραστατικά δεμένα με το έργο (PRJC) — τιμολόγια/εμβάσματα χωρίς έργο δεν φαίνονται εδώ (βλ. get_trader για το συνολικό υπόλοιπο).',
+          missingData: b.missingData,
+        },
+        refs,
+      };
+    }
+
     case 'remember': {
       const kind = String(args.kind) as MemoryKind;
       if (!MEMORY_KINDS.includes(kind) || kind === 'answer') return { data: { error: 'Μη έγκυρο είδος μνήμης' }, refs: [] };
@@ -360,6 +459,8 @@ export function stepLabel(name: string, args: Record<string, unknown>): string {
     case 'get_trader': return args.include_ledger === false ? 'Διαβάζω τον συναλλασσόμενο' : 'Διαβάζω την καρτέλα από το SoftOne';
     case 'get_item': return 'Διαβάζω το είδος, απόθεμα & αγορές';
     case 'remember': return 'Το κρατώ στη μνήμη';
+    case 'get_turnover': return args.side === 'purchases' ? 'Υπολογίζω τις αγορές της περιόδου από το SoftOne' : 'Υπολογίζω τον τζίρο της περιόδου από το SoftOne';
+    case 'get_customer_project_balance': return 'Διαβάζω το υπόλοιπο του πελάτη στο έργο';
     default: return fold(name);
   }
 }
