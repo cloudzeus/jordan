@@ -59,13 +59,14 @@ async function photos(mtrls: number[]) {
 
 export const PAGE_SIZE = 24;
 
-export async function siteProducts(opts: { q?: string; category?: number | null; page?: number; take?: number }) {
+export async function siteProducts(opts: { q?: string; category?: number | null; page?: number; take?: number; mtrls?: number[] }) {
   const mem = opts.category != null ? await membership() : null;
   const inCategory = mem && opts.category != null ? [...mem.entries()].filter(([, v]) => v.category === opts.category).map(([k]) => k) : null;
   const q = opts.q?.trim();
   const where = {
     isService: false, isActive: true,
     ...(inCategory ? { mtrl: { in: inCategory } } : {}),
+    ...(opts.mtrls ? { AND: [{ mtrl: { in: opts.mtrls } }] } : {}),
     ...(q ? { OR: [{ name: { contains: q, mode: 'insensitive' as const } }, { code: { contains: q, mode: 'insensitive' as const } }, { name2: { contains: q, mode: 'insensitive' as const } }] } : {}),
   };
   const take = opts.take ?? PAGE_SIZE;

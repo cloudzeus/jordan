@@ -8,6 +8,8 @@ export const metadata: Metadata = { title: 'Αίτημα πρόσβασης' };
 
 const ERRORS: Record<string, string> = {
   missing: 'Συμπληρώστε ονοματεπώνυμο και επωνυμία εταιρείας.',
+  vat: 'Συμπληρώστε τον ΑΦΜ της εταιρείας — η πύλη απευθύνεται μόνο σε επαγγελματίες.',
+  terms: 'Για να συνεχίσετε, αποδεχτείτε τους όρους χρήσης.',
   email: 'Το email δεν φαίνεται σωστό.',
   send: 'Δεν μπορέσαμε να στείλουμε το αίτημα αυτή τη στιγμή. Δοκιμάστε σε λίγο ή τηλεφωνήστε μας.',
 };
@@ -36,7 +38,7 @@ export default async function RegisterPage({ searchParams }: { searchParams: Pro
     <div>
       <Eyebrow>Για επαγγελματίες</Eyebrow>
       <h1 className="font-site mt-4 text-[length:var(--fs-32)] font-light leading-none">Αίτημα πρόσβασης</h1>
-      <p className="mt-4 text-[length:var(--fs-15)] text-[var(--s-ink-2)]">Η περιοχή πελατών και συνεργατών δείχνει τιμές, κοινά container και τις κρατήσεις σας. Πείτε μας ποιοι είστε.</p>
+      <p className="mt-4 text-[length:var(--fs-15)] text-[var(--s-ink-2)]">Η πύλη απευθύνεται μόνο σε επαγγελματίες: δυναμικές προσφορές κοινού container, τα έργα και οι παραγγελίες σας, παραγγελίες από τον κατάλογο. Πείτε μας ποιοι είστε.</p>
 
       <form action="/api/auth/register" method="post" className="mt-8 space-y-6">
         {err && <Notice tone="error">{err}</Notice>}
@@ -49,18 +51,28 @@ export default async function RegisterPage({ searchParams }: { searchParams: Pro
         </fieldset>
         <Field label="Ονοματεπώνυμο *" htmlFor="name"><input id="name" name="name" required autoComplete="name" className={inputCls} /></Field>
         <Field label="Εταιρεία *" htmlFor="company"><input id="company" name="company" required autoComplete="organization" className={inputCls} /></Field>
+        <Field label="Δραστηριότητα" htmlFor="profession">
+          <select id="profession" name="profession" defaultValue="" className={inputCls}>
+            <option value="">— Επιλέξτε —</option>
+            {['Αρχιτέκτονας / αρχιτεκτονικό γραφείο', 'Τεχνικό γραφείο / μηχανικός', 'Κατασκευαστική εταιρεία', 'Εργολάβος / συνεργείο', 'Διακοσμητής', 'Άλλο'].map((o) => <option key={o}>{o}</option>)}
+          </select>
+        </Field>
         <div className="grid gap-6 sm:grid-cols-2">
           <Field label="Email *" htmlFor="email"><input id="email" name="email" type="email" required autoComplete="email" inputMode="email" className={inputCls} /></Field>
           <Field label="Τηλέφωνο" htmlFor="phone"><input id="phone" name="phone" type="tel" autoComplete="tel" inputMode="tel" className={inputCls} /></Field>
         </div>
-        <Field label="ΑΦΜ" htmlFor="vat" hint="Βοηθά να σας βρούμε γρήγορα στο αρχείο μας."><input id="vat" name="vat" inputMode="numeric" maxLength={20} aria-describedby="vat-hint" className={inputCls} /></Field>
+        <Field label="ΑΦΜ εταιρείας *" htmlFor="vat" hint="Μόνο για επαγγελματίες — μας βοηθά να σας βρούμε στο αρχείο μας."><input id="vat" name="vat" required inputMode="numeric" maxLength={20} aria-describedby="vat-hint" className={inputCls} /></Field>
         <Field label="Μήνυμα" htmlFor="message">
           <textarea id="message" name="message" rows={4} maxLength={2000} className={cn(inputCls, 'h-auto py-3')} />
         </Field>
         {/* Honeypot: κρυφό από ανθρώπους, τα bots το συμπληρώνουν. */}
         <div aria-hidden className="absolute -left-[9999px]"><label>Website<input name="website" tabIndex={-1} autoComplete="off" /></label></div>
+        <label className="flex cursor-pointer items-start gap-3 text-[length:var(--fs-14)] text-[var(--s-ink-2)]">
+          <input type="checkbox" name="terms" value="1" required className="mt-0.5 size-5 shrink-0 accent-[var(--s-ink)]" />
+          <span>Δηλώνω ότι ενεργώ για λογαριασμό επιχείρησης και αποδέχομαι τους <Link href="/legal/terms" className="s-link text-[var(--s-ink)]" target="_blank">όρους χρήσης</Link>. *</span>
+        </label>
         <SubmitButton className={cn(btn.primary, 'w-full')} pendingLabel="Αποστολή…">Αποστολή αιτήματος</SubmitButton>
-        <p className="text-[length:var(--fs-13)] text-[var(--s-mute)]">* υποχρεωτικά πεδία. Χρησιμοποιούμε τα στοιχεία μόνο για να σας απαντήσουμε.</p>
+        <p className="text-[length:var(--fs-13)] text-[var(--s-mute)]">* υποχρεωτικά πεδία. Χρησιμοποιούμε τα στοιχεία μόνο για να σας απαντήσουμε — δείτε την <Link href="/legal/privacy" className="s-link" target="_blank">πολιτική απορρήτου</Link>.</p>
       </form>
 
       <p className="mt-10 border-t border-[var(--s-line)] pt-6 text-[length:var(--fs-14)] text-[var(--s-ink-2)]">

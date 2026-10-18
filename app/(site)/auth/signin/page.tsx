@@ -30,7 +30,7 @@ export default async function SignInPage({ searchParams }: { searchParams: Promi
 
   return (
     <div>
-      <Eyebrow>Πελάτες · Συνεργάτες · Προσωπικό</Eyebrow>
+      <Eyebrow>B2B πύλη · μόνο για επαγγελματίες</Eyebrow>
       <h1 className="font-site mt-4 text-[length:var(--fs-32)] font-light leading-none">Είσοδος</h1>
       <p className="mt-4 text-[length:var(--fs-15)] text-[var(--s-ink-2)]">Με τον λογαριασμό που σας δώσαμε. Θα σας οδηγήσουμε αυτόματα στη σωστή σελίδα.</p>
 

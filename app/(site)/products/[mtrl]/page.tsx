@@ -77,13 +77,18 @@ export default async function ProductPage({ params }: { params: Params }) {
           </dl>
 
           <div className="mt-10 space-y-4">
-            {user ? (
-              <Link href={homeFor(user.role.key)} className={btn.primary}>{isStaffRole(user.role.key) ? 'Στη διαχείριση' : 'Τιμές στην περιοχή μου'}</Link>
+            {user?.role.key === 'CUSTOMER' && user.customerTrdr != null ? (
+              <>
+                <Link href={`/dashboard/customer/orders/new?add=${p.mtrl}`} className={`${btn.primary} w-full sm:w-auto`}>Προσθήκη σε νέα παραγγελία</Link>
+                <p className="text-[length:var(--fs-14)] text-[var(--s-ink-2)]">Τιμή και διαθεσιμότητα επιβεβαιώνονται με την παραγγελία. <Link href={homeFor(user.role.key)} className="s-link text-[var(--s-ink)]">Δυναμικές προσφορές</Link></p>
+              </>
+            ) : user ? (
+              <Link href={homeFor(user.role.key)} className={btn.primary}>{isStaffRole(user.role.key) ? 'Στη διαχείριση' : 'Στην περιοχή μου'}</Link>
             ) : (
               <>
                 {c.email && <a href={`mailto:${c.email}?subject=${subject}`} className={`${btn.primary} w-full sm:w-auto`}>Ζητήστε προσφορά</a>}
                 <p className="text-[length:var(--fs-14)] text-[var(--s-ink-2)]">
-                  Είστε πελάτης ή συνεργάτης; <Link href="/auth/signin" className="s-link text-[var(--s-ink)]">Συνδεθείτε</Link> για τιμές και διαθεσιμότητα.
+                  Επαγγελματίας με λογαριασμό; <Link href="/auth/signin" className="s-link text-[var(--s-ink)]">Συνδεθείτε</Link> για να το παραγγείλετε. Νέος συνεργάτης; <Link href="/auth/register" className="s-link text-[var(--s-ink)]">Αίτημα πρόσβασης</Link>.
                 </p>
               </>
             )}

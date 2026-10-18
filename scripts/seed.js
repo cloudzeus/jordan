@@ -32,6 +32,8 @@ const PERMISSIONS = [
   { key: 'dynamic_offers.read', resource: 'dynamic_offers', action: 'read', description: 'Προβολή δυναμικών προσφορών' },
   { key: 'dynamic_offers.manage', resource: 'dynamic_offers', action: 'manage', description: 'Δημιουργία/επεξεργασία, δημοσίευση, παραλήπτες, email, τιμές στο SoftOne' },
   { key: 'dynamic_offers.reservations', resource: 'dynamic_offers', action: 'reservations', description: 'Κρατήσεις: νέα, ακύρωση, έγκριση/απόρριψη αιτημάτων του portal' },
+  { key: 'order_requests.read', resource: 'order_requests', action: 'read', description: 'Προβολή αιτημάτων παραγγελίας πελατών από το portal' },
+  { key: 'order_requests.manage', resource: 'order_requests', action: 'manage', description: 'Επεξεργασία/επιβεβαίωση/απόρριψη αιτημάτων παραγγελίας' },
   { key: 'partners.read', resource: 'partners', action: 'read', description: 'Προβολή συνεργατών' },
   { key: 'partners.manage', resource: 'partners', action: 'manage', description: 'Επεξεργασία συνεργατών, επαφών, πελατών και έργων τους' },
   { key: 'partners.access', resource: 'partners', action: 'access', description: 'Πρόσβαση συνεργατών στο portal (χρήστης/κωδικός)' },
@@ -105,7 +107,7 @@ const SYSTEM_ROLES = [
 
 const ROLE_DEFAULTS = {
   SUPER_ADMIN: PERMISSIONS.map((p) => p.key),
-  ADMIN: ['users.read', 'users.create', 'users.update', 'users.assign_role', 'roles.read', 'permissions.read', 'companies.read', 'companies.create', 'companies.update', 'companies.delete', 'companies.manage_types', 'kad.read', 'kad.manage', 'metadata.read', 'metadata.manage', 'ocr.read', 'ocr.create', 'ocr.delete', 'ocr.categorize', 'ocr.post', 'projects.read', 'projects.manage', 'projects.financials', 'dynamic_offers.read', 'dynamic_offers.manage', 'dynamic_offers.reservations', 'partners.read', 'partners.manage', 'partners.access', 'classifications.read', 'classifications.manage', 'units.read', 'units.manage', 'items.unit2_override'],
+  ADMIN: ['users.read', 'users.create', 'users.update', 'users.assign_role', 'roles.read', 'permissions.read', 'companies.read', 'companies.create', 'companies.update', 'companies.delete', 'companies.manage_types', 'kad.read', 'kad.manage', 'metadata.read', 'metadata.manage', 'ocr.read', 'ocr.create', 'ocr.delete', 'ocr.categorize', 'ocr.post', 'projects.read', 'projects.manage', 'projects.financials', 'dynamic_offers.read', 'dynamic_offers.manage', 'dynamic_offers.reservations', 'order_requests.read', 'order_requests.manage', 'partners.read', 'partners.manage', 'partners.access', 'classifications.read', 'classifications.manage', 'units.read', 'units.manage', 'items.unit2_override'],
   EMPLOYEE: ['users.read'],
   COLLABORATOR: ['users.read'],
   SUPPLIER: [],

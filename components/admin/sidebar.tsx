@@ -4,7 +4,7 @@ import * as React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
-  FiGrid, FiUsers, FiShield, FiKey, FiImage, FiChevronDown, FiList, FiTag, FiMaximize2, FiTrendingDown,
+  FiGrid, FiUsers, FiShield, FiKey, FiImage, FiChevronDown, FiList, FiTag, FiMaximize2, FiTrendingDown, FiShoppingCart,
   FiActivity, FiSettings, FiFileText, FiLogOut, FiDatabase, FiBriefcase, FiLayers, FiCpu, FiBookOpen, FiBook, FiUserCheck, FiBox, FiTool, FiFolder, FiAlertCircle, FiUserPlus, FiPackage, FiPlayCircle, FiUploadCloud, FiHelpCircle, FiClipboard,
 } from 'react-icons/fi';
 
@@ -34,6 +34,8 @@ export interface Badges {
   openQuestions?: number;
   /** Ανοιχτά θέματα για τον integrator — από το ίδιο endpoint. */
   integratorOpen?: number;
+  /** Νέα αιτήματα παραγγελίας από το B2B portal (κατάσταση «Υποβλήθηκε») — από το admin layout. */
+  orderRequests?: number;
 }
 
 /** DGsoft wordmark shown at the top of the sidebar. */
@@ -52,6 +54,7 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { href: '/admin/projects', label: 'Έργα', icon: FiBriefcase, permissions: ['projects.read'] },
       { href: '/admin/dynamic-offers', label: 'Δυναμικές προσφορές', icon: FiTrendingDown, permissions: ['dynamic_offers.read'] },
+      { href: '/admin/order-requests', label: 'Αιτήματα παραγγελίας', icon: FiShoppingCart, permissions: ['order_requests.read'], badgeKey: 'orderRequests' },
       { href: '/admin/partners', label: 'Συνεργάτες', icon: FiUsers, permissions: ['partners.read'] },
       { href: '/admin/classifications', label: 'Κατηγορίες & ομάδες', icon: FiTag, permissions: ['classifications.read'] },
       { href: '/admin/units', label: 'Μονάδες μέτρησης', icon: FiMaximize2, permissions: ['units.read'] },

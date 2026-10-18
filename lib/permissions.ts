@@ -69,6 +69,9 @@ export const PERMISSIONS: PermissionDef[] = [
   { key: 'dynamic_offers.read', resource: 'dynamic_offers', action: 'read', description: 'Προβολή δυναμικών προσφορών' },
   { key: 'dynamic_offers.manage', resource: 'dynamic_offers', action: 'manage', description: 'Δημιουργία/επεξεργασία, δημοσίευση, παραλήπτες, email, τιμές στο SoftOne' },
   { key: 'dynamic_offers.reservations', resource: 'dynamic_offers', action: 'reservations', description: 'Κρατήσεις: νέα, ακύρωση, έγκριση/απόρριψη αιτημάτων του portal' },
+  // Αιτήματα παραγγελίας από το B2B portal (αποθηκεύονται στην εφαρμογή, όχι στο SoftOne)
+  { key: 'order_requests.read', resource: 'order_requests', action: 'read', description: 'Προβολή αιτημάτων παραγγελίας πελατών από το portal' },
+  { key: 'order_requests.manage', resource: 'order_requests', action: 'manage', description: 'Επεξεργασία/επιβεβαίωση/απόρριψη αιτημάτων παραγγελίας' },
   // Συνεργάτες
   { key: 'partners.read', resource: 'partners', action: 'read', description: 'Προβολή συνεργατών' },
   { key: 'partners.manage', resource: 'partners', action: 'manage', description: 'Επεξεργασία συνεργατών, επαφών, πελατών και έργων τους' },
@@ -101,6 +104,7 @@ export const ROLE_DEFAULTS: Record<string, string[]> = {
     'ocr.read', 'ocr.create', 'ocr.delete', 'ocr.categorize', 'ocr.post',
     'projects.read', 'projects.manage', 'projects.financials',
     'dynamic_offers.read', 'dynamic_offers.manage', 'dynamic_offers.reservations',
+    'order_requests.read', 'order_requests.manage',
     'partners.read', 'partners.manage', 'partners.access',
     'classifications.read', 'classifications.manage',
     'units.read', 'units.manage',
@@ -116,7 +120,7 @@ export const ROLE_DEFAULTS: Record<string, string[]> = {
 export const RESOURCE_LABELS: Record<string, string> = {
   users: 'Χρήστες', roles: 'Ρόλοι', permissions: 'Δικαιώματα', media: 'Media', companies: 'Εταιρείες',
   kad: 'ΚΑΔ', metadata: 'Μητρώα αναφοράς', ocr: 'OCR / Έγγραφα', system: 'Σύστημα',
-  projects: 'Έργα', dynamic_offers: 'Δυναμικές προσφορές', partners: 'Συνεργάτες',
+  projects: 'Έργα', dynamic_offers: 'Δυναμικές προσφορές', order_requests: 'Αιτήματα παραγγελίας', partners: 'Συνεργάτες',
   classifications: 'Κατηγορίες & ομάδες', units: 'Μονάδες μέτρησης', items: 'Είδη',
 };
 

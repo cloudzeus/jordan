@@ -2,12 +2,15 @@ import { requireStaff } from '@/lib/rbac';
 import { AdminSidebar, AdminBottomNav } from '@/components/admin/sidebar';
 import { DEFAULT_LOCALE, isValidLocale, type LocaleCode } from '@/i18n/locales';
 import { SoftoneConnectionBar } from '@/components/admin/softone-connection-bar';
+import { countPendingOrderRequests } from '@/lib/order-requests';
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   // Πελάτες/συνεργάτες ΔΕΝ μπαίνουν στη διαχείριση — πάνε στο portal τους.
   const user = await requireStaff();
   const permissionKeys = Array.from(user.permissionKeys);
   const locale: LocaleCode = isValidLocale(user.locale) ? user.locale : DEFAULT_LOCALE;
+  const canSeeRequests = user.role.key === 'SUPER_ADMIN' || user.permissionKeys.has('order_requests.read');
+  const orderRequests = canSeeRequests ? await countPendingOrderRequests().catch(() => 0) : 0;
 
   return (
     <div className="flex min-h-screen bg-background">
@@ -17,6 +20,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         roleKey={user.role.key ?? null}
         locale={locale}
         permissionKeys={permissionKeys}
+        badges={{ orderRequests }}
       />
       <div className="flex min-w-0 flex-1 flex-col pb-[calc(4rem+env(safe-area-inset-bottom))] lg:pb-0">
         {/* Η κατάσταση της σύνδεσης με το ERP αφορά ΚΑΘΕ σελίδα, όχι μόνο την ουρά: η πτώση

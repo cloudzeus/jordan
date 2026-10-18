@@ -2828,3 +2828,45 @@ model OverheadRate {
   @@index([validFrom])
   @@index([category])
 }
+
+// Αίτημα παραγγελίας πελάτη από το B2B portal. ΔΕΝ γράφεται στο SoftOne: το προσωπικό το ελέγχει
+// και (προς το παρόν χειροκίνητα) καταχωρίζει την παραγγελία πώλησης (σειρά 7021). Ο πελάτης
+// ορίζεται ΠΑΝΤΑ από τη σύνδεση (User.customerTrdr), ποτέ από τη φόρμα.
+model OrderRequest {
+  id              String             @id @default(cuid())
+  number          Int                @unique @default(autoincrement()) // «ΑΠ-000123» στο UI
+  trdr            Int // SoftOne TRDR του πελάτη
+  createdById     String // ο χρήστης του portal
+  prjc            Int? // προαιρετικά: για ποιο έργο του πελάτη
+  // SUBMITTED → IN_REVIEW → CONFIRMED | REJECTED · SUBMITTED → CANCELLED (από τον πελάτη)
+  status          String             @default("SUBMITTED")
+  customerRef     String? // αριθμός/αναφορά του πελάτη
+  deliveryAddress String?
+  deliveryDate    DateTime?
+  notes           String?
+  staffNote       String? // απάντηση/σχόλιο προς τον πελάτη
+  softoneFincode  String? // όταν καταχωρίστηκε στο SoftOne (π.χ. «ΠΑΡ0000057»)
+  decidedById     String?
+  decidedAt       DateTime?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+  lines           OrderRequestLine[]
+
+  @@index([trdr])
+  @@index([status])
+}
+
+model OrderRequestLine {
+  id        String       @id @default(cuid())
+  requestId String
+  request   OrderRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  mtrl      Int
+  code      String?
+  name      String // στιγμιότυπο ονομασίας τη στιγμή του αιτήματος
+  unit      String?
+  qty       Float
+  note      String?
+  sortOrder Int          @default(0)
+
+  @@index([requestId])
+}

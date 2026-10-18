@@ -73,3 +73,18 @@ export async function requirePortalUser() {
   if (u.role.key !== 'CUSTOMER' && u.role.key !== 'COLLABORATOR') redirect('/admin');
   return u;
 }
+
+/**
+ * Μόνο πελάτης του B2B portal δεμένος με SoftOne TRDR. Τα έργα/παραγγελίες ΔΕΝ υπάρχουν για
+ * συνεργάτες (δεν έχουν TRDR) — αυτοί επιστρέφουν στις προσφορές τους.
+ */
+export async function requireCustomer() {
+  const u = await requirePortalUser();
+  if (u.role.key !== 'CUSTOMER' || u.customerTrdr == null) redirect(PORTAL_HOME[u.role.key ?? ''] ?? '/dashboard');
+  return { ...u, customerTrdr: u.customerTrdr };
+}
+
+/** Για route handlers: ο TRDR του συνδεδεμένου πελάτη ή null (ποτέ από το σώμα του αιτήματος). */
+export function customerTrdrOf(u: UserWithRole): number | null {
+  return u && u.isActive && u.role.key === 'CUSTOMER' && u.customerTrdr != null ? u.customerTrdr : null;
+}

@@ -90,6 +90,7 @@ export const SETTING_CATALOG: SettingDef[] = [
   { key: 'company.phone',        category: 'company', label: 'Τηλέφωνο',           type: 'text' },
   { key: 'company.email',        category: 'company', label: 'Email επικοινωνίας', type: 'email' },
   { key: 'company.logoUrl',      category: 'company', label: 'Logo',               type: 'media' },
+  { key: 'orders.notifyEmail',   category: 'company', label: 'Email για αιτήματα παραγγελίας (B2B)', type: 'text', description: 'Πού πηγαίνει το email για κάθε νέο αίτημα παραγγελίας από την πύλη. Κενό = το email επικοινωνίας· «off» = καμία αποστολή.' },
 
   // Email
   { key: 'email.mailgunApiKey',     category: 'email', label: 'Mailgun API Key',     type: 'password', isSecret: true },
