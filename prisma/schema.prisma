@@ -2870,3 +2870,91 @@ model OrderRequestLine {
 
   @@index([requestId])
 }
+
+// ── Ραντεβού στο atelier, newsletter & leads (δημόσιο website) ─────────────────────────────────
+// Κάθε ραντεβού και κάθε επιβεβαιωμένη εγγραφή στο newsletter δημιουργεί/ενημερώνει ένα Lead (ένα
+// ανά email). Το Lead γράφεται ΚΑΙ στο SoftOne ως υποψήφιος πελάτης (CUSTOMER, ISPROSP=1) μόνο όταν
+// είναι ανοιχτή η ρύθμιση `leads.softoneEnabled` — βλ. lib/leads.ts.
+model Lead {
+  id              String                @id @default(cuid())
+  email           String                @unique // πάντα πεζά
+  name            String?
+  company         String?
+  phone           String?
+  profession      String?
+  sources         String[] // «appointment», «newsletter»
+  notes           String?
+  // SoftOne: PENDING (περιμένει) · DISABLED (η ρύθμιση κλειστή) · CREATED · LINKED (υπήρχε ήδη) · FAILED
+  softoneStatus   String                @default("PENDING")
+  softoneTrdr     Int?
+  softoneCode     String?
+  softoneError    String?
+  softoneSyncedAt DateTime?
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+  appointments    Appointment[]
+  subscriber      NewsletterSubscriber?
+
+  @@index([softoneStatus])
+  @@index([createdAt])
+}
+
+model Appointment {
+  id              String    @id @default(cuid())
+  number          Int       @unique @default(autoincrement()) // «ΡΝΤ-000123» στο UI
+  leadId          String
+  lead            Lead      @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  startsAt        DateTime
+  endsAt          DateTime
+  // PENDING (αίτημα) → CONFIRMED → COMPLETED | NO_SHOW · PENDING/CONFIRMED → CANCELLED
+  status          String    @default("PENDING")
+  name            String
+  email           String
+  phone           String?
+  company         String?
+  topic           String?
+  message         String?
+  staffNote       String? // σημείωση/μήνυμα προς τον επισκέπτη
+  rescheduledFrom DateTime?
+  decidedById     String?
+  decidedAt       DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([startsAt])
+  @@index([status])
+  @@index([leadId])
+}
+
+// Κλειστές μέρες/ώρες (αργίες, εκθέσεις, άδειες). Ολοήμερο = από 00:00 έως 00:00 της επόμενης.
+model AppointmentBlock {
+  id          String   @id @default(cuid())
+  startsAt    DateTime
+  endsAt      DateTime
+  allDay      Boolean  @default(false)
+  reason      String?
+  createdById String?
+  createdAt   DateTime @default(now())
+
+  @@index([startsAt])
+}
+
+model NewsletterSubscriber {
+  id             String    @id @default(cuid())
+  email          String    @unique
+  name           String?
+  leadId         String?   @unique
+  lead           Lead?     @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  // PENDING (περιμένει επιβεβαίωση από το email) → CONFIRMED → UNSUBSCRIBED
+  status         String    @default("PENDING")
+  token          String    @unique // επιβεβαίωση & διαγραφή
+  source         String? // footer · modal · appointment
+  consentAt      DateTime  @default(now())
+  confirmSentAt  DateTime?
+  confirmedAt    DateTime?
+  unsubscribedAt DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([status])
+}

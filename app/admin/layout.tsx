@@ -3,6 +3,7 @@ import { AdminSidebar, AdminBottomNav } from '@/components/admin/sidebar';
 import { DEFAULT_LOCALE, isValidLocale, type LocaleCode } from '@/i18n/locales';
 import { SoftoneConnectionBar } from '@/components/admin/softone-connection-bar';
 import { countPendingOrderRequests } from '@/lib/order-requests';
+import { countPendingAppointments } from '@/lib/appointments';
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   // Πελάτες/συνεργάτες ΔΕΝ μπαίνουν στη διαχείριση — πάνε στο portal τους.
@@ -10,7 +11,11 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   const permissionKeys = Array.from(user.permissionKeys);
   const locale: LocaleCode = isValidLocale(user.locale) ? user.locale : DEFAULT_LOCALE;
   const canSeeRequests = user.role.key === 'SUPER_ADMIN' || user.permissionKeys.has('order_requests.read');
-  const orderRequests = canSeeRequests ? await countPendingOrderRequests().catch(() => 0) : 0;
+  const canSeeAppointments = user.role.key === 'SUPER_ADMIN' || user.permissionKeys.has('appointments.read');
+  const [orderRequests, appointments] = await Promise.all([
+    canSeeRequests ? countPendingOrderRequests().catch(() => 0) : 0,
+    canSeeAppointments ? countPendingAppointments().catch(() => 0) : 0,
+  ]);
 
   return (
     <div className="flex min-h-screen bg-background">
@@ -20,7 +25,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         roleKey={user.role.key ?? null}
         locale={locale}
         permissionKeys={permissionKeys}
-        badges={{ orderRequests }}
+        badges={{ orderRequests, appointments }}
       />
       <div className="flex min-w-0 flex-1 flex-col pb-[calc(4rem+env(safe-area-inset-bottom))] lg:pb-0">
         {/* Η κατάσταση της σύνδεσης με το ERP αφορά ΚΑΘΕ σελίδα, όχι μόνο την ουρά: η πτώση

@@ -228,7 +228,7 @@ export default async function HomePage() {
               Μεγάλες επιφάνειες για κάθε υλικό, ώστε να το νιώσετε με το χέρι — ακόμη και με γυμνό πόδι, σε στεγνή ή βρεγμένη επιφάνεια. Δοκιμάζετε αντιολισθηρότητα, υφή και χρώμα πριν αποφασίσετε.
             </p>
             <p className="mt-8 text-[length:var(--fs-13)] font-medium uppercase tracking-[0.18em] text-[var(--s-ink)]">{c.hours} · {c.address}</p>
-            <a href={`mailto:${c.salesEmail}?subject=${encodeURIComponent('Ραντεβού στο atelier')}`} className="group mt-6 inline-flex min-h-12 items-center gap-3 border border-[var(--s-ink)] px-6 text-[length:var(--fs-15)] font-medium hover:bg-[var(--s-ink)] hover:text-white">
+            <a href="/appointment" className="group mt-6 inline-flex min-h-12 items-center gap-3 border border-[var(--s-ink)] px-6 text-[length:var(--fs-15)] font-medium hover:bg-[var(--s-ink)] hover:text-white">
               Κλείστε ραντεβού <FiArrowRight className="size-4 transition-transform group-hover:translate-x-1" aria-hidden />
             </a>
           </div>

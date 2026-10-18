@@ -7,6 +7,8 @@ import { homeFor } from '@/lib/auth-home';
 import { SiteHeader } from '@/components/site/site-header';
 import { SiteMotion } from '@/components/site/motion';
 import { AccessModalHost } from '@/components/site/access-modal';
+import { BookingModalHost } from '@/components/site/booking-modal';
+import { NewsletterForm, NewsletterModalHost } from '@/components/site/newsletter';
 import { DimLine, Grid } from '@/components/site/blueprint';
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -48,6 +50,8 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
       <SiteHeader nav={NAV} account={account} signedIn={!!user} />
       <SiteMotion />
       <AccessModalHost />
+      <BookingModalHost address={c.address} hours={c.hours} phone={c.phones[0]} />
+      <NewsletterModalHost />
 
       <main id="main" className="flex-1 pt-16 md:pt-20">{children}</main>
 
@@ -73,6 +77,7 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
                 <li><a href={`mailto:${c.salesEmail}`} className="inline-flex min-h-10 items-center hover:text-white">{c.salesEmail}</a></li>
                 <li className="pt-2 text-white/60">{c.address}</li>
                 <li className="pt-2 text-[length:var(--fs-12)] font-medium uppercase tracking-[0.18em] text-[#D6B796]">{c.hours}</li>
+                <li><Link href="/appointment" className="inline-flex min-h-10 items-center gap-2 font-medium text-white hover:text-[#E8D5BF]">Κλείστε ραντεβού <span aria-hidden>→</span></Link></li>
               </ul>
             </address>
             <div>
@@ -81,6 +86,13 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
                 {LEGAL.map((n) => <li key={n.href}><Link href={n.href} className="inline-flex min-h-10 items-center text-[length:var(--fs-15)] text-white/80 hover:text-white">{n.label}</Link></li>)}
               </ul>
             </div>
+          </div>
+          <div className="mt-16 grid gap-6 border-t border-white/10 pt-10 lg:grid-cols-[1.3fr_2fr] lg:items-start">
+            <div>
+              <p className="s-kicker text-[#D6B796]">Newsletter</p>
+              <p className="font-display mt-3 text-[length:var(--fs-28)] text-white">Νέα υλικά & δυναμικές προσφορές, πρώτοι εσείς.</p>
+            </div>
+            <div className="max-w-xl lg:justify-self-end lg:w-full"><NewsletterForm tone="dark" source="footer" idPrefix="nlf" /></div>
           </div>
           <DimLine label={`${c.legal}${c.vat ? ` · ΑΦΜ ${c.vat}` : ''}`} className="mt-20 text-white/35" />
           <p aria-hidden className="font-display pointer-events-none mt-6 select-none whitespace-nowrap text-center text-[length:var(--fs-120)] leading-[0.8] text-white/[0.06]">Atelier</p>

@@ -72,6 +72,11 @@ export const PERMISSIONS: PermissionDef[] = [
   // Αιτήματα παραγγελίας από το B2B portal (αποθηκεύονται στην εφαρμογή, όχι στο SoftOne)
   { key: 'order_requests.read', resource: 'order_requests', action: 'read', description: 'Προβολή αιτημάτων παραγγελίας πελατών από το portal' },
   { key: 'order_requests.manage', resource: 'order_requests', action: 'manage', description: 'Επεξεργασία/επιβεβαίωση/απόρριψη αιτημάτων παραγγελίας' },
+  // Ραντεβού στο atelier (website) & leads/newsletter
+  { key: 'appointments.read', resource: 'appointments', action: 'read', description: 'Προβολή ημερολογίου ραντεβού στο atelier' },
+  { key: 'appointments.manage', resource: 'appointments', action: 'manage', description: 'Επιβεβαίωση/ακύρωση/μεταφορά ραντεβού, ωράριο και αποκλεισμοί' },
+  { key: 'leads.read', resource: 'leads', action: 'read', description: 'Προβολή leads και συνδρομητών newsletter του website' },
+  { key: 'leads.manage', resource: 'leads', action: 'manage', description: 'Αποστολή leads στο SoftOne, διαγραφή συνδρομητών newsletter' },
   // Συνεργάτες
   { key: 'partners.read', resource: 'partners', action: 'read', description: 'Προβολή συνεργατών' },
   { key: 'partners.manage', resource: 'partners', action: 'manage', description: 'Επεξεργασία συνεργατών, επαφών, πελατών και έργων τους' },
@@ -105,12 +110,13 @@ export const ROLE_DEFAULTS: Record<string, string[]> = {
     'projects.read', 'projects.manage', 'projects.financials',
     'dynamic_offers.read', 'dynamic_offers.manage', 'dynamic_offers.reservations',
     'order_requests.read', 'order_requests.manage',
+    'appointments.read', 'appointments.manage', 'leads.read', 'leads.manage',
     'partners.read', 'partners.manage', 'partners.access',
     'classifications.read', 'classifications.manage',
     'units.read', 'units.manage',
     'items.unit2_override',
   ],
-  EMPLOYEE: ['users.read'],
+  EMPLOYEE: ['users.read', 'appointments.read', 'appointments.manage', 'leads.read'],
   COLLABORATOR: ['users.read'],
   SUPPLIER: [],
   CUSTOMER: [],
@@ -120,7 +126,7 @@ export const ROLE_DEFAULTS: Record<string, string[]> = {
 export const RESOURCE_LABELS: Record<string, string> = {
   users: 'Χρήστες', roles: 'Ρόλοι', permissions: 'Δικαιώματα', media: 'Media', companies: 'Εταιρείες',
   kad: 'ΚΑΔ', metadata: 'Μητρώα αναφοράς', ocr: 'OCR / Έγγραφα', system: 'Σύστημα',
-  projects: 'Έργα', dynamic_offers: 'Δυναμικές προσφορές', order_requests: 'Αιτήματα παραγγελίας', partners: 'Συνεργάτες',
+  projects: 'Έργα', dynamic_offers: 'Δυναμικές προσφορές', order_requests: 'Αιτήματα παραγγελίας', appointments: 'Ραντεβού', leads: 'Leads & newsletter', partners: 'Συνεργάτες',
   classifications: 'Κατηγορίες & ομάδες', units: 'Μονάδες μέτρησης', items: 'Είδη',
 };
 

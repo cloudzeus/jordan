@@ -91,6 +91,7 @@ export const SETTING_CATALOG: SettingDef[] = [
   { key: 'company.email',        category: 'company', label: 'Email επικοινωνίας', type: 'email' },
   { key: 'company.logoUrl',      category: 'company', label: 'Logo',               type: 'media' },
   { key: 'orders.notifyEmail',   category: 'company', label: 'Email για αιτήματα παραγγελίας (B2B)', type: 'text', description: 'Πού πηγαίνει το email για κάθε νέο αίτημα παραγγελίας από την πύλη. Κενό = το email επικοινωνίας· «off» = καμία αποστολή.' },
+  { key: 'leads.notifyEmail',    category: 'company', label: 'Email για ραντεβού & newsletter (website)', type: 'text', description: 'Πού πηγαίνει η ειδοποίηση για κάθε νέο ραντεβού στο atelier και κάθε επιβεβαιωμένη εγγραφή στο newsletter. Κενό = το email επικοινωνίας· «off» = καμία ειδοποίηση προσωπικού (τα email προς τον επισκέπτη στέλνονται κανονικά).' },
 
   // Email
   { key: 'email.mailgunApiKey',     category: 'email', label: 'Mailgun API Key',     type: 'password', isSecret: true },
@@ -141,6 +142,8 @@ export const SETTING_CATALOG: SettingDef[] = [
   { key: 'integrations.hmrcRequesterVrn', category: 'integrations', label: 'Δικός μας ΑΦΜ ΗΒ (προαιρετικό)', description: 'Μόνο αν η εταιρία έχει ΑΦΜ στο Ηνωμένο Βασίλειο: τότε το HMRC δίνει αριθμό ελέγχου (αποδεικτικό). Αλλιώς ο έλεγχος γίνεται κανονικά, χωρίς αριθμό.', type: 'text' },
   { key: 'integrations.gemiApiKey',     category: 'integrations', label: 'ΓΕΜΗ API Key', description: 'API Key για το Γενικό Εμπορικό Μητρώο (Μητρώο Επιχειρήσεων).', type: 'password', isSecret: true },
   // Διακόπτης ασφαλείας: όσο είναι κλειστός, ΚΑΜΙΑ εγγραφή παραστατικού δεν φεύγει προς το SoftOne.
+  // Διακόπτης ασφαλείας: όσο είναι κλειστός, τα leads του website (ραντεβού, newsletter) ΔΕΝ γράφονται στο SoftOne.
+  { key: 'leads.softoneEnabled',        category: 'integrations', label: 'Leads του website στο SoftOne', description: 'Κάθε ραντεβού και κάθε επιβεβαιωμένη εγγραφή newsletter δημιουργεί υποψήφιο πελάτη (CUSTOMER με «Υποψήφιος») στο SoftOne — ή συνδέεται με υπάρχοντα πελάτη με το ίδιο email. Όσο είναι κλειστό, τα leads μένουν μόνο στην εφαρμογή.', type: 'boolean', defaultValue: false },
   { key: 'softone.postingEnabled',      category: 'integrations', label: 'Καταχώριση παραστατικών στο SoftOne', description: 'Όσο είναι κλειστό, η καταχώριση κάνει μόνο προεπισκόπηση (dry-run).', type: 'boolean', defaultValue: false },
   // Μάσκα κωδικού συναλλασσομένου ανά τύπο: χρησιμοποιείται ΜΟΝΟ όταν δεν υπάρχει
   // ούτε ένας κωδικός αυτού του τύπου στο SoftOne ώστε να συμπεραθεί το σχήμα.

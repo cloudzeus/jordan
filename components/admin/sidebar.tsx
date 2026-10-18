@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   FiGrid, FiUsers, FiShield, FiKey, FiImage, FiChevronDown, FiList, FiTag, FiMaximize2, FiTrendingDown, FiShoppingCart,
-  FiActivity, FiSettings, FiFileText, FiLogOut, FiDatabase, FiBriefcase, FiLayers, FiCpu, FiBookOpen, FiBook, FiUserCheck, FiBox, FiTool, FiFolder, FiAlertCircle, FiUserPlus, FiPackage, FiPlayCircle, FiUploadCloud, FiHelpCircle, FiClipboard,
+  FiActivity, FiSettings, FiFileText, FiLogOut, FiDatabase, FiBriefcase, FiLayers, FiCpu, FiBookOpen, FiBook, FiUserCheck, FiBox, FiTool, FiFolder, FiAlertCircle, FiUserPlus, FiPackage, FiPlayCircle, FiUploadCloud, FiHelpCircle, FiClipboard, FiCalendar, FiTarget,
 } from 'react-icons/fi';
 
 type IconType = React.ComponentType<{ className?: string }>;
@@ -36,6 +36,8 @@ export interface Badges {
   integratorOpen?: number;
   /** Νέα αιτήματα παραγγελίας από το B2B portal (κατάσταση «Υποβλήθηκε») — από το admin layout. */
   orderRequests?: number;
+  /** Ραντεβού atelier που περιμένουν επιβεβαίωση — από το admin layout. */
+  appointments?: number;
 }
 
 /** DGsoft wordmark shown at the top of the sidebar. */
@@ -55,6 +57,8 @@ const NAV_GROUPS: NavGroup[] = [
       { href: '/admin/projects', label: 'Έργα', icon: FiBriefcase, permissions: ['projects.read'] },
       { href: '/admin/dynamic-offers', label: 'Δυναμικές προσφορές', icon: FiTrendingDown, permissions: ['dynamic_offers.read'] },
       { href: '/admin/order-requests', label: 'Αιτήματα παραγγελίας', icon: FiShoppingCart, permissions: ['order_requests.read'], badgeKey: 'orderRequests' },
+      { href: '/admin/appointments', label: 'Ραντεβού atelier', icon: FiCalendar, permissions: ['appointments.read'], badgeKey: 'appointments' },
+      { href: '/admin/leads', label: 'Leads & newsletter', icon: FiTarget, permissions: ['leads.read'] },
       { href: '/admin/partners', label: 'Συνεργάτες', icon: FiUsers, permissions: ['partners.read'] },
       { href: '/admin/classifications', label: 'Κατηγορίες & ομάδες', icon: FiTag, permissions: ['classifications.read'] },
       { href: '/admin/units', label: 'Μονάδες μέτρησης', icon: FiMaximize2, permissions: ['units.read'] },
