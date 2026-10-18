@@ -17,7 +17,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
         <div className="relative flex h-full min-h-[15rem] flex-col justify-end gap-6 px-5 py-8 sm:px-8 lg:min-h-0 lg:p-12 xl:p-16">
           <div className="absolute right-5 top-6 text-white/60 sm:right-8 lg:right-12 lg:top-12"><SectionMark letter="B2B" sheet="01" /></div>
           <Image src="/site/brand/logo-white.png" alt="Atelier by Damask" width={835} height={438} className="hidden h-auto w-[132px] lg:block" />
-          <p data-split="now" className="font-display max-w-xl text-[length:var(--fs-40)] lg:text-[length:var(--fs-56)]">
+          <p className="s-rise font-display max-w-xl text-[length:var(--fs-40)] lg:text-[length:var(--fs-56)]">
             Υλικά, κοστολόγια, <em className="text-[#E8D5BF]">χρονοδιαγράμματα</em> — σε μία πύλη.
           </p>
           <DimLine label="ΔΥΝΑΜΙΚΕΣ ΠΡΟΣΦΟΡΕΣ · ΕΡΓΑ · ΠΑΡΑΓΓΕΛΙΕΣ" className="hidden max-w-xl text-white/50 sm:flex" />

@@ -508,6 +508,10 @@ html.lenis, html.lenis body { height: auto; }
 .site .s-kicker::before { content: ""; width: 2.25rem; height: 1px; background: currentColor; opacity: 0.6; }
 /* Περίγραμμα γραμμάτων (outline) για γιγάντιους αριθμούς. */
 .site .s-outline { color: transparent; -webkit-text-stroke: 1px var(--s-outline, #1C3241); }
+/* Περιεχόμενο πάνω από την πτυχή: εμφανίζεται ΑΜΕΣΩΣ με CSS (δεν περιμένει το JavaScript/three.js). */
+@keyframes s-rise { from { opacity: 0; transform: translateY(22px); } to { opacity: 1; transform: none; } }
+.site .s-rise { animation: s-rise 0.9s cubic-bezier(0.2, 0, 0, 1) both; animation-delay: var(--d, 0s); }
+@media (prefers-reduced-motion: reduce) { .site .s-rise { animation: none; } }
 /* Μικρό «σκάσιμο» ειδοποίησης (κράτηση στο hero). */
 @keyframes s-pop { 0% { opacity: 0; transform: translateY(6px) scale(0.96); } 12% { opacity: 1; transform: none; } 80% { opacity: 1; } 100% { opacity: 0; } }
 .site .s-pop { animation: s-pop 1.05s cubic-bezier(0.2,0,0,1) forwards; }

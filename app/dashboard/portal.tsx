@@ -70,11 +70,11 @@ export async function Portal({ user }: { user: NonNullable<UserWithRole> }) {
         <Grid />
         <div aria-hidden className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_55%_70%_at_20%_30%,rgba(255,255,255,0.95),transparent_70%)]" />
         <div className="relative mx-auto w-full max-w-[1440px] px-5 pb-12 pt-10 sm:px-8 lg:px-12 lg:pb-16 lg:pt-14">
-          <p className="s-kicker text-[var(--s-accent)]" data-reveal="12">{today}</p>
+          <p className="s-rise s-kicker text-[var(--s-accent)]">{today}</p>
           <div className="mt-5 grid gap-10 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)] lg:items-end">
             <div className="min-w-0">
-              <h1 data-split="now" className="font-display text-[length:var(--fs-56)] lg:text-[length:var(--fs-72)]">{greeting()}{first ? <>, <em>{first}.</em></> : '.'}</h1>
-              <p data-reveal className="mt-4 max-w-xl text-[length:var(--fs-18)] text-[var(--s-ink-2)]">
+              <h1 style={{ ["--d" as string]: "0.08s" }} className="s-rise font-display text-[length:var(--fs-56)] lg:text-[length:var(--fs-72)]">{greeting()}{first ? <>, <em>{first}.</em></> : '.'}</h1>
+              <p style={{ ["--d" as string]: "0.16s" }} className="s-rise mt-4 max-w-xl text-[length:var(--fs-18)] text-[var(--s-ink-2)]">
                 {data.org ? <><b className="font-medium text-[var(--s-ink)]">{data.org}</b> · </> : null}
                 {open.length ? `${open.length === 1 ? 'Ένα κοινό container είναι ανοιχτό' : `${open.length} κοινά container είναι ανοιχτά`} για εσάς αυτή τη στιγμή.` : 'Καμία ανοιχτή δυναμική προσφορά αυτή τη στιγμή — θα σας ειδοποιήσουμε με email.'}
               </p>
@@ -82,7 +82,7 @@ export async function Portal({ user }: { user: NonNullable<UserWithRole> }) {
             <DimLine label={customer ? 'ΠΡΟΣΦΟΡΕΣ · ΕΡΓΑ · ΠΑΡΑΓΓΕΛΙΕΣ' : 'ΠΡΟΣΦΟΡΕΣ · ΚΑΤΑΛΟΓΟΣ'} className="hidden text-[var(--s-mute)] lg:flex" />
           </div>
 
-          <div data-reveal data-stagger className={customer ? 'mt-12 grid grid-cols-2 gap-x-8 gap-y-10 lg:grid-cols-4' : 'mt-12 grid grid-cols-2 gap-x-8 gap-y-10'}>
+          <div style={{ ['--d' as string]: '0.24s' }} className={customer ? 's-rise mt-12 grid grid-cols-2 gap-x-8 gap-y-10 lg:grid-cols-4' : 's-rise mt-12 grid grid-cols-2 gap-x-8 gap-y-10'}>
             <Figure label="Ζωντανά container" value={<span data-count={open.length}>{open.length}</span>} tone={open.length ? '#B42318' : undefined} icon={FiBox} href="/dashboard/offers" hint={open.length ? 'η τιμή πέφτει όσο γεμίζουν' : 'κανένα ανοιχτό'} />
             {customer ? (
               <>

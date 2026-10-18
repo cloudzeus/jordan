@@ -47,22 +47,22 @@ export default async function HomePage() {
 
         <div className="mx-auto grid min-h-[100svh] w-full max-w-[1440px] items-center gap-12 px-5 pb-28 pt-28 sm:px-8 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)] lg:px-12">
           <div className="min-w-0">
-            <p className="s-kicker text-[#D6B796]" data-reveal="16">B2B πύλη · μόνο για επαγγελματίες</p>
-            <h1 data-split="now" data-delay="0.15" className="font-display mt-6 text-[length:var(--fs-56)] lg:text-[length:var(--fs-72)] xl:text-[length:var(--fs-96)]">
+            <p className="s-rise s-kicker text-[#D6B796]">B2B πύλη · μόνο για επαγγελματίες</p>
+            <h1 style={{ ["--d" as string]: "0.1s" }} className="s-rise font-display mt-6 text-[length:var(--fs-56)] lg:text-[length:var(--fs-72)] xl:text-[length:var(--fs-96)]">
               Εκεί που η αρχιτεκτονική <em className="text-[#E8D5BF]">βρίσκει</em> τα υλικά της.
             </h1>
             <DimLine label="1 : 1 — ΠΡΑΓΜΑΤΙΚΗ ΚΛΙΜΑΚΑ" className="mt-8 max-w-xl text-white/55" />
-            <p data-reveal="20" data-delay="0.5" className="mt-8 max-w-xl text-[length:var(--fs-18)] leading-relaxed text-white/80">
+            <p style={{ ["--d" as string]: "0.3s" }} className="s-rise mt-8 max-w-xl text-[length:var(--fs-18)] leading-relaxed text-white/80">
               Φυσικά δομικά υλικά και αρχιτεκτονικά τελειώματα για αρχιτέκτονες, διακοσμητές και κατασκευαστές — με κοινά container που γίνονται φθηνότερα όσο γεμίζουν.
             </p>
-            <div data-reveal="20" data-delay="0.65" className="mt-10 flex flex-wrap items-center gap-4">
+            <div style={{ ["--d" as string]: "0.4s" }} className="s-rise mt-10 flex flex-wrap items-center gap-4">
               <Link href="/auth/signin" className="group inline-flex min-h-14 items-center gap-3 bg-white px-7 text-[length:var(--fs-16)] font-medium text-[#0B1620] transition-colors hover:bg-[#E8D5BF]">
                 Είσοδος επαγγελματιών <FiArrowRight className="size-4 transition-transform group-hover:translate-x-1" aria-hidden />
               </Link>
               <Link href="/auth/register" className="inline-flex min-h-14 items-center border border-white/50 px-7 text-[length:var(--fs-16)] font-medium transition-colors hover:border-white hover:bg-white/10">Αίτημα πρόσβασης</Link>
             </div>
           </div>
-          <div data-reveal="40" data-delay="0.4" className="min-w-0">
+          <div style={{ ["--d" as string]: "0.25s" }} className="s-rise min-w-0">
             <HeroLive />
             <p className="mt-4 text-[length:var(--fs-12)] text-white/55">Ενδεικτικό παράδειγμα · οι πραγματικές τιμές εμφανίζονται μετά τη σύνδεση</p>
           </div>

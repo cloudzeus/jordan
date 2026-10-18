@@ -11,7 +11,7 @@ export function PageTitle({ eyebrow, title, children, back }: { eyebrow: string;
     <div>
       {back && <Link href={back.href} className="s-link inline-flex min-h-11 items-center text-[length:var(--fs-14)] text-[var(--s-ink-2)]">← {back.label}</Link>}
       <p className={cn('s-kicker text-[var(--s-accent)]', back ? 'mt-3' : undefined)}>{eyebrow}</p>
-      <h1 data-split="now" className="font-display mt-4 text-[length:var(--fs-48)] lg:text-[length:var(--fs-64)]">{title}</h1>
+      <h1 className="s-rise font-display mt-4 text-[length:var(--fs-48)] lg:text-[length:var(--fs-64)]">{title}</h1>
       {children && <div className="mt-4 max-w-2xl text-[length:var(--fs-16)] text-[var(--s-ink-2)]">{children}</div>}
     </div>
   );
