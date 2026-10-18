@@ -18,6 +18,9 @@ import { EXTRA_COUNTRY_NAMES_EL } from '@/lib/country-detect';
 import { applyVatPrefix } from '@/lib/ocr/vat-prefix';
 import { ViesCheck } from '@/components/admin/vies-check';
 import { KadField, kadPayload, useKadRemoved, type TraderKads } from '@/components/admin/kad-field';
+import { TraderClassPicker, useTraderClassRows, type ClassProposal } from '@/components/admin/trader-class-picker';
+import { EMPTY_SELECTION, selectionFromLeaf, softoneValues, type ClassSelection } from '@/lib/trader-class-select';
+import { classifyTrader } from '@/lib/trader-classes';
 
 type Preview = {
   afm: string; name: string;
@@ -26,6 +29,7 @@ type Preview = {
   softoneKad?: TraderKads;
   profession: string | null; address: string | null; zip: string | null; city: string | null;
   legalForm: string | null; isActive: boolean;
+  activities?: { code: string; descr: string; kind: string }[];
 };
 
 /** Οι χώρες με γνωστό πρόθεμα ΑΦΜ (εκτός Ελλάδας — αυτή δεν ζητείται εδώ). Το «XI» είναι πρόθεμα, όχι χώρα. */
@@ -85,6 +89,11 @@ export function CreateTraderDialog({
   const [codeError, setCodeError] = React.useState<string | null>(null);
   const [codeOffer, setCodeOffer] = React.useState<string | null>(null);
   const proposed = React.useRef<string | null>(null);
+  // Κατηγοριοποίηση: μόνο για προμηθευτές (οι πιστωτές/χρεώστες δεν έχουν ιεραρχία).
+  const classSodtype = kind === 'supplier' ? 12 : null;
+  const { rows: classRows, loading: classLoading } = useTraderClassRows(classSodtype);
+  const [classSel, setClassSel] = React.useState<ClassSelection>(EMPTY_SELECTION);
+  const [classTouched, setClassTouched] = React.useState(false);
 
   const [countryPick, setCountryPick] = React.useState('');
   // Το ΑΦΜ ΜΕ το πρόθεμα χώρας (π.χ. «ATU12345678»). Πριν κρατούσαμε μόνο τα ψηφία: ένα ξένο ΑΦΜ
@@ -97,6 +106,25 @@ export function CreateTraderDialog({
   // Ελληνικό ΑΦΜ στέλνεται πάντα σκέτο (χωρίς «EL»).
   const cleanAfm = isForeign ? rawAfm : rawAfm.replace(/^(EL|GR)/, '').replace(/\D/g, '');
   const isGreek = !isForeign && /^\d{9}$/.test(cleanAfm);
+
+  // Αυτόματη πρόταση κατηγορίας από τον κύριο ΚΑΔ της ΑΑΔΕ (ή, για ξένο, μόνο η λογ. κατηγορία ΕΕ/τρίτες).
+  const classProposal = React.useMemo<ClassProposal | null>(() => {
+    if (!classSodtype || classRows.length === 0) return null;
+    const primary = data?.activities?.find((a) => a.kind === '1') ?? null;
+    const r = classifyTrader({
+      side: 'supplier', afmKind: isForeign ? 'foreign' : isGreek ? 'greek' : 'none', countryIso: isForeign ? country : null,
+      aadeFound: data ? true : undefined, legalForm: data?.legalForm, primaryKad: primary?.code ?? null, primaryKadDescr: primary?.descr ?? null,
+    });
+    const leaf = classRows.find((x) => x.level === 3 && x.key === r.leaf);
+    const l1 = classRows.find((x) => x.level === 1 && x.key === r.path[0]);
+    if (r.leaf === 'SH_REVIEW') return l1 ? { leafId: null, basis: r.basis, needsReview: true } : null;
+    return leaf ? { leafId: leaf.id, basis: r.basis, rule: r.rule, needsReview: r.review, primaryKad: primary?.code ?? null, primaryKadDescr: primary?.descr ?? null, l1Id: l1?.id ?? null } : null;
+  }, [classSodtype, classRows, data, isForeign, isGreek, country]);
+  // Μέχρι να την αγγίξει ο χρήστης, η επιλογή ακολουθεί την πρόταση.
+  React.useEffect(() => {
+    if (classTouched || !classProposal) return;
+    setClassSel(selectionFromLeaf(classRows, classProposal.leafId, classProposal.l1Id ?? null));
+  }, [classProposal, classRows, classTouched]);
 
   const runLookup = React.useCallback(async (theAfm: string) => {
     const clean = theAfm.replace(/\D/g, '');
@@ -183,6 +211,23 @@ export function CreateTraderDialog({
     return () => { ignore = true; };
   }, [open, kind]);
 
+  /** Μετά τη δημιουργία: κατηγορία στην καρτέλα SoftOne (όσα επίπεδα υπάρχουν εκεί) και στην εφαρμογή. */
+  const saveClass = async (trdr: number, trdrCode: string, trdrName: string) => {
+    const cls = softoneValues(classRows, classSel);
+    try {
+      let applied = cls.pending.length === 0 && classSel.l3 != null;
+      if (Object.keys(cls.values).length) {
+        const r = await fetch(`/api/admin/traders/${trdr}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ values: cls.values }) });
+        const p = await r.json().catch(() => null);
+        if (!r.ok || p?.unapplied?.length) { applied = false; toast.warning('Η κατηγοριοποίηση δεν γράφτηκε στην καρτέλα SoftOne — κρατήθηκε στην εφαρμογή.'); }
+      }
+      await fetch(`/api/admin/traders/${trdr}/class`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sodtype: classSodtype, code: trdrCode, name: trdrName, afm: cleanAfm || null, leafId: classSel.l3, applied }),
+      });
+    } catch { toast.warning('Η κατηγοριοποίηση δεν αποθηκεύτηκε.'); }
+  };
+
   const submit = async () => {
     if (!name.trim() || !cleanAfm) { toast.error('Συμπλήρωσε Επωνυμία και ΑΦΜ.'); return; }
     if (!country && !isValidAfm(cleanAfm)) { toast.error('Διάλεξε τη χώρα του εκδότη — το ΑΦΜ δεν είναι ελληνικό.'); return; }
@@ -243,6 +288,7 @@ export function CreateTraderDialog({
           description: 'Η καρτέλα δημιουργήθηκε· συμπλήρωσε τον ΚΑΔ μέσα στο SoftOne (Επιπλέον στοιχεία → Κ.Α.Δ.).',
         });
       }
+      if (classSodtype && !d.existing && (classSel.l1 != null || classSel.l3 != null)) await saveClass(d.trdr, d.code, d.name);
       onCreated?.({ trdr: d.trdr, code: d.code, name: d.name, docsUpdated: d.docsUpdated ?? 0 });
       onOpenChange(false);
     } catch {
@@ -358,6 +404,11 @@ export function CreateTraderDialog({
                 )}
               </dl>
             </FormSection>
+          )}
+
+          {classSodtype && (
+            <TraderClassPicker rows={classRows} loading={classLoading} value={classSel} proposal={classProposal} idPrefix="ct-class"
+              onChange={(v) => { setClassSel(v); setClassTouched(true); }} />
           )}
 
           {/* ── 3. ΑΠΟ ΤΟ ΠΑΡΑΣΤΑΤΙΚΟ: επικοινωνία (η ΑΑΔΕ δεν τη δίνει). */}

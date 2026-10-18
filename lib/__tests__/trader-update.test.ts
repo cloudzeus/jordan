@@ -76,3 +76,17 @@ describe('γεωγραφική θέση (TRDR.LATITUDE / LONGITUDE)', () => {
     expect(unappliedChanges(p, cur).map((c) => c.key)).toEqual(['coords']);
   });
 });
+
+describe('κατηγοριοποίηση (TRDCATEGORY / TRDBUSINESS / TRDGROUP)', () => {
+  it('διαβάζονται από τη γραμμή TRDR', () => {
+    expect(traderValuesFromRow({ TRDCATEGORY: '2', TRDBUSINESS: '', TRDGROUP: '7' })).toMatchObject({ trdCategory: '2', trdBusiness: null, trdGroup: '7' });
+  });
+  it('γράφονται ως αριθμοί, μόνο όσα άλλαξαν', () => {
+    const p = planTraderUpdate({ trdCategory: '2', trdBusiness: null, trdGroup: null }, { trdCategory: '2', trdBusiness: '5', trdGroup: '12' });
+    expect(p.row).toEqual({ TRDBUSINESS: 5, TRDGROUP: 12 });
+    expect(p.changes.map((c) => c.key)).toEqual(['trdBusiness', 'trdGroup']);
+  });
+  it('μη αριθμητική τιμή ⇒ σφάλμα', () => {
+    expect(planTraderUpdate({}, { trdGroup: 'ΑΡΧ' }).errors).toHaveLength(1);
+  });
+});

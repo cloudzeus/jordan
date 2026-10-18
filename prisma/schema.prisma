@@ -3267,3 +3267,88 @@ model EntityFile {
 
   @@index([folderId, subfolder])
 }
+
+// ── Κατηγορίες συναλλασσομένων — ιεραρχία 3 επιπέδων (γενικό → ειδικό) ────────────────────────────
+// Ορισμός και κανόνες ΚΑΔ: `lib/trader-classes.ts` (πηγή αλήθειας)· εδώ ο καθρέφτης για την εφαρμογή
+// και το κλειδί του SoftOne όταν δημιουργηθεί. Ένα node ανά (κλειδί, πλευρά): τα κοινά φύλλα «SH_*»
+// έχουν ΔΥΟ γραμμές (πελάτες/προμηθευτές) με τον ίδιο κωδικό TRDGROUP.
+//   level 1 → TRDCATEGORY (ανά SODTYPE, ΥΠΑΡΧΕΙ) · level 2 → TRDBUSINESS (ανά SODTYPE) · level 3 → TRDGROUP (κοινό)
+model TraderClass {
+  id           Int           @id @default(autoincrement())
+  key          String // π.χ. «C2_HOSPITALITY», «SH_MEP»
+  sodtype      Int // 13 πελάτες · 12 προμηθευτές
+  level        Int // 1 | 2 | 3
+  code         String // σύντμηση (CODE) στο SoftOne
+  name         String
+  description  String?
+  parentId     Int?
+  parent       TraderClass?  @relation("TraderClassTree", fields: [parentId], references: [id], onDelete: SetNull)
+  children     TraderClass[] @relation("TraderClassTree")
+  softoneField String // TRDCATEGORY | TRDBUSINESS | TRDGROUP
+  softoneId    Int? // το κλειδί της εγγραφής στο SoftOne (null = δεν έχει δημιουργηθεί ακόμα)
+  kadPrefixes  String[]      @default([]) // κανόνες ΚΑΔ (μόνο επίπεδο 3, για εμφάνιση)
+  order        Int           @default(0)
+  isActive     Boolean       @default(true)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  assignments TraderClassAssignment[]
+
+  @@unique([key, sodtype])
+  @@index([sodtype, isActive, level, order])
+  @@index([parentId])
+}
+
+// ΚΑΔ ΑΑΔΕ + προτεινόμενη κατηγορία ανά συναλλασσόμενο (αποτέλεσμα της αυτόματης ανάθεσης).
+// Η ανάθεση στο SoftOne (TRDR.TRDCATEGORY/TRDBUSINESS/TRDGROUP) γίνεται ΜΟΝΟ μετά από έγκριση.
+model TraderClassAssignment {
+  id              Int          @id @default(autoincrement())
+  trdr            Int          @unique // SoftOne TRDR
+  sodtype         Int
+  code            String // TRDR.CODE
+  name            String
+  afm             String?
+  afmKind         String // greek | foreign | invalid | none
+  countryIso      String?
+  aadeName        String?
+  aadeCheckedAt   DateTime?
+  primaryKad      String? // «55.10.10.01»
+  primaryKadDescr String?
+  activities      Json? // όλοι οι ΚΑΔ της ΑΑΔΕ [{code, descr, kind}]
+  purchasesHint   Json? // προμηθευτές: τι αγοράζουμε (κορυφαία είδη)
+  leafId          Int?
+  leaf            TraderClass? @relation(fields: [leafId], references: [id], onDelete: SetNull)
+  pathKeys        String[]     @default([]) // [επ.1, επ.2, επ.3]
+  basis           String // kad | purchases | legal_form | no_afm | …
+  rule            String?
+  needsReview     Boolean      @default(false)
+  status          String       @default("PROPOSED") // PROPOSED | APPROVED | APPLIED
+  appliedAt       DateTime?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  @@index([sodtype])
+  @@index([leafId])
+  @@index([needsReview])
+}
+
+// Προϊόντα ανά προμηθευτή — καθρέφτης από τα παραστατικά αγορών του SoftOne (FINDOC 1251 → MTRLINES).
+// Μία γραμμή ανά (προμηθευτής, είδος). Ποσότητα/αξία ΜΟΝΟ από τιμολόγια μείον πιστωτικά (όπως η
+// «Αγορές» του είδους — lib/purchase-kinds.ts)· `docs` μετρά κάθε παραστατικό (και παραγγελίες/δελτία).
+// Ξαναχτίζεται ολόκληρος σε κάθε συγχρονισμό (lib/softone-sync/supplier-products.ts).
+model SupplierProduct {
+  id           Int       @id @default(autoincrement())
+  trdr         Int // προμηθευτής (TRDR)
+  mtrl         Int // είδος/υπηρεσία (MTRL)
+  docs         Int       @default(0) // παραστατικά αγορών με το είδος (κάθε τύπου)
+  invoiceQty   Float     @default(0) // ποσότητα τιμολογίων − πιστωτικών επιστροφής
+  invoiceValue Float     @default(0) // καθαρή αξία τιμολογίων − πιστωτικών
+  lastCost     Float? // κόστος μονάδας στο πιο πρόσφατο τιμολόγιο
+  firstDate    DateTime?
+  lastDate     DateTime?
+  syncedAt     DateTime  @default(now())
+
+  @@unique([trdr, mtrl])
+  @@index([trdr, invoiceValue(sort: Desc)])
+  @@index([mtrl])
+}

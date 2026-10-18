@@ -31,7 +31,14 @@ export const TRADER_EDIT_FIELDS = [
   { key: 'fax', col: 'FAX', label: 'Fax', max: 20 },
   { key: 'email', col: 'EMAIL', label: 'Email', max: 128 },
   { key: 'webpage', col: 'WEBPAGE', label: 'Ιστοσελίδα', max: 64 },
+  // Κατηγοριοποίηση (κλειδιά μητρώων SoftOne· η ιεραρχία ζει στο `TraderClass` — lib/trader-classes.ts).
+  { key: 'trdCategory', col: 'TRDCATEGORY', label: 'Λογ. κατηγορία', max: 6 },
+  { key: 'trdBusiness', col: 'TRDBUSINESS', label: 'Εμπορ. κατηγορία', max: 6 },
+  { key: 'trdGroup', col: 'TRDGROUP', label: 'Όμιλος', max: 10 },
 ] as const;
+
+/** Πεδία που κρατούν ΚΛΕΙΔΙ μητρώου της SoftOne (αριθμός), όχι κείμενο. */
+const NUMERIC_KEYS = new Set<string>(['irsData', 'country', 'trdCategory', 'trdBusiness', 'trdGroup']);
 
 export type TraderFieldKey = (typeof TRADER_EDIT_FIELDS)[number]['key'];
 export type TraderValues = Partial<Record<TraderFieldKey, string | null>> & {
@@ -89,9 +96,9 @@ export function planTraderUpdate(current: TraderValues, next: TraderValues): Tra
     if (to === from) continue;
     if (f.key === 'name' && !to) { errors.push('Η επωνυμία δεν μπορεί να είναι κενή.'); continue; }
     if (to && to.length > f.max) { errors.push(`${f.label}: έως ${f.max} χαρακτήρες (έχει ${to.length}).`); continue; }
-    if (f.key === 'country' && to && !/^\d+$/.test(to)) { errors.push('Χώρα: επίλεξε από το μητρώο χωρών της SoftOne.'); continue; }
+    if (f.key !== 'irsData' && NUMERIC_KEYS.has(f.key) && to && !/^\d+$/.test(to)) { errors.push(`${f.label}: επίλεξε από το μητρώο της SoftOne.`); continue; }
     changes.push({ key: f.key, label: f.label, from, to });
-    row[f.col] = f.key === 'irsData' || f.key === 'country' ? (to ? Number(to) || to : '') : (to ?? '');
+    row[f.col] = NUMERIC_KEYS.has(f.key) ? (to ? Number(to) || to : '') : (to ?? '');
   }
   let extra: Record<string, unknown> | null = null;
   for (const [key, col, label] of [['kad', 'KAD', 'ΚΑΔ (κύρια)'], ['kad1', 'KAD1', 'ΚΑΔ (δευτερεύουσα)']] as const) {

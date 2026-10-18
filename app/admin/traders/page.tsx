@@ -1,3 +1,4 @@
+import { Suspense } from 'react';
 import { FiUserCheck } from 'react-icons/fi';
 import { prisma } from '@/lib/db';
 import { requirePermission, hasPermission } from '@/lib/rbac';
@@ -5,13 +6,15 @@ import { getSetting } from '@/lib/settings';
 import { PageHeader } from '@/components/admin/page-header';
 import { TradersView } from '@/components/admin/traders-view';
 import { TradersTabs } from '@/components/admin/traders-tabs';
+import { SupplierProductsPanel } from '@/components/admin/supplier-products-panel';
 import { traderDocCounts } from '@/lib/ocr/trader-docs';
 
 export const dynamic = 'force-dynamic';
 
 // Συναλλασσόμενοι — ένα μητρώο για πελάτες, προμηθευτές, χρεώστες, πιστωτές και
 // χρηματικούς λογαριασμούς (TRDR SODTYPE 12–16), όπως στο SoftOne.
-export default async function TradersPage() {
+export default async function TradersPage({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
+  const { tab } = await searchParams;
   await requirePermission('metadata.read');
   const [traders, canManage, lastSync] = await Promise.all([
     prisma.softoneTrader.findMany({ orderBy: { name: 'asc' } }),
@@ -31,7 +34,15 @@ export default async function TradersPage() {
         description={`Μητρώο συναλλασσομένων από SoftOne (${rows.length.toLocaleString('el-GR')} εγγραφές).`}
         helpAnchor="traders"
       />
-      <TradersTabs list={<TradersView rows={rows} canManage={canManage} canFiles={await hasPermission('files.read')} lastSync={lastSync ?? null} />} />
+      <TradersTabs
+        initialTab={tab === 'map' || tab === 'products' ? tab : 'list'}
+        list={<TradersView rows={rows} canManage={canManage} canFiles={await hasPermission('files.read')} lastSync={lastSync ?? null} />}
+        products={
+          <Suspense fallback={<p className="py-10 text-center text-[length:var(--fs-12)] text-muted-foreground">Φόρτωση προϊόντων…</p>}>
+            <SupplierProductsPanel canManage={canManage} />
+          </Suspense>
+        }
+      />
     </div>
   );
 }

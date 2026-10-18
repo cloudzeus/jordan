@@ -14,13 +14,19 @@ import { Input } from '@/components/ui/input';
 import { Dialog, DialogBody, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Field, FormSection, FormSelect, RowHint, fieldCls } from '@/components/admin/form-kit';
 import { ViesCheck, type ViesCheckResult } from '@/components/admin/vies-check';
+import { TraderClassPicker, useTraderClassRows, type ClassProposal } from '@/components/admin/trader-class-picker';
+import {
+  EMPTY_SELECTION, sameSelection, selectionFromLeaf, selectionFromSoftone, selectionLabel, softoneValues, type ClassSelection,
+} from '@/lib/trader-class-select';
 import { isValidAfm } from '@/lib/ocr/validate';
 import { formatCoords, validCoords } from '@/lib/coords';
 import { cn } from '@/lib/utils';
 
 export type TraderDialogMode = 'edit' | 'aade' | 'vies';
 type Key = 'name' | 'afm' | 'irsData' | 'profession' | 'address' | 'district' | 'zip' | 'city' | 'country' | 'phone' | 'phone2' | 'fax' | 'email' | 'webpage';
-type Values = Partial<Record<Key, string | null>> & { kad?: number | null; kad1?: number | null; lat?: number | null; lng?: number | null };
+type ClassKey = 'trdCategory' | 'trdBusiness' | 'trdGroup';
+type Values = Partial<Record<Key | ClassKey, string | null>> & { kad?: number | null; kad1?: number | null; lat?: number | null; lng?: number | null };
+const CLASS_LEVEL: Record<ClassKey, number> = { trdCategory: 1, trdBusiness: 2, trdGroup: 3 };
 interface Loaded {
   trdr: number; sodtype: number; code: string; values: Values; editable: boolean;
   kadLabels: { kad: string | null; kad1: string | null };
@@ -55,14 +61,20 @@ export function TraderEditDialog({ trdr, mode, open, onOpenChange, canManage }: 
   const [geoNote, setGeoNote] = React.useState<string | null>(null);
   /** Ονόματα ΚΑΔ (id → «κωδικός — περιγραφή») από την καρτέλα και την ΑΑΔΕ. */
   const [kadNames, setKadNames] = React.useState<Record<number, string>>({});
+  /** Κατηγοριοποίηση (3 συσχετιζόμενα επίπεδα): η αρχική (για «άλλαξε;») και η τρέχουσα επιλογή. */
+  const { rows: classRows, loading: classLoading } = useTraderClassRows(data?.sodtype);
+  const [classInit, setClassInit] = React.useState<ClassSelection>(EMPTY_SELECTION);
+  const [classSel, setClassSel] = React.useState<ClassSelection>(EMPTY_SELECTION);
+  const [classProposal, setClassProposal] = React.useState<ClassProposal | null>(null);
 
   const officeName = React.useCallback((key: string | null | undefined) => {
     const o = data?.offices.find((x) => x.key === s(key));
     return o ? `${o.name} (${o.code})` : s(key) || null;
   }, [data]);
   const countryName = React.useCallback((id: string | null | undefined) => data?.countries.find((c) => c.id === s(id))?.name ?? (s(id) || null), [data]);
-  const shown = (k: Key | 'kad' | 'kad1', v: unknown): string => {
+  const shown = (k: Key | ClassKey | 'kad' | 'kad1', v: unknown): string => {
     if (v == null || v === '') return '—';
+    if (k in CLASS_LEVEL) return classRows.find((r) => r.level === CLASS_LEVEL[k as ClassKey] && String(r.softoneId) === String(v))?.name ?? `#${v}`;
     if (k === 'irsData') return officeName(String(v)) ?? '—';
     if (k === 'country') return countryName(String(v)) ?? '—';
     if (k === 'kad' || k === 'kad1') return kadNames[Number(v)] ?? `#${v}`;
@@ -114,6 +126,24 @@ export function TraderEditDialog({ trdr, mode, open, onOpenChange, canManage }: 
   }, [trdr, mode, runAade]);
   React.useEffect(() => { if (open) void load(); }, [open, load]);
 
+  // Αρχική κατηγορία: ό,τι έχει εγκριθεί στην εφαρμογή, αλλιώς ό,τι έχει η καρτέλα στο SoftOne.
+  React.useEffect(() => {
+    if (!data || classRows.length === 0) return;
+    let alive = true;
+    const fromSoftone = selectionFromSoftone(classRows, data.values);
+    fetch(`/api/admin/traders/${trdr}/class`, { cache: 'no-store' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (!alive) return;
+        const chosen = d && d.status !== 'PROPOSED' && d.leafId ? selectionFromLeaf(classRows, d.leafId, fromSoftone.l1) : fromSoftone;
+        setClassInit(chosen); setClassSel(chosen);
+        setClassProposal(d?.proposal?.leafId ? d.proposal : null);
+      })
+      .catch(() => { if (alive) { setClassInit(fromSoftone); setClassSel(fromSoftone); } });
+    return () => { alive = false; };
+  }, [data, classRows, trdr]);
+  const classDirty = !sameSelection(classInit, classSel);
+
   // Οι προτάσεις που διαφέρουν από τη φόρμα προεπιλέγονται.
   React.useEffect(() => {
     if (!proposals) return;
@@ -147,11 +177,29 @@ export function TraderEditDialog({ trdr, mode, open, onOpenChange, canManage }: 
       for (const k of KEYS) values[k] = form[k] ?? null;
       values.kad = form.kad ?? null; values.kad1 = form.kad1 ?? null;
       values.lat = geoNum(geo.lat); values.lng = geoNum(geo.lng);
+      // Κατηγοριοποίηση: μόνο αν άλλαξε, και μόνο τα επίπεδα που υπάρχουν στο SoftOne.
+      const cls = softoneValues(classRows, classSel);
+      if (classDirty) Object.assign(values, cls.values);
       const r = await fetch(`/api/admin/traders/${trdr}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ values, dryRun }) });
       const d = await r.json().catch(() => null);
       if (!r.ok) { toast.error(d?.message ?? 'Η αποθήκευση απέτυχε.'); return; }
-      if (dryRun) { setPreview(d.changes ?? []); return; }
-      if (!d.changes?.length) { toast.info('Καμία αλλαγή.'); return; }
+      const localChange: Change[] = classDirty && cls.pending.length
+        ? [{ key: 'class', label: 'Κατηγοριοποίηση (στην εφαρμογή)', from: selectionLabel(classRows, classInit) || null, to: selectionLabel(classRows, classSel) || null }]
+        : [];
+      if (dryRun) { setPreview([...(d.changes ?? []), ...localChange]); return; }
+      if (classDirty && data) {
+        const saved = await fetch(`/api/admin/traders/${trdr}/class`, {
+          method: 'PUT', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sodtype: data.sodtype, code: data.code, name: s(form.name), afm: s(form.afm) || null, leafId: classSel.l3, applied: classSel.l3 != null && cls.pending.length === 0 }),
+        }).catch(() => null);
+        if (!saved?.ok) toast.error('Η κατηγοριοποίηση δεν αποθηκεύτηκε στην εφαρμογή.');
+        else setClassInit(classSel);
+      }
+      if (!d.changes?.length) {
+        if (localChange.length) { toast.success('Η κατηγοριοποίηση αποθηκεύτηκε στην εφαρμογή.'); onOpenChange(false); router.refresh(); }
+        else toast.info('Καμία αλλαγή.');
+        return;
+      }
       if (d.unapplied?.length || d.sideEffects?.length) {
         toast.warning(`Η SoftOne ΔΕΝ κράτησε: ${d.unapplied.map((c: Change) => c.label).join(', ')}${d.sideEffects?.length ? ` · άλλαξαν και: ${d.sideEffects.join(', ')}` : ''}`, { duration: 12000 });
       } else toast.success(`Αποθηκεύτηκε στη SoftOne (${d.changes.length} ${d.changes.length === 1 ? 'πεδίο' : 'πεδία'}).`);
@@ -305,6 +353,11 @@ export function TraderEditDialog({ trdr, mode, open, onOpenChange, canManage }: 
               )}
             </FormSection>
 
+            {(data.sodtype === 12 || data.sodtype === 13) && (
+              <TraderClassPicker rows={classRows} loading={classLoading} value={classSel} disabled={readOnly} proposal={classProposal} idPrefix="te-class"
+                onChange={(v) => { setClassSel(v); setPreview(null); }} />
+            )}
+
             <FormSection tone="violet" icon={<FiMapPin />} title="Διεύθυνση">
               <div className="grid gap-2.5 sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
                 {input('address')}
@@ -373,15 +426,15 @@ export function TraderEditDialog({ trdr, mode, open, onOpenChange, canManage }: 
             </FormSection>
 
             {preview && (
-              <FormSection tone="amber" icon={<FiEdit3 />} title={preview.length ? `Θα αλλάξουν ${preview.length} πεδία στη SoftOne` : 'Καμία αλλαγή'}>
+              <FormSection tone="amber" icon={<FiEdit3 />} title={preview.length ? `Θα αλλάξουν ${preview.length} ${preview.length === 1 ? 'πεδίο' : 'πεδία'}` : 'Καμία αλλαγή'}>
                 {preview.length === 0 ? <RowHint>Η φόρμα είναι ίδια με την καρτέλα της SoftOne.</RowHint> : (
                   <ul className="space-y-1 text-[length:var(--fs-12)]">
                     {preview.map((c) => (
                       <li key={c.key} className="flex flex-wrap items-baseline gap-x-1.5">
                         <strong className="font-medium">{c.label}:</strong>
-                        <span className="text-muted-foreground line-through decoration-muted-foreground/50">{shown(c.key as Key, c.from)}</span>
+                        <span className="text-muted-foreground line-through decoration-muted-foreground/50">{c.key === 'class' ? (c.from ?? '—') : shown(c.key as Key, c.from)}</span>
                         <FiArrowRight aria-hidden className="size-3 self-center text-muted-foreground" />
-                        <span className="font-medium text-foreground">{c.to == null ? <em className="text-destructive">κενό</em> : shown(c.key as Key, c.to)}</span>
+                        <span className="font-medium text-foreground">{c.to == null ? <em className="text-destructive">κενό</em> : c.key === 'class' ? c.to : shown(c.key as Key, c.to)}</span>
                       </li>
                     ))}
                   </ul>
