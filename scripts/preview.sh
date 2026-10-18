@@ -7,6 +7,7 @@
 #
 #   npm run preview:start    → dev server του αντιγράφου στο http://localhost:3001
 #   npm run preview:update   → το αντίγραφο πάει στο τελευταίο commit του master (+ npm ci αν άλλαξαν πακέτα)
+#   npm run preview:restart  → σταματά και ξαναξεκινά τον server του αντιγράφου
 set -euo pipefail
 MAIN="$(cd "$(dirname "$0")/.." && pwd)"
 PREVIEW="$(dirname "$MAIN")/jordan-preview"
@@ -33,14 +34,26 @@ case "${1:-}" in
       (cd "$PREVIEW" && npx prisma generate)
     fi
     echo "Preview: $(git -C "$PREVIEW" log --oneline -1)"
-    echo "Αν ο server του preview τρέχει και άλλαξε το schema της βάσης, κάνε restart (npm run preview:start)."
+    echo "Αν άλλαξε το schema της βάσης: npm run preview:restart"
     ;;
   start)
     ensure
+    # Ήδη τρέχει; Δεν ξεκινάμε δεύτερο (θα αποτύγχανε με EADDRINUSE).
+    if pid="$(lsof -tiTCP:"$PORT" -sTCP:LISTEN 2>/dev/null)" && [ -n "$pid" ]; then
+      echo "Το preview τρέχει ήδη στο http://localhost:$PORT — δεν χρειάζεται να ξεκινήσει ξανά."
+      echo "Για restart (π.χ. μετά από αλλαγή schema): npm run preview:restart"
+      exit 0
+    fi
     cd "$PREVIEW" && exec npx next dev -p "$PORT"
     ;;
+  restart)
+    if pid="$(lsof -tiTCP:"$PORT" -sTCP:LISTEN 2>/dev/null)" && [ -n "$pid" ]; then
+      kill $pid; sleep 2
+    fi
+    exec "$0" start
+    ;;
   *)
-    echo "Χρήση: scripts/preview.sh update|start" >&2
+    echo "Χρήση: scripts/preview.sh update|start|restart" >&2
     exit 1
     ;;
 esac
