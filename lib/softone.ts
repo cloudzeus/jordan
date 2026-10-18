@@ -326,11 +326,30 @@ export async function softoneAuthenticate(
 }
 
 // The SoftOne session token expires after 30 minutes. Cache it that long and
-// reuse it across ALL calls instead of authenticating every time. The cache is
-// persisted to the DB (AppSetting) so it survives across Next.js requests /
-// serverless instances — not just within one Node process.
+// reuse it across calls instead of authenticating every time.
+//
+// ΜΙΑ ΣΥΝΕΔΡΙΑ ΑΝΑ INSTANCE — ΟΧΙ ΚΟΙΝΗ. Το SoftOne εκτελεί τα αιτήματα μιας συνεδρίας (clientID) ΕΝΑ-ΕΝΑ.
+// Όταν η εφαρμογή στο deploy, οι τοπικοί servers και ένα script μαζικών εγγραφών μοιράζονταν το ίδιο
+// clientID (αποθηκευμένο στην κοινή βάση), κάθε σελίδα περίμενε στην ουρά πίσω από το script: μετρημένο
+// 2026-10-18, ~4,9″ για ένα GetTable μιας γραμμής στην κοινή συνεδρία έναντι 0,3–0,45″ σε χωριστή.
+//  - Ο Next server αποθηκεύει τη συνεδρία του ανά instance (μηχάνημα + port), ώστε τα αιτήματά του να
+//    μοιράζονται ένα token χωρίς να μπαίνουν στην ουρά άλλων instances.
+//  - Τα scripts (χωρίς NEXT_RUNTIME) κρατούν ΙΔΙΩΤΙΚΗ συνεδρία στη μνήμη — δεν «κλέβουν» ποτέ τη συνεδρία
+//    της εφαρμογής. `SOFTONE_SESSION_ID` ορίζει ρητά το κλειδί, αν χρειαστεί.
 const TOKEN_TTL_MS = 30 * 60 * 1000;
 const TOKEN_CACHE_KEY = 'integrations.softoneTokenCache';
+
+/** Κλειδί αποθήκευσης της συνεδρίας αυτού του instance — `null` = μόνο στη μνήμη (scripts). */
+function tokenCacheKey(): string | null {
+  const explicit = process.env.SOFTONE_SESSION_ID?.trim();
+  if (explicit) return `${TOKEN_CACHE_KEY}:${explicit}`;
+  // Tests: το mock των ρυθμίσεων σπέρνει token στο ιστορικό (κοινό) κλειδί.
+  if (process.env.VITEST) return TOKEN_CACHE_KEY;
+  if (process.env.NEXT_RUNTIME !== 'nodejs') return null;
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const host = (() => { try { return require('node:os').hostname() as string; } catch { return 'host'; } })();
+  return `${TOKEN_CACHE_KEY}:${host}:${process.env.PORT ?? ''}`;
+}
 
 type TokenCache = { clientID: string; at: number };
 let cachedToken: TokenCache | null = null; // fast in-process path
@@ -340,7 +359,9 @@ function isFresh(c: TokenCache | null): c is TokenCache {
 }
 
 async function loadPersistedToken(): Promise<TokenCache | null> {
-  const raw = await getSetting<unknown>(TOKEN_CACHE_KEY);
+  const key = tokenCacheKey();
+  if (!key) return null;
+  const raw = await getSetting<unknown>(key);
   if (!raw) return null;
   const obj = typeof raw === 'string' ? safeJson(raw) : raw;
   if (obj && typeof obj === 'object' && 'clientID' in obj && 'at' in obj) {
@@ -368,7 +389,19 @@ export function getCachedToken(): string | null {
  */
 export async function clearCachedToken(): Promise<void> {
   cachedToken = null;
-  await setSetting(TOKEN_CACHE_KEY, null);
+  // Του δικού μας instance (ή το ιστορικό κοινό κλειδί) — με await, βλ. παραπάνω.
+  await setSetting(tokenCacheKey() ?? TOKEN_CACHE_KEY, null);
+  // ΚΑΙ όλων των άλλων instances: μετά από αλλαγή εταιρίας/tenant κανένα δεν πρέπει να
+  // ξαναχρησιμοποιήσει clientID δεμένο στην προηγούμενη. (Στα tests οι ρυθμίσεις είναι mock.)
+  if (!process.env.VITEST) {
+    const { prisma } = await import('@/lib/db');
+    await prisma.appSetting.deleteMany({ where: { key: { startsWith: `${TOKEN_CACHE_KEY}:` } } });
+  }
+}
+
+function persistToken(t: TokenCache) {
+  const key = tokenCacheKey();
+  if (key) void setSetting(key, t).catch(() => {});
 }
 
 /**
@@ -413,8 +446,8 @@ export async function softoneGetToken(force = false): Promise<string> {
     throw new SoftoneError(`SoftOne authenticate απέτυχε: ${auth.error ?? 'άγνωστο σφάλμα'}`);
   }
   cachedToken = { clientID: auth.clientID, at: Date.now() };
-  // Persist so other requests/instances reuse the same token for its 30-min life.
-  void setSetting(TOKEN_CACHE_KEY, cachedToken).catch(() => {});
+  // Ανά instance (βλ. tokenCacheKey) — ΟΧΙ κοινό για όλους.
+  persistToken(cachedToken);
   return auth.clientID;
 }
 
@@ -1988,7 +2021,7 @@ export async function softoneTestConnection(): Promise<SoftoneTestResult> {
     }
 
     cachedToken = { clientID: auth.clientID, at: Date.now() };
-    void setSetting(TOKEN_CACHE_KEY, cachedToken).catch(() => {});
+    persistToken(cachedToken);
     return {
       ok: true, endpoint: cfg.endpoint, stage: 'authenticate', authenticated: true,
       clientID: auth.clientID, tempClientID: login.clientID,

@@ -193,9 +193,16 @@ export function refreshProjectFinancials(): Promise<FinancialsRun> {
  * Φρέσκα στοιχεία αν το στιγμιότυπο παλιώσει. Αν το SoftOne δεν απαντήσει, κρατάμε το προηγούμενο
  * στιγμιότυπο και επιστρέφουμε το σφάλμα για να το δείξει η σελίδα — ποτέ κενά νούμερα σαν μηδέν.
  */
-export async function ensureFreshFinancials(): Promise<{ computedAt: string | null; error: string | null }> {
+export async function ensureFreshFinancials(): Promise<{ computedAt: string | null; error: string | null; refreshing?: boolean }> {
   const last = await getSetting<string>(COMPUTED_KEY);
   if (last && Date.now() - Date.parse(last) < FRESH_MS) return { computedAt: last, error: null };
+  // Υπάρχει στιγμιότυπο ⇒ η σελίδα ΔΕΝ περιμένει το SoftOne: δείχνει τα αποθηκευμένα και ο
+  // υπολογισμός τρέχει στο παρασκήνιο (stale-while-revalidate). Όταν το SoftOne αργεί (π.χ. 3–10″
+  // ανά κλήση), ο σύγχρονος υπολογισμός κρατούσε τη σελίδα δεκάδες δευτερόλεπτα.
+  if (last) {
+    void refreshProjectFinancials().catch((e) => console.warn('[project-profit] background refresh', (e as Error).message));
+    return { computedAt: last, error: null, refreshing: true };
+  }
   try {
     const run = await refreshProjectFinancials();
     return { computedAt: run.computedAt, error: null };
