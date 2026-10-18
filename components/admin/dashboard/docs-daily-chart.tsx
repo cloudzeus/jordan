@@ -215,21 +215,23 @@ export function DocsDailyChart({ data }: { data: DocsDailyPoint[] }) {
       </div>
 
       {/* Ισοδύναμο κειμένου — το γράφημα δεν είναι ο μόνος τρόπος να διαβαστούν τα νούμερα. */}
-      <table className="sr-only">
-        <caption>Έγγραφα ανά ημέρα</caption>
-        <thead>
-          <tr><th scope="col">Ημέρα</th><th scope="col">Νέα έγγραφα</th><th scope="col">Καταχωρήθηκαν</th></tr>
-        </thead>
-        <tbody>
-          {data.map((d) => (
-            <tr key={`sr-${d.day}`}>
-              <th scope="row">{d.label}</th>
-              <td>{fmtInt(d.created)}</td>
-              <td>{fmtInt(d.posted)}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      <div className="sr-only">
+        <table>
+          <caption>Έγγραφα ανά ημέρα</caption>
+          <thead>
+            <tr><th scope="col">Ημέρα</th><th scope="col">Νέα έγγραφα</th><th scope="col">Καταχωρήθηκαν</th></tr>
+          </thead>
+          <tbody>
+            {data.map((d) => (
+              <tr key={`sr-${d.day}`}>
+                <th scope="row">{d.label}</th>
+                <td>{fmtInt(d.created)}</td>
+                <td>{fmtInt(d.posted)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

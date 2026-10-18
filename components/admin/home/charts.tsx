@@ -148,11 +148,14 @@ export function ColumnChart({
           </div>
         )}
       </div>
-      <table className="sr-only">
-        <caption>{caption}</caption>
-        <thead><tr><th>Περίοδος</th>{series.map((s) => <th key={s.key}>{s.name}</th>)}</tr></thead>
-        <tbody>{points.map((p) => <tr key={p.label}><td>{p.label}</td>{p.values.map((v, i) => <td key={series[i].key}>{format(v)}</td>)}</tr>)}</tbody>
-      </table>
+      {/* Περιτύλιγμα: ένας <table> αγνοεί το width:1px του sr-only και άπλωνε τη σελίδα στο κινητό. */}
+      <div className="sr-only">
+        <table>
+          <caption>{caption}</caption>
+          <thead><tr><th>Περίοδος</th>{series.map((s) => <th key={s.key}>{s.name}</th>)}</tr></thead>
+          <tbody>{points.map((p) => <tr key={p.label}><td>{p.label}</td>{p.values.map((v, i) => <td key={series[i].key}>{format(v)}</td>)}</tr>)}</tbody>
+        </table>
+      </div>
     </div>
   );
 }
