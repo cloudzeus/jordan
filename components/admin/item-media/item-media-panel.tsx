@@ -205,7 +205,7 @@ export function StockStrip({ mtrl }: { mtrl: number }) {
 }
 
 const TRIGGER = cn(
-  '!h-full flex-none cursor-pointer gap-1 rounded-none px-1.5 text-[length:var(--fs-12)] text-muted-foreground sm:gap-1.5 sm:px-2.5',
+  '!h-8 flex-none cursor-pointer gap-1 rounded-none px-1.5 text-[length:var(--fs-12)] text-muted-foreground sm:gap-1.5 sm:px-2.5',
   'hover:text-foreground data-[state=active]:font-semibold data-[state=active]:!text-[color:var(--tab-tone)]',
   'after:bg-[var(--tab-tone)] after:!h-[2px] after:!bottom-0',
 );
@@ -277,7 +277,7 @@ export function ItemMediaPanel({ mtrl, canManage, showStock = false }: { mtrl: n
     <>
       {showStock && <div className="mb-3"><StockStrip mtrl={mtrl} /></div>}
       <Tabs defaultValue="images" className="gap-2">
-        <TabsList variant="line" className="h-8 w-full justify-start gap-0 overflow-x-auto overflow-y-hidden border-b border-border p-0">
+        <TabsList variant="line" className="!h-auto min-h-8 flex-wrap w-full justify-start gap-0 border-b border-border p-0">
           {KINDS.map((k) => {
             const Icon = k.icon;
             const n = byKind(k.kind).length;

@@ -426,7 +426,7 @@ function TabLabel({ icon: Icon, label, count, tone }: { icon: React.ComponentTyp
 // Μικρά, έγχρωμα tabs: ίδιο μέγεθος με το κείμενο του πίνακα (όχι το 14px του shadcn), με
 // υπογράμμιση στο χρώμα του tab όταν είναι ενεργό.
 const TRIGGER = cn(
-  '!h-full flex-none cursor-pointer gap-1 sm:gap-1.5 rounded-none px-1.5 sm:px-2.5 text-[length:var(--fs-12)] text-muted-foreground',
+  '!h-8 flex-none cursor-pointer gap-1 sm:gap-1.5 rounded-none px-1.5 sm:px-2.5 text-[length:var(--fs-12)] text-muted-foreground',
   'hover:text-foreground data-[state=active]:font-semibold data-[state=active]:!text-[color:var(--tab-tone)]',
   // Η υπογράμμιση κάθεται στο κάτω άκρο του tab, που πιάνει όλο το ύψος της λίστας (όχι 5px
   // κάτω, όπως στο shadcn): αλλιώς βγαίνει εκτός της λίστας, κόβεται, και η λίστα αποκτά scrollbar.
@@ -500,7 +500,7 @@ export function ProjectActivityPanel({ prjc, canManage = false, projectLabel }: 
       </div>
 
       <Tabs defaultValue={materials.length + budgetMaterials.length ? 'materials' : services.length + budgetServices.length ? 'services' : 'docs'} className="gap-2">
-        <TabsList variant="line" className="h-8 w-full justify-start gap-0 overflow-x-auto overflow-y-hidden border-b border-border p-0">
+        <TabsList variant="line" className="!h-auto min-h-8 flex-wrap w-full justify-start gap-0 border-b border-border p-0">
           <TabsTrigger value="materials" className={TRIGGER} style={{ ['--tab-tone' as string]: TAB_TONE.materials }}>
             <TabLabel icon={FiPackage} label="Υλικά" count={materials.length + budgetMaterials.length} tone={TAB_TONE.materials} />
           </TabsTrigger>

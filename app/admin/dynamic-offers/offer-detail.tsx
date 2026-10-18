@@ -32,7 +32,7 @@ type Customer = { refId: string; name: string; sub: string };
 const soft = (hex: string, pct: number) => `color-mix(in srgb, ${hex} ${pct}%, var(--background))`;
 const TONE = { over: '#0369A1', res: '#047857', rec: '#7C3AED', mail: '#B45309' } as const;
 const TRIGGER = cn(
-  '!h-full flex-none cursor-pointer gap-1 rounded-none px-2 text-[length:var(--fs-12)] text-muted-foreground sm:gap-1.5 sm:px-3',
+  '!h-9 flex-none cursor-pointer gap-1 rounded-none px-2 text-[length:var(--fs-12)] text-muted-foreground sm:gap-1.5 sm:px-3',
   'hover:text-foreground data-[state=active]:font-semibold data-[state=active]:!text-[color:var(--tab-tone)]',
   'after:bg-[var(--tab-tone)] after:!h-[2px] after:!bottom-0',
 );
@@ -219,7 +219,7 @@ export function OfferDetail({ offer, canReserve, onChanged }: { offer: OfferRow;
     <>
       <Tabs defaultValue="overview" className="gap-3">
         <div className="flex items-center gap-2 border-b border-border">
-          <TabsList variant="line" className="h-9 min-w-0 flex-1 justify-start gap-0 overflow-x-auto overflow-y-hidden p-0">
+          <TabsList variant="line" className="!h-auto min-h-9 flex-wrap min-w-0 flex-1 justify-start gap-0 p-0">
             <TabsTrigger value="overview" className={TRIGGER} style={{ ['--tab-tone' as string]: TONE.over }}><FiActivity className="hidden size-3.5 sm:inline" aria-hidden /> Επισκόπηση</TabsTrigger>
             <TabsTrigger value="res" className={TRIGGER} style={{ ['--tab-tone' as string]: TONE.res }}><FiShoppingCart className="hidden size-3.5 sm:inline" aria-hidden /> Κρατήσεις <Badge n={active.length} tone={TONE.res} />{pending.length > 0 && <Badge n={pending.length} tone="#B45309" />}</TabsTrigger>
             <TabsTrigger value="rec" className={TRIGGER} style={{ ['--tab-tone' as string]: TONE.rec }}><FiUsers className="hidden size-3.5 sm:inline" aria-hidden /> Παραλήπτες <Badge n={data?.recipients.length ?? 0} tone={TONE.rec} /></TabsTrigger>

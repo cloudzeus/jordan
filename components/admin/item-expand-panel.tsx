@@ -19,7 +19,7 @@ const KIND_TONE: Record<PurchaseKind, string> = {
 };
 
 const TRIGGER = cn(
-  '!h-full flex-none cursor-pointer gap-1 rounded-none px-2 text-[length:var(--fs-12)] text-muted-foreground sm:gap-1.5 sm:px-3',
+  '!h-9 flex-none cursor-pointer gap-1 rounded-none px-2 text-[length:var(--fs-12)] text-muted-foreground sm:gap-1.5 sm:px-3',
   'hover:text-foreground data-[state=active]:font-semibold data-[state=active]:!text-[color:var(--tab-tone)]',
   'after:bg-[var(--tab-tone)] after:!h-[2px] after:!bottom-0',
 );
@@ -244,7 +244,7 @@ function PurchasesTab({ mtrl }: { mtrl: number }) {
 export function ItemExpandPanel({ mtrl, canManage, isService }: { mtrl: number; canManage: boolean; isService: boolean }) {
   return (
     <Tabs defaultValue="info" className="gap-3">
-      <TabsList variant="line" className="h-9 w-full justify-start gap-0 overflow-x-auto overflow-y-hidden border-b border-border p-0">
+      <TabsList variant="line" className="!h-auto min-h-9 flex-wrap w-full justify-start gap-0 border-b border-border p-0">
         <TabsTrigger value="info" className={TRIGGER} style={{ ['--tab-tone' as string]: TAB.info }}>
           <FiInfo className="size-3.5" aria-hidden /> Info
         </TabsTrigger>

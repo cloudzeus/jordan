@@ -25,7 +25,7 @@ const soft = (hex: string, pct: number) => `color-mix(in srgb, ${hex} ${pct}%, v
 const TONE = { info: '#0369A1', contacts: '#7C3AED', customers: '#047857', projects: '#B45309' } as const;
 
 const TRIGGER = cn(
-  '!h-full flex-none cursor-pointer gap-1 rounded-none px-2 text-[length:var(--fs-12)] text-muted-foreground sm:gap-1.5 sm:px-3',
+  '!h-9 flex-none cursor-pointer gap-1 rounded-none px-2 text-[length:var(--fs-12)] text-muted-foreground sm:gap-1.5 sm:px-3',
   'hover:text-foreground data-[state=active]:font-semibold data-[state=active]:!text-[color:var(--tab-tone)]',
   'after:bg-[var(--tab-tone)] after:!h-[2px] after:!bottom-0',
 );
@@ -140,7 +140,7 @@ export function PartnerExpandPanel({ row, canManage }: { row: PartnerListRow; ca
     <>
       <Tabs defaultValue="details" className="gap-3">
         <div className="flex items-center gap-2 border-b border-border">
-          <TabsList variant="line" className="h-9 min-w-0 flex-1 justify-start gap-0 overflow-x-auto overflow-y-hidden p-0">
+          <TabsList variant="line" className="!h-auto min-h-9 flex-wrap min-w-0 flex-1 justify-start gap-0 p-0">
             <TabsTrigger value="details" className={TRIGGER} style={{ ['--tab-tone' as string]: TONE.info }}><FiInfo className="hidden size-3.5 sm:inline" aria-hidden /> Στοιχεία</TabsTrigger>
             {company && (
               <TabsTrigger value="contacts" className={TRIGGER} style={{ ['--tab-tone' as string]: TONE.contacts }}><FiUsers className="hidden size-3.5 sm:inline" aria-hidden /> Πρόσωπα <Badge n={data.contacts.length} tone={TONE.contacts} /></TabsTrigger>

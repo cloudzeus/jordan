@@ -8,6 +8,7 @@ import {
   FiMap, FiExternalLink, FiNavigation,
 } from 'react-icons/fi';
 import { formatCoords, validCoords } from '@/lib/coords';
+import { TraderPointMap } from '@/components/admin/trader-point-map';
 import { cn } from '@/lib/utils';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { TraderDocsPanel } from '@/components/admin/trader-docs-panel';
@@ -26,7 +27,7 @@ const DOC_TONE: Record<string, string> = {
 };
 
 const TRIGGER = cn(
-  '!h-full flex-none cursor-pointer gap-1 rounded-none px-2 text-[length:var(--fs-12)] text-muted-foreground sm:gap-1.5 sm:px-3',
+  '!h-9 flex-none cursor-pointer gap-1 rounded-none px-2 text-[length:var(--fs-12)] text-muted-foreground sm:gap-1.5 sm:px-3',
   'hover:text-foreground data-[state=active]:font-semibold data-[state=active]:!text-[color:var(--tab-tone)]',
   'after:bg-[var(--tab-tone)] after:!h-[2px] after:!bottom-0',
 );
@@ -336,7 +337,7 @@ function OrdersTab({ data }: { data: TraderActivity }) {
 
 /**
  * Η θέση του συναλλασσομένου (TRDR.LATITUDE / LONGITUDE), διαβασμένη ΖΩΝΤΑΝΑ από το SoftOne όταν ανοίγει
- * η καρτέλα. Χάρτης OpenStreetMap (χωρίς κλειδί). Χωρίς θέση ⇒ «Ορισμός θέσης» ανοίγει την καρτέλα.
+ * η καρτέλα. Χάρτης Leaflet σε όλο το πλάτος (TraderPointMap). Χωρίς θέση ⇒ «Ορισμός θέσης» ανοίγει την καρτέλα.
  */
 function MapTab({ t, canManage, onAction }: { t: TraderRecord; canManage: boolean; onAction: (m: TraderDialogMode) => void }) {
   const [state, setState] = React.useState<{ pos: { lat: number; lng: number } | null } | 'loading' | { error: string }>('loading');
@@ -372,12 +373,10 @@ function MapTab({ t, canManage, onAction }: { t: TraderRecord; canManage: boolea
   }
   const { lat, lng } = state.pos;
   return (
-    <div className="overflow-hidden rounded-md border border-border bg-background">
-      <iframe
-        title={`Χάρτης: ${t.name}`}
-        src={`https://www.openstreetmap.org/export/embed.html?bbox=${lng - 0.006}%2C${lat - 0.0035}%2C${lng + 0.006}%2C${lat + 0.0035}&layer=mapnik&marker=${lat}%2C${lng}`}
-        className="block h-[240px] w-full border-0 sm:h-[300px]"
-      />
+    <div className="w-full overflow-hidden rounded-md border border-border bg-background">
+      <div className="h-[260px] w-full bg-muted sm:h-[340px]">
+        <TraderPointMap lat={lat} lng={lng} label={t.name} />
+      </div>
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-border px-3 py-2 text-[length:var(--fs-12)]">
         <span className="font-mono tabular-nums text-muted-foreground">{formatCoords(state.pos)}</span>
         {address && <span className="min-w-0 flex-1 truncate text-foreground">{address}</span>}
@@ -434,7 +433,7 @@ export function TraderExpandPanel({ trader, canManage, onAction }: {
   return (
     <Tabs defaultValue="details" className="gap-3">
       <div className="flex items-center gap-2 border-b border-border">
-        <TabsList variant="line" className="h-9 min-w-0 flex-1 justify-start gap-0 overflow-x-auto overflow-y-hidden p-0">
+        <TabsList variant="line" className="!h-auto min-h-9 flex-wrap min-w-0 flex-1 justify-start gap-0 p-0">
           <TabsTrigger value="details" className={TRIGGER} style={{ ['--tab-tone' as string]: TONE.info }}><FiInfo className="hidden size-3.5 sm:inline" aria-hidden /> Στοιχεία</TabsTrigger>
           {isCustomer && <TabsTrigger value="people" className={TRIGGER} style={{ ['--tab-tone' as string]: TONE.people }}><FiUsers className="hidden size-3.5 sm:inline" aria-hidden /> Πρόσωπα & πρόσβαση <Badge n={people} tone={TONE.people} /></TabsTrigger>}
           <TabsTrigger value="map" className={TRIGGER} style={{ ['--tab-tone' as string]: TONE.map }}><FiMap className="hidden size-3.5 sm:inline" aria-hidden /> Χάρτης</TabsTrigger>
