@@ -6,6 +6,7 @@ import { ATELIER_PROFILE, siteCompany } from '@/lib/site-company';
 import { AuctionStory } from '@/components/site/auction-story';
 import { PortalShowcase } from '@/components/site/portal-showcase';
 import { HeroLive } from '@/components/site/hero-live';
+import { InViewVideo } from '@/components/site/in-view-video';
 import { CropMarks, DimLine, DimLineV, Grid, SectionMark } from '@/components/site/blueprint';
 
 /**
@@ -13,6 +14,25 @@ import { CropMarks, DimLine, DimLineV, Grid, SectionMark } from '@/components/si
  * στοιχεία σχεδίου (κότες, σημάδια κοπής, τομές), 3D container, κίνηση GSAP (components/site/motion.tsx).
  * Υλικό (λογότυπο, φωτογραφίες, βίντεο): atelierdamask.gr. Κείμενα εταιρείας: lib/site-company.ts.
  */
+
+/** Φιλμ δυναμικής προσφοράς (motion-studio → Bunny CDN, 720p ~2 MB). Media library: φάκελος «Videos». */
+const FILM_CDN = 'https://jordanocr.b-cdn.net/media/videos';
+const OFFER_FILM = {
+  landscape: {
+    poster: `${FILM_CDN}/Atelier-DynamicOffer-Film-16x9-720-poster-005f73f20f.jpg`,
+    sources: [
+      { src: `${FILM_CDN}/Atelier-DynamicOffer-Film-16x9-720-986f2832b7.webm`, type: 'video/webm' },
+      { src: `${FILM_CDN}/Atelier-DynamicOffer-Film-16x9-720-fa8faccae9.mp4`, type: 'video/mp4' },
+    ],
+  },
+  portrait: {
+    poster: `${FILM_CDN}/Atelier-DynamicOffer-Film-9x16-720-poster-39c2baff7a.jpg`,
+    sources: [
+      { src: `${FILM_CDN}/Atelier-DynamicOffer-Film-9x16-720-eb0450fb72.webm`, type: 'video/webm' },
+      { src: `${FILM_CDN}/Atelier-DynamicOffer-Film-9x16-720-de017e1d19.mp4`, type: 'video/mp4' },
+    ],
+  },
+};
 
 const TICKER = ['Τραβερτίνης Classic · −11%', 'Limestone Moca · 14/20 παλέτες', 'Τσιμεντοκονία Base · επόμενη πτώση σε 2 παλ.', 'Ασβεστοκονία Pietra · νέο container', 'Ψηφίδα Carrara · −6%'];
 
@@ -128,14 +148,8 @@ export default async function HomePage() {
           </div>
           <figure data-reveal="40" className="relative">
             <div className="relative overflow-hidden bg-black shadow-[0_50px_120px_-40px_rgba(0,0,0,0.8)]">
-              <video className="hidden aspect-video w-full md:block" poster="/site/brand/offer-film-16x9.jpg" autoPlay muted loop playsInline preload="none" aria-label="Βίντεο: πώς λειτουργεί μια δυναμική προσφορά">
-                <source src="/site/brand/offer-film-16x9.webm" type="video/webm" />
-                <source src="/site/brand/offer-film-16x9.mp4" type="video/mp4" />
-              </video>
-              <video className="mx-auto aspect-[9/16] w-full max-w-sm md:hidden" poster="/site/brand/offer-film-9x16.jpg" autoPlay muted loop playsInline preload="none" aria-label="Βίντεο: πώς λειτουργεί μια δυναμική προσφορά">
-                <source src="/site/brand/offer-film-9x16.webm" type="video/webm" />
-                <source src="/site/brand/offer-film-9x16.mp4" type="video/mp4" />
-              </video>
+              <InViewVideo className="hidden aspect-video w-full md:block" poster={OFFER_FILM.landscape.poster} sources={OFFER_FILM.landscape.sources} label="Βίντεο: πώς λειτουργεί μια δυναμική προσφορά" />
+              <InViewVideo className="mx-auto aspect-[9/16] w-full max-w-sm md:hidden" poster={OFFER_FILM.portrait.poster} sources={OFFER_FILM.portrait.sources} label="Βίντεο: πώς λειτουργεί μια δυναμική προσφορά" />
             </div>
             <CropMarks className="text-white/40" size={22} />
             <DimLine label="ΚΟΙΝΟ CONTAINER · 20 ΠΑΛΕΤΕΣ · ΕΝΔΕΙΚΤΙΚΑ" className="mt-5 text-white/45" />
