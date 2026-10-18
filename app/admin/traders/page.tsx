@@ -4,6 +4,7 @@ import { requirePermission, hasPermission } from '@/lib/rbac';
 import { getSetting } from '@/lib/settings';
 import { PageHeader } from '@/components/admin/page-header';
 import { TradersView } from '@/components/admin/traders-view';
+import { TradersTabs } from '@/components/admin/traders-tabs';
 import { traderDocCounts } from '@/lib/ocr/trader-docs';
 
 export const dynamic = 'force-dynamic';
@@ -30,7 +31,7 @@ export default async function TradersPage() {
         description={`Μητρώο συναλλασσομένων από SoftOne (${rows.length.toLocaleString('el-GR')} εγγραφές).`}
         helpAnchor="traders"
       />
-      <TradersView rows={rows} canManage={canManage} lastSync={lastSync ?? null} />
+      <TradersTabs list={<TradersView rows={rows} canManage={canManage} lastSync={lastSync ?? null} />} />
     </div>
   );
 }
