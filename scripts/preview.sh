@@ -44,7 +44,9 @@ case "${1:-}" in
       echo "Για restart (π.χ. μετά από αλλαγή schema): npm run preview:restart"
       exit 0
     fi
-    cd "$PREVIEW" && exec npx next dev -p "$PORT"
+    # Οι εργασίες παρασκηνίου (worker σαρώσεων) τρέχουν ΜΟΝΟ στον κύριο server (:3000) — το αντίγραφο
+    # είναι για προβολή και δεν πρέπει να επεξεργάζεται τις ίδιες ουρές με παλιότερο κώδικα.
+    cd "$PREVIEW" && JOBS_DISABLED=1 exec npx next dev -p "$PORT"
     ;;
   restart)
     if pid="$(lsof -tiTCP:"$PORT" -sTCP:LISTEN 2>/dev/null)" && [ -n "$pid" ]; then
