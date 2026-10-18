@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { overheadRateFor } from '../overheads-resolve';
 import {
-  ageOpenInvoices, buildContext, computeProject, projectShare,
+  ageOpenInvoices, buildContext, computeProject, projectShare, SUPPLIER_SPECIAL,
   CUSTOMER_REMITTANCES, PURCHASES, SALES, STORE, SUPPLIER_REMITTANCES,
   type FinDoc, type FinLine, type ProjectRef,
 } from '../project-profit/calc';
@@ -198,5 +198,26 @@ describe('δεδομένα που λείπουν', () => {
     const b = issueFingerprint({ docs: [{ findoc: 1, fincode: 'a', date: null, amount: 1 }, { findoc: 2, fincode: 'b', date: null, amount: 1 }], amount: 2 });
     expect(a).not.toBe(b);
     expect(issueFingerprint({ docs: [{ findoc: 1, fincode: 'x', date: null, amount: 9 }], amount: 9 })).toBe(a);
+  });
+});
+
+describe('δαπάνες (ειδικές συναλλαγές) — π.χ. αεροπορικό εισιτήριο σε δύο έργα', () => {
+  it('κάθε γραμμή χρεοπίστωσης μετρά στο έργο της, ως «Δαπάνες»', () => {
+    // Ένα «Τιμολόγιο Δαπανών» (1253) 400 € χωρίς έργο στην κεφαλή, δύο γραμμές «Έξοδα Ταξιδίων» 50/50.
+    const ticket = { findoc: 9001, fincode: 'ΤΔ-1', date: '2026-10-10T00:00:00.000Z', sosource: SUPPLIER_SPECIAL, series: '1001', seriesName: 'Τιμολόγιο Δαπανών', kind: 'invoice' as const,
+      trdr: 5, traderName: 'Aegean', prjc: null, net: 400, vat: 0, total: 400, cancelled: false };
+    const lines = [
+      { findoc: 9001, mtrl: 57, prjc: 1, qty: 1, value: 200, isService: false, isExpense: true, sourceFindoc: null },
+      { findoc: 9001, mtrl: 57, prjc: 2, qty: 1, value: 200, isService: false, isExpense: true, sourceFindoc: null },
+    ];
+    const ctx = buildContext({ docs: [ticket], lines, rates: [{ validFrom: '2026-01-01', validTo: null, percent: 10, category: null }], asOf: '2026-10-18T00:00:00.000Z' });
+    for (const p of [1, 2]) {
+      const r = computeProject(p, ctx);
+      expect(r.costs.byCategory.expenses).toBe(200);
+      expect(r.costs.byCategory.materials).toBe(0);
+      expect(r.costs.total).toBe(200);
+      expect(r.costs.docs[0]).toMatchObject({ fincode: 'ΤΔ-1', partial: true, net: 200 });
+      expect(r.overhead.total).toBe(20);
+    }
   });
 });

@@ -178,7 +178,7 @@ export function ProjectFinancials({ profit: r, issues, computedAt, error }: { pr
                 <Row label="Τιμολόγια & αποδείξεις" value={r.revenue.invoiced} />
                 {r.revenue.credits !== 0 && <Row label="Πιστωτικά" value={-r.revenue.credits} indent />}
                 <Row label="Καθαρά έσοδα" value={r.revenue.net} strong />
-                {COST_CATEGORIES.filter((c) => r.costs.byCategory[c] !== 0).map((c) => (
+                {COST_CATEGORIES.filter((c) => (r.costs.byCategory[c] ?? 0) !== 0).map((c) => (
                   <Row key={c} label={COST_CATEGORY_LABEL[c]} value={-r.costs.byCategory[c]} indent note={c === 'stock' && estimate ? 'περιλαμβάνει εκτίμηση' : undefined} />
                 ))}
                 {r.overhead.lines.map((l) => (

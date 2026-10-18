@@ -22,6 +22,12 @@ import { overheadRateFor, type OverheadRateInput } from '@/lib/overheads-resolve
 
 export const SALES = 1351;
 export const PURCHASES = 1251;
+/** Παραστατικά ΔΑΠΑΝΩΝ με γραμμές χρεοπιστώσεων (LINLINES): «Ειδικές συναλλαγές προμηθευτών» και
+ *  «Παραστατικά πιστωτών». Κάθε γραμμή έχει δικό της έργο — εδώ μπαίνει π.χ. ένα αεροπορικό εισιτήριο
+ *  μοιρασμένο σε δύο έργα (επιβεβαιωμένο στο schema, 2026-10-18). */
+export const SUPPLIER_SPECIAL = 1253;
+export const CREDITOR_DOCS = 1653;
+export const EXPENSE_SOURCES = [SUPPLIER_SPECIAL, CREDITOR_DOCS];
 export const CUSTOMER_REMITTANCES = 1413;
 export const SUPPLIER_REMITTANCES = 1412;
 export const STORE = 1151;
@@ -69,6 +75,8 @@ export type FinLine = {
   /** LINEVAL — καθαρή αξία γραμμής. */
   value: number;
   isService: boolean;
+  /** Χρεοπίστωση / λογαριασμός εσόδων-εξόδων (SODTYPE 53/61) — δαπάνη, όχι είδος. */
+  isExpense?: boolean;
   /** FINDOCS — το παραστατικό από το οποίο μετασχηματίστηκε η γραμμή (παραγγελία → τιμολόγιο). */
   sourceFindoc: number | null;
 };
@@ -82,11 +90,12 @@ export type ProjectRef = {
   since: string | null;
 };
 
-export type CostCategory = 'materials' | 'services' | 'other' | 'stock';
-export const COST_CATEGORIES: CostCategory[] = ['materials', 'services', 'other', 'stock'];
+export type CostCategory = 'materials' | 'services' | 'expenses' | 'other' | 'stock';
+export const COST_CATEGORIES: CostCategory[] = ['materials', 'services', 'expenses', 'other', 'stock'];
 export const COST_CATEGORY_LABEL: Record<CostCategory, string> = {
   materials: 'Υλικά (αγορές)',
   services: 'Υπηρεσίες & υπεργολαβίες',
+  expenses: 'Δαπάνες (ταξίδια, μετακινήσεις κ.λπ.)',
   other: 'Λοιπές χρεώσεις παραστατικών',
   stock: 'Υλικά από απόθεμα',
 };
@@ -246,7 +255,7 @@ export function computeProject(prjc: number, ctx: ProfitContext, budgetTotal = 0
   const saleInvoices: { date: string | null; gross: number }[] = [];
   let creditGross = 0;
   const collections = { received: 0, refunds: 0, collected: 0, open: 0, ageing: [] as AgeBucket[], docs: [] as DocRef[] };
-  const byCategory: Record<CostCategory, number> = { materials: 0, services: 0, other: 0, stock: 0 };
+  const byCategory: Record<CostCategory, number> = { materials: 0, services: 0, expenses: 0, other: 0, stock: 0 };
   const costDocs: DocRef[] = [];
   const payments = { paid: 0, docs: [] as DocRef[] };
   /** Βάση γενικών εξόδων: (ημερομηνία, κατηγορία, ποσό). */
@@ -269,20 +278,21 @@ export function computeProject(prjc: number, ctx: ProfitContext, budgetTotal = 0
         soldQty.set(l.mtrl, (soldQty.get(l.mtrl) ?? 0) + sign * l.qty);
         soldValue.set(l.mtrl, (soldValue.get(l.mtrl) ?? 0) + sign * l.value);
       }
-    } else if (d.sosource === PURCHASES && counts(d)) {
+    } else if ((d.sosource === PURCHASES || EXPENSE_SOURCES.includes(d.sosource)) && counts(d)) {
       const s = projectShare(d, lines, prjc);
       const sign = signOf(d);
-      const mat = s.lines.filter((l) => !l.isService).reduce((a, l) => a + l.value, 0);
-      const srv = s.lines.filter((l) => l.isService).reduce((a, l) => a + l.value, 0);
+      const mat = s.lines.filter((l) => !l.isService && !l.isExpense).reduce((a, l) => a + l.value, 0);
+      const srv = s.lines.filter((l) => l.isService && !l.isExpense).reduce((a, l) => a + l.value, 0);
+      const exp = s.lines.filter((l) => l.isExpense).reduce((a, l) => a + l.value, 0);
       // Το υπόλοιπο της καθαρής αξίας πέρα από τις γραμμές = χρεώσεις του παραστατικού (μεταφορικά κ.λπ.).
-      const other = s.partial && d.prjc !== prjc ? 0 : s.net - mat - srv;
-      for (const [category, amount] of [['materials', mat], ['services', srv], ['other', other]] as const) {
+      const other = s.partial && d.prjc !== prjc ? 0 : s.net - mat - srv - exp;
+      for (const [category, amount] of [['materials', mat], ['services', srv], ['expenses', exp], ['other', other]] as const) {
         if (Math.abs(amount) < 0.005) continue;
         byCategory[category] += sign * amount;
         costEntries.push({ date: d.date, category, amount: sign * amount });
       }
       costDocs.push(ref(d, sign * s.net, sign * s.gross, s.partial));
-      for (const l of s.lines) if (l.mtrl != null && !l.isService) boughtQty.set(l.mtrl, (boughtQty.get(l.mtrl) ?? 0) + sign * l.qty);
+      for (const l of s.lines) if (l.mtrl != null && !l.isService && !l.isExpense) boughtQty.set(l.mtrl, (boughtQty.get(l.mtrl) ?? 0) + sign * l.qty);
     } else if (d.sosource === CUSTOMER_REMITTANCES && !d.cancelled && d.prjc === prjc) {
       const sign = signOf(d);
       if (sign > 0) collections.received += d.total; else collections.refunds += d.total;

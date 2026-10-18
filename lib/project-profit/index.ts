@@ -5,7 +5,7 @@ import { softoneGetTable, s1DateOrNull } from '@/lib/softone';
 import { lastPurchasePrices } from '@/lib/last-purchase-price';
 import { docKindMap, purchaseSeriesMap } from '@/lib/purchase-kinds';
 import {
-  buildContext, computeProject, CUSTOMER_REMITTANCES, PURCHASES, SALES, STORE, SUPPLIER_REMITTANCES,
+  buildContext, computeProject, CUSTOMER_REMITTANCES, EXPENSE_SOURCES, PURCHASES, SALES, STORE, SUPPLIER_REMITTANCES,
   type DocKind, type FinDoc, type FinLine, type ProjectProfit, type ProjectRef,
 } from './calc';
 import { detectIssues, type DataIssue } from './issues';
@@ -28,7 +28,7 @@ import { buildInstructionsDocx } from '@/lib/instructions-doc';
 const FRESH_MS = 20 * 60_000;
 const ISSUES_KEY = 'projects.financialIssues';
 const COMPUTED_KEY = 'projects.financialsComputedAt';
-const SOURCES = [SALES, PURCHASES, CUSTOMER_REMITTANCES, SUPPLIER_REMITTANCES, STORE];
+const SOURCES = [SALES, PURCHASES, CUSTOMER_REMITTANCES, SUPPLIER_REMITTANCES, STORE, ...EXPENSE_SOURCES];
 
 const DOC_FIELDS = ['FINDOC', 'FINCODE', 'TRNDATE', 'SERIES', 'SOSOURCE', 'TRDR', 'PRJC', 'NETAMNT', 'VATAMNT', 'SUMAMNT', 'ISCANCEL'];
 const LINE_FIELDS = ['FINDOC', 'MTRL', 'PRJC', 'QTY1', 'LINEVAL', 'SODTYPE', 'FINDOCS'];
@@ -49,6 +49,9 @@ const plain = (s: string) => s.toLocaleLowerCase('el').normalize('NFD').replace(
 function kindOf(sosource: number, seriesName: string | null, fromMap: DocKind | undefined): DocKind {
   const s = plain(seriesName ?? '');
   if (sosource === CUSTOMER_REMITTANCES || sosource === SUPPLIER_REMITTANCES) return /επιστροφ/.test(s) ? 'credit' : 'invoice';
+  // Δαπάνες (1253/1653): οι σειρές λέγονται «Τιμολόγιο Δαπανών», «Δαπάνες λιανικής…» — δεν ταιριάζουν στον
+  // γενικό ταξινομητή. Πιστωτικό = αρνητικό· «Χρέωση/Πίστωση Έναρξης» = απογραφή έναρξης, δεν μετρά.
+  if (EXPENSE_SOURCES.includes(sosource)) return /εναρξ/.test(s) ? 'movement' : /πιστωτ/.test(s) ? 'credit' : 'invoice';
   if (sosource === STORE) return /εξαγωγ|αναλωσ/.test(s) ? 'invoice' : /εισαγωγ|επιστροφ/.test(s) ? 'credit' : 'movement';
   return fromMap ?? 'movement';
 }
@@ -128,6 +131,7 @@ async function computeAll(): Promise<FinancialsRun> {
     return {
       findoc: num(r.FINDOC), mtrl, prjc: id(r.PRJC), qty: num(r.QTY1), value: num(r.LINEVAL),
       isService: it ? it.isService : num(r.SODTYPE) === 52, sourceFindoc: id(r.FINDOCS),
+      isExpense: [53, 61].includes(num(r.SODTYPE)),
     };
   });
 
