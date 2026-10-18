@@ -119,6 +119,7 @@ model User {
   sessions         Session[]
   otpTokens        OtpToken[]
   excelImports     ExcelImport[]
+  dashboardLayout  DashboardLayout?
 
   @@index([roleId])
   @@index([customerTrdr])
@@ -3507,4 +3508,13 @@ model TaskTemplateItem {
 
   @@unique([templateId, key])
   @@index([templateId, sortOrder])
+}
+
+// Διάταξη της αρχικής (/admin) ανά χρήστη: σειρά, κρυμμένα, μέγεθος widgets (lib/dashboard/widgets.ts).
+model DashboardLayout {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  layout    Json // { order: string[], hidden: string[], sizes: Record<string, 'sm'|'md'|'lg'> }
+  updatedAt DateTime @updatedAt
 }

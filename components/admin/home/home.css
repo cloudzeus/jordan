@@ -1,0 +1,37 @@
+/* Χρώματα γραφημάτων της αρχικής (/admin). Κατηγορική παλέτα dataviz με σταθερή σειρά:
+   1 μπλε · 2 πορτοκαλί · 3 aqua — επικυρωμένη (CVD ΔE ≥ 8 στα γειτονικά) με ξεχωριστά βήματα για dark. */
+.dash-root {
+  --viz-1: #2a78d6;
+  --viz-2: #eb6834;
+  --viz-3: #1baf7a;
+  --viz-grid: #ecebe8;
+  --viz-axis: #6b6a66;
+  --viz-track: #eef2f7;
+  --viz-hover: rgba(42, 120, 214, 0.06);
+}
+.dark .dash-root,
+[data-theme='dark'] .dash-root {
+  --viz-1: #3987e5;
+  --viz-2: #d95926;
+  --viz-3: #199e70;
+  --viz-grid: #2c2c2a;
+  --viz-axis: #a3a29b;
+  --viz-track: #26282c;
+  --viz-hover: rgba(57, 135, 229, 0.1);
+}
+
+/* Τόνοι κατάστασης (πάντα με κείμενο/εικονίδιο, ποτέ μόνο χρώμα). Ακολουθούν το θέμα της εφαρμογής
+   (.dark / data-theme), όχι το prefers-color-scheme — αλλιώς σε σκούρο λειτουργικό με ανοιχτό θέμα
+   θα έβγαινε ανοιχτό κείμενο πάνω σε ανοιχτό φόντο. */
+.dash-root .dash-tone-good { background: #e8f5ee; color: #1b6b45; }
+.dash-root .dash-tone-bad { background: #fdecef; color: #a3253c; }
+.dash-root .dash-tone-warn { background: #fef3e2; color: #8a4b06; }
+.dash-root .dash-tone-info { background: #e6f1fb; color: #1c5cab; }
+.dash-root .dash-text-bad { color: #a3253c; }
+.dash-root .dash-text-warn { color: #8a4b06; }
+.dark .dash-root .dash-tone-good, [data-theme='dark'] .dash-root .dash-tone-good { background: rgba(46, 158, 107, 0.16); color: #7fd3a8; }
+.dark .dash-root .dash-tone-bad, [data-theme='dark'] .dash-root .dash-tone-bad { background: rgba(228, 73, 72, 0.16); color: #f2a0a8; }
+.dark .dash-root .dash-tone-warn, [data-theme='dark'] .dash-root .dash-tone-warn { background: rgba(237, 161, 0, 0.16); color: #f3c46b; }
+.dark .dash-root .dash-tone-info, [data-theme='dark'] .dash-root .dash-tone-info { background: rgba(57, 135, 229, 0.16); color: #9ec5f4; }
+.dark .dash-root .dash-text-bad, [data-theme='dark'] .dash-root .dash-text-bad { color: #f2a0a8; }
+.dark .dash-root .dash-text-warn, [data-theme='dark'] .dash-root .dash-text-warn { color: #f3c46b; }
