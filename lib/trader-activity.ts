@@ -2,9 +2,11 @@ import 'server-only';
 import { prisma } from '@/lib/db';
 import { softoneGetTable, s1DateOrNull, sosourceLabel } from '@/lib/softone';
 import { docKindMap, PURCHASE_KIND_LABEL, type PurchaseKind } from '@/lib/purchase-kinds';
+import { mBalances, mFindocs, mTrdLines, viaMirror } from '@/lib/softone-mirror/read';
 
 /**
- * Η καρτέλα ενός συναλλασσομένου, ζωντανά από το SoftOne.
+ * Η καρτέλα ενός συναλλασσομένου — από τον καθρέφτη (lib/softone-mirror) όταν είναι φρέσκος, αλλιώς
+ * ζωντανά από το SoftOne. Οι πίνακες είναι οι ίδιοι και στις δύο πηγές.
  *
  * Πηγές (επιβεβαιωμένες ζωντανά, atelier 2026-10-17):
  *  • FINDOC με TRDR=x — τιμολόγια, πιστωτικά, εισπράξεις/πληρωμές, παραγγελίες, προσφορές…
@@ -83,15 +85,24 @@ export async function traderActivity(trdr: number): Promise<TraderActivity> {
   const side: 'customer' | 'supplier' = trader && (trader.sodtype === 13 || trader.sodtype === 15) ? 'customer' : 'supplier';
 
   const FIELDS = ['FINDOC', 'FINCODE', 'TRNDATE', 'SERIES', 'SOSOURCE', 'SUMAMNT', 'ISCANCEL', 'PRJC'];
-  const [heads, tlines, bal] = await Promise.all([
-    softoneGetTable('FINDOC', FIELDS, `TRDR=${trdr} AND ISCANCEL=0`),
-    softoneGetTable('TRDTLINES', ['TRDR', 'FINDOC', 'LINEVAL', 'PRJC'], `TRDR=${trdr}`),
-    softoneGetTable('TRDBALSHEET', ['TRDR', 'FISCPRD', 'PERIOD', 'LDEBIT', 'LCREDIT'], `TRDR=${trdr}`),
-  ]);
-  const remitIds = [...new Set(tlines.map((l) => Number(l.FINDOC)).filter((n) => n > 0))];
-  const remitHeads = remitIds.length
-    ? await softoneGetTable('FINDOC', FIELDS, `ISCANCEL=0 AND FINDOC IN (${remitIds.join(',')})`)
-    : [];
+  const remitIdsOf = (tl: Record<string, string>[]) => [...new Set(tl.map((l) => Number(l.FINDOC)).filter((n) => n > 0))];
+  const { value: { heads, tlines, bal, remitHeads }, asOf } = await viaMirror(
+    async () => {
+      const [heads, tlines, bal] = await Promise.all([mFindocs({ trdr, isCancel: 0 }), mTrdLines({ trdr }), mBalances({ trdr })]);
+      const remitIds = remitIdsOf(tlines);
+      return { heads, tlines, bal, remitHeads: remitIds.length ? await mFindocs({ findoc: { in: remitIds }, isCancel: 0 }) : [] };
+    },
+    async () => {
+      const [heads, tlines, bal] = await Promise.all([
+        softoneGetTable('FINDOC', FIELDS, `TRDR=${trdr} AND ISCANCEL=0`),
+        softoneGetTable('TRDTLINES', ['TRDR', 'FINDOC', 'LINEVAL', 'PRJC'], `TRDR=${trdr}`),
+        softoneGetTable('TRDBALSHEET', ['TRDR', 'FISCPRD', 'PERIOD', 'LDEBIT', 'LCREDIT'], `TRDR=${trdr}`),
+      ]);
+      const remitIds = remitIdsOf(tlines);
+      const remitHeads = remitIds.length ? await softoneGetTable('FINDOC', FIELDS, `ISCANCEL=0 AND FINDOC IN (${remitIds.join(',')})`) : [];
+      return { heads, tlines, bal, remitHeads };
+    },
+  );
   const remitHeadById = new Map(remitHeads.map((h) => [Number(h.FINDOC), h]));
 
   const [kinds, series, purchaseTypes] = await Promise.all([
@@ -185,6 +196,6 @@ export async function traderActivity(trdr: number): Promise<TraderActivity> {
       invoiced: round2(invoicedByProject.get(p.prjc)?.v ?? 0), docs: invoicedByProject.get(p.prjc)?.n ?? 0,
     })).sort((a, b) => b.code.localeCompare(a.code)),
     lastPayment: last ? { date: last.date, amount: last.amount, fincode: last.fincode } : null,
-    fetchedAt: new Date().toISOString(),
+    fetchedAt: asOf.toISOString(),
   };
 }

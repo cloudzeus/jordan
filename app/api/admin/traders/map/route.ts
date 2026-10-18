@@ -3,20 +3,26 @@ import { getCurrentUserWithPermissions } from '@/lib/rbac';
 import { prisma } from '@/lib/db';
 import { softoneGetTable } from '@/lib/softone';
 import { validCoords } from '@/lib/coords';
+import { knownTenantKey } from '@/lib/softone-sync/connection';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 /**
- * Σημεία για τον χάρτη συναλλασσομένων. Η θέση ζει ΜΟΝΟ στο SoftOne (TRDR.LATITUDE/LONGITUDE) — διαβάζεται
- * ζωντανά με ένα GetTable και ενώνεται με τον τοπικό καθρέφτη (επωνυμία, διεύθυνση, επικοινωνία).
+ * Σημεία για τον χάρτη συναλλασσομένων. Η θέση ζει στο SoftOne (TRDR.LATITUDE/LONGITUDE) και ο καθρέφτης
+ * την κρατά από τη στιγμή που έγινε η πρώτη συμφωνία μητρώου (lib/softone-mirror). Μέχρι τότε — ή αν ο
+ * καθρέφτης είναι άλλης εγκατάστασης — διαβάζεται ζωντανά, όπως πριν.
  */
 export async function GET() {
   const u = await getCurrentUserWithPermissions();
   if (!u) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
   if (u.role.key !== 'SUPER_ADMIN' && !u.permissionKeys.has('metadata.read')) return NextResponse.json({ error: 'forbidden' }, { status: 403 });
   try {
-    const live = await softoneGetTable('TRDR', ['TRDR', 'SODTYPE', 'LATITUDE', 'LONGITUDE'], 'SODTYPE IN (12,13,14,15,16) AND ISACTIVE=1');
+    const [state, tenant] = await Promise.all([prisma.softoneMirrorState.findUnique({ where: { table: 'traders' } }), knownTenantKey()]);
+    const live = state?.reconciledAt && (!tenant || state.tenantKey === tenant)
+      ? (await prisma.softoneTrader.findMany({ where: { isActive: true }, select: { trdr: true, sodtype: true, lat: true, lng: true } }))
+        .map((t) => ({ TRDR: String(t.trdr), SODTYPE: String(t.sodtype), LATITUDE: t.lat == null ? '' : String(t.lat), LONGITUDE: t.lng == null ? '' : String(t.lng) }))
+      : await softoneGetTable('TRDR', ['TRDR', 'SODTYPE', 'LATITUDE', 'LONGITUDE'], 'SODTYPE IN (12,13,14,15,16) AND ISACTIVE=1');
     const withPos = live.map((r) => ({ trdr: Number(r.TRDR), sodtype: Number(r.SODTYPE), pos: validCoords(r.LATITUDE, r.LONGITUDE) }))
       .filter((r) => r.pos && !(r.pos.lat === 0 && r.pos.lng === 0));
     const mirror = await prisma.softoneTrader.findMany({

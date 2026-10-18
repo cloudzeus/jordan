@@ -1,6 +1,7 @@
 import 'server-only';
 import iconv from 'iconv-lite';
 import { gunzipSync } from 'node:zlib';
+import { AsyncLocalStorage } from 'node:async_hooks';
 import { getSetting, setSetting } from '@/lib/settings';
 import { validCoords } from '@/lib/coords';
 import { normalizeDocRef } from '@/lib/doc-reference';
@@ -354,6 +355,19 @@ function tokenCacheKey(): string | null {
 type TokenCache = { clientID: string; at: number };
 let cachedToken: TokenCache | null = null; // fast in-process path
 
+/**
+ * ΙΔΙΩΤΙΚΗ συνεδρία για εργασίες παρασκηνίου ΜΕΣΑ στον Next server (π.χ. ο συγχρονισμός καθρεφτών).
+ * Το SoftOne εκτελεί σειριακά τα αιτήματα μιας συνεδρίας: αν ο worker μοιραζόταν τη συνεδρία του
+ * instance, κάθε σελίδα θα περίμενε πίσω από τον συγχρονισμό. Μέσα στο `withSoftoneSession(name, fn)`
+ * κάθε `softoneCall` χρησιμοποιεί δικό του clientID (μόνο στη μνήμη) — ποτέ της εφαρμογής.
+ */
+const sessionScope = new AsyncLocalStorage<{ name: string }>();
+const namedTokens = new Map<string, TokenCache>();
+
+export function withSoftoneSession<T>(name: string, fn: () => Promise<T>): Promise<T> {
+  return sessionScope.run({ name }, fn);
+}
+
 function isFresh(c: TokenCache | null): c is TokenCache {
   return !!c && typeof c.clientID === 'string' && Date.now() - c.at < TOKEN_TTL_MS;
 }
@@ -409,9 +423,13 @@ function persistToken(t: TokenCache) {
  * unexpired cached token (≤30 min old). Pass `force` to bypass the cache.
  */
 export async function softoneGetToken(force = false): Promise<string> {
+  const scope = sessionScope.getStore();
   if (!force) {
-    if (isFresh(cachedToken)) return cachedToken.clientID;
-    const persisted = await loadPersistedToken();
+    if (scope) {
+      const t = namedTokens.get(scope.name) ?? null;
+      if (isFresh(t)) return t.clientID;
+    } else if (isFresh(cachedToken)) return cachedToken.clientID;
+    const persisted = scope ? null : await loadPersistedToken();
     if (isFresh(persisted)) {
       cachedToken = persisted;
       return persisted.clientID;
@@ -445,6 +463,10 @@ export async function softoneGetToken(force = false): Promise<string> {
   if (!auth.success || !auth.clientID) {
     throw new SoftoneError(`SoftOne authenticate απέτυχε: ${auth.error ?? 'άγνωστο σφάλμα'}`);
   }
+  if (scope) {
+    namedTokens.set(scope.name, { clientID: auth.clientID, at: Date.now() });
+    return auth.clientID;
+  }
   cachedToken = { clientID: auth.clientID, at: Date.now() };
   // Ανά instance (βλ. tokenCacheKey) — ΟΧΙ κοινό για όλους.
   persistToken(cachedToken);
@@ -468,7 +490,9 @@ export async function softoneCall<T extends { success?: boolean; errorcode?: num
 
   let data = await run(token);
   if (data && data.success === false && typeof data.errorcode === 'number' && data.errorcode < 0) {
-    await clearCachedToken();
+    const scope = sessionScope.getStore();
+    if (scope) namedTokens.delete(scope.name);
+    else await clearCachedToken();
     const fresh = await softoneGetToken(true);
     data = await run(fresh);
   }
@@ -785,6 +809,11 @@ export interface TrdrRow {
   email: string | null;
   webpage: string | null;
   isActive: boolean;
+  /** TRDR.LATITUDE/LONGITUDE (έγκυρο ζεύγος ή null). */
+  lat?: number | null;
+  lng?: number | null;
+  /** UPDDATE αυτούσιο — watermark του αυξητικού συγχρονισμού (lib/softone-mirror). */
+  updDate?: string | null;
 }
 
 interface GetTableResp {
@@ -826,7 +855,7 @@ export async function softoneGetTable(
 const TRDR_FIELDS = [
   'TRDR', 'CODE', 'NAME', 'AFM', 'IRSDATA', 'JOBTYPETRD',
   'ADDRESS', 'ZIP', 'CITY', 'DISTRICT',
-  'PHONE01', 'PHONE02', 'FAX', 'EMAIL', 'WEBPAGE', 'SODTYPE', 'ISACTIVE',
+  'PHONE01', 'PHONE02', 'FAX', 'EMAIL', 'WEBPAGE', 'SODTYPE', 'ISACTIVE', 'LATITUDE', 'LONGITUDE', 'UPDDATE',
 ];
 
 // TRDR.SODTYPE → human label. Verified against the tenant's SoftOne objects:
@@ -869,6 +898,8 @@ function mapTrdr(o: Record<string, string>): TrdrRow {
     email: o.EMAIL || null,
     webpage: o.WEBPAGE || null,
     isActive: o.ISACTIVE !== '0',
+    ...(() => { const c = validCoords(o.LATITUDE, o.LONGITUDE); return { lat: c?.lat ?? null, lng: c?.lng ?? null }; })(),
+    updDate: o.UPDDATE || null,
   };
 }
 
@@ -882,13 +913,20 @@ export const isHiddenTrader = (name: string) => HIDDEN_TRADER.test(name);
  * SoftOne via GetTable. Hidden entries («(Α)», «ΥΠΟ ΕΚΚΑΘΑΡΙΣΗ») are dropped.
  */
 export async function softoneFetchTraders(): Promise<TrdrRow[]> {
+  return (await softoneFetchTradersWhere()).filter((r) => !isHiddenTrader(r.name));
+}
+
+/**
+ * Όπως το {@link softoneFetchTraders}, με επιπλέον φίλτρο (π.χ. UPDDATE) και ΧΩΡΙΣ να πετά τους
+ * «κρυφούς»: ο αυξητικός συγχρονισμός πρέπει να τους δει για να τους ΣΒΗΣΕΙ από τον καθρέφτη.
+ */
+export async function softoneFetchTradersWhere(extra = ''): Promise<TrdrRow[]> {
   const cfg = await loadSoftoneConfig();
   const company = cfg.company?.trim();
-  const filter = `SODTYPE IN (${TRADER_SODTYPES.join(',')})` + (company ? ` AND COMPANY=${Number(company)}` : '');
+  const filter = `SODTYPE IN (${TRADER_SODTYPES.join(',')})` + (company ? ` AND COMPANY=${Number(company)}` : '')
+    + (extra ? ` AND (${extra})` : '');
   const rows = await softoneGetTable('TRDR', TRDR_FIELDS, filter);
-  return rows
-    .map(mapTrdr)
-    .filter((r) => Number.isFinite(r.trdr) && !isHiddenTrader(r.name));
+  return rows.map(mapTrdr).filter((r) => Number.isFinite(r.trdr));
 }
 
 export interface ItemRow {
@@ -909,11 +947,13 @@ export interface ItemRow {
   buyRatio: number | null;
   unitSell: string | null;
   sellRatio: number | null;
+  /** UPDDATE αυτούσιο (watermark αυξητικού συγχρονισμού). */
+  updDate?: string | null;
 }
 
 const MTRL_FIELDS = [
   'MTRL', 'CODE', 'CODE1', 'CODE2', 'NAME', 'NAME1', 'PRICER', 'SODTYPE', 'ISACTIVE', 'MYDATACODE',
-  'MTRUNIT1', 'MTRUNIT3', 'MU31', 'MTRUNIT4', 'MU41',
+  'MTRUNIT1', 'MTRUNIT3', 'MU31', 'MTRUNIT4', 'MU41', 'UPDDATE',
 ];
 
 /** Σχέση μονάδας: θετικός αριθμός, αλλιώς `null` (κενό/0 = «δεν ορίστηκε»). */
@@ -940,6 +980,7 @@ function mapItem(o: Record<string, string>): ItemRow {
     buyRatio: ratioOrNull(o.MU31),
     unitSell: idOrNull(o.MTRUNIT4),
     sellRatio: ratioOrNull(o.MU41),
+    updDate: o.UPDDATE || null,
   };
 }
 
@@ -2718,6 +2759,7 @@ export interface ProjectRow {
   fromDate: Date | null;
   finalDate: Date | null;
   closeDate: Date | null;
+  updDate?: string | null;
 }
 
 /** «2025-06-27 00:00:00» (ώρα SoftOne, χωρίς ζώνη) → Date στις 00:00 UTC της ίδιας ημέρας· κενό → null. */
@@ -2735,12 +2777,12 @@ export function s1DateOrNull(v: unknown): Date | null {
  * έργα, ακόμα και χωρίς φίλτρο — τα ανενεργά δεν έρχονται ποτέ, γι' αυτό ο συγχρονισμός
  * απενεργοποιεί όσα λείπουν.
  */
-export async function softoneFetchProjects(): Promise<ProjectRow[]> {
+export async function softoneFetchProjects(extra = ''): Promise<ProjectRow[]> {
   const rows = await softoneGetTable(
     'PRJC',
     ['PRJC', 'CODE', 'NAME', 'TRDR', 'PRJTYPE', 'ISACTIVE', 'ACTSTATUS', 'TRDRSU', 'REMARKS',
-      'CRDDATE', 'FROMDATE', 'FINALDATE', 'CLOSEDATE'],
-    'ISACTIVE=1',
+      'CRDDATE', 'FROMDATE', 'FINALDATE', 'CLOSEDATE', 'UPDDATE'],
+    'ISACTIVE=1' + (extra ? ` AND (${extra})` : ''),
   );
   return rows
     .map((o) => ({
@@ -2757,6 +2799,7 @@ export async function softoneFetchProjects(): Promise<ProjectRow[]> {
       fromDate: s1DateOrNull(o.FROMDATE),
       finalDate: s1DateOrNull(o.FINALDATE),
       closeDate: s1DateOrNull(o.CLOSEDATE),
+      updDate: o.UPDDATE || null,
     }))
     .filter((r) => Number.isFinite(r.prjc) && r.prjc !== 0);
 }

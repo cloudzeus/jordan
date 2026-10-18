@@ -1,6 +1,7 @@
 import 'server-only';
 import { softoneGetTable, s1DateOrNull } from '@/lib/softone';
 import { purchaseSeriesMap } from '@/lib/purchase-kinds';
+import { docMirror, mFindocs, mMtrLines } from '@/lib/softone-mirror/read';
 
 /**
  * Τελευταία τιμή αγοράς ανά είδος, ΑΠΟ ΤΑ ΠΑΡΑΣΤΑΤΙΚΑ ΑΓΟΡΩΝ του SoftOne.
@@ -33,26 +34,29 @@ const CHUNK = 200;
 let headers: { at: number; byId: Map<number, { date: string; fincode: string }> } | null = null;
 let headersLoading: Promise<Map<number, { date: string; fincode: string }>> | null = null;
 
-/** Κεφαλές παραστατικών αγορών (λίγες εκατοντάδες) — κρατιούνται 5 λεπτά στη μνήμη. */
-async function purchaseHeaders(force = false) {
+/** Κεφαλές παραστατικών αγορών (λίγες εκατοντάδες) — από τον καθρέφτη, ή ζωντανά κρατιούνται 5 λεπτά στη μνήμη. */
+async function purchaseHeaders(force = false, mirror = false) {
+  if (mirror) return buildHeaders(await mFindocs({ sosource: PURCHASES, isCancel: 0 }));
   if (!force && headers && Date.now() - headers.at < HEADERS_TTL_MS) return headers.byId;
   if (headersLoading) return headersLoading;
   headersLoading = (async () => {
-    const [rows, series] = await Promise.all([
-      softoneGetTable('FINDOC', ['FINDOC', 'TRNDATE', 'FINCODE', 'SERIES'], `SOSOURCE=${PURCHASES} AND ISCANCEL=0`),
-      purchaseSeriesMap(),
-    ]);
-    const byId = new Map<number, { date: string; fincode: string }>();
-    for (const r of rows) {
-      if (series.get(r.SERIES)?.kind !== 'invoice') continue;
-      const d = s1DateOrNull(r.TRNDATE);
-      const id = Number(r.FINDOC);
-      if (d && Number.isInteger(id)) byId.set(id, { date: d.toISOString(), fincode: r.FINCODE });
-    }
+    const byId = await buildHeaders(await softoneGetTable('FINDOC', ['FINDOC', 'TRNDATE', 'FINCODE', 'SERIES'], `SOSOURCE=${PURCHASES} AND ISCANCEL=0`));
     headers = { at: Date.now(), byId };
     return byId;
   })().finally(() => { headersLoading = null; });
   return headersLoading;
+}
+
+async function buildHeaders(rows: Record<string, string>[]) {
+  const series = await purchaseSeriesMap();
+  const byId = new Map<number, { date: string; fincode: string }>();
+  for (const r of rows) {
+    if (series.get(r.SERIES)?.kind !== 'invoice') continue;
+    const d = s1DateOrNull(r.TRNDATE);
+    const id = Number(r.FINDOC);
+    if (d && Number.isInteger(id)) byId.set(id, { date: d.toISOString(), fincode: r.FINCODE });
+  }
+  return byId;
 }
 
 export async function lastPurchasePrices(mtrls: number[], opts: { fresh?: boolean } = {}): Promise<Map<number, LastPurchase>> {
@@ -60,10 +64,14 @@ export async function lastPurchasePrices(mtrls: number[], opts: { fresh?: boolea
   const out = new Map<number, LastPurchase>();
   if (wanted.length === 0) return out;
 
-  const heads = await purchaseHeaders(opts.fresh);
+  // Φρέσκος καθρέφτης ⇒ καμία κλήση στο SoftOne. Αλλιώς ζωντανά, όπως πριν.
+  const mirror = (await docMirror()).freshness === 'fresh';
+  const heads = await purchaseHeaders(opts.fresh, mirror);
   for (let i = 0; i < wanted.length; i += CHUNK) {
     const chunk = wanted.slice(i, i + CHUNK);
-    const lines = await softoneGetTable('MTRLINES', ['FINDOC', 'MTRL', 'QTY1', 'PRICE', 'LINEVAL'], `MTRL IN (${chunk.join(',')})`);
+    const lines = mirror
+      ? await mMtrLines({ mtrl: { in: chunk }, findoc: { in: [...heads.keys()] } })
+      : await softoneGetTable('MTRLINES', ['FINDOC', 'MTRL', 'QTY1', 'PRICE', 'LINEVAL'], `MTRL IN (${chunk.join(',')})`);
     for (const l of lines) {
       const findoc = Number(l.FINDOC);
       const head = heads.get(findoc);

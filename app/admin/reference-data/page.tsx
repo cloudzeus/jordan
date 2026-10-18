@@ -5,6 +5,9 @@ import { getSetting } from '@/lib/settings';
 import { PageHeader } from '@/components/admin/page-header';
 import { ReferenceDataClient } from './reference-data-client';
 import { LOOKUP_KINDS } from '@/lib/lookup-kinds';
+import { mirrorStatus } from '@/lib/softone-mirror/status';
+import { SoftoneMirrorPanel } from '@/components/admin/softone-mirror-panel';
+import { HelpIcon } from '@/components/wiki/help-icon';
 
 export const dynamic = 'force-dynamic';
 
@@ -24,6 +27,7 @@ export default async function ReferenceDataPage() {
     prisma.kadLicenseRequirement.count({ where: { licenseType: 'OPERATING_LICENSE', inherited: false } }),
   ]);
   const canManage = await hasPermission('metadata.manage');
+  const mirror = await mirrorStatus();
   const vatLastSync = await getSetting<string>('integrations.softoneVatLastSync');
   const purdocLastSync = await getSetting<string>('integrations.softonePurdocLastSync');
   const docSeriesLastSync = await getSetting<string>('integrations.softoneDocSeriesLastSync');
@@ -56,6 +60,7 @@ export default async function ReferenceDataPage() {
         description="Lookup tables που τροφοδοτούν αναζητήσεις και autocomplete. Τα ΓΕΜΗ metadata ανανεώνονται από Open Data ΓΕΜΗ."
         helpAnchor="reference-data"
       />
+      <SoftoneMirrorPanel initial={mirror} canManage={canManage} help={<HelpIcon anchor="softone-mirror" />} />
       <ReferenceDataClient
         canManage={canManage}
         stats={[

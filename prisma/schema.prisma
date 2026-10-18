@@ -515,6 +515,9 @@ model SoftoneTrader {
   email      String?
   webpage    String?
   isActive   Boolean @default(true)
+  // TRDR.LATITUDE/LONGITUDE — για τον χάρτη συναλλασσομένων (χωρίς ζωντανή κλήση).
+  lat        Float?
+  lng        Float?
 
   @@index([sodtype])
   @@index([name])
@@ -2461,12 +2464,133 @@ model SoftoneOutbox {
 /// TRDR/MTRL της ΠΑΛΙΑΣ εγκατάστασης, η εφαρμογή τα εμφάνιζε σαν έγκυρα, και η επόμενη
 /// καταχώριση θα έδειχνε σε ανύπαρκτες — ή, χειρότερα, σε ΑΛΛΕΣ — εγγραφές.
 model SoftoneMirrorState {
-  table     String   @id // 'traders' | 'items' | 'accounts' | …
+  table     String   @id // 'traders' | 'items' | 'accounts' | … | 'docs' | 'mydata'
   tenantKey String
   syncedAt  DateTime
   rows      Int      @default(0)
 
+  // ΑΥΞΗΤΙΚΟΣ ΣΥΓΧΡΟΝΙΣΜΟΣ (lib/softone-mirror). Το watermark είναι το μεγαλύτερο UPDDATE που
+  // ΕΙΔΑΜΕ από το SoftOne, όπως το έγραψε ο ίδιος ο SQL Server («yyyy-mm-dd hh:mm:ss», χωρίς ζώνη) —
+  // ΠΟΤΕ το δικό μας ρολόι: ο SoftOne γράφει UPDDATE σε άλλη ζώνη από το INSDATE.
+  watermark    String?
+  lastRunAt    DateTime? // τελευταία προσπάθεια (επιτυχής ή όχι)
+  lastOkAt     DateTime? // τελευταία ΕΠΙΤΥΧΗΣ — με αυτό κρίνεται αν ο καθρέφτης είναι φρέσκος
+  lastError    String?
+  lastMs       Int?
+  lastChanged  Int? // γραμμές που άλλαξαν στον τελευταίο κύκλο
+  reconciledAt DateTime? // τελευταία πλήρης σύγκριση (διαγραφές)
+
   @@index([tenantKey])
+}
+
+/// Μίσθωση «ένας τη φορά» για τον συγχρονισμό καθρεφτών. Όχι advisory lock: η εφαρμογή περνά από
+/// PgBouncer σε transaction mode, όπου τα session locks δεν κρατιούνται. Μία γραμμή ανά όνομα·
+/// όποιος τη βρει ληγμένη την παίρνει με ΕΝΑ ατομικό INSERT … ON CONFLICT … WHERE.
+model SoftoneSyncLease {
+  name      String   @id
+  owner     String
+  expiresAt DateTime
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ΚΑΘΡΕΦΤΗΣ ΠΑΡΑΣΤΑΤΙΚΩΝ SoftOne (μόνο ανάγνωση, lib/softone-mirror). Οι οθόνες διαβάζουν από εδώ·
+// το SoftOne ρωτιέται μόνο για ό,τι άλλαξε (UPDDATE). Τα ποσά είναι όπως τα δίνει το SoftOne.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// FINDOC — κεφαλές παραστατικών (όλες οι ενότητες: 1351, 1251, 1253, 1653, 1412, 1413, 1151, …).
+model SoftoneFindoc {
+  findoc    Int       @id
+  fincode   String
+  trnDate   DateTime? // TRNDATE (ημέρα, 00:00 UTC — όπως το s1DateOrNull)
+  series    String
+  sosource  Int
+  trdr      Int?
+  prjc      Int?
+  net       Float     @default(0) // NETAMNT
+  vat       Float     @default(0) // VATAMNT
+  total     Float     @default(0) // SUMAMNT
+  disc1Prc  Float     @default(0)
+  disc1Val  Float     @default(0)
+  isCancel  Int       @default(0) // ISCANCEL ≠ 0 ⇒ ακυρωμένο/ακυρωτικό
+  comments  String?
+  comments1 String?
+  remarks   String?
+  insDate   DateTime? // INSDATE (πλήρης ώρα, όπως τη γράφει ο SoftOne)
+  updRaw    String? // UPDDATE αυτούσιο — συγκρίνεται στη νυχτερινή συμφωνία
+  syncedAt  DateTime  @default(now())
+
+  @@index([trdr])
+  @@index([prjc])
+  @@index([sosource, trnDate])
+}
+
+/// MTRLINES — γραμμές ειδών/υπηρεσιών. Ο πίνακας ΔΕΝ έχει UPDDATE (GetTable: «Stream read error»):
+/// οι γραμμές ενός παραστατικού ξανακατεβαίνουν ΟΛΕΣ όταν αλλάξει το UPDDATE της κεφαλής του.
+model SoftoneMtrLine {
+  findoc     Int
+  mtrlines   Int
+  lineNum    Int?
+  mtrl       Int?
+  qty1       Float   @default(0)
+  qty        Float   @default(0)
+  mtrUnit    String?
+  price      Float   @default(0)
+  disc1Prc   Float   @default(0)
+  disc2Prc   Float   @default(0)
+  disc1Val   Float   @default(0)
+  lineVal    Float   @default(0)
+  netLineVal Float   @default(0)
+  vat        String?
+  vatAmnt    Float   @default(0)
+  comments   String?
+  comments1  String?
+  prjc       Int?
+  sodtype    Int?
+  findocs    Int? // FINDOCS — παραστατικό προέλευσης (μετασχηματισμός)
+
+  @@id([findoc, mtrlines])
+  @@index([mtrl])
+  @@index([prjc])
+  @@index([findocs])
+}
+
+/// TRDTLINES — γραμμές εμβασμάτων (ο πελάτης/προμηθευτής είναι στη ΓΡΑΜΜΗ, η κεφαλή έχει την τράπεζα).
+model SoftoneTrdLine {
+  findoc    Int
+  trdtlines Int
+  trdr      Int?
+  lineNum   Int?
+  lineVal   Float @default(0)
+  prjc      Int?
+
+  @@id([findoc, trdtlines])
+  @@index([trdr])
+}
+
+/// MYDATAHEADER — ΜΑΡΚ/QR ανά παραστατικό (SOID = FINDOC). Μόνο ανάγνωση· ΠΟΤΕ εγγραφή προς myDATA.
+model SoftoneMyData {
+  id         Int     @id // MYDATAHEADER
+  soid       Int
+  sosource   Int
+  mark       String?
+  qrUrl      String?
+  invoiceUrl String?
+  isCancel   Int     @default(0)
+  updRaw     String?
+
+  @@index([soid])
+}
+
+/// TRDBALSHEET — επίσημα σύνολα χρέωσης/πίστωσης ανά συναλλασσόμενο, χρήση και περίοδο.
+model SoftoneTrdBalance {
+  id      Int   @id @default(autoincrement())
+  trdr    Int
+  fiscPrd Int
+  period  Int
+  debit   Float @default(0)
+  credit  Float @default(0)
+
+  @@index([trdr])
 }
 
 /// Ημερολόγιο της σύνδεσης: πτώσεις, επανασυνδέσεις και αλλαγές εγκατάστασης.

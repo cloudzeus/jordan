@@ -3,10 +3,12 @@ import { prisma } from '@/lib/db';
 import { softoneGetTable, s1DateOrNull, sosourceLabel } from '@/lib/softone';
 import { purchaseSeriesMap } from '@/lib/purchase-kinds';
 import { lineTotals, parseLines, type DocLine } from '@/lib/document-detail-core';
+import { mFindocs, mMtrLines, mMyData, viaMirror } from '@/lib/softone-mirror/read';
 
 /**
- * Λεπτομέρειες ενός παραστατικού (κεφαλή + γραμμές), ΖΩΝΤΑΝΑ από το SoftOne (GetTable, μόνο ανάγνωση).
- * Για το expand των παραστατικών σε έργα και συναλλασσόμενους.
+ * Λεπτομέρειες ενός παραστατικού (κεφαλή + γραμμές) για το expand των παραστατικών σε έργα και
+ * συναλλασσόμενους. Από τον καθρέφτη (lib/softone-mirror) όταν είναι φρέσκος· αλλιώς ζωντανά από το
+ * SoftOne (GetTable, μόνο ανάγνωση).
  */
 const HEAD = ['FINDOC', 'FINCODE', 'TRNDATE', 'SERIES', 'SOSOURCE', 'TRDR', 'PRJC', 'NETAMNT', 'VATAMNT', 'SUMAMNT', 'DISC1PRC', 'DISC1VAL', 'ISCANCEL', 'COMMENTS', 'COMMENTS1', 'REMARKS', 'INSDATE', 'UPDDATE'];
 const LINE = ['MTRLINES', 'LINENUM', 'MTRL', 'QTY1', 'QTY', 'MTRUNIT', 'PRICE', 'DISC1PRC', 'DISC2PRC', 'DISC1VAL', 'LINEVAL', 'NETLINEVAL', 'VAT', 'VATAMNT', 'COMMENTS', 'COMMENTS1', 'PRJC', 'SODTYPE', 'FINDOCS'];
@@ -39,11 +41,14 @@ export type DocDetail = {
 };
 
 export async function fetchDocumentDetail(findoc: number): Promise<DocDetail | null> {
-  const [heads, lineRows, mydata] = await Promise.all([
-    softoneGetTable('FINDOC', HEAD, `FINDOC=${findoc}`),
-    softoneGetTable('MTRLINES', LINE, `FINDOC=${findoc}`),
-    softoneGetTable('MYDATAHEADER', ['SOID', 'MARK', 'ISCANCEL'], `SOID=${findoc}`).catch(() => [] as Record<string, string>[]),
-  ]);
+  const { value: [heads, lineRows, mydata], source } = await viaMirror(
+    () => Promise.all([mFindocs({ findoc }), mMtrLines({ findoc }), mMyData({ soid: findoc })]),
+    () => Promise.all([
+      softoneGetTable('FINDOC', HEAD, `FINDOC=${findoc}`),
+      softoneGetTable('MTRLINES', LINE, `FINDOC=${findoc}`),
+      softoneGetTable('MYDATAHEADER', ['SOID', 'MARK', 'ISCANCEL'], `SOID=${findoc}`).catch(() => [] as Record<string, string>[]),
+    ]),
+  );
   const h = heads[0];
   if (!h) return null;
   const sosource = Number(h.SOSOURCE);
@@ -59,7 +64,9 @@ export async function fetchDocumentDetail(findoc: number): Promise<DocDetail | n
     prjc ? prisma.softoneProject.findUnique({ where: { prjc }, select: { prjc: true, code: true, name: true } }) : null,
     prisma.softoneDocSeries.findFirst({ where: { sosource, code: h.SERIES }, select: { name: true } }),
     sosource === 1251 ? purchaseSeriesMap() : Promise.resolve(null),
-    sourceIds.length ? softoneGetTable('FINDOC', ['FINDOC', 'FINCODE'], `FINDOC IN (${sourceIds.join(',')})`).catch(() => []) : [],
+    !sourceIds.length ? []
+      : source === 'mirror' ? mFindocs({ findoc: { in: sourceIds } })
+        : softoneGetTable('FINDOC', ['FINDOC', 'FINCODE'], `FINDOC IN (${sourceIds.join(',')})`).catch(() => []),
   ]);
   const lines = parseLines(lineRows, {
     items: new Map(items.map((i) => [i.mtrl, i])),

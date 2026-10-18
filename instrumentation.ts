@@ -17,4 +17,11 @@ export async function register(): Promise<void> {
   } catch (e) {
     console.error('[instrumentation] job worker not started', (e as Error).message);
   }
+  // Καθρέφτης SoftOne (παραστατικά + μητρώα, αυξητικά με UPDDATE) — lib/softone-mirror/worker.ts.
+  try {
+    const { startMirrorWorker } = await import('./lib/softone-mirror/worker');
+    startMirrorWorker();
+  } catch (e) {
+    console.error('[instrumentation] softone mirror worker not started', (e as Error).message);
+  }
 }

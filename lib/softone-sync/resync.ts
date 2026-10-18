@@ -174,6 +174,28 @@ export async function syncVatCategories(actor: SyncActor): Promise<SyncPayload> 
 // ─────────────────────────────────────────────────────────────────────────────
 
 export async function syncLookups(actor: SyncActor): Promise<SyncPayload> {
+  const { rows, failed, total, byKind } = await replaceLookups();
+
+  const syncedAt = nowIso();
+  await setSetting('integrations.softoneLookupsLastSync', syncedAt, actor.id);
+  await logAudit({
+    userId: actor.id, userEmail: actor.email,
+    action: 'metadata.lookups.sync_softone', resource: 'setting', metadata: { total, byKind, notAnswered: failed },
+  });
+
+  // Κάθε είδος που απάντησε αντικαθίσταται ολόκληρο — δεν υπάρχει «νέο» και «ενημερωμένο».
+  // Τα είδη που δεν απάντησαν (και ήταν άδεια) αναφέρονται ρητά, για να μη θεωρηθεί ότι τα είδαμε.
+  return {
+    created: total, updated: 0, skipped: rows - total, total, syncedAt,
+    detail: { byKind, ...(failed.length ? { notAnswered: failed } : {}) },
+  };
+}
+
+/**
+ * Κατεβάζει και αντικαθιστά τους βοηθητικούς πίνακες — ΧΩΡΙΣ καταγραφή ελέγχου. Το καλεί και ο
+ * αυτόματος συγχρονισμός καθρεφτών (lib/softone-mirror), όπου δεν υπάρχει χρήστης.
+ */
+export async function replaceLookups(): Promise<{ rows: number; failed: string[]; total: number; byKind: Record<string, number> }> {
   const { rows, failed } = await softoneFetchLookups();
   assertNonEmpty(rows, 'βοηθητικοί πίνακες');
 
@@ -208,19 +230,7 @@ export async function syncLookups(actor: SyncActor): Promise<SyncPayload> {
   }, { timeout: 30000 });
 
   const byKind = rows.reduce<Record<string, number>>((a, r) => { a[r.kind] = (a[r.kind] ?? 0) + 1; return a; }, {});
-  const syncedAt = nowIso();
-  await setSetting('integrations.softoneLookupsLastSync', syncedAt, actor.id);
-  await logAudit({
-    userId: actor.id, userEmail: actor.email,
-    action: 'metadata.lookups.sync_softone', resource: 'setting', metadata: { total, byKind, notAnswered: failed },
-  });
-
-  // Κάθε είδος που απάντησε αντικαθίσταται ολόκληρο — δεν υπάρχει «νέο» και «ενημερωμένο».
-  // Τα είδη που δεν απάντησαν (και ήταν άδεια) αναφέρονται ρητά, για να μη θεωρηθεί ότι τα είδαμε.
-  return {
-    created: total, updated: 0, skipped: rows.length - total, total, syncedAt,
-    detail: { byKind, ...(failed.length ? { notAnswered: failed } : {}) },
-  };
+  return { rows: rows.length, failed, total, byKind };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -322,6 +332,7 @@ export async function syncTraders(actor: SyncActor): Promise<SyncPayload> {
     afm: r.afm, doy: r.doy, profession: r.profession,
     address: r.address, district: r.district, zip: r.zip, city: r.city,
     phone: r.phone, phone2: r.phone2, fax: r.fax, email: r.email, webpage: r.webpage, isActive: r.isActive,
+    lat: r.lat ?? null, lng: r.lng ?? null,
   }));
 
   const total = await prisma.$transaction(async (tx) => {

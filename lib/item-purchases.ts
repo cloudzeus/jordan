@@ -2,9 +2,10 @@ import 'server-only';
 import { prisma } from '@/lib/db';
 import { softoneGetTable, s1DateOrNull } from '@/lib/softone';
 import { creditReturnsGoods, purchaseSeriesMap, PURCHASE_KIND_LABEL, type PurchaseKind } from '@/lib/purchase-kinds';
+import { mFindocs, mMtrLines, viaMirror } from '@/lib/softone-mirror/read';
 
 /**
- * Τα παραστατικά ΑΓΟΡΩΝ ενός είδους, ζωντανά από το SoftOne.
+ * Τα παραστατικά ΑΓΟΡΩΝ ενός είδους — από τον καθρέφτη (lib/softone-mirror) όταν είναι φρέσκος, αλλιώς ζωντανά.
  *
  * Το MTRLINES δεν έχει ημερομηνία ούτε ενότητα (επιβεβαιωμένο ζωντανά): οι γραμμές του είδους
  * διαβάζονται με `MTRL=n`, και οι κεφαλές τους (FINDOC) φέρνουν ημερομηνία, ενότητα, προμηθευτή.
@@ -40,18 +41,26 @@ export type ItemPurchases = {
 };
 
 export async function itemPurchases(mtrl: number): Promise<ItemPurchases> {
-  const lines = await softoneGetTable('MTRLINES', ['FINDOC', 'MTRL', 'QTY1', 'PRICE', 'LINEVAL', 'PRJC'], `MTRL=${Math.trunc(mtrl)}`);
-  const ids = [...new Set(lines.map((l) => Number(l.FINDOC)).filter((n) => Number.isInteger(n) && n > 0))];
-
-  const heads = new Map<number, Record<string, string>>();
-  for (let i = 0; i < ids.length; i += 200) {
-    const chunk = ids.slice(i, i + 200);
-    const rows = await softoneGetTable(
-      'FINDOC', ['FINDOC', 'FINCODE', 'TRNDATE', 'SERIES', 'SOSOURCE', 'TRDR', 'ISCANCEL'],
-      `SOSOURCE=${PURCHASES} AND FINDOC IN (${chunk.join(',')})`,
-    );
-    for (const r of rows) heads.set(Number(r.FINDOC), r);
-  }
+  const idsOf = (ls: Record<string, string>[]) => [...new Set(ls.map((l) => Number(l.FINDOC)).filter((n) => Number.isInteger(n) && n > 0))];
+  const { value: { lines, headRows } } = await viaMirror(
+    async () => {
+      const lines = await mMtrLines({ mtrl: Math.trunc(mtrl) });
+      return { lines, headRows: await mFindocs({ sosource: PURCHASES, findoc: { in: idsOf(lines) } }) };
+    },
+    async () => {
+      const lines = await softoneGetTable('MTRLINES', ['FINDOC', 'MTRL', 'QTY1', 'PRICE', 'LINEVAL', 'PRJC'], `MTRL=${Math.trunc(mtrl)}`);
+      const ids = idsOf(lines);
+      const headRows: Record<string, string>[] = [];
+      for (let i = 0; i < ids.length; i += 200) {
+        headRows.push(...await softoneGetTable(
+          'FINDOC', ['FINDOC', 'FINCODE', 'TRNDATE', 'SERIES', 'SOSOURCE', 'TRDR', 'ISCANCEL'],
+          `SOSOURCE=${PURCHASES} AND FINDOC IN (${ids.slice(i, i + 200).join(',')})`,
+        ));
+      }
+      return { lines, headRows };
+    },
+  );
+  const heads = new Map(headRows.map((r) => [Number(r.FINDOC), r]));
 
   const purchaseLines = lines.filter((l) => heads.has(Number(l.FINDOC)));
   const traderIds = [...new Set([...heads.values()].map((h) => Number(h.TRDR)).filter((n) => n > 0))];

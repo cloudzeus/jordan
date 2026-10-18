@@ -11,11 +11,14 @@ import { softoneGetTable, s1DateOrNull } from '@/lib/softone';
 import { docKindMap, PURCHASE_KIND_LABEL, type PurchaseKind } from '@/lib/purchase-kinds';
 import { getProjectFinancials } from '@/lib/project-profit';
 import { s1Date, type Period } from './period';
+import { mFindocs, viaMirror } from '@/lib/softone-mirror/read';
 
 const SALES = 1351;
 const PURCHASES = 1251;
 const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
 const num = (v: string | undefined) => (Number.isFinite(Number(v)) ? Number(v) : 0);
+/** «yyyy-mm-dd» → 00:00 UTC — όπως αποθηκεύεται το TRNDATE στον καθρέφτη. */
+const dayUtc = (ymd: string) => new Date(`${ymd.slice(0, 10)}T00:00:00Z`);
 
 export type TurnoverDoc = { findoc: number; fincode: string; date: string | null; series: string; seriesName: string | null; kind: PurchaseKind; trader: string | null; project: string | null; net: number; gross: number };
 
@@ -45,8 +48,15 @@ export async function turnover(input: { period: Period; side?: 'sales' | 'purcha
   if (input.trdr) conds.push(`TRDR=${Math.trunc(input.trdr)}`);
   if (input.prjc) conds.push(`PRJC=${Math.trunc(input.prjc)}`);
 
-  const [rows, kinds, series, purchaseTypes] = await Promise.all([
-    softoneGetTable('FINDOC', ['FINDOC', 'FINCODE', 'TRNDATE', 'SERIES', 'TRDR', 'PRJC', 'NETAMNT', 'SUMAMNT'], conds.join(' AND ')),
+  const [{ value: rows, asOf }, kinds, series, purchaseTypes] = await Promise.all([
+    // Από τον καθρέφτη όταν είναι φρέσκος (ίδια φίλτρα με το GetTable), αλλιώς ζωντανά.
+    viaMirror(
+      () => mFindocs({
+        sosource, isCancel: 0, trnDate: { gte: dayUtc(input.period.from), lt: dayUtc(input.period.to) },
+        ...(input.trdr ? { trdr: Math.trunc(input.trdr) } : {}), ...(input.prjc ? { prjc: Math.trunc(input.prjc) } : {}),
+      }),
+      () => softoneGetTable('FINDOC', ['FINDOC', 'FINCODE', 'TRNDATE', 'SERIES', 'TRDR', 'PRJC', 'NETAMNT', 'SUMAMNT'], conds.join(' AND ')),
+    ),
     docKindMap(),
     prisma.softoneDocSeries.findMany({ where: { sosource }, select: { code: true, name: true } }),
     side === 'purchases' ? prisma.purchaseDocType.findMany({ select: { code: true, name: true } }) : Promise.resolve([]),
@@ -112,7 +122,7 @@ export async function turnover(input: { period: Period; side?: 'sales' | 'purcha
     largest: [...counted].sort((a, b) => Math.abs(b.net) - Math.abs(a.net)).slice(0, 10),
     excluded: [...excluded.entries()].map(([k, v]) => ({ kind: PURCHASE_KIND_LABEL[k as PurchaseKind] ?? k, count: v.count, net: round2(v.net) })),
     unknownSeries,
-    fetchedAt: new Date().toISOString(),
+    fetchedAt: asOf.toISOString(),
   };
 }
 

@@ -13,6 +13,7 @@ import { safeUrl } from './url';
 import { issueFingerprint } from './issues';
 import { issuesToInstructions, PROJECT_NOTES, PROJECT_RECIPIENTS, projectQuestionKey } from './instructions';
 import { buildInstructionsDocx } from '@/lib/instructions-doc';
+import { mFindocs, mMtrLines, mMyData, viaMirror } from '@/lib/softone-mirror/read';
 
 /**
  * ΚΕΡΔΟΦΟΡΙΑ ΕΡΓΩΝ — φόρτωση από το SoftOne (ΜΟΝΟ ανάγνωση, GetTable) και στιγμιότυπο στη βάση.
@@ -60,15 +61,28 @@ export type FinancialsRun = { computedAt: string; projects: number; issues: numb
 export type StoredIssues = { computedAt: string; issues: DataIssue[] };
 
 async function computeAll(): Promise<FinancialsRun> {
-  const [heads, lineRows, mydataRows, attachRows] = await Promise.all([
-    softoneGetTable('FINDOC', DOC_FIELDS, `SOSOURCE IN (${SOURCES.join(',')})`),
-    // Γραμμές με έργο + γραμμές παραστατικών με έργο στην κεφαλή + γραμμές που μετασχηματίστηκαν από άλλο.
-    softoneGetTable('MTRLINES', LINE_FIELDS, 'PRJC>0 OR FINDOCS>0 OR FINDOC IN (SELECT FINDOC FROM FINDOC WHERE PRJC>0)'),
-    // myDATA ανά παραστατικό (SOID = FINDOC): ΜΑΡΚ, QR ΑΑΔΕ, URL παρόχου. Επιβεβαιωμένο ζωντανά 2026-10-17.
-    softoneGetTable('MYDATAHEADER', MYDATA_FIELDS, `SOSOURCE IN (${SALES},${PURCHASES})`).catch(() => [] as Record<string, string>[]),
-    // Συνημμένα αρχεία («Σχετικά έγγραφα»).
-    softoneGetTable('XTRDOCDATA', ['REFOBJID', 'SOSOURCE'], `SOSOURCE IN (${SALES},${PURCHASES})`).catch(() => [] as Record<string, string>[]),
-  ]);
+  // Κεφαλές, γραμμές και myDATA από τον καθρέφτη (lib/softone-mirror) όταν είναι φρέσκος — ο υπολογισμός
+  // δεν περιμένει τότε καθόλου το SoftOne. Αλλιώς ζωντανά, όπως πριν.
+  const { value: [heads, lineRows, mydataRows] } = await viaMirror(
+    async () => {
+      const heads = await mFindocs({ sosource: { in: SOURCES } });
+      const withProject = heads.filter((h) => id(h.PRJC) != null).map((h) => num(h.FINDOC));
+      return Promise.all([
+        heads,
+        mMtrLines({ OR: [{ prjc: { gt: 0 } }, { findocs: { gt: 0 } }, { findoc: { in: withProject } }] }),
+        mMyData({ sosource: { in: [SALES, PURCHASES] } }),
+      ]);
+    },
+    () => Promise.all([
+      softoneGetTable('FINDOC', DOC_FIELDS, `SOSOURCE IN (${SOURCES.join(',')})`),
+      // Γραμμές με έργο + γραμμές παραστατικών με έργο στην κεφαλή + γραμμές που μετασχηματίστηκαν από άλλο.
+      softoneGetTable('MTRLINES', LINE_FIELDS, 'PRJC>0 OR FINDOCS>0 OR FINDOC IN (SELECT FINDOC FROM FINDOC WHERE PRJC>0)'),
+      // myDATA ανά παραστατικό (SOID = FINDOC): ΜΑΡΚ, QR ΑΑΔΕ, URL παρόχου. Επιβεβαιωμένο ζωντανά 2026-10-17.
+      softoneGetTable('MYDATAHEADER', MYDATA_FIELDS, `SOSOURCE IN (${SALES},${PURCHASES})`).catch(() => [] as Record<string, string>[]),
+    ]),
+  );
+  // Συνημμένα αρχεία («Σχετικά έγγραφα») — δεν είναι στον καθρέφτη· ζωντανά, και αν αποτύχει απλώς λείπουν.
+  const attachRows = await softoneGetTable('XTRDOCDATA', ['REFOBJID', 'SOSOURCE'], `SOSOURCE IN (${SALES},${PURCHASES})`).catch(() => [] as Record<string, string>[]);
   const mydataBy = new Map<number, { mark: string | null; qrUrl: string | null; providerUrl: string | null }>();
   for (const r of mydataRows) {
     const soid = id(r.SOID);

@@ -3,10 +3,11 @@ import { prisma } from '@/lib/db';
 import { softoneGetTable, s1DateOrNull, sosourceLabel } from '@/lib/softone';
 import { lastPurchasePrices } from '@/lib/last-purchase-price';
 import { docKindMap, purchaseSeriesMap, PURCHASE_KIND_LABEL, type PurchaseKind } from '@/lib/purchase-kinds';
+import { mFindocs, mMtrLines, viaMirror } from '@/lib/softone-mirror/read';
 
 /**
- * Κινήσεις ενός έργου, ΖΩΝΤΑΝΑ από το SoftOne (όχι καθρέφτης): τα παραστατικά (FINDOC) και οι
- * γραμμές ειδών/υπηρεσιών (MTRLINES) που φέρουν το PRJC του έργου.
+ * Κινήσεις ενός έργου: τα παραστατικά (FINDOC) και οι γραμμές ειδών/υπηρεσιών (MTRLINES) που
+ * φέρουν το PRJC του έργου. Από τον καθρέφτη (lib/softone-mirror) όταν είναι φρέσκος, αλλιώς ζωντανά.
  *
  * Επιβεβαιωμένο ζωντανά (atelier, 2026-10-17): `GetTable FINDOC FILTER PRJC=n` και
  * `GetTable MTRLINES FILTER PRJC=n` απαντούν σε ~100ms — γι' αυτό φορτώνονται όταν ανοίγει
@@ -79,16 +80,21 @@ const int = (v: string | undefined) => {
 export async function fetchProjectActivity(prjc: number): Promise<ProjectActivity> {
   if (!Number.isInteger(prjc) || prjc <= 0) throw new Error('Μη έγκυρο έργο');
 
-  const [headRows, lineRows] = await Promise.all([
-    softoneGetTable('FINDOC', DOC_FIELDS, `PRJC=${prjc}`),
-    softoneGetTable('MTRLINES', LINE_FIELDS, `PRJC=${prjc}`),
-  ]);
-
-  const headerIds = new Set(headRows.map((r) => num(r.FINDOC)));
-  const missing = [...new Set(lineRows.map((r) => num(r.FINDOC)).filter((id) => id && !headerIds.has(id)))];
-  const extraRows = missing.length
-    ? await softoneGetTable('FINDOC', DOC_FIELDS, `FINDOC IN (${missing.join(',')})`)
-    : [];
+  const { value: { headRows, lineRows, extraRows }, asOf } = await viaMirror(
+    async () => {
+      const [headRows, lineRows] = await Promise.all([mFindocs({ prjc }), mMtrLines({ prjc })]);
+      const missing = missingHeads(headRows, lineRows);
+      return { headRows, lineRows, extraRows: missing.length ? await mFindocs({ findoc: { in: missing } }) : [] };
+    },
+    async () => {
+      const [headRows, lineRows] = await Promise.all([
+        softoneGetTable('FINDOC', DOC_FIELDS, `PRJC=${prjc}`),
+        softoneGetTable('MTRLINES', LINE_FIELDS, `PRJC=${prjc}`),
+      ]);
+      const missing = missingHeads(headRows, lineRows);
+      return { headRows, lineRows, extraRows: missing.length ? await softoneGetTable('FINDOC', DOC_FIELDS, `FINDOC IN (${missing.join(',')})`) : [] };
+    },
+  );
 
   const allHeads = [...headRows, ...extraRows];
   const [series, purchaseSeries, kinds, traders, items, units] = await Promise.all([
@@ -193,6 +199,12 @@ export async function fetchProjectActivity(prjc: number): Promise<ProjectActivit
     docs,
     materials,
     totals: [...fam.values()].sort((a, b) => a.sosource - b.sosource),
-    fetchedAt: new Date().toISOString(),
+    fetchedAt: asOf.toISOString(),
   };
+}
+
+/** Παραστατικά που έχουν γραμμή του έργου αλλά όχι το έργο στην κεφαλή — οι κεφαλές τους φέρνονται χωριστά. */
+function missingHeads(headRows: Record<string, string>[], lineRows: Record<string, string>[]): number[] {
+  const headerIds = new Set(headRows.map((r) => num(r.FINDOC)));
+  return [...new Set(lineRows.map((r) => num(r.FINDOC)).filter((id) => id && !headerIds.has(id)))];
 }
