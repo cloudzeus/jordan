@@ -62,10 +62,18 @@ export function AuctionStory({ capacity = 20, tiers, product, unit = 'τ.μ.', p
   // σε κάθε αλλαγή γεμίσματος— αλλάζει μόνο σε ακέραιες παλέτες και το πολύ ~8 φορές το δευτερόλεπτο.
   const [filled, setFilled] = React.useState(0);
   const [sceneFilled, setSceneFilled] = React.useState(0);
+  // Η «κολλημένη» σκηνή με το 3D container μόνο σε desktop· στο κινητό κατακόρυφο χρονολόγιο (βλ. MobileStory).
+  const [desktop, setDesktop] = React.useState(false);
+  React.useEffect(() => {
+    const mq = window.matchMedia('(min-width: 1024px)');
+    const on = () => setDesktop(mq.matches);
+    on(); mq.addEventListener('change', on);
+    return () => mq.removeEventListener('change', on);
+  }, []);
 
   React.useLayoutEffect(() => {
     const el = root.current;
-    if (!el) return;
+    if (!el || !desktop) return;
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) { setFilled(capacity); setSceneFilled(capacity); return; }
 
     const proxy = { v: 0 };
@@ -99,8 +107,9 @@ export function AuctionStory({ capacity = 20, tiers, product, unit = 'τ.μ.', p
         glide(head * capacity);
       },
     });
+    ScrollTrigger.refresh();
     return () => { st.kill(); if (sceneTimer) clearTimeout(sceneTimer); gsap.killTweensOf(proxy); };
-  }, [capacity]);
+  }, [capacity, desktop]);
 
   const skip = () => {
     const el = root.current;
@@ -130,7 +139,9 @@ export function AuctionStory({ capacity = 20, tiers, product, unit = 'τ.μ.', p
   const d = tiers.map((t, i) => `${i === 0 ? 'M' : 'L'}${x(t.from)},${y(t.price)} L${x(tiers[i + 1]?.from ?? capacity)},${y(t.price)}`).join(' ');
 
   return (
-    <div ref={root} className="relative h-[230vh] bg-[var(--s-paper)] lg:h-[270vh]">
+    <>
+    <MobileStory tiers={tiers} capacity={capacity} product={product} unit={unit} perPallet={perPallet} />
+    <div ref={root} className="relative hidden h-[270vh] bg-[var(--s-paper)] lg:block">
       <div className="sticky top-16 flex h-[calc(100dvh-4rem)] items-center overflow-hidden md:top-20 md:h-[calc(100dvh-5rem)]">
         <div aria-hidden className="pointer-events-none absolute inset-0 opacity-[0.06] [background-image:linear-gradient(#1C3241_1px,transparent_1px),linear-gradient(90deg,#1C3241_1px,transparent_1px)] [background-size:48px_48px]" />
         <div aria-hidden className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_55%_60%_at_32%_50%,rgba(255,255,255,0.95),transparent_70%)]" />
@@ -160,7 +171,7 @@ export function AuctionStory({ capacity = 20, tiers, product, unit = 'τ.μ.', p
               ))}
             </div>
             <div className="relative aspect-[16/10] w-full lg:aspect-[16/9]">
-              <Scene capacity={capacity} perPallet={perPallet} unit={unit} filled={sceneFilled} picked={chapter === 3 ? MY_PALLETS : 0} />
+              {desktop && <Scene capacity={capacity} perPallet={perPallet} unit={unit} filled={sceneFilled} picked={chapter === 3 ? MY_PALLETS : 0} />}
               {/* «Κέρσορας» που κλείνει θέσεις στο κεφάλαιο 4 */}
               <span aria-hidden className={cn('pointer-events-none absolute left-[62%] top-[46%] transition-[opacity,transform] duration-700', chapter === 3 ? 'scale-100 opacity-100' : 'scale-75 opacity-0')}>
                 <span className="absolute -left-3 -top-3 size-8 animate-ping rounded-full bg-[#7A5C43]/40 motion-reduce:hidden" />
@@ -233,6 +244,70 @@ export function AuctionStory({ capacity = 20, tiers, product, unit = 'τ.μ.', p
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    </>
+  );
+}
+
+/** Γέμισμα που «αφηγείται» κάθε κεφάλαιο στο κινητό. */
+const CHAPTER_FILL = [0, 5, 8, 14, 20];
+const CHAPTER_EVENT = [null, EVENTS[0], EVENTS[2], EVENTS[3], EVENTS[5]];
+
+/**
+ * Κινητό/tablet: η ίδια ιστορία ως κατακόρυφο χρονολόγιο — κάθε κεφάλαιο με τη δική του «στιγμή»
+ * (γέμισμα, τιμή, γεγονός της πύλης). Καμία sticky σκηνή, κανένα WebGL, τίποτα κομμένο. Ορατό χωρίς JS.
+ */
+function MobileStory({ tiers, capacity, product, unit, perPallet }: { tiers: Tier[]; capacity: number; product: string; unit: string; perPallet: number }) {
+  const base = tiers[0].price;
+  const final = tiers[tiers.length - 1].price;
+  const at = (f: number) => tiers.reduce((acc, t, i) => (f + 1e-9 >= t.from ? i : acc), 0);
+  return (
+    <div className="relative overflow-hidden bg-[var(--s-paper)] px-5 py-16 sm:px-8 lg:hidden">
+      <div aria-hidden className="pointer-events-none absolute inset-0 opacity-[0.06] [background-image:linear-gradient(#1C3241_1px,transparent_1px),linear-gradient(90deg,#1C3241_1px,transparent_1px)] [background-size:48px_48px]" />
+      <div className="relative mx-auto max-w-xl">
+        <p className="s-kicker text-[var(--s-accent)]">Δυναμική προσφορά · βήμα-βήμα</p>
+        <h2 className="font-display mt-4 text-[length:var(--fs-40)]">Πώς πέφτει η τιμή — <em>για όλους.</em></h2>
+        <p className="mt-3 text-[length:var(--fs-16)] text-[var(--s-ink-2)]">Παράδειγμα: {product}, {capacity} παλέτες, τιμή ανά {unit}.</p>
+        <ol className="relative mt-10 border-l border-[var(--s-line)] pl-6">
+          {CHAPTERS.map((c, i) => {
+            const f = CHAPTER_FILL[i];
+            const k = at(f);
+            const col = tierColor(k, tiers.length);
+            const ev = CHAPTER_EVENT[i];
+            return (
+              <li key={c.t} className="relative pb-10 last:pb-0">
+                <span className="font-num absolute -left-[37px] grid size-6 place-items-center rounded-full border border-[var(--s-ink)] bg-[var(--s-paper)] text-[length:var(--fs-12)]">{i + 1}</span>
+                <h3 className="font-display text-[length:var(--fs-24)] leading-tight">{c.t}</h3>
+                <p className="mt-2 text-[length:var(--fs-15)] text-[var(--s-ink-2)]">{c.d}</p>
+                <div className="mt-4 border border-[var(--s-line)] bg-white p-4 shadow-[0_18px_40px_-28px_rgba(28,50,65,0.45)]">
+                  <div className="flex items-end justify-between gap-3">
+                    <p className="font-num text-[length:var(--fs-32)] leading-none tabular-nums" style={{ color: col }}>{eur(tiers[k].price)}<span className="text-[length:var(--fs-13)] text-[var(--s-mute)]"> /{unit}</span></p>
+                    {k > 0 && <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[length:var(--fs-13)] font-medium" style={{ background: `${col}1f`, color: col }}><FiTrendingDown className="size-3.5" aria-hidden />−{num(((base - tiers[k].price) / base) * 100)}%</span>}
+                  </div>
+                  <div className="relative mt-3 h-1.5 bg-[var(--s-line)]" aria-hidden>
+                    <div className="absolute inset-y-0 left-0" style={{ width: `${(f / capacity) * 100}%`, background: `linear-gradient(90deg, ${tierColor(0, tiers.length)}, ${col})` }} />
+                    {tiers.slice(1).map((t, j) => <span key={t.from} className="absolute -top-1 h-3.5 w-0.5" style={{ left: `${(t.from / capacity) * 100}%`, background: f >= t.from ? tierColor(j + 1, tiers.length) : '#CFC9C0' }} />)}
+                  </div>
+                  <p className="mt-2 text-[length:var(--fs-13)] tabular-nums text-[var(--s-ink-2)]">{f} / {capacity} παλέτες</p>
+                  {ev && (
+                    <p className="mt-3 flex items-center gap-2 border-t border-[var(--s-line)] pt-3 text-[length:var(--fs-13)]">
+                      <span className="grid size-6 shrink-0 place-items-center rounded-full" style={{ background: `${ev.tone}14`, color: ev.tone }}><ev.icon className="size-3" aria-hidden /></span>{ev.t}
+                    </p>
+                  )}
+                </div>
+              </li>
+            );
+          })}
+        </ol>
+        <div className="mt-10 border-t border-[var(--s-ink)] pt-5">
+          <p className="text-[length:var(--fs-12)] uppercase tracking-[0.18em] text-[var(--s-mute)]">Για {MY_PALLETS} παλέτες ({MY_PALLETS * perPallet} {unit})</p>
+          <p className="mt-1 flex items-baseline gap-2"><span className="font-num text-[length:var(--fs-40)] tabular-nums text-[#15803D]">{eur((base - final) * MY_PALLETS * perPallet, 0)}</span><span className="text-[length:var(--fs-15)] text-[var(--s-ink-2)]">εξοικονόμηση</span></p>
+          <div className="mt-6 grid gap-3 sm:grid-cols-2">
+            <a href="/auth/register" className="inline-flex min-h-12 items-center justify-center gap-2 bg-[var(--s-ink)] px-5 text-[length:var(--fs-16)] font-medium text-white">Αίτημα πρόσβασης <FiArrowRight className="size-4" aria-hidden /></a>
+            <a href="/auth/signin" className="inline-flex min-h-12 items-center justify-center border border-[var(--s-ink)] px-5 text-[length:var(--fs-16)] font-medium">Είσοδος</a>
           </div>
         </div>
       </div>

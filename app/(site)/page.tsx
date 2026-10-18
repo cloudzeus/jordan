@@ -66,7 +66,7 @@ export default async function HomePage() {
         </div>
         <Grid color="#ffffff" opacity={0.05} />
 
-        <div className="mx-auto grid min-h-[100svh] w-full max-w-[1440px] items-center gap-12 px-5 pb-28 pt-28 sm:px-8 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)] lg:px-12">
+        <div className="mx-auto grid min-h-[100svh] w-full max-w-[1440px] items-center gap-10 px-5 pb-24 pt-24 sm:px-8 md:pb-28 md:pt-28 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)] lg:px-12">
           <div className="min-w-0">
             <p className="s-rise s-kicker text-[#D6B796]">B2B πύλη · μόνο για επαγγελματίες</p>
             <h1 style={{ ["--d" as string]: "0.1s" }} className="s-rise font-display mt-6 text-[length:var(--fs-56)] lg:text-[length:var(--fs-72)] xl:text-[length:var(--fs-96)]">
@@ -86,7 +86,7 @@ export default async function HomePage() {
               {['27+ χρόνια εμπειρίας', 'Showroom 1 : 1 στην Αθήνα', 'Τεχνική υποστήριξη & κοστολόγια'].map((t) => <li key={t} className="flex items-center gap-2"><span className="size-1 rounded-full bg-[#D6B796]" aria-hidden />{t}</li>)}
             </ul>
           </div>
-          <div style={{ ["--d" as string]: "0.25s" }} className="s-rise min-w-0">
+          <div style={{ ["--d" as string]: "0.25s" }} className="s-rise hidden min-w-0 md:block">
             <HeroLive />
             <p className="mt-4 text-[length:var(--fs-12)] text-white/55">Ενδεικτικό παράδειγμα · οι πραγματικές τιμές εμφανίζονται μετά τη σύνδεση</p>
           </div>
@@ -106,7 +106,7 @@ export default async function HomePage() {
       </section>
 
       {/* ═══ ΜΑΝΙΦΕΣΤΟ: οι λέξεις φωτίζονται με την κύλιση ═══ */}
-      <section id="manifesto" className="relative scroll-mt-20 overflow-hidden bg-[var(--s-paper)] py-24 md:py-36">
+      <section id="manifesto" className="relative scroll-mt-20 overflow-hidden bg-[var(--s-paper)] py-16 md:py-36">
         <Grid />
         <div className="relative mx-auto grid w-full max-w-[1440px] gap-16 px-5 sm:px-8 lg:grid-cols-[auto_minmax(0,1fr)] lg:px-12">
           <DimLineV label="ATELIER · ΑΘΗΝΑ" className="hidden h-[26rem] text-[var(--s-mute)] lg:flex" />
@@ -115,7 +115,7 @@ export default async function HomePage() {
             <p data-scrub-words className="font-display mt-8 max-w-5xl text-[length:var(--fs-40)] leading-[1.12] md:text-[length:var(--fs-56)]">
               Δεν είμαστε απλώς μια εταιρεία υλικών. Είμαστε το <em>εργαστήριο</em> του αρχιτέκτονα — υλικά, κοστολόγια, τεχνική υποστήριξη και χρονοδιαγράμματα, για ένα αποτέλεσμα εγγυημένο σε χρόνο και κόστος.
             </p>
-            <dl data-reveal data-stagger className="mt-16 grid grid-cols-2 gap-x-8 gap-y-10 border-t border-[var(--s-ink)] pt-10 md:grid-cols-4">
+            <dl data-reveal data-stagger className="mt-10 grid grid-cols-2 md:mt-16 gap-x-8 gap-y-10 border-t border-[var(--s-ink)] pt-10 md:grid-cols-4">
               {[
                 [String(ATELIER_PROFILE.yearsOfExperience), '+', 'χρόνια γνώσης & εμπειρίας'],
                 ['8', '', 'κλιμάκια τιμής σε κάθε κοινό container'],
@@ -135,7 +135,7 @@ export default async function HomePage() {
       {/* ═══ Η ΙΔΕΑ ΣΕ ΒΙΝΤΕΟ (Remotion) ═══ */}
       <section className="relative overflow-hidden bg-[#0B1620] text-white" aria-labelledby="film-title">
         <Grid color="#ffffff" opacity={0.05} />
-        <div className="relative mx-auto grid w-full max-w-[1440px] items-center gap-12 px-5 py-20 sm:px-8 md:py-28 lg:grid-cols-[minmax(0,0.75fr)_minmax(0,1.25fr)] lg:px-12">
+        <div className="relative mx-auto grid w-full max-w-[1440px] items-center gap-12 px-5 py-16 sm:px-8 md:py-28 lg:grid-cols-[minmax(0,0.75fr)_minmax(0,1.25fr)] lg:px-12">
           <div>
             <p className="s-kicker text-[#D6B796]">Δυναμικές προσφορές</p>
             <h2 id="film-title" data-split className="font-display mt-5 text-[length:var(--fs-48)] lg:text-[length:var(--fs-64)]">Η ιδέα, σε <em className="text-[#E8D5BF]">36</em> δευτερόλεπτα.</h2>
@@ -170,11 +170,11 @@ export default async function HomePage() {
       <section aria-labelledby="gallery-title" className="bg-white">
         <div data-hscroll className="relative">
          <div className="overflow-x-clip lg:sticky lg:top-20 lg:flex lg:h-[calc(100dvh-5rem)] lg:flex-col lg:justify-center">
-          <div className="mx-auto w-full max-w-[1440px] px-5 pt-24 sm:px-8 lg:px-12 lg:pt-0">
+          <div className="mx-auto w-full max-w-[1440px] px-5 pt-16 sm:px-8 md:pt-24 lg:px-12 lg:pt-0">
             <p className="s-kicker text-[var(--s-accent)]">Υλικά σε εφαρμογή</p>
             <h2 id="gallery-title" data-split className="font-display mt-4 max-w-4xl text-[length:var(--fs-48)]">Δείτε, αγγίξτε, <em>αποφασίστε</em> με σιγουριά.</h2>
           </div>
-          <div data-track className="mt-12 flex snap-x snap-mandatory gap-6 overflow-x-auto px-5 pb-24 sm:px-8 lg:mt-8 lg:w-max lg:snap-none lg:overflow-visible lg:px-12 lg:pb-0">
+          <div data-track className="mt-12 flex snap-x snap-mandatory gap-6 overflow-x-auto px-5 pb-16 sm:px-8 md:pb-24 lg:mt-8 lg:w-max lg:snap-none lg:overflow-visible lg:px-12 lg:pb-0">
             {GALLERY.map((g, i) => (
               <figure key={g.t} className="group relative w-[78vw] shrink-0 snap-start sm:w-[52vw] lg:w-[calc(54vh*0.8)]">
                 <div data-velocity className="relative aspect-[4/5] origin-center overflow-hidden bg-[var(--s-paper)]">
@@ -195,7 +195,7 @@ export default async function HomePage() {
       </section>
 
       {/* ═══ ΓΙΑ ΠΟΙΟΝ ═══ */}
-      <section className="relative overflow-hidden border-t border-[var(--s-line)] bg-white py-24 md:py-32" aria-labelledby="roles-title">
+      <section className="relative overflow-hidden border-t border-[var(--s-line)] bg-white py-16 md:py-32" aria-labelledby="roles-title">
         <div className="mx-auto w-full max-w-[1440px] px-5 sm:px-8 lg:px-12">
           <div className="flex flex-wrap items-end justify-between gap-6">
             <div>
@@ -204,10 +204,10 @@ export default async function HomePage() {
             </div>
             <p className="max-w-md text-[length:var(--fs-16)] text-[var(--s-ink-2)]">Απευθυνόμαστε στην αγορά της κατοικίας και των κατασκευών μεσαίας κλίμακας — σε όσους θέλουν ένα ξεχωριστό αποτέλεσμα.</p>
           </div>
-          <ul className="mt-16 grid gap-10 md:grid-cols-3 md:gap-6" data-reveal data-stagger>
+          <ul className="mt-10 grid gap-10 md:mt-16 md:grid-cols-3 md:gap-6" data-reveal data-stagger>
             {ROLES.map((r) => (
               <li key={r.k} className="group">
-                <div data-velocity className="relative aspect-[3/4] overflow-hidden bg-[var(--s-paper)]">
+                <div data-velocity className="relative aspect-[4/3] overflow-hidden bg-[var(--s-paper)] md:aspect-[3/4]">
                   <div data-parallax="0.12" className="absolute inset-[-8%]"><Image src={r.img} alt="" fill sizes="(min-width: 768px) 33vw, 100vw" className="s-img object-cover" /></div>
                   <div className="absolute inset-0 bg-gradient-to-t from-[#0B1620]/85 via-[#0B1620]/10 to-transparent" />
                   <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-4 p-6 text-white">
@@ -225,7 +225,7 @@ export default async function HomePage() {
       </section>
 
       {/* ═══ TOUCH & FEEL: βίντεο ═══ */}
-      <section className="relative overflow-hidden bg-[var(--s-paper)] py-24 md:py-32">
+      <section className="relative overflow-hidden bg-[var(--s-paper)] py-16 md:py-32">
         <Grid />
         <div className="relative mx-auto grid w-full max-w-[1440px] items-center gap-12 px-5 sm:px-8 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)] lg:px-12">
           <div className="relative" data-reveal="50">
@@ -272,7 +272,7 @@ export default async function HomePage() {
           <div className="absolute inset-0 bg-gradient-to-r from-[#0B1620] via-[#0B1620]/80 to-[#0B1620]/30" />
         </div>
         <Grid color="#ffffff" opacity={0.05} />
-        <div className="mx-auto w-full max-w-[1440px] px-5 py-24 sm:px-8 md:py-36 lg:px-12">
+        <div className="mx-auto w-full max-w-[1440px] px-5 py-16 sm:px-8 md:py-36 lg:px-12">
           <p className="s-kicker text-[#D6B796]">Πρόσβαση μόνο για επαγγελματίες</p>
           <h2 data-split className="font-display mt-6 text-[length:var(--fs-64)] md:text-[length:var(--fs-96)] xl:text-[length:var(--fs-120)]">Ας χτίσουμε <em className="text-[#E8D5BF]">μαζί.</em></h2>
           <ol className="mt-14 grid max-w-5xl gap-px bg-white/15 md:grid-cols-3" data-reveal data-stagger>

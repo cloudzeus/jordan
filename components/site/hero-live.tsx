@@ -34,6 +34,14 @@ export function HeroLive() {
   const [filled, setFilled] = React.useState(START);
   const [last, setLast] = React.useState<{ n: number; k: number } | null>(null);
   const card = React.useRef<HTMLDivElement>(null);
+  // Στο κινητό η κάρτα δεν εμφανίζεται (το φιλμ παρακάτω δείχνει το ίδιο) — ούτε φορτώνεται το WebGL.
+  const [wide, setWide] = React.useState(false);
+  React.useEffect(() => {
+    const mq = window.matchMedia('(min-width: 768px)');
+    const on = () => setWide(mq.matches);
+    on(); mq.addEventListener('change', on);
+    return () => mq.removeEventListener('change', on);
+  }, []);
 
   React.useEffect(() => {
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) { setFilled(13); return; }
@@ -72,7 +80,7 @@ export function HeroLive() {
           </span>
         </div>
         <div className="relative mt-2 aspect-[16/10] w-full">
-          <Scene filled={filled} />
+          {wide && <Scene filled={filled} />}
           {last && (
             <span key={last.k} className="s-pop absolute right-2 top-2 inline-flex items-center gap-1.5 bg-white px-2.5 py-1 text-[length:var(--fs-12)] font-medium text-[var(--s-ink)] shadow-lg">
               <span className="size-1.5 rounded-full bg-[#15803D]" aria-hidden />Νέα κράτηση · +{last.n} {last.n === 1 ? 'παλέτα' : 'παλέτες'}

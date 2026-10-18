@@ -131,8 +131,8 @@ export function PortalShowcase() {
       <div aria-hidden className="pointer-events-none absolute inset-0 opacity-[0.07] [background-image:linear-gradient(#fff_1px,transparent_1px),linear-gradient(90deg,#fff_1px,transparent_1px)] [background-size:48px_48px]" />
       <div aria-hidden className="pointer-events-none absolute -right-40 top-1/2 size-[60rem] -translate-y-1/2 rounded-full bg-[radial-gradient(circle,rgba(122,92,67,0.35),transparent_60%)]" />
 
-      <div className="relative mx-auto grid w-full max-w-[1280px] gap-14 px-5 py-20 sm:px-8 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] lg:px-12 lg:py-28">
-        <div>
+      <div className="relative mx-auto grid w-full max-w-[1280px] grid-cols-1 gap-14 px-5 py-16 sm:px-8 md:py-20 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] lg:px-12 lg:py-28">
+        <div className="min-w-0">
           <p className="s-kicker text-[#D6B796]">Η περιοχή πελάτη</p>
           <h2 data-split className="font-display mt-5 text-[length:var(--fs-64)]">Το γραφείο σας, <em>online.</em></h2>
           <ol className="mt-10 space-y-2 lg:mt-0">
@@ -143,7 +143,7 @@ export function PortalShowcase() {
                   <p className="flex items-baseline gap-3"><span className="font-num text-[length:var(--fs-14)] text-[#D6B796]">0{i + 1}</span><span className="font-display text-[length:var(--fs-28)]">{s.t}</span></p>
                   <p className="mt-2 max-w-md text-[length:var(--fs-15)] text-white/70">{s.d}</p>
                   {/* Κινητό: η «οθόνη» κάτω από κάθε βήμα */}
-                  <div className="mt-6 lg:hidden"><Ui /></div>
+                  <div className="mt-6 min-w-0 lg:hidden"><Ui /></div>
                 </li>
               );
             })}
