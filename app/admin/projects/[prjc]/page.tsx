@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { FiBriefcase, FiArrowLeft } from 'react-icons/fi';
+import { FiBriefcase, FiArrowLeft, FiTrello } from 'react-icons/fi';
 import { requirePermission, hasPermission } from '@/lib/rbac';
 import { getProject } from '@/lib/projects';
 import { PageHeader } from '@/components/admin/page-header';
@@ -12,6 +12,8 @@ import { ProjectFinancials } from './project-financials';
 import { getProjectSite } from '@/lib/project-site';
 import { siteLine } from '@/lib/project-site-core';
 import { EntityFilesPanel } from '@/components/admin/entity-files/entity-files-panel';
+import { listTasks } from '@/lib/project-tasks';
+import { PHASES, phaseCounts } from '@/lib/project-tasks-core';
 
 export const dynamic = 'force-dynamic';
 
@@ -53,6 +55,8 @@ export default async function ProjectPage({ params }: { params: Promise<{ prjc: 
   const fresh = canFinancials ? await ensureFreshFinancials() : null;
   const fin = canFinancials ? await getProjectFinancials(p.prjc) : null;
   const site = await getProjectSite(p.prjc);
+  const work = await listTasks(p.prjc);
+  const counts = phaseCounts(work.tasks);
 
   return (
     <div className="w-full max-w-5xl">
@@ -92,6 +96,25 @@ export default async function ProjectPage({ params }: { params: Promise<{ prjc: 
           {p.supplier && <Field label="Προμηθευτής"><TraderBlock t={p.supplier} /></Field>}
         </dl>
         {p.remarks && <p className="mt-2 whitespace-pre-wrap border-t border-border pt-2 text-[length:var(--fs-12)] text-muted-foreground">{p.remarks}</p>}
+      </section>
+
+      {/* Εργασίες: σύνοψη προόδου + είσοδος στο Kanban/Gantt */}
+      <section aria-label="Εργασίες έργου" className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-3 rounded-xl border border-border bg-card px-3 py-3 shadow-sm sm:px-4">
+        <div className="min-w-40 flex-1">
+          <div className="flex items-baseline justify-between gap-2">
+            <span className="text-[length:var(--fs-13)] font-semibold">Εργασίες</span>
+            <span className="text-[length:var(--fs-13)] font-semibold tabular-nums">{work.progress}%</span>
+          </div>
+          <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-muted" role="progressbar" aria-valuenow={work.progress} aria-valuemin={0} aria-valuemax={100} aria-label="Ολοκλήρωση εργασιών">
+            <div className="h-full rounded-full bg-primary" style={{ width: `${work.progress}%` }} />
+          </div>
+          <p className="mt-1 flex flex-wrap gap-x-3 text-[length:var(--fs-11)] text-muted-foreground">
+            {work.tasks.length === 0 ? 'Καμία εργασία ακόμη' : PHASES.map((ph) => <span key={ph.key}>{ph.label} <span className="tabular-nums font-medium text-foreground">{counts[ph.key]}</span></span>)}
+          </p>
+        </div>
+        <Link href={`/admin/projects/${p.prjc}/tasks`} className="inline-flex min-h-9 items-center gap-1.5 rounded-md border border-border px-3 text-[length:var(--fs-12)] font-medium hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+          <FiTrello className="size-3.5" aria-hidden /> Kanban & Gantt
+        </Link>
       </section>
 
       {fin && <ProjectFinancials profit={fin.profit} issues={fin.issues} computedAt={fin.computedAt} error={fresh?.error ?? null} />}

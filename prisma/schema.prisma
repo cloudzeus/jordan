@@ -3256,21 +3256,22 @@ model EntityFolder {
 }
 
 model EntityFile {
-  id           String       @id @default(cuid())
+  id           String            @id @default(cuid())
   folderId     String
-  folder       EntityFolder @relation(fields: [folderId], references: [id], onDelete: Cascade)
-  subfolder    String       @default("") // "" = ρίζα
+  folder       EntityFolder      @relation(fields: [folderId], references: [id], onDelete: Cascade)
+  subfolder    String            @default("") // "" = ρίζα
   name         String // όνομα που βλέπει ο χρήστης (μετονομάζεται)
   originalName String
   ext          String // dwg · dxf · dwf · dwfx · pdf · xls · xlsx · csv · doc · docx
   mimeType     String // από τον πίνακα τύπων — ΟΧΙ ό,τι δήλωσε ο browser
   size         Int
-  storageKey   String       @unique // ιδιωτικό κλειδί στο Bunny — δεν φεύγει ποτέ προς τον browser
+  storageKey   String            @unique // ιδιωτικό κλειδί στο Bunny — δεν φεύγει ποτέ προς τον browser
   notes        String?
   uploadedById String?
   uploadedBy   String? // όνομα/email τη στιγμή του ανεβάσματος (για τη λίστα)
-  createdAt    DateTime     @default(now())
-  updatedAt    DateTime     @updatedAt
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+  tasks        ProjectTaskFile[]
 
   @@index([folderId, subfolder])
 }
@@ -3409,4 +3410,101 @@ model ItemGroupAssignment {
 
   @@index([groupId])
   @@index([sodtype, status])
+}
+
+// ── Εργασίες έργου (Tasks) — δικά μας δεδομένα, ΔΕΝ γράφονται στο SoftOne ──────────────────────────
+// Χρονοπρογραμματισμός (εξαρτήσεις, εργάσιμες ημέρες), φάσεις Kanban και templates: `lib/project-tasks-core.ts`.
+model ProjectTask {
+  id              String    @id @default(cuid())
+  prjc            Int // SoftOne PRJC του έργου
+  name            String
+  description     String?
+  startDate       DateTime? @db.Date // κενό = όσο νωρίτερα επιτρέπουν οι εξαρτήσεις
+  durationValue   Float     @default(1) // χρόνος υλοποίησης
+  durationUnit    String    @default("DAYS") // DAYS (εργάσιμες) · HOURS (8 ώρες = 1 ημέρα)
+  progress        Int       @default(0) // 0 · 25 · 50 · 75 · 100 — ορίζει και τη στήλη Kanban
+  sortOrder       Int       @default(0) // σειρά μέσα στη στήλη
+  customerVisible Boolean   @default(false) // φαίνεται στο portal του πελάτη του έργου
+  inCalendar      Boolean   @default(false) // στο ημερολόγιο ραντεβού + πρόσκληση .ics στους υπαλλήλους
+  icsSequence     Int       @default(0)
+  completedAt     DateTime?
+  createdById     String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  parties     ProjectTaskParty[]
+  files       ProjectTaskFile[]
+  dependsOn   ProjectTaskDependency[] @relation("TaskSuccessor")
+  requiredFor ProjectTaskDependency[] @relation("TaskPredecessor")
+
+  @@index([prjc, sortOrder])
+  @@index([inCalendar, startDate])
+}
+
+// «Γίνεται αφού ολοκληρωθεί»: το taskId ξεκινά μετά το τέλος του dependsOnId (finish-to-start).
+model ProjectTaskDependency {
+  taskId      String
+  task        ProjectTask @relation("TaskSuccessor", fields: [taskId], references: [id], onDelete: Cascade)
+  dependsOnId String
+  dependsOn   ProjectTask @relation("TaskPredecessor", fields: [dependsOnId], references: [id], onDelete: Cascade)
+
+  @@id([taskId, dependsOnId])
+  @@index([dependsOnId])
+}
+
+// Εμπλεκόμενοι: EMPLOYEE (User) · PARTNER (Partner) · SUPPLIER / CUSTOMER (SoftOne TRDR).
+model ProjectTaskParty {
+  id        String      @id @default(cuid())
+  taskId    String
+  task      ProjectTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  kind      String
+  userId    String?
+  partnerId String?
+  trdr      Int?
+
+  @@index([taskId])
+  @@index([userId])
+  @@index([partnerId])
+  @@index([trdr])
+}
+
+// Αρχεία task: ζουν στον φάκελο του έργου (EntityFile, Bunny)· εδώ μόνο ο σύνδεσμος.
+model ProjectTaskFile {
+  taskId String
+  task   ProjectTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  fileId String
+  file   EntityFile  @relation(fields: [fileId], references: [id], onDelete: Cascade)
+
+  @@id([taskId, fileId])
+  @@index([fileId])
+}
+
+// Templates εργασιών: ονομασμένο σύνολο tasks με σχετική έναρξη (εργάσιμες από την αρχή) και εξαρτήσεις.
+model TaskTemplate {
+  id          String             @id @default(cuid())
+  name        String             @unique
+  description String?
+  createdById String?
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+  items       TaskTemplateItem[]
+}
+
+model TaskTemplateItem {
+  id              String       @id @default(cuid())
+  templateId      String
+  template        TaskTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  key             String // τοπικό κλειδί μέσα στο template (για τις εξαρτήσεις)
+  name            String
+  description     String?
+  durationValue   Float        @default(1)
+  durationUnit    String       @default("DAYS")
+  offsetDays      Int          @default(0) // εργάσιμες από την έναρξη του template
+  customerVisible Boolean      @default(false)
+  inCalendar      Boolean      @default(false)
+  sortOrder       Int          @default(0)
+  dependsOn       String[]     @default([]) // κλειδιά άλλων items
+
+  @@unique([templateId, key])
+  @@index([templateId, sortOrder])
 }

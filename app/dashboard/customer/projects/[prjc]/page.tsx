@@ -9,6 +9,9 @@ import { PortalShell } from '../../../portal-shell';
 import { date, Empty, ErpUnavailable, eur, PageTitle, Stat, Status } from '../../_ui/bits';
 import { DocTable } from '../../_ui/doc-table';
 import { projectTone } from '../../_ui/tones';
+import { customerProjectTasks } from '@/lib/project-tasks';
+import { zonedParts } from '@/lib/appointments-core';
+import { ProjectTasksSection } from './project-tasks-section';
 
 export const dynamic = 'force-dynamic';
 export const metadata: Metadata = { title: 'Έργο' };
@@ -29,16 +32,20 @@ export default async function CustomerProjectPage({ params }: { params: Promise<
     // SoftOne δεν απάντησε: δείχνουμε τουλάχιστον το έργο από τον καθρέφτη.
     const p = await prisma.softoneProject.findFirst({ where: { prjc, trdr: user.customerTrdr }, select: { code: true, name: true } });
     if (!p) notFound();
+    // Οι εργασίες είναι δικά μας δεδομένα — φαίνονται και όταν το SoftOne δεν απαντά.
+    const work = await customerProjectTasks(user.customerTrdr, prjc);
     return (
       <PortalShell user={user} org={org?.name ?? null} active="projects">
         <Container className="py-14 md:py-20">
           <PageTitle eyebrow={`Έργο ${p.code}`} title={p.name} back={{ href: '/dashboard/customer/projects', label: 'Τα έργα μου' }} />
           <div className="mt-10"><ErpUnavailable /></div>
+          {work && <ProjectTasksSection tasks={work.tasks} progress={work.progress} today={zonedParts(new Date()).date} />}
         </Container>
       </PortalShell>
     );
   }
   const { project: p, docs, totals, requests } = data.d!;
+  const work = await customerProjectTasks(user.customerTrdr, prjc);
   const sales = docs.filter((d) => d.kind !== 'payment');
   const payments = docs.filter((d) => d.kind === 'payment');
   return (
@@ -57,6 +64,8 @@ export default async function CustomerProjectPage({ params }: { params: Promise<
           <Stat label="Πληρωμές σας" value={eur(totals.paid)} />
           <Stat label="Ανοιχτές παραγγελίες" value={String(totals.openOrders)} hint={requests ? `+ ${requests} αιτήματα από το portal` : undefined} />
         </div>
+
+        {work && <ProjectTasksSection tasks={work.tasks} progress={work.progress} today={zonedParts(new Date()).date} />}
 
         <section className="mt-16" aria-labelledby="docs">
           <div className="flex flex-wrap items-end justify-between gap-4">

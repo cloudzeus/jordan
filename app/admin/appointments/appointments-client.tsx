@@ -20,6 +20,9 @@ import {
   type Availability, type AppointmentStatus,
 } from '@/lib/appointments-core';
 import type { AppointmentView, BlockView, StaffUser } from '@/lib/appointments';
+import type { CalendarTask } from '@/lib/project-tasks';
+
+const TASK_TONE = '#7C3AED';
 
 const ITEM = 'cursor-pointer gap-2 text-[length:var(--fs-12)]';
 const soft = (hex: string, pct: number) => `color-mix(in srgb, ${hex} ${pct}%, var(--background))`;
@@ -232,7 +235,7 @@ function AssignDialog({ row, staff, softoneEnabled, onClose, onDone }: { row: Ap
   );
 }
 
-export function AppointmentsClient({ rows, blocks, availability, canManage, canSchedule, staff, meId, softoneEnabled, today }: { rows: AppointmentView[]; blocks: BlockView[]; availability: Availability; canManage: boolean; canSchedule: boolean; staff: StaffUser[]; meId: string | null; softoneEnabled: boolean; today: string }) {
+export function AppointmentsClient({ rows, blocks, availability, canManage, canSchedule, staff, meId, softoneEnabled, today, tasks = [] }: { rows: AppointmentView[]; blocks: BlockView[]; availability: Availability; canManage: boolean; canSchedule: boolean; staff: StaffUser[]; meId: string | null; softoneEnabled: boolean; today: string; tasks?: CalendarTask[] }) {
   const [schedule, setSchedule] = React.useState<{ open: boolean; prefill: SchedulePrefill }>({ open: false, prefill: null });
   const router = useRouter();
   const refresh = () => router.refresh();
@@ -249,7 +252,14 @@ export function AppointmentsClient({ rows, blocks, availability, canManage, canS
   const events = rows.filter((r) => showCancelled || r.status !== 'CANCELLED').map((r) => ({
     id: r.id, start: r.start, end: r.end, title: r.company || r.name, subtitle: `${zonedParts(new Date(r.start)).time} · ${r.name}`,
     color: APPOINTMENT_TONE[r.status], muted: r.status === 'CANCELLED' || r.status === 'NO_SHOW',
-  }));
+  })).concat(tasks.map((t) => ({
+    // Εργασίες έργων: ξεχωριστό χρώμα, κλικ → οι εργασίες του έργου
+    id: `task:${t.prjc}:${t.id}`, start: t.start, end: t.end, title: t.name, subtitle: `${t.projectCode} · ${t.progress}%`, color: TASK_TONE, muted: t.progress === 100,
+  })));
+  const selectEvent = (id: string) => {
+    if (id.startsWith('task:')) router.push(`/admin/projects/${id.split(':')[1]}/tasks`);
+    else setSelected(id);
+  };
   const onAction = (a: Action) => { setSelected(null); setAction(a); };
   const done = () => { setAction(null); setSelected(null); refresh(); };
 
@@ -283,13 +293,14 @@ export function AppointmentsClient({ rows, blocks, availability, canManage, canS
           </TabsList>
           <div className="flex flex-wrap items-center gap-3 text-[length:var(--fs-11)] text-muted-foreground">
             {(['PENDING', 'CONFIRMED', 'COMPLETED'] as const).map((s) => <span key={s} className="inline-flex items-center gap-1.5"><span className="size-2.5 rounded-sm" style={{ background: APPOINTMENT_TONE[s] }} />{{ PENDING: 'Σε αναμονή', CONFIRMED: 'Επιβεβαιωμένο', COMPLETED: 'Ολοκληρώθηκε' }[s]}</span>)}
+            {tasks.length > 0 && <span className="inline-flex items-center gap-1.5"><span className="size-2.5 rounded-sm" style={{ background: TASK_TONE }} />Εργασία έργου</span>}
             <label className="inline-flex items-center gap-1.5"><Switch checked={showCancelled} onCheckedChange={setShowCancelled} /> Ακυρωμένα</label>
             {canSchedule && <Button size="sm" className="h-8" onClick={() => setSchedule({ open: true, prefill: { date: anchor, time: '10:00' } })}><FiPlus className="size-3.5" aria-hidden /> Νέο ραντεβού</Button>}
           </div>
         </div>
         <TabsContent value="calendar">
           <AppointmentsCalendar view={view} anchor={anchor} today={today} events={events} blocks={blocks} availability={availability}
-            onNavigate={setAnchor} onView={setView} onSelectEvent={setSelected} onSelectDay={(d) => { setAnchor(d); setView('day'); }}
+            onNavigate={setAnchor} onView={setView} onSelectEvent={selectEvent} onSelectDay={(d) => { setAnchor(d); setView('day'); }}
             onSelectSlot={canSchedule ? (date, time) => setSchedule({ open: true, prefill: { date, time } }) : undefined} />
         </TabsContent>
         <TabsContent value="list">

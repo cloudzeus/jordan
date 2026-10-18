@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-import { FiMoreVertical, FiPackage, FiTool, FiExternalLink, FiRefreshCw, FiCopy, FiMapPin, FiFolder } from 'react-icons/fi';
+import { FiMoreVertical, FiPackage, FiTool, FiExternalLink, FiRefreshCw, FiCopy, FiMapPin, FiFolder, FiTrello } from 'react-icons/fi';
 import { toast } from 'sonner';
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
@@ -79,6 +79,9 @@ export function ProjectRowActions({
           )}
           <DropdownMenuItem className={ITEM} onSelect={() => router.push(`/admin/projects/${prjc}`)}>
             <FiExternalLink className="size-3.5" aria-hidden /> Άνοιγμα καρτέλας έργου
+          </DropdownMenuItem>
+          <DropdownMenuItem className={ITEM} onSelect={() => router.push(`/admin/projects/${prjc}/tasks`)}>
+            <FiTrello className="size-3.5" style={{ color: '#2563EB' }} aria-hidden /> Εργασίες (Kanban & Gantt)
           </DropdownMenuItem>
           {files && (
             <DropdownMenuItem className={ITEM} onSelect={openFiles}>

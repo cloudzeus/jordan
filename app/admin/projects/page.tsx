@@ -1,4 +1,5 @@
-import { FiBriefcase } from 'react-icons/fi';
+import Link from 'next/link';
+import { FiBookmark, FiBriefcase } from 'react-icons/fi';
 import { requirePermission, hasPermission } from '@/lib/rbac';
 import { getSetting } from '@/lib/settings';
 import { listProjects } from '@/lib/projects';
@@ -31,7 +32,14 @@ export default async function ProjectsPage() {
         title="Έργα"
         description={`${active.toLocaleString('el-GR')} ενεργά έργα από το SoftOne${rows.length > active ? ` · ${rows.length - active} ανενεργά` : ''}`}
         helpAnchor="projects"
-        actions={canFinancials ? <FinancialsMenu canManage={canManage} /> : undefined}
+        actions={(
+          <div className="flex items-center gap-1.5">
+            <Link href="/admin/projects/task-templates" aria-label="Templates εργασιών" className="inline-flex min-h-8 items-center gap-1.5 rounded-md border border-border px-2.5 text-[length:var(--fs-12)] font-medium hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+              <FiBookmark className="size-3.5" aria-hidden /><span className="hidden sm:inline">Templates εργασιών</span>
+            </Link>
+            {canFinancials && <FinancialsMenu canManage={canManage} />}
+          </div>
+        )}
       />
       <ProjectsTableClient
         rows={finRows ?? rows.map((r) => ({ ...r, fin: null }))}
