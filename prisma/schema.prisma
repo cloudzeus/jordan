@@ -107,6 +107,9 @@ model User {
   // Εξωτερικοί χρήστες (portal): ποιανού πελάτη (SoftOne TRDR) / συνεργάτη είναι — περιορίζει ό,τι βλέπουν.
   customerTrdr     Int?
   partnerId        String?
+  // Προσωπικό: ο αντίστοιχος χρήστης του SoftOne (USERS.USERS) — εκεί καταχωρίζονται τα ραντεβού του (SOACTION.ACTOR).
+  softoneUserId    Int?
+  softoneUserName  String?
   customerContact  CustomerContact?
   partnerContact   PartnerContact?
   partnerSelf      Partner?         @relation("PartnerSelfUser")
@@ -2996,30 +2999,46 @@ model Lead {
 }
 
 model Appointment {
-  id              String    @id @default(cuid())
-  number          Int       @unique @default(autoincrement()) // «ΡΝΤ-000123» στο UI
-  leadId          String
-  lead            Lead      @relation(fields: [leadId], references: [id], onDelete: Cascade)
-  startsAt        DateTime
-  endsAt          DateTime
+  id                String    @id @default(cuid())
+  number            Int       @unique @default(autoincrement()) // «ΡΝΤ-000123» στο UI
+  // website = από τη δημόσια φόρμα (με lead) · staff = προγραμματισμένο από το προσωπικό
+  source            String    @default("website")
+  leadId            String?
+  lead              Lead?     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  // Με ποιον (ραντεβού προσωπικού): συναλλασσόμενος SoftOne, επαφή του, συνεργάτης ή επαφή συνεργάτη
+  trdr              Int?
+  customerContactId String?
+  partnerId         String?
+  partnerContactId  String?
+  createdById       String?
+  // Υπεύθυνος από το προσωπικό· αν είναι συνδεδεμένος με χρήστη SoftOne, το ραντεβού γράφεται ως Ενέργεια (SOACTION)
+  assignedToId      String?
+  softoneAction     Int?
+  softoneActionCode String?
+  softoneSync       String? // SYNCED · FAILED · null = δεν αφορά/δεν στάλθηκε
+  softoneError      String?
+  startsAt          DateTime
+  endsAt            DateTime
   // PENDING (αίτημα) → CONFIRMED → COMPLETED | NO_SHOW · PENDING/CONFIRMED → CANCELLED
-  status          String    @default("PENDING")
-  name            String
-  email           String
-  phone           String?
-  company         String?
-  topic           String?
-  message         String?
-  staffNote       String? // σημείωση/μήνυμα προς τον επισκέπτη
-  rescheduledFrom DateTime?
-  decidedById     String?
-  decidedAt       DateTime?
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  status            String    @default("PENDING")
+  name              String
+  email             String?
+  phone             String?
+  company           String?
+  topic             String?
+  message           String?
+  staffNote         String? // σημείωση/μήνυμα προς τον επισκέπτη
+  rescheduledFrom   DateTime?
+  decidedById       String?
+  decidedAt         DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 
   @@index([startsAt])
   @@index([status])
   @@index([leadId])
+  @@index([trdr])
+  @@index([assignedToId])
 }
 
 // Κλειστές μέρες/ώρες (αργίες, εκθέσεις, άδειες). Ολοήμερο = από 00:00 έως 00:00 της επόμενης.

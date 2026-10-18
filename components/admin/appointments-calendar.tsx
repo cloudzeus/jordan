@@ -50,12 +50,14 @@ function onDay(date: string, startIso: string, endIso: string) {
  * διαγραμμίζει αποκλεισμούς και ανοίγει το ραντεβού με κλικ. Χωρίς εξωτερική βιβλιοθήκη.
  */
 export function AppointmentsCalendar({
-  view, anchor, today, events, blocks, availability, onNavigate, onView, onSelectEvent, onSelectDay,
+  view, anchor, today, events, blocks, availability, onNavigate, onView, onSelectEvent, onSelectDay, onSelectSlot,
 }: {
   view: CalendarView; anchor: string; today: string;
   events: CalendarEvent[]; blocks: CalendarBlock[]; availability: Availability;
   onNavigate: (anchor: string) => void; onView: (v: CalendarView) => void;
   onSelectEvent: (id: string) => void; onSelectDay?: (date: string) => void;
+  /** Κλικ σε κενό σημείο της ημέρας/εβδομάδας → ώρα στρογγυλεμένη στο τέταρτο. */
+  onSelectSlot?: (date: string, time: string) => void;
 }) {
   const days = rangeOf(view, anchor);
   const step = view === 'day' ? 1 : view === 'week' ? 7 : 0;
@@ -85,14 +87,14 @@ export function AppointmentsCalendar({
       </div>
       {view === 'month'
         ? <MonthGrid days={days} anchor={anchor} today={today} events={events} blocks={blocks} weekly={availability.weekly} onSelectEvent={onSelectEvent} onSelectDay={onSelectDay} />
-        : <TimeGrid days={days} today={today} events={events} blocks={blocks} weekly={availability.weekly} onSelectEvent={onSelectEvent} onSelectDay={onSelectDay} />}
+        : <TimeGrid days={days} today={today} events={events} blocks={blocks} weekly={availability.weekly} onSelectEvent={onSelectEvent} onSelectDay={onSelectDay} onSelectSlot={onSelectSlot} />}
     </div>
   );
 }
 
-function TimeGrid({ days, today, events, blocks, weekly, onSelectEvent, onSelectDay }: {
+function TimeGrid({ days, today, events, blocks, weekly, onSelectEvent, onSelectDay, onSelectSlot }: {
   days: string[]; today: string; events: CalendarEvent[]; blocks: CalendarBlock[]; weekly: Weekly;
-  onSelectEvent: (id: string) => void; onSelectDay?: (date: string) => void;
+  onSelectEvent: (id: string) => void; onSelectDay?: (date: string) => void; onSelectSlot?: (date: string, time: string) => void;
 }) {
   // Εύρος ωρών: το ωράριο της εβδομάδας (default 09–19), διευρυμένο για ραντεβού εκτός ωραρίου.
   const open = Object.values(weekly).flat();
@@ -141,7 +143,14 @@ function TimeGrid({ days, today, events, blocks, weekly, onSelectEvent, onSelect
           }
           const laneCount = Math.max(1, lanes.length);
           return (
-            <div key={d} className="relative border-l border-border" style={{ height: `${hours.length * HOUR_REM}rem`, background: CLOSED_BG }}>
+            <div key={d} className={cn('relative border-l border-border', onSelectSlot && 'cursor-copy')} style={{ height: `${hours.length * HOUR_REM}rem`, background: CLOSED_BG }}
+              title={onSelectSlot ? 'Κλικ για νέο ραντεβού' : undefined}
+              onClick={onSelectSlot ? (ev) => {
+                if (ev.target !== ev.currentTarget && (ev.target as HTMLElement).closest('button')) return;
+                const r = ev.currentTarget.getBoundingClientRect();
+                const m = minH * 60 + Math.floor((((ev.clientY - r.top) / r.height) * hours.length * 60) / 15) * 15;
+                onSelectSlot(d, `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`);
+              } : undefined}>
               {hours.map((h) => <div key={h} className="pointer-events-none relative z-[1] border-b border-border/60" style={{ height: `${HOUR_REM}rem` }} />)}
               {ranges.map((r) => (
                 <div key={r.from} aria-hidden className="absolute inset-x-0 bg-card" style={{ top: top(Math.max(toMinutes(r.from), minH * 60)), height: height(Math.max(toMinutes(r.from), minH * 60), Math.min(toMinutes(r.to), maxH * 60)) }} />

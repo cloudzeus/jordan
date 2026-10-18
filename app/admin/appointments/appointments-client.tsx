@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { type ColumnDef } from '@tanstack/react-table';
-import { FiCalendar, FiCheck, FiCheckCircle, FiClock, FiMail, FiMoreVertical, FiPhone, FiUserX, FiX } from 'react-icons/fi';
+import { FiCalendar, FiCheck, FiPlus, FiUploadCloud, FiUserCheck, FiCheckCircle, FiClock, FiMail, FiMoreVertical, FiPhone, FiUserX, FiX } from 'react-icons/fi';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -14,11 +14,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogBody, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { AppointmentsCalendar, type CalendarView } from '@/components/admin/appointments-calendar';
+import { ScheduleDialog, type SchedulePrefill } from './schedule-dialog';
 import {
   APPOINTMENT_TONE, canReschedule, computeSlots, formatSlotEl, isActiveStatus, staffCanMove, zonedParts, zonedToUtc,
   type Availability, type AppointmentStatus,
 } from '@/lib/appointments-core';
-import type { AppointmentView, BlockView } from '@/lib/appointments';
+import type { AppointmentView, BlockView, StaffUser } from '@/lib/appointments';
 
 const ITEM = 'cursor-pointer gap-2 text-[length:var(--fs-12)]';
 const soft = (hex: string, pct: number) => `color-mix(in srgb, ${hex} ${pct}%, var(--background))`;
@@ -35,10 +36,16 @@ function StatusBadge({ r }: { r: AppointmentView }) {
   return <span className="whitespace-nowrap rounded-md px-2 py-0.5 text-[length:var(--fs-11)] font-medium" style={{ color: c, background: soft(c, 12) }}>{r.statusLabel}</span>;
 }
 
-type Action = { kind: 'cancel' | 'reschedule'; row: AppointmentView } | null;
+type Action = { kind: 'cancel' | 'reschedule' | 'assign'; row: AppointmentView } | null;
 
 /** Το ⋮ μενού ενεργειών ενός ραντεβού — ίδιο στη λίστα και στο παράθυρο λεπτομερειών. */
-function ActionsMenu({ r, onAction, onDone, align = 'end' }: { r: AppointmentView; onAction: (a: Action) => void; onDone: () => void; align?: 'start' | 'end' }) {
+function ActionsMenu({ r, onAction, onDone, softoneEnabled, align = 'end' }: { r: AppointmentView; onAction: (a: Action) => void; onDone: () => void; softoneEnabled: boolean; align?: 'start' | 'end' }) {
+  const toSoftone = async () => {
+    const res = await fetch(`/api/admin/appointments/${r.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'softone' }) });
+    const d = await res.json().catch(() => ({}));
+    if (res.ok) toast.success(d.message); else toast.error(d.message ?? 'Η αποστολή απέτυχε');
+    onDone();
+  };
   const move = async (status: AppointmentStatus, msg: string) => {
     try { await patch(r.id, { action: 'status', status }); toast.success(msg); onDone(); } catch (e) { toast.error((e as Error).message); }
   };
@@ -51,8 +58,10 @@ function ActionsMenu({ r, onAction, onDone, align = 'end' }: { r: AppointmentVie
         {canReschedule(r.status) && <DropdownMenuItem className={ITEM} onSelect={() => onAction({ kind: 'reschedule', row: r })}><FiClock className="size-3.5" aria-hidden /> Μεταφορά σε άλλη ώρα…</DropdownMenuItem>}
         {staffCanMove(r.status, 'COMPLETED') && <DropdownMenuItem className={ITEM} onSelect={() => move('COMPLETED', `Το ${r.code} ολοκληρώθηκε`)}><FiCheckCircle className="size-3.5" aria-hidden /> Ολοκληρώθηκε</DropdownMenuItem>}
         {staffCanMove(r.status, 'NO_SHOW') && <DropdownMenuItem className={ITEM} onSelect={() => move('NO_SHOW', `Το ${r.code} σημειώθηκε ως «δεν προσήλθε»`)}><FiUserX className="size-3.5" aria-hidden /> Δεν προσήλθε</DropdownMenuItem>}
+        <DropdownMenuItem className={ITEM} onSelect={() => onAction({ kind: 'assign', row: r })}><FiUserCheck className="size-3.5" aria-hidden /> Υπεύθυνος…</DropdownMenuItem>
+        {softoneEnabled && r.assignedToId && r.softoneSync !== 'SYNCED' && r.status !== 'PENDING' && <DropdownMenuItem className={ITEM} onSelect={toSoftone}><FiUploadCloud className="size-3.5" aria-hidden /> {r.softoneSync === 'FAILED' ? 'Ξανά στο SoftOne' : 'Καταχώριση στο SoftOne'}</DropdownMenuItem>}
         {any && <DropdownMenuSeparator />}
-        <DropdownMenuItem className={ITEM} asChild><a href={`mailto:${r.email}?subject=${encodeURIComponent(`Ραντεβού ${r.code}`)}`}><FiMail className="size-3.5" aria-hidden /> Email στον επισκέπτη</a></DropdownMenuItem>
+        {r.email && <DropdownMenuItem className={ITEM} asChild><a href={`mailto:${r.email}?subject=${encodeURIComponent(`Ραντεβού ${r.code}`)}`}><FiMail className="size-3.5" aria-hidden /> Email στον {r.source === 'staff' ? 'πελάτη' : 'επισκέπτη'}</a></DropdownMenuItem>}
         {r.phone && <DropdownMenuItem className={ITEM} asChild><a href={`tel:${r.phone.replace(/\s/g, '')}`}><FiPhone className="size-3.5" aria-hidden /> Κλήση {r.phone}</a></DropdownMenuItem>}
         {staffCanMove(r.status, 'CANCELLED') && (<><DropdownMenuSeparator /><DropdownMenuItem variant="destructive" className={ITEM} onSelect={() => onAction({ kind: 'cancel', row: r })}><FiX className="size-3.5" aria-hidden /> Ακύρωση…</DropdownMenuItem></>)}
       </DropdownMenuContent>
@@ -60,19 +69,22 @@ function ActionsMenu({ r, onAction, onDone, align = 'end' }: { r: AppointmentVie
   );
 }
 
-function Details({ r }: { r: AppointmentView }) {
+function Details({ r, staff = [] }: { r: AppointmentView; staff?: StaffUser[] }) {
   const dl = (k: string, v: React.ReactNode) => (v ? <><dt className="text-muted-foreground">{k}</dt><dd className="min-w-0 break-words">{v}</dd></> : null);
   return (
     <dl className="grid grid-cols-[7.5rem_1fr] gap-x-3 gap-y-1.5 text-[length:var(--fs-13)]">
       {dl('Πότε', r.when)}
       {r.rescheduledFrom && dl('Αρχική ώρα', <span className="text-muted-foreground line-through">{formatSlotEl(r.rescheduledFrom)}</span>)}
-      {dl('Επισκέπτης', r.name)}
-      {dl('Εταιρεία', r.company)}
-      {dl('Email', <a className="underline-offset-2 hover:underline" href={`mailto:${r.email}`}>{r.email}</a>)}
+      {dl('Προέλευση', r.source === 'staff' ? 'Από το προσωπικό' : 'Από το website')}
+      {dl(r.source === 'staff' ? 'Με' : 'Επισκέπτης', r.name)}
+      {dl('Εταιρεία', r.company && (r.trdr ? <a className="underline-offset-2 hover:underline" href={`/admin/traders?q=${encodeURIComponent(r.company)}`}>{r.company}</a> : r.partnerId ? <a className="underline-offset-2 hover:underline" href="/admin/partners">{r.company}</a> : r.company))}
+      {dl('Email', r.email && <a className="underline-offset-2 hover:underline" href={`mailto:${r.email}`}>{r.email}</a>)}
       {dl('Τηλέφωνο', r.phone && <a className="tabular-nums underline-offset-2 hover:underline" href={`tel:${r.phone.replace(/\s/g, '')}`}>{r.phone}</a>)}
       {dl('Θέμα', r.topic)}
-      {dl('Μήνυμα', r.message && <span className="whitespace-pre-wrap">{r.message}</span>)}
+      {dl(r.source === 'staff' ? 'Σημειώσεις' : 'Μήνυμα', r.message && <span className="whitespace-pre-wrap">{r.message}</span>)}
       {dl('Σημείωση', r.staffNote && <span className="whitespace-pre-wrap">{r.staffNote}</span>)}
+      {dl('Υπεύθυνος', staff.find((u) => u.id === r.assignedToId)?.name ?? (r.assignedToId ? '—' : null))}
+      {dl('Ενέργεια SoftOne', r.softoneActionCode ? `${r.softoneActionCode}` : r.softoneSync === 'FAILED' ? <span className="text-destructive">Αποτυχία: {r.softoneActionError}</span> : null)}
       {dl('SoftOne', r.softoneCode ? `Υποψήφιος ${r.softoneCode}` : r.softoneStatus === 'DISABLED' ? 'Δεν στάλθηκε (ρύθμιση κλειστή)' : r.softoneStatus === 'FAILED' ? 'Αποτυχία — δείτε Leads' : null)}
     </dl>
   );
@@ -186,7 +198,42 @@ function RescheduleDialog({ row, rows, blocks, availability, onClose, onDone }: 
   );
 }
 
-export function AppointmentsClient({ rows, blocks, availability, canManage, today }: { rows: AppointmentView[]; blocks: BlockView[]; availability: Availability; canManage: boolean; today: string }) {
+function AssignDialog({ row, staff, softoneEnabled, onClose, onDone }: { row: AppointmentView | null; staff: StaffUser[]; softoneEnabled: boolean; onClose: () => void; onDone: () => void }) {
+  const [value, setValue] = React.useState('');
+  const [busy, setBusy] = React.useState(false);
+  React.useEffect(() => { if (row) setValue(row.assignedToId ?? ''); }, [row]);
+  const pick = staff.find((u) => u.id === value);
+  async function save() {
+    if (!row) return;
+    setBusy(true);
+    try { await patch(row.id, { action: 'assign', assignedToId: value || null }); toast.success(value ? `Υπεύθυνος: ${pick?.name}` : 'Χωρίς υπεύθυνο'); onDone(); }
+    catch (e) { toast.error((e as Error).message); } finally { setBusy(false); }
+  }
+  return (
+    <Dialog open={!!row} onOpenChange={(o) => { if (!o) onClose(); }}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Υπεύθυνος ραντεβού {row?.code}</DialogTitle>
+          <DialogDescription>{row?.company || row?.name} — {row?.when}</DialogDescription>
+        </DialogHeader>
+        <DialogBody className="space-y-2">
+          <select value={value} onChange={(e) => setValue(e.target.value)} aria-label="Υπεύθυνος" className="h-9 w-full rounded-md border border-input bg-background px-2 text-[length:var(--fs-13)]">
+            <option value="">— Κανείς —</option>
+            {staff.map((u) => <option key={u.id} value={u.id}>{u.name}{u.softone ? ` · SoftOne: ${u.softone}` : ''}</option>)}
+          </select>
+          <p className="text-[length:var(--fs-11)] text-muted-foreground">{pick?.softone ? (softoneEnabled ? (row?.status === 'PENDING' ? 'Θα καταχωριστεί στο SoftOne μόλις επιβεβαιωθεί.' : 'Θα καταχωριστεί/ενημερωθεί στο SoftOne ως Ενέργεια.') : 'Η καταχώριση στο SoftOne είναι κλειστή στις Ρυθμίσεις.') : 'Χωρίς σύνδεση με SoftOne: μένει μόνο στην εφαρμογή.'}</p>
+        </DialogBody>
+        <DialogFooter>
+          <Button type="button" variant="outline" onClick={onClose}>Άκυρο</Button>
+          <Button type="button" onClick={save} disabled={busy}>Αποθήκευση</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+export function AppointmentsClient({ rows, blocks, availability, canManage, canSchedule, staff, meId, softoneEnabled, today }: { rows: AppointmentView[]; blocks: BlockView[]; availability: Availability; canManage: boolean; canSchedule: boolean; staff: StaffUser[]; meId: string | null; softoneEnabled: boolean; today: string }) {
+  const [schedule, setSchedule] = React.useState<{ open: boolean; prefill: SchedulePrefill }>({ open: false, prefill: null });
   const router = useRouter();
   const refresh = () => router.refresh();
   const [view, setView] = React.useState<CalendarView>('week');
@@ -220,8 +267,8 @@ export function AppointmentsClient({ rows, blocks, availability, canManage, toda
     { accessorKey: 'code', header: 'Κωδικός', size: 110, cell: ({ row }) => <span className="tabular-nums text-muted-foreground">{row.original.code}</span> },
     { accessorKey: 'status', header: 'Κατάσταση', size: 160, cell: ({ row }) => <StatusBadge r={row.original} /> },
     { id: 'actions', header: () => <span className="sr-only">Ενέργειες</span>, size: 44, enableSorting: false, enableHiding: false, enableResizing: false,
-      cell: ({ row }) => (canManage ? <div className="flex justify-end"><ActionsMenu r={row.original} onAction={onAction} onDone={refresh} /></div> : null) },
-  ], [canManage]); // eslint-disable-line react-hooks/exhaustive-deps
+      cell: ({ row }) => (canManage ? <div className="flex justify-end"><ActionsMenu r={row.original} onAction={onAction} onDone={refresh} softoneEnabled={softoneEnabled} /></div> : null) },
+  ], [canManage, softoneEnabled]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const chip = (active: boolean) => cn('inline-flex h-7 cursor-pointer items-center gap-1 rounded-md border px-2.5 text-[length:var(--fs-11)] font-medium transition',
     active ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-background text-muted-foreground hover:text-foreground');
@@ -237,17 +284,19 @@ export function AppointmentsClient({ rows, blocks, availability, canManage, toda
           <div className="flex flex-wrap items-center gap-3 text-[length:var(--fs-11)] text-muted-foreground">
             {(['PENDING', 'CONFIRMED', 'COMPLETED'] as const).map((s) => <span key={s} className="inline-flex items-center gap-1.5"><span className="size-2.5 rounded-sm" style={{ background: APPOINTMENT_TONE[s] }} />{{ PENDING: 'Σε αναμονή', CONFIRMED: 'Επιβεβαιωμένο', COMPLETED: 'Ολοκληρώθηκε' }[s]}</span>)}
             <label className="inline-flex items-center gap-1.5"><Switch checked={showCancelled} onCheckedChange={setShowCancelled} /> Ακυρωμένα</label>
+            {canSchedule && <Button size="sm" className="h-8" onClick={() => setSchedule({ open: true, prefill: { date: anchor, time: '10:00' } })}><FiPlus className="size-3.5" aria-hidden /> Νέο ραντεβού</Button>}
           </div>
         </div>
         <TabsContent value="calendar">
           <AppointmentsCalendar view={view} anchor={anchor} today={today} events={events} blocks={blocks} availability={availability}
-            onNavigate={setAnchor} onView={setView} onSelectEvent={setSelected} onSelectDay={(d) => { setAnchor(d); setView('day'); }} />
+            onNavigate={setAnchor} onView={setView} onSelectEvent={setSelected} onSelectDay={(d) => { setAnchor(d); setView('day'); }}
+            onSelectSlot={canSchedule ? (date, time) => setSchedule({ open: true, prefill: { date, time } }) : undefined} />
         </TabsContent>
         <TabsContent value="list">
           <DataTable
             columns={columns} data={data} searchKey="name" filterAllColumns searchPlaceholder="Αναζήτηση (όνομα, εταιρεία, email, κωδικός…)"
             persistKey="admin.appointments.table.v1" pageSize={25} growColumnId="who" responsiveHide={['topic', 'code']}
-            expandable={(r) => <div className="max-w-2xl px-2 py-3"><Details r={r} /></div>}
+            expandable={(r) => <div className="max-w-2xl px-2 py-3"><Details r={r} staff={staff} /></div>}
             toolbar={(
               <div className="flex flex-wrap items-center gap-1.5">
                 {([['upcoming', 'Επερχόμενα'], ['PENDING', 'Σε αναμονή'], ['past', 'Παλαιότερα'], ['all', 'Όλα']] as const).map(([f, l]) => (
@@ -270,14 +319,16 @@ export function AppointmentsClient({ rows, blocks, availability, canManage, toda
                     <DialogTitle className="truncate">{sel.company || sel.name}</DialogTitle>
                     <DialogDescription className="flex flex-wrap items-center gap-2"><span className="tabular-nums">{sel.code}</span><StatusBadge r={sel} /></DialogDescription>
                   </div>
-                  {canManage && <ActionsMenu r={sel} onAction={onAction} onDone={done} />}
+                  {canManage && <ActionsMenu r={sel} onAction={onAction} onDone={done} softoneEnabled={softoneEnabled} />}
                 </div>
               </DialogHeader>
-              <DialogBody><Details r={sel} /></DialogBody>
+              <DialogBody><Details r={sel} staff={staff} /></DialogBody>
             </>
           )}
         </DialogContent>
       </Dialog>
+      <ScheduleDialog open={schedule.open} prefill={schedule.prefill} defaultMinutes={availability.slotMinutes} staff={staff} meId={meId} softoneEnabled={softoneEnabled} onClose={() => setSchedule({ open: false, prefill: null })} onDone={() => { setSchedule({ open: false, prefill: null }); refresh(); }} />
+      <AssignDialog row={action?.kind === 'assign' ? action.row : null} staff={staff} softoneEnabled={softoneEnabled} onClose={() => setAction(null)} onDone={done} />
       <CancelDialog row={action?.kind === 'cancel' ? action.row : null} onClose={() => setAction(null)} onDone={done} />
       <RescheduleDialog row={action?.kind === 'reschedule' ? action.row : null} rows={rows} blocks={blocks} availability={availability} onClose={() => setAction(null)} onDone={done} />
     </>

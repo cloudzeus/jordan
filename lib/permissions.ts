@@ -15,6 +15,7 @@ export const PERMISSIONS: PermissionDef[] = [
   { key: 'users.update', resource: 'users', action: 'update', description: 'Update users' },
   { key: 'users.delete', resource: 'users', action: 'delete', description: 'Delete users' },
   { key: 'users.assign_role', resource: 'users', action: 'assign_role', description: 'Assign role to user' },
+  { key: 'users.softone_link', resource: 'users', action: 'softone_link', description: 'Σύνδεση χρηστών του προσωπικού με χρήστες SoftOne' },
 
   // Roles
   { key: 'roles.read', resource: 'roles', action: 'read', description: 'View roles' },
@@ -79,6 +80,7 @@ export const PERMISSIONS: PermissionDef[] = [
   // Ραντεβού στο atelier (website) & leads/newsletter
   { key: 'appointments.read', resource: 'appointments', action: 'read', description: 'Προβολή ημερολογίου ραντεβού στο atelier' },
   { key: 'appointments.manage', resource: 'appointments', action: 'manage', description: 'Επιβεβαίωση/ακύρωση/μεταφορά ραντεβού, ωράριο και αποκλεισμοί' },
+  { key: 'appointments.schedule', resource: 'appointments', action: 'schedule', description: 'Νέο ραντεβού με πελάτη/συνεργάτη σε όποια μέρα/ώρα — και νέα καρτέλα πελάτη στο SoftOne' },
   { key: 'leads.read', resource: 'leads', action: 'read', description: 'Προβολή leads και συνδρομητών newsletter του website' },
   { key: 'leads.manage', resource: 'leads', action: 'manage', description: 'Αποστολή leads στο SoftOne, διαγραφή συνδρομητών newsletter' },
   // Συνεργάτες
@@ -104,7 +106,7 @@ export const PERMISSIONS: PermissionDef[] = [
 export const ROLE_DEFAULTS: Record<string, string[]> = {
   SUPER_ADMIN: PERMISSIONS.map((p) => p.key), // all
   ADMIN: [
-    'users.read', 'users.create', 'users.update', 'users.assign_role',
+    'users.read', 'users.create', 'users.update', 'users.assign_role', 'users.softone_link',
     'roles.read',
     'permissions.read',
     'companies.read', 'companies.create', 'companies.update', 'companies.delete', 'companies.manage_types',
@@ -115,13 +117,13 @@ export const ROLE_DEFAULTS: Record<string, string[]> = {
     'dynamic_offers.read', 'dynamic_offers.manage', 'dynamic_offers.reservations',
     'payments.read', 'payments.manage', 'payments.refund',
     'order_requests.read', 'order_requests.manage',
-    'appointments.read', 'appointments.manage', 'leads.read', 'leads.manage',
+    'appointments.read', 'appointments.manage', 'appointments.schedule', 'leads.read', 'leads.manage',
     'partners.read', 'partners.manage', 'partners.access',
     'classifications.read', 'classifications.manage',
     'units.read', 'units.manage',
     'items.unit2_override',
   ],
-  EMPLOYEE: ['users.read', 'appointments.read', 'appointments.manage', 'leads.read'],
+  EMPLOYEE: ['users.read', 'appointments.read', 'appointments.manage', 'appointments.schedule', 'leads.read'],
   COLLABORATOR: ['users.read'],
   SUPPLIER: [],
   CUSTOMER: [],

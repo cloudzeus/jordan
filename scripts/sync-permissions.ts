@@ -5,7 +5,7 @@
  *   npm run permissions:sync -- --dry   (μόνο αναφορά)
  *
  * 1. Upsert κάθε Permission του καταλόγου (κλειδί, ομάδα, περιγραφή, σειρά).
- * 2. SUPER_ADMIN: όλα. ADMIN: οι προεπιλογές του (ROLE_DEFAULTS.ADMIN).
+ * 2. SUPER_ADMIN: όλα. ADMIN / EMPLOYEE: οι προεπιλογές τους (ROLE_DEFAULTS).
  * 3. Κάθε ρόλος με παλιό metadata.read/manage παίρνει τα αντίστοιχα νέα ανά ενότητα (LEGACY_GRANTS),
  *    ώστε κανείς να μη χάσει πρόσβαση. ΔΕΝ αφαιρεί ποτέ τίποτα. Ξανατρέχει χωρίς διπλοεγγραφές.
  */
@@ -41,6 +41,8 @@ async function main() {
     const want = new Set<string>();
     if (role.key === 'SUPER_ADMIN') PERMISSIONS.forEach((p) => want.add(p.key));
     if (role.key === 'ADMIN') (ROLE_DEFAULTS.ADMIN ?? []).forEach((k) => want.add(k));
+    // Υπάλληλοι: προστίθενται οι προεπιλογές τους (π.χ. ραντεβού) — ποτέ δεν αφαιρείται κάτι.
+    if (role.key === 'EMPLOYEE') (ROLE_DEFAULTS.EMPLOYEE ?? []).forEach((k) => want.add(k));
     for (const [legacy, grants] of Object.entries(LEGACY_GRANTS)) if (has.has(legacy)) grants.forEach((k) => want.add(k));
     const missing = [...want].filter((k) => !has.has(k) && perms.has(k));
     if (!missing.length) continue;

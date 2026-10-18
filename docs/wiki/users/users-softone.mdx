@@ -1,0 +1,29 @@
+---
+title: "Σύνδεση χρήστη με SoftOne"
+module: users
+slug: users-softone
+roles: [SUPER_ADMIN, ADMIN]
+order: 3
+updatedAt: 2026-10-18
+description: "Αντιστοίχιση χρηστών του προσωπικού με χρήστες του SoftOne, ώστε τα ραντεβού τους να καταχωρίζονται στο SoftOne ως Ενέργειες."
+screenshots:
+  - file: softone-link.png
+    route: /admin/users
+    caption: "Η στήλη SoftOne και το ⋮ → Χρήστης SoftOne…"
+related: [users/users-management, operations/appointments]
+helpAnchors: [users-softone]
+---
+
+## Επισκόπηση
+
+Κάθε χρήστης του προσωπικού (διαχειριστές, managers, υπάλληλοι) μπορεί να αντιστοιχιστεί με **έναν** χρήστη του SoftOne. Τότε τα ραντεβού όπου είναι **υπεύθυνος** γράφονται στο SoftOne ως **Ενέργεια «Συνάντηση»** με αυτόν ως χειριστή. Πελάτες, προμηθευτές και συνεργάτες του portal δεν συνδέονται.
+
+<Steps>
+  <li>Χρήστες → ⋮ στη γραμμή του χρήστη → **Χρήστης SoftOne…**</li>
+  <li>Διαλέξτε τον χρήστη SoftOne από τη λίστα (φορτώνεται ζωντανά από το SoftOne· ↻ για ανανέωση).</li>
+  <li>**Αποθήκευση**. Η στήλη «SoftOne» δείχνει τη σύνδεση. «— Καμία σύνδεση —» την αφαιρεί.</li>
+</Steps>
+
+<Callout type="info">
+  Ένας χρήστης SoftOne ανήκει σε έναν μόνο χρήστη της εφαρμογής. Τη σύνδεση την κάνουν μόνο ρόλοι με το δικαίωμα «Σύνδεση χρηστών με SoftOne» (προεπιλογή: Super Admin, Administrator).
+</Callout>

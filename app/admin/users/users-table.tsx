@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { ColumnDef } from '@tanstack/react-table';
 import {
   FiEdit2, FiTrash2, FiShield, FiCheck, FiX, FiMail,
-  FiAlertTriangle, FiKey, FiMoreVertical, FiUser, FiGlobe, FiLock,
+  FiAlertTriangle, FiKey, FiMoreVertical, FiUser, FiGlobe, FiLock, FiLink,
 } from 'react-icons/fi';
 import { toast } from 'sonner';
 import { DataTable } from '@/components/ui/data-table';
@@ -22,17 +22,20 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Field, FormSection, FormSelect, RowHint, fieldCls } from '@/components/admin/form-kit';
 import { LocaleMultiSelect } from '@/components/i18n/locale-multi-select';
+import { SoftoneLinkDialog, type LinkTarget } from './softone-link-dialog';
 
 type UserRow = {
   id: string; email: string; name: string;
   roleId: string; roleName: string;
   isActive: boolean; preferredLocales: string[];
   emailVerified: string | null; createdAt: string;
+  isStaff: boolean; softoneUserId: number | null; softoneUserName: string | null;
 };
 type RoleOpt = { id: string; name: string };
 
-export function UsersTable({ rows, roles }: { rows: UserRow[]; roles: RoleOpt[] }) {
+export function UsersTable({ rows, roles, canLinkSoftone = false }: { rows: UserRow[]; roles: RoleOpt[]; canLinkSoftone?: boolean }) {
   const router = useRouter();
+  const [linkUser, setLinkUser] = React.useState<LinkTarget | null>(null);
   const [editUser, setEditUser] = React.useState<UserRow | null>(null);
   const [deleteUser, setDeleteUser] = React.useState<UserRow | null>(null);
   const [pwUser, setPwUser] = React.useState<UserRow | null>(null);
@@ -82,6 +85,12 @@ export function UsersTable({ rows, roles }: { rows: UserRow[]; roles: RoleOpt[] 
         : <Badge variant="outline" className="border-amber-300 text-amber-700">Εκκρεμεί</Badge>,
     },
     {
+      id: 'softone', accessorFn: (u) => u.softoneUserName ?? '', header: 'SoftOne', size: 130,
+      cell: ({ row }) => (row.original.softoneUserName
+        ? <span className="inline-flex items-center gap-1 text-[length:var(--fs-12)]"><FiLink className="size-3 text-muted-foreground" aria-hidden />{row.original.softoneUserName}</span>
+        : <span className="text-muted-foreground/40">—</span>),
+    },
+    {
       accessorKey: 'createdAt', header: 'Δημιουργία', size: 120,
       cell: ({ row }) => (
         <span className="text-muted-foreground tabular-nums text-[length:var(--fs-12)]">
@@ -109,6 +118,11 @@ export function UsersTable({ rows, roles }: { rows: UserRow[]; roles: RoleOpt[] 
               <DropdownMenuItem onClick={() => setPwUser(u)}>
                 <FiKey /> Αλλαγή κωδικού
               </DropdownMenuItem>
+              {canLinkSoftone && u.isStaff && (
+                <DropdownMenuItem onClick={() => setLinkUser({ id: u.id, name: u.name, email: u.email, softoneUserId: u.softoneUserId })}>
+                  <FiLink /> Χρήστης SoftOne…
+                </DropdownMenuItem>
+              )}
               <DropdownMenuItem onClick={() => toggleActive(u.id, u.isActive)}>
                 {u.isActive ? <FiX /> : <FiCheck />} {u.isActive ? 'Απενεργοποίηση' : 'Ενεργοποίηση'}
               </DropdownMenuItem>
@@ -129,7 +143,7 @@ export function UsersTable({ rows, roles }: { rows: UserRow[]; roles: RoleOpt[] 
         /* ΣΕΙΡΑ ΘΥΣΙΑΣ: πρώτη η λιγότερο χρήσιμη. Κρύβονται όσες χρειαστεί ώστε ο πίνακας να
            ΧΩΡΑΕΙ — ποτέ οριζόντιο scroll. Το «Στήλες» υπερισχύει. */
         growColumnId="email"
-        responsiveHide={['createdAt', 'emailVerified']}
+        responsiveHide={['createdAt', 'emailVerified', 'softone']}
         columns={columns}
         data={rows}
         searchPlaceholder="Αναζήτηση χρηστών..."
@@ -164,6 +178,7 @@ export function UsersTable({ rows, roles }: { rows: UserRow[]; roles: RoleOpt[] 
         onClose={() => setDeleteUser(null)}
         onDeleted={() => { setDeleteUser(null); router.refresh(); }}
       />
+      <SoftoneLinkDialog target={linkUser} onClose={() => setLinkUser(null)} />
     </>
   );
 }
