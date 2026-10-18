@@ -112,3 +112,24 @@ describe('χρώματα ομάδων', () => {
     expect(itemGroupColor(null)).toBe('#6B7280');
   });
 });
+
+describe('φίλτρο κατηγοριών', () => {
+  const rows = [
+    { id: 1, group: { key: 'G_TILES' } }, { id: 2, group: { key: 'G_TILES' } }, { id: 3, group: { key: 'G_LIME' } },
+    { id: 4, group: null }, { id: 5, group: { key: 'G_CHARGE' } },
+  ];
+  it('επιλογές ανά κορυφαία ομάδα με πλήθη, μόνο όσες έχουν είδη, «Χωρίς κατηγορία» στο τέλος', async () => {
+    const { itemGroupFilterOptions, NO_ITEM_GROUP } = await import('@/lib/item-groups');
+    const g = itemGroupFilterOptions(rows, 'item');
+    expect(g.map((x) => x.label)).toEqual(['Επενδύσεις δαπέδων & τοίχων', 'Χρώματα & κονιάματα', 'Εργασίες & χρεώσεις', 'Άλλο']);
+    expect(g[0].options).toMatchObject([{ value: 'G_TILES', count: 2 }]);
+    expect(g[2].options).toMatchObject([{ value: 'G_CHARGE', label: 'Εργασίες & χρεώσεις', count: 1 }]); // φύλλο-κορυφή
+    expect(g[3].options[0]).toMatchObject({ value: NO_ITEM_GROUP, count: 1 });
+  });
+  it('φιλτράρισμα: κενό = όλα, πολλαπλή επιλογή, «χωρίς»', async () => {
+    const { filterByItemGroups, NO_ITEM_GROUP } = await import('@/lib/item-groups');
+    expect(filterByItemGroups(rows, [])).toBe(rows);
+    expect(filterByItemGroups(rows, ['G_TILES', 'G_LIME']).map((r) => r.id)).toEqual([1, 2, 3]);
+    expect(filterByItemGroups(rows, [NO_ITEM_GROUP]).map((r) => r.id)).toEqual([4]);
+  });
+});

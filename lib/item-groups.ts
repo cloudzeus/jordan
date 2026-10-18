@@ -167,3 +167,34 @@ export function itemGroupColor(key: string | null | undefined): string {
   while (n && itemGroupParent(n)) n = itemGroupParent(n)!;
   return (n && ITEM_GROUP_COLORS[n.key]) ?? '#6B7280';
 }
+
+/** Τιμή φίλτρου για «χωρίς κατηγορία». */
+export const NO_ITEM_GROUP = '__none';
+
+export interface GroupFilterGroup { label: string; color: string; options: { value: string; label: string; count: number; color: string }[] }
+
+/**
+ * Επιλογές για το φίλτρο κατηγοριών: ανά κορυφαία ομάδα τα φύλλα της με πλήθος (μόνο όσα έχουν είδη),
+ * και στο τέλος «Χωρίς κατηγορία» αν υπάρχουν είδη χωρίς ομάδα.
+ */
+export function itemGroupFilterOptions(rows: { group?: { key: string } | null }[], kind: ItemKind): GroupFilterGroup[] {
+  const counts = new Map<string, number>();
+  for (const r of rows) { const k = r.group?.key ?? NO_ITEM_GROUP; counts.set(k, (counts.get(k) ?? 0) + 1); }
+  const out: GroupFilterGroup[] = ITEM_GROUPS.filter((n) => n.kind === kind && !itemGroupParent(n)).map((t) => {
+    const leaves = isItemGroupLeaf(t) ? [t] : ITEM_GROUPS.filter((n) => n.kind === kind && itemGroupParent(n)?.key === t.key);
+    return {
+      label: t.name, color: itemGroupColor(t.key),
+      options: leaves.map((l) => ({ value: l.key, label: l.name, count: counts.get(l.key) ?? 0, color: itemGroupColor(l.key) })).filter((o) => o.count > 0),
+    };
+  }).filter((g) => g.options.length);
+  const none = counts.get(NO_ITEM_GROUP);
+  if (none) out.push({ label: 'Άλλο', color: '#6B7280', options: [{ value: NO_ITEM_GROUP, label: 'Χωρίς κατηγορία', count: none, color: '#6B7280' }] });
+  return out;
+}
+
+/** Φιλτράρισμα: κενή επιλογή = όλα· αλλιώς όσα ανήκουν σε μία από τις επιλεγμένες ομάδες (ή «χωρίς»). */
+export function filterByItemGroups<T extends { group?: { key: string } | null }>(rows: T[], selected: string[]): T[] {
+  if (!selected.length) return rows;
+  const want = new Set(selected);
+  return rows.filter((r) => want.has(r.group?.key ?? NO_ITEM_GROUP));
+}

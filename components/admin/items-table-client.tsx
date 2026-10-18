@@ -20,7 +20,7 @@ import { DataTable } from '@/components/ui/data-table';
 import { syncErrorMessage } from '@/lib/softone-sync/sync-error';
 
 import { MultiSelectCombo, type MultiGroup } from '@/components/ui/multi-select-combo';
-import { ITEM_GROUPS, itemGroupColor, isItemGroupLeaf, itemGroupParent } from '@/lib/item-groups';
+import { filterByItemGroups, itemGroupColor, itemGroupFilterOptions } from '@/lib/item-groups';
 
 /** Ομάδα του είδους (πρόταση ή ανατεθειμένη) — lib/item-groups.ts. */
 export type ItemGroupTag = { key: string; name: string; path: string; status: string; review: boolean };
@@ -42,8 +42,6 @@ export type ItemRecord = {
   /** Ομάδα κατηγοριοποίησης (ιεραρχία ομάδων) — null αν δεν υπάρχει πρόταση. */
   group?: ItemGroupTag | null;
 };
-
-const NO_GROUP = '__none';
 
 /** Μικρό badge ομάδας: χρώμα του κλάδου· διακεκομμένο περίγραμμα όσο είναι μόνο πρόταση. */
 function GroupBadge({ g }: { g: ItemGroupTag }) {
@@ -229,25 +227,8 @@ export function ItemsTableClient({
   // Φίλτρο κατηγοριών (multi-select): φύλλα του δέντρου ομάδων + «Χωρίς κατηγορία».
   const [groupFilter, setGroupFilter] = React.useState<string[]>([]);
   const kind = variant === 'services' ? 'service' : 'item';
-  const groupOptions = React.useMemo<MultiGroup[]>(() => {
-    const counts = new Map<string, number>();
-    for (const r of rows) counts.set(r.group?.key ?? NO_GROUP, (counts.get(r.group?.key ?? NO_GROUP) ?? 0) + 1);
-    const tops = ITEM_GROUPS.filter((n) => n.kind === kind && !itemGroupParent(n));
-    const out: MultiGroup[] = tops.map((t) => {
-      const leaves = isItemGroupLeaf(t) ? [t] : ITEM_GROUPS.filter((n) => n.kind === kind && itemGroupParent(n)?.key === t.key);
-      return {
-        label: t.name, color: itemGroupColor(t.key),
-        options: leaves.map((l) => ({ value: l.key, label: l.name, count: counts.get(l.key) ?? 0, color: itemGroupColor(l.key) })).filter((o) => o.count > 0),
-      };
-    }).filter((g) => g.options.length);
-    if (counts.get(NO_GROUP)) out.push({ label: 'Άλλο', options: [{ value: NO_GROUP, label: 'Χωρίς κατηγορία', count: counts.get(NO_GROUP) }] });
-    return out;
-  }, [rows, kind]);
-  const shownRows = React.useMemo(() => {
-    if (!groupFilter.length) return rows;
-    const want = new Set(groupFilter);
-    return rows.filter((r) => want.has(r.group?.key ?? NO_GROUP));
-  }, [rows, groupFilter]);
+  const groupOptions = React.useMemo<MultiGroup[]>(() => itemGroupFilterOptions(rows, kind), [rows, kind]);
+  const shownRows = React.useMemo(() => filterByItemGroups(rows, groupFilter), [rows, groupFilter]);
 
   const sync = async () => {
     setBusy(true);
