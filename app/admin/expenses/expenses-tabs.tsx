@@ -2,7 +2,6 @@
 
 import * as React from 'react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { ItemsTableClient, type ItemRecord } from '@/components/admin/items-table-client';
 import { ExpensesTableClient, type ExpenseRecord } from '@/components/admin/expenses-table-client';
 import { LineItemsTableClient, type LineItemRecord } from '@/components/admin/lineitems-table-client';
 import { LineCategoriesTableClient, type LineCategoryRecord } from '@/components/admin/line-categories-table-client';
@@ -10,15 +9,13 @@ import { MyDataClassesTableClient, type MyDataClassRecord } from '@/components/a
 import { AnalyticsTableClient, type AnalyticsRecord } from '@/components/admin/analytics-tables-client';
 
 /**
- * Μητρώα SoftOne που τροφοδοτούν την αντιστοίχιση γραμμών: είδη (MTRL 51), υπηρεσίες (MTRL 52),
- * έξοδα (EXPN), ΧΡΕΟΠΙΣΤΩΣΕΙΣ (MTRL 53 — οι γραμμές «Ειδικών συναλλαγών») και οι κατηγορίες
- * δαπανών τους (MTRCATEGORY 53), μαζί με τις λίστες χαρακτηρισμού myDATA.
- * Κάθε tab έχει τον δικό του συγχρονισμό — όλοι μόνο ΑΝΑΓΝΩΣΗ από το SoftOne.
+ * Λογιστικά μητρώα SoftOne που τροφοδοτούν την αντιστοίχιση γραμμών: έξοδα (EXPN), ΧΡΕΟΠΙΣΤΩΣΕΙΣ
+ * (MTRL 53 — οι γραμμές «Ειδικών συναλλαγών») και οι κατηγορίες δαπανών τους (MTRCATEGORY 53), οι
+ * λίστες χαρακτηρισμού myDATA και η αναλυτική (κέντρα κόστους, έργα, δραστηριότητες). Τα είδη και οι
+ * υπηρεσίες έχουν δικές τους σελίδες. Κάθε tab έχει τον δικό του συγχρονισμό — όλοι μόνο ΑΝΑΓΝΩΣΗ.
  */
-export function ItemsTabs({
-  warehouses,
-  products,
-  services,
+export function ExpensesTabs({
+  initialTab = 'expenses',
   expenses,
   lineItems,
   lineCategories,
@@ -27,7 +24,6 @@ export function ItemsTabs({
   projects,
   projectStages,
   canManage,
-  itemsLastSync,
   expensesLastSync,
   lineItemsLastSync,
   lineCategoriesLastSync,
@@ -36,10 +32,8 @@ export function ItemsTabs({
   projectsLastSync,
   projectStagesLastSync,
 }: {
-  /** Αποθήκες της εγκατάστασης — μία στήλη υπολοίπου η καθεμία στα είδη. */
-  warehouses: { id: string; name: string }[];
-  products: ItemRecord[];
-  services: ItemRecord[];
+  /** Από το `?tab=` — ώστε να ανοίγει απευθείας π.χ. στις χρεοπιστώσεις. */
+  initialTab?: string;
   expenses: ExpenseRecord[];
   lineItems: LineItemRecord[];
   lineCategories: LineCategoryRecord[];
@@ -48,7 +42,6 @@ export function ItemsTabs({
   projects: AnalyticsRecord[];
   projectStages: AnalyticsRecord[];
   canManage: boolean;
-  itemsLastSync: string | null;
   expensesLastSync: string | null;
   lineItemsLastSync: string | null;
   lineCategoriesLastSync: string | null;
@@ -57,10 +50,16 @@ export function ItemsTabs({
   projectsLastSync: string | null;
   projectStagesLastSync: string | null;
 }) {
-  const [tab, setTab] = React.useState('products');
+  const [tab, setTab] = React.useState(initialTab);
+  // Το tab στη διεύθυνση (χωρίς πλοήγηση): ανανέωση/κοινοποίηση συνδέσμου κρατά το ίδιο μητρώο.
+  const choose = (v: string) => {
+    setTab(v);
+    const u = new URL(window.location.href);
+    u.searchParams.set('tab', v);
+    window.history.replaceState(null, '', u);
+  };
   const count = (n: number) => n.toLocaleString('el-GR');
   const GROUPS = [
-    { label: 'Μητρώο', tabs: [{ value: 'products', label: 'Είδη', n: products.length }, { value: 'services', label: 'Υπηρεσίες', n: services.length }] },
     { label: 'Λογιστικά', tabs: [
       { value: 'expenses', label: 'Έξοδα', n: expenses.length }, { value: 'lineitems', label: 'Χρεοπιστώσεις', n: lineItems.length },
       { value: 'linecategories', label: 'Κατηγορίες δαπανών', n: lineCategories.length }, { value: 'mydata', label: 'myDATA', n: myDataClasses.length },
@@ -72,8 +71,8 @@ export function ItemsTabs({
   ];
 
   return (
-    <Tabs value={tab} onValueChange={setTab} className="w-full">
-      {/* Οι 9 μητρώα σε τρεις ομάδες, σε μία γραμμή που κυλά οριζόντια (όχι αναδίπλωση/κόψιμο). */}
+    <Tabs value={tab} onValueChange={choose} className="w-full">
+      {/* Τα 7 μητρώα σε δύο ομάδες, σε μία γραμμή που κυλά οριζόντια (όχι αναδίπλωση/κόψιμο). */}
       <div className="-mx-1 overflow-x-auto px-1 pb-1 [scrollbar-width:thin]">
         <TabsList className="h-auto w-max flex-nowrap gap-0.5">
           {GROUPS.map((g, gi) => (
@@ -90,12 +89,6 @@ export function ItemsTabs({
           ))}
         </TabsList>
       </div>
-      <TabsContent value="products">
-        <ItemsTableClient rows={products} variant="products" canManage={canManage} lastSync={itemsLastSync} warehouses={warehouses} />
-      </TabsContent>
-      <TabsContent value="services">
-        <ItemsTableClient rows={services} variant="services" canManage={canManage} lastSync={itemsLastSync} />
-      </TabsContent>
       <TabsContent value="expenses">
         <ExpensesTableClient rows={expenses} canManage={canManage} lastSync={expensesLastSync} />
       </TabsContent>

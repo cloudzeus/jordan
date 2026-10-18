@@ -5,7 +5,10 @@ import { useRouter } from 'next/navigation';
 import { type ColumnDef } from '@tanstack/react-table';
 import { FiRefreshCw, FiCheck, FiSlash, FiAlertTriangle, FiArchive, FiSearch } from 'react-icons/fi';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import type { InactiveLineItem } from '@/lib/softone-sync/lineitem-activate';
+import type { InactiveLineItem as InactiveRow } from '@/lib/softone-sync/lineitem-activate';
+
+/** Όπως τη στέλνει το /inactive: με το ποσοστό ΦΠΑ για εμφάνιση. */
+type InactiveLineItem = InactiveRow & { vatLabel?: string | null };
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -21,7 +24,10 @@ export type LineItemRecord = {
   mtrl: number;
   code: string;
   name: string;
+  /** Το ποσοστό ΦΠΑ για εμφάνιση («24 %») — ΟΧΙ ο κωδικός του SoftOne (lib/vat-label.ts). */
   vat: string | null;
+  /** Η περιγραφή της κατηγορίας ΦΠΑ (tooltip). */
+  vatTitle?: string | null;
   category: string | null;
   /** Ο χαρακτηρισμός myDATA του μητρώου, ήδη σε ελληνικά (null = κανένας). */
   myData: string | null;
@@ -109,7 +115,7 @@ function InactiveLineItems({ open, onClose, onActivated }: { open: boolean; onCl
                             <span className="font-mono tabular-nums">{it.code}</span> · {it.name}
                           </p>
                           <p className="truncate text-[length:var(--fs-11)] text-muted-foreground">
-                            Λογ. <span className="font-mono tabular-nums">{it.acnmsk ?? '—'}</span> · {it.vat ?? 'χωρίς ΦΠΑ'} · {it.acceptsCreditors ? 'δέχεται πιστωτές' : 'όχι πιστωτές'}
+                            Λογ. <span className="font-mono tabular-nums">{it.acnmsk ?? '—'}</span> · {it.vatLabel ? `ΦΠΑ ${it.vatLabel}` : 'χωρίς ΦΠΑ'} · {it.acceptsCreditors ? 'δέχεται πιστωτές' : 'όχι πιστωτές'}
                           </p>
                         </div>
                         <Button size="sm" variant="secondary" onClick={() => activate(it)} disabled={busy != null} className="shrink-0">
@@ -189,7 +195,7 @@ export function LineItemsTableClient({
     {
       accessorKey: 'vat', header: 'ΦΠΑ', size: 80,
       cell: ({ row }) => (row.original.vat
-        ? <span className="font-mono text-[length:var(--fs-12)] tabular-nums text-muted-foreground">{row.original.vat}</span>
+        ? <span className="whitespace-nowrap text-[length:var(--fs-12)] tabular-nums text-foreground" title={row.original.vatTitle ?? undefined}>{row.original.vat}</span>
         : DASH),
     },
     {

@@ -1,22 +1,19 @@
 import { FiTool } from 'react-icons/fi';
-import { prisma } from '@/lib/db';
 import { requirePermission, hasPermission } from '@/lib/rbac';
 import { getSetting } from '@/lib/settings';
 import { PageHeader } from '@/components/admin/page-header';
 import { ItemsTableClient } from '@/components/admin/items-table-client';
-import { primaryThumbs } from '@/lib/item-media/thumbs';
+import { loadItemRows } from '@/lib/items-registry';
 
 export const dynamic = 'force-dynamic';
 
 export default async function ServicesPage() {
   await requirePermission('metadata.read');
-  const [items, canManage, lastSync, thumbs] = await Promise.all([
-    prisma.softoneItem.findMany({ where: { isService: true }, orderBy: { name: 'asc' } }),
+  const [rows, canManage, lastSync] = await Promise.all([
+    loadItemRows('services'),
     hasPermission('metadata.manage'),
     getSetting<string>('integrations.softoneItemsLastSync'),
-    primaryThumbs(),
   ]);
-  const rows = items.map((i) => ({ ...i, thumbUrl: thumbs.get(i.mtrl) ?? null }));
 
   return (
     <div className="w-full">

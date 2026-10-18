@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { requirePermission } from '@/lib/rbac';
+import { vatLabeller } from '@/lib/vat-label';
 import { lookupKindLabel, LOOKUP_KINDS } from '@/lib/lookup-kinds';
 
 // Generic read-only feed for reference registries that have no dedicated admin
@@ -98,7 +99,11 @@ export async function GET(req: Request) {
       break;
     }
     case 'expenses': {
-      const rows = await prisma.softoneExpense.findMany({ orderBy: [{ name: 'asc' }] });
+      const [rows, vatRows] = await Promise.all([
+        prisma.softoneExpense.findMany({ orderBy: [{ name: 'asc' }] }),
+        prisma.vatCategory.findMany({ select: { code: true, descr: true, rate: true } }),
+      ]);
+      const vat = vatLabeller(vatRows);
       data = {
         title: 'Έξοδα SoftOne',
         columns: [
@@ -110,7 +115,7 @@ export async function GET(req: Request) {
         rows: rows.map((r) => ({
           code: r.code,
           name: r.name,
-          vat: r.vat ?? '',
+          vat: vat(r.vat)?.label ?? '', // ποσοστό, όχι κωδικός SoftOne
           isActive: r.isActive ? 'Ναι' : 'Όχι',
         })),
       };

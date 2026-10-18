@@ -670,7 +670,7 @@ export function ItemPanel({
               </select>
               {lineCategories.length === 0 && (
                 <p className="mt-1 text-caption text-muted-foreground">
-                  Δεν έχουν συγχρονιστεί κατηγορίες δαπανών — Είδη → «Κατηγορίες δαπανών» → «Συγχρονισμός από SoftOne».
+                  Δεν έχουν συγχρονιστεί κατηγορίες δαπανών — <a href="/admin/expenses?tab=linecategories" className="font-medium text-primary hover:underline">Έξοδα & λογιστικά → «Κατηγορίες δαπανών»</a> → «Συγχρονισμός από SoftOne».
                 </p>
               )}
             </div>

@@ -76,6 +76,7 @@ const NAV_GROUPS: NavGroup[] = [
       { href: '/admin/traders', label: 'Συναλλασσόμενοι', icon: FiUserCheck, permissions: ['metadata.read'] },
       { href: '/admin/items', label: 'Είδη', icon: FiBox, permissions: ['metadata.read'] },
       { href: '/admin/services', label: 'Υπηρεσίες', icon: FiTool, permissions: ['metadata.read'] },
+      { href: '/admin/expenses', label: 'Έξοδα & λογιστικά', icon: FiBookOpen, permissions: ['metadata.read'] },
       { href: '/admin/doc-series', label: 'Σειρές παραστατικών', icon: FiList, permissions: ['metadata.read'] },
       { href: '/admin/reference-data', label: 'Μητρώα αναφοράς', icon: FiLayers, permissions: ['metadata.read'] },
       { href: '/admin/document-types', label: 'Τύποι Δικαιολογητικών', icon: FiFileText, permissions: ['metadata.read'] },

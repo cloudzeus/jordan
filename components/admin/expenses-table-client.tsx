@@ -15,7 +15,10 @@ export type ExpenseRecord = {
   expn: number;
   code: string;
   name: string;
+  /** Το ποσοστό ΦΠΑ για εμφάνιση («24 %») — ΟΧΙ ο κωδικός του SoftOne (lib/vat-label.ts). */
   vat: string | null;
+  /** Η περιγραφή της κατηγορίας ΦΠΑ (tooltip). */
+  vatTitle?: string | null;
   isActive: boolean;
 };
 
@@ -60,7 +63,7 @@ export function ExpensesTableClient({
     {
       accessorKey: 'vat', header: 'ΦΠΑ', size: 90,
       cell: ({ row }) => (row.original.vat
-        ? <span className="font-mono text-[length:var(--fs-12)] tabular-nums text-muted-foreground">{row.original.vat}</span>
+        ? <span className="whitespace-nowrap text-[length:var(--fs-12)] tabular-nums text-foreground" title={row.original.vatTitle ?? undefined}>{row.original.vat}</span>
         : DASH),
     },
     {
