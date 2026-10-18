@@ -17,7 +17,7 @@ export default async function LostPasswordPage({ searchParams }: { searchParams:
   return (
     <div>
       <Eyebrow>Βήμα 1 από 2</Eyebrow>
-      <h1 className="font-site mt-4 text-[length:var(--fs-32)] font-light leading-none">Ξεχάσατε τον κωδικό;</h1>
+      <h1 className="font-display mt-4 text-[length:var(--fs-48)]">Ξεχάσατε τον κωδικό;</h1>
       <p className="mt-4 text-[length:var(--fs-15)] text-[var(--s-ink-2)]">Γράψτε το email του λογαριασμού σας. Θα σας στείλουμε εξαψήφιο κωδικό για να ορίσετε νέο.</p>
 
       <form action="/api/auth/otp/send" method="post" className="mt-8 space-y-6">

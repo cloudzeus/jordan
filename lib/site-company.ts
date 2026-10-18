@@ -34,6 +34,7 @@ export async function siteCompany() {
     salesEmail: ATELIER_PROFILE.salesEmail,
     privacyEmail: c.email ?? ATELIER_PROFILE.salesEmail,
     hours: ATELIER_PROFILE.hours,
+    tagline: ATELIER_PROFILE.tagline,
   };
 }
 export type SiteCompany = Awaited<ReturnType<typeof siteCompany>>;

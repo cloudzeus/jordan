@@ -1,10 +1,10 @@
 import type { Metadata } from 'next';
-import { company } from '@/lib/site-catalog';
+import { ATELIER_PROFILE } from '@/lib/site-company';
 
 // Η περιοχή πελατών/συνεργατών έχει το όνομα της εταιρείας στον τίτλο της καρτέλας (όχι της εφαρμογής διαχείρισης).
 export async function generateMetadata(): Promise<Metadata> {
-  const c = await company();
-  return { title: { default: c.name, template: `%s · ${c.name}` }, robots: { index: false, follow: false } };
+  const brand = ATELIER_PROFILE.brand;
+  return { title: { absolute: `${brand} · B2B`, template: `%s · ${brand}` }, robots: { index: false, follow: false }, icons: { icon: '/site/brand/logo-black.png' } };
 }
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {

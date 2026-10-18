@@ -1,6 +1,5 @@
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
-import { Eyebrow } from '@/components/site/ui';
 
 /** Μικρά κοινά κομμάτια των σελίδων πελάτη (έργα, παραγγελίες) — ύφος website, χωρίς χρωματιστά badges. */
 export const eur = (n: number) => n.toLocaleString('el-GR', { style: 'currency', currency: 'EUR' });
@@ -11,8 +10,8 @@ export function PageTitle({ eyebrow, title, children, back }: { eyebrow: string;
   return (
     <div>
       {back && <Link href={back.href} className="s-link inline-flex min-h-11 items-center text-[length:var(--fs-14)] text-[var(--s-ink-2)]">← {back.label}</Link>}
-      <Eyebrow className={back ? 'mt-2' : undefined}>{eyebrow}</Eyebrow>
-      <h1 className="font-site mt-4 text-[length:var(--fs-36)] font-light leading-tight">{title}</h1>
+      <p className={cn('s-kicker text-[var(--s-accent)]', back ? 'mt-3' : undefined)}>{eyebrow}</p>
+      <h1 data-split="now" className="font-display mt-4 text-[length:var(--fs-48)] lg:text-[length:var(--fs-64)]">{title}</h1>
       {children && <div className="mt-4 max-w-2xl text-[length:var(--fs-16)] text-[var(--s-ink-2)]">{children}</div>}
     </div>
   );
@@ -32,7 +31,7 @@ export function Status({ label, tone = 'neutral', className }: { label: string; 
 export function Empty({ title, children }: { title: string; children?: React.ReactNode }) {
   return (
     <div className="border border-dashed border-[var(--s-line)] px-6 py-14 text-center">
-      <p className="font-site text-[length:var(--fs-20)] font-light">{title}</p>
+      <p className="font-display text-[length:var(--fs-28)]">{title}</p>
       {children && <div className="mt-2 text-[length:var(--fs-14)] text-[var(--s-ink-2)]">{children}</div>}
     </div>
   );
@@ -42,7 +41,7 @@ export function Stat({ label, value, hint }: { label: string; value: string; hin
   return (
     <div className="border-t border-[var(--s-ink)] pt-4">
       <p className="text-[length:var(--fs-13)] text-[var(--s-mute)]">{label}</p>
-      <p className="font-num mt-1 text-[length:var(--fs-24)] font-light tabular-nums">{value}</p>
+      <p className="font-display mt-2 text-[length:var(--fs-40)] tabular-nums">{value}</p>
       {hint && <p className="mt-1 text-[length:var(--fs-13)] text-[var(--s-mute)]">{hint}</p>}
     </div>
   );

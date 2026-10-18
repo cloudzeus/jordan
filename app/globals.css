@@ -404,6 +404,8 @@ body {
     --fs-56: clamp(2.73rem, 2.4287rem + 1.33913vw, 3.5rem);
     --fs-64: clamp(3.12rem, 2.77565rem + 1.53043vw, 4rem);
     --fs-72: clamp(3.51rem, 3.12261rem + 1.72174vw, 4.5rem);
+    --fs-96: clamp(4.68rem, 4.16348rem + 2.29565vw, 6rem);
+    --fs-120: clamp(5.85rem, 5.20435rem + 2.86957vw, 7.5rem);
   }
 
   /* Συσκευή αφής: γραμμές και κελιά στα 44px — ελάχιστος στόχος αφής (Apple HIG / Material). */
@@ -489,4 +491,32 @@ select:is([class*=" h-"], [class^="h-"]) {
 .site .s-link:hover { text-decoration-color: currentColor; }
 .site .s-img { transition: transform 600ms var(--s-ease); }
 .site .group:hover .s-img { transform: scale(1.025); }
+
+/* Lenis (ομαλή κύλιση) — components/site/motion.tsx */
+html.lenis, html.lenis body { height: auto; }
+.lenis.lenis-smooth { scroll-behavior: auto !important; }
+.lenis.lenis-smooth [data-lenis-prevent] { overscroll-behavior: contain; }
+.lenis.lenis-stopped { overflow: clip; }
+
+/* ── B2B website: εκδοτική τυπογραφία + κίνηση (components/site/motion.tsx) ───────────────────── */
+/* Display serif (Noto Serif Display Light): μεγάλοι τίτλοι, λεπτά, σφιχτά — ύφος αρχιτεκτονικού περιοδικού. */
+.site .font-display, .site .font-display * { font-family: var(--font-num), Georgia, serif !important; font-weight: 300; letter-spacing: -0.025em; line-height: 1.04; font-feature-settings: "lnum" 1; }
+.site .s-line-mask { padding: 0.06em 0 0.12em; margin: -0.06em 0 -0.12em; }
+.site .font-display em, .site .font-display i { font-style: italic; letter-spacing: -0.01em; }
+/* Ετικέτα με γραμμή μπροστά: «— ΔΥΝΑΜΙΚΕΣ ΠΡΟΣΦΟΡΕΣ» */
+.site .s-kicker { display: inline-flex; align-items: center; gap: 0.75rem; font-size: var(--fs-12); font-weight: 500; text-transform: uppercase; letter-spacing: 0.22em; }
+.site .s-kicker::before { content: ""; width: 2.25rem; height: 1px; background: currentColor; opacity: 0.6; }
+/* Περίγραμμα γραμμάτων (outline) για γιγάντιους αριθμούς. */
+.site .s-outline { color: transparent; -webkit-text-stroke: 1px var(--s-outline, #1C3241); }
+/* Ατέρμονη ταινία (ticker) — CSS, όχι JS. */
+@keyframes s-marquee { from { transform: translate3d(0,0,0); } to { transform: translate3d(-50%,0,0); } }
+.site .s-marquee { animation: s-marquee 38s linear infinite; }
+@media (prefers-reduced-motion: reduce) { .site .s-marquee { animation: none; } }
+/* Ό,τι θα «αποκαλυφθεί» από το GSAP κρύβεται ΜΟΝΟ όταν τρέχει JS (html.js) και δεν ζητήθηκε μειωμένη
+   κίνηση· αν το script αργήσει/αποτύχει, εμφανίζεται μόνο του μετά από 2.5s (καμία κρυμμένη σελίδα). */
+@keyframes s-failsafe { to { visibility: visible; opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: no-preference) {
+  html.js .site [data-split], html.js .site [data-reveal] { visibility: hidden; animation: s-failsafe 0s 2.5s forwards; }
+  html.js .site [data-split].is-in, html.js .site [data-reveal].is-in { animation: none; }
+}
 @media (prefers-reduced-motion: reduce) { .site .s-img { transition: none; } .site .group:hover .s-img { transform: none; } }

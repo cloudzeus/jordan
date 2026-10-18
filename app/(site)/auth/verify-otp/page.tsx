@@ -37,7 +37,7 @@ export default async function VerifyOtpPage({ searchParams }: { searchParams: Pr
   return (
     <div>
       <Eyebrow>{reset ? 'Βήμα 2 από 2' : 'Είσοδος με κωδικό email'}</Eyebrow>
-      <h1 className="font-site mt-4 text-[length:var(--fs-32)] font-light leading-none">{reset ? 'Νέος κωδικός' : 'Ελέγξτε το email σας'}</h1>
+      <h1 className="font-display mt-4 text-[length:var(--fs-48)]">{reset ? 'Νέος κωδικός' : 'Ελέγξτε το email σας'}</h1>
       <p className="mt-4 text-[length:var(--fs-15)] text-[var(--s-ink-2)]">
         Αν υπάρχει λογαριασμός για το <strong className="font-medium text-[var(--s-ink)]">{pending.email}</strong>, μόλις στείλαμε εξαψήφιο κωδικό. Κοιτάξτε και στα ανεπιθύμητα.
       </p>

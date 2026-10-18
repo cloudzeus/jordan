@@ -24,7 +24,7 @@ export default async function RegisterPage({ searchParams }: { searchParams: Pro
     return (
       <div>
         <Eyebrow>Ευχαριστούμε</Eyebrow>
-        <h1 className="font-site mt-4 text-[length:var(--fs-32)] font-light leading-none">Το αίτημα στάλθηκε</h1>
+        <h1 className="font-display mt-4 text-[length:var(--fs-48)]">Το αίτημα στάλθηκε</h1>
         <p className="mt-4 text-[length:var(--fs-15)] text-[var(--s-ink-2)]">Θα το δούμε και θα σας στείλουμε email με τα στοιχεία εισόδου μόλις ενεργοποιηθεί ο λογαριασμός σας — συνήθως μέσα σε μία εργάσιμη.</p>
         <div className="mt-8"><Link href="/" className={btn.ghost}>Στην αρχική</Link></div>
       </div>
@@ -37,7 +37,7 @@ export default async function RegisterPage({ searchParams }: { searchParams: Pro
   return (
     <div>
       <Eyebrow>Για επαγγελματίες</Eyebrow>
-      <h1 className="font-site mt-4 text-[length:var(--fs-32)] font-light leading-none">Αίτημα πρόσβασης</h1>
+      <h1 className="font-display mt-4 text-[length:var(--fs-48)]">Αίτημα πρόσβασης</h1>
       <p className="mt-4 text-[length:var(--fs-15)] text-[var(--s-ink-2)]">Η πύλη απευθύνεται μόνο σε επαγγελματίες: δυναμικές προσφορές κοινού container, τα έργα και οι παραγγελίες σας, παραγγελίες από τον κατάλογο. Πείτε μας ποιοι είστε.</p>
 
       <form action="/api/auth/register" method="post" className="mt-8 space-y-6">

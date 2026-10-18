@@ -29,6 +29,7 @@ const siteSerif = Noto_Serif_Display({
   variable: '--font-num',
   subsets: ['latin', 'greek'],
   weight: ['300', '400'],
+  style: ['normal', 'italic'],
   display: 'swap',
 });
 
@@ -45,7 +46,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="el" className={`${inter.variable} ${manrope.variable} ${siteSans.variable} ${siteSerif.variable}`}>
+    <html lang="el" suppressHydrationWarning className={`${inter.variable} ${manrope.variable} ${siteSans.variable} ${siteSerif.variable}`}>
       <body className="min-h-screen bg-background text-foreground antialiased">
         <TooltipProvider delayDuration={200}>{children}</TooltipProvider>
         <ConfirmHost />
