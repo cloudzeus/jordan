@@ -29,9 +29,21 @@ export function buildPersonPayload(p: PersonInput, code: string) {
   return { OBJECT: 'PRSNOUT' as const, KEY: '' as const, DATA: { PRSNOUT: [row], TRDPRSNOUT: [{ LINENUM: NEW_LINE, TRDR: p.trdr, ISACTIVE: 1 }] } };
 }
 
+/**
+ * Στο atelier οι κωδικοί προσώπων είναι ανάμικτοι (137 × «000137», 4 × «0000137»). Η αρίθμηση
+ * συνεχίζει στο ΣΥΝΗΘΙΣΜΕΝΟ μήκος· τα λίγα «ξένα» δεν αλλάζουν το σχήμα.
+ */
+export function dominantLength(codes: string[]) {
+  const clean = codes.map((c) => c.trim()).filter(Boolean);
+  const count = new Map<number, number>();
+  for (const c of clean) count.set(c.length, (count.get(c.length) ?? 0) + 1);
+  const len = [...count].sort((a, b) => b[1] - a[1])[0]?.[0];
+  return clean.filter((c) => c.length === len);
+}
+
 export async function nextPersonCode() {
   const rows = await softoneGetTable('PRSN', ['CODE'], 'SODTYPE=21');
-  const next = nextCode(rows.map((r) => r.CODE));
+  const next = nextCode(dominantLength(rows.map((r) => r.CODE)));
   if (!next.code) throw new SoftoneError('Δεν βρέθηκε αρίθμηση προσώπων στο SoftOne για να προταθεί κωδικός');
   return next.code;
 }

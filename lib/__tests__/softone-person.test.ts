@@ -4,7 +4,7 @@ vi.mock('server-only', () => ({}));
 const s1 = vi.hoisted(() => ({ softoneCall: vi.fn(), softoneGetTable: vi.fn(), softoneGetData: vi.fn() }));
 vi.mock('@/lib/softone', () => ({ ...s1, SoftoneError: class SoftoneError extends Error {} }));
 
-import { buildPersonPayload, softoneCreatePerson } from '../softone-person';
+import { buildPersonPayload, dominantLength, softoneCreatePerson } from '../softone-person';
 
 beforeEach(() => vi.clearAllMocks());
 
@@ -16,6 +16,9 @@ describe('επαφή συναλλασσομένου στο SoftOne (PRSNOUT)', (
         TRDPRSNOUT: [{ LINENUM: 9000001, TRDR: 63, ISACTIVE: 1 }],
       },
     });
+  });
+  it('κωδικός στο συνηθισμένο μήκος (όχι στο σπάνιο 7ψήφιο)', () => {
+    expect(dominantLength(['000136', '000137', '0000137', '0000100', '000135'])).toEqual(['000136', '000137', '000135']);
   });
   it('νέο: επόμενος κωδικός, setData, read-back σύνδεσης', async () => {
     s1.softoneGetTable
