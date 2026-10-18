@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { handleReturn } from '@/lib/viva-payments';
+import { appUrl } from '@/lib/app-url';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -14,7 +15,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ outcome: string
   const { outcome } = await ctx.params;
   const url = new URL(req.url);
   const r = await handleReturn(url.searchParams.get('t'), url.searchParams.get('s'));
-  const base = (process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || url.origin).replace(/\/$/, '');
+  const base = appUrl();
   const result = outcome === 'success' ? 'success' : 'failure';
   const to = r.token ? `/pay/viva/${r.token}?result=${result}` : r.offerId ? `/dashboard/offers/${r.offerId}` : '/';
   return NextResponse.redirect(`${base}${to}`, 303);

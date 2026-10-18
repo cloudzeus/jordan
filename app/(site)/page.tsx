@@ -15,7 +15,7 @@ import { CropMarks, DimLine, DimLineV, Grid, SectionMark } from '@/components/si
  * Υλικό (λογότυπο, φωτογραφίες, βίντεο): atelierdamask.gr. Κείμενα εταιρείας: lib/site-company.ts.
  */
 
-/** Φιλμ δυναμικής προσφοράς (motion-studio → Bunny CDN, 720p ~2 MB). Media library: φάκελος «Videos». */
+/** ΟΛΑ τα βίντεο της αρχικής σερβίρονται από το Bunny CDN (media/videos, όνομα με hash → cache 1 χρόνο). */
 const FILM_CDN = 'https://jordanocr.b-cdn.net/media/videos';
 const OFFER_FILM = {
   landscape: {
@@ -59,7 +59,7 @@ export default async function HomePage() {
       {/* ═══ HERO: βίντεο showroom + γιγάντια τυπογραφία + ζωντανό 3D container ═══ */}
       <section className="relative isolate -mt-16 min-h-[100svh] overflow-hidden bg-[#0B1620] text-white md:-mt-20">
         <div className="absolute inset-0 -z-10">
-          <video className="size-full object-cover" src="/site/brand/showroom.mp4" poster="/site/brand/showroom.jpg" autoPlay muted loop playsInline preload="metadata" aria-hidden />
+          <video className="size-full object-cover" src={`${FILM_CDN}/Atelier-Showroom-2f6e005a37.mp4`} poster={`${FILM_CDN}/Atelier-Showroom-poster-b715836092.jpg`} autoPlay muted loop playsInline preload="metadata" aria-hidden />
           <div className="absolute inset-0 bg-[linear-gradient(100deg,rgba(11,22,32,0.92)_0%,rgba(11,22,32,0.72)_45%,rgba(11,22,32,0.25)_100%)]" />
           <div className="absolute inset-x-0 bottom-0 h-48 bg-gradient-to-t from-[#0B1620] to-transparent" />
           <div className="absolute inset-x-0 top-0 h-40 bg-gradient-to-b from-[#0B1620]/80 to-transparent" />
@@ -230,7 +230,7 @@ export default async function HomePage() {
         <div className="relative mx-auto grid w-full max-w-[1440px] items-center gap-12 px-5 sm:px-8 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)] lg:px-12">
           <div className="relative" data-reveal="50">
             <div className="relative aspect-[16/10] overflow-hidden bg-[#0B1620]">
-              <video className="size-full object-cover" src="/site/brand/touch-feel.mp4" poster="/site/brand/touch-feel.jpg" autoPlay muted loop playsInline preload="none" aria-hidden />
+              <video className="size-full object-cover" src={`${FILM_CDN}/Atelier-TouchFeel-13163d691f.mp4`} poster={`${FILM_CDN}/Atelier-TouchFeel-poster-55bd76e10d.jpg`} autoPlay muted loop playsInline preload="none" aria-hidden />
             </div>
             <CropMarks className="text-[var(--s-ink)]" size={24} />
             <DimLine label="ΕΡΓΑΣΤΗΡΙΟ · MOCK-UPS · MEETING ROOM" className="mt-5 text-[var(--s-mute)]" />

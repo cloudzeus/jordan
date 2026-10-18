@@ -8,6 +8,7 @@ import {
   customerCanCancel, deliveryDateProblem, mergeLines, ORDER_REQUEST_LABEL, requestCode, staffCanMove,
   type OrderRequestInput, type OrderRequestStatus,
 } from '@/lib/order-requests-core';
+import { appUrl } from '@/lib/app-url';
 
 /**
  * Αιτήματα παραγγελίας από το B2B portal. Αποθηκεύονται ΜΟΝΟ στη βάση της εφαρμογής — καμία
@@ -20,7 +21,6 @@ export class OrderRequestError extends Error {
 }
 
 const num = (n: number) => n.toLocaleString('el-GR', { maximumFractionDigits: 3 });
-const appUrl = () => (process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || '').replace(/\/$/, '');
 
 export async function createOrderRequest(trdr: number, userId: string, input: OrderRequestInput, opts: { notify?: boolean } = {}) {
   const dateProblem = deliveryDateProblem(input.deliveryDate);

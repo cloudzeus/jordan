@@ -28,6 +28,7 @@ import { RUN_INCLUDE, type RunWithTemplate } from './run-dto';
 import { isValidBbox, type FieldValue, type MappingRowInvoice, type Region, type RunOutcome, type RunTrigger } from './schema';
 import { findTemplateForVat } from './match-vat';
 import { markUnknownForm, recognizeTemplate, type RecognizedBy } from './recognize';
+import { appUrl } from '@/lib/app-url';
 
 export type { RunOutcome, RunTrigger };
 // Re-exported where it has always lived: every caller of the runner asks it this question too.
@@ -81,7 +82,7 @@ async function learnLastGood(
 }
 
 /** Public base URL for the links inside notification emails ('' → the email names the file instead of linking). */
-const APP_URL = () => process.env.APP_URL ?? '';
+const APP_URL = appUrl;
 
 /**
  * Persist a projection onto the document: the canonical `document` and — when the projection

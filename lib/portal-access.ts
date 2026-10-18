@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs';
 import { z } from 'zod';
 import { prisma } from '@/lib/db';
 import type { RoleKey } from '@prisma/client';
+import { appUrl } from '@/lib/app-url';
 
 /**
  * Πρόσβαση πελατών & συνεργατών στο portal.
@@ -250,7 +251,7 @@ async function sendWelcome(to: string, name: string, orgName: string) {
   const { getSetting } = await import('@/lib/settings');
   const { sendTransactionalEmail } = await import('@/lib/mailgun');
   const [company, phone, contactEmail] = await Promise.all([getSetting<string>('company.name'), getSetting<string>('company.phone'), getSetting<string>('company.email')]);
-  const base = (process.env.APP_URL || 'http://localhost:3000').replace(/\/$/, '');
+  const base = appUrl();
   const html = welcomeEmailHtml({
     name, email: to, orgName, company: (company ?? 'ATELIER').trim(), loginUrl: `${base}/auth/signin`, lostUrl: `${base}/auth/lost-password`,
     contact: [phone, contactEmail].filter(Boolean).join(' · ') || null,

@@ -3,9 +3,9 @@ import { getSetting } from '@/lib/settings';
 import { mailgunConfig, sendTransactionalEmail } from '@/lib/mailgun';
 import { escapeHtml, siteEmailHtml } from '@/lib/site-email';
 import { reservationContext } from '@/lib/container-offers';
+import { appUrl } from '@/lib/app-url';
 
 const num = (n: number) => n.toLocaleString('el-GR', { maximumFractionDigits: 2 });
-const appUrl = () => (process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || '').replace(/\/$/, '');
 
 /**
  * Ειδοποιήσεις αιτημάτων κράτησης — ΠΑΝΤΑ best-effort (ποτέ δεν ρίχνουν την ενέργεια):

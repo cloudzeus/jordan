@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import { ConfirmHost } from '@/components/ui/confirm-dialog';
 import { Commissioner, Inter, Manrope, Noto_Serif_Display } from 'next/font/google';
 import './globals.css';
+import { appUrl } from '@/lib/app-url';
 import { Toaster } from 'sonner';
 import { TooltipProvider } from '@/components/ui/tooltip';
 
@@ -34,6 +35,8 @@ const siteSerif = Noto_Serif_Display({
 });
 
 export const metadata: Metadata = {
+  // Τελική δημόσια διεύθυνση (lib/app-url.ts): απόλυτα URL για OG/canonical/εικόνες.
+  metadataBase: new URL(appUrl()),
   title: { default: 'DGEspa', template: '%s · DGEspa' },
   description: 'DGEspa — διαχείριση και ροές εργασίας ΕΣΠΑ.',
 };

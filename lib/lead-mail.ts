@@ -1,6 +1,7 @@
 import 'server-only';
 import { getSetting } from '@/lib/settings';
 import { mailgunConfig, sendTransactionalEmail } from '@/lib/mailgun';
+import { appUrl } from '@/lib/app-url';
 
 /**
  * Αποστολές του website για ραντεβού/newsletter. Δύο δικλίδες ώστε οι δοκιμές να ΜΗ στέλνουν ποτέ
@@ -39,4 +40,4 @@ export async function staffRecipient(): Promise<string | null> {
   return v || inbox?.trim() || mailgunConfig().address;
 }
 
-export const appUrl = () => (process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || process.env.AUTH_URL || 'http://localhost:3000').replace(/\/$/, '');
+export { appUrl };

@@ -30,6 +30,7 @@ import {
 } from './jobs-logic';
 import type { FieldValue, MappingRowExcel, MappingRowInvoice, TemplateFieldKind, TemplateValueType } from './schema';
 import type { SheetInput } from './excel';
+import { appUrl } from '@/lib/app-url';
 
 /** Κάθε πόσο χτυπά ο worker όταν δεν έχει δουλειά. */
 const TICK_MS = 5_000;
@@ -350,7 +351,7 @@ async function finishJob(jobId: string, status: TerminalJobStatus): Promise<void
   await notifyJobFinished(jobId, status).catch((e) => console.error('[templates] job mail failed', jobId, (e as Error).message));
 }
 
-const APP_URL = () => process.env.APP_URL ?? '';
+const APP_URL = appUrl;
 
 async function notifyJobFinished(jobId: string, status: TerminalJobStatus): Promise<void> {
   const job = await prisma.templateJob.findUnique({

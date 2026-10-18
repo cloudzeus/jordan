@@ -6,6 +6,7 @@ import { PageHeader } from '@/components/admin/page-header';
 import { HelpIcon } from '@/components/wiki/help-icon';
 import { vivaUrls } from '@/lib/viva-core';
 import { SettingsForm } from './settings-form';
+import { appUrl } from '@/lib/app-url';
 
 export default async function SettingsPage() {
   await requirePermission('system.settings');
@@ -27,7 +28,7 @@ export default async function SettingsPage() {
     };
   });
 
-  const appUrl = (process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || '').replace(/\/$/, '');
+  const base = appUrl();
 
   return (
     <div className="w-full max-w-5xl">
@@ -40,7 +41,7 @@ export default async function SettingsPage() {
       <SettingsForm
         items={items}
         categories={SETTING_CATEGORIES.map((c) => ({ id: c.id, label: c.label }))}
-        vivaUrls={{ ...vivaUrls(appUrl), appUrlMissing: !appUrl }}
+        vivaUrls={{ ...vivaUrls(base), appUrlMissing: false }}
         vivaHelp={<HelpIcon anchor="viva-payments" />}
       />
     </div>

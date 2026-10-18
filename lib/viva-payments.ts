@@ -11,6 +11,7 @@ import {
   checkoutUrl, classifyTransaction, dedupeKey, formatEur, fullRefund, orderTimeoutSeconds, parseVivaJson, paymentAmount,
   priceDiffRefund, readWebhook, reusableOrder, statusAfterRefund, VIVA_EVENTS, type VivaTransaction,
 } from '@/lib/viva-core';
+import { appUrl } from '@/lib/app-url';
 
 /**
  * Αιτήματα πληρωμής Viva για κρατήσεις κοινού container.
@@ -24,7 +25,6 @@ export class PaymentError extends Error {
   constructor(message: string, readonly status = 400) { super(message); }
 }
 
-const appUrl = () => (process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || '').replace(/\/$/, '');
 export const payUrl = (token: string) => `${appUrl()}/pay/viva/${token}`;
 const num = (n: number) => n.toLocaleString('el-GR', { maximumFractionDigits: 2 });
 const ACTIVE_PAYMENT = ['PENDING', 'PAID'];

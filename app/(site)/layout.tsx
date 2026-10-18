@@ -17,6 +17,13 @@ export async function generateMetadata(): Promise<Metadata> {
     title: { absolute: `${c.brand} — B2B πύλη για αρχιτέκτονες, διακοσμητές & κατασκευαστές`, template: `%s · ${c.brand}` },
     description: 'Η B2B πύλη της Atelier by Damask: δυναμικές προσφορές κοινού container, παρακολούθηση έργων και παραγγελιών, παραγγελίες από τον κατάλογο — μόνο για επαγγελματίες.',
     icons: { icon: '/site/brand/logo-black.png' },
+    alternates: { canonical: '/' },
+    openGraph: {
+      type: 'website', locale: 'el_GR', url: '/', siteName: c.brand,
+      title: `${c.brand} — B2B πύλη`,
+      description: 'Δυναμικές προσφορές κοινού container, έργα και παραγγελίες — μόνο για επαγγελματίες.',
+      images: [{ url: '/site/brand/floor.jpg', width: 1600, height: 1067, alt: c.brand }],
+    },
   };
 }
 
