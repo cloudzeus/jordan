@@ -4,7 +4,7 @@ import * as React from 'react';
 import dynamic from 'next/dynamic';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
-import { FiCheck, FiMail, FiMousePointer, FiTrendingDown, FiUsers } from 'react-icons/fi';
+import { FiArrowDown, FiCheck, FiMail, FiMousePointer, FiTrendingDown, FiUsers } from 'react-icons/fi';
 import { tierColor } from '@/components/site/tier-colors';
 import { cn } from '@/lib/utils';
 
@@ -38,6 +38,19 @@ const EVENTS = [
 
 const MY_PALLETS = 4;
 
+/** Η 3D σκηνή απομονωμένη (memo): δεν ξαναζωγραφίζεται όταν αλλάζουν μόνο νούμερα/μπάρες. */
+const Scene = React.memo(function Scene({ capacity, perPallet, unit, filled, picked }: { capacity: number; perPallet: number; unit: string; filled: number; picked: number }) {
+  return (
+    <ContainerScene
+      pallets={capacity} perPallet={perPallet} filled={filled} load="stones"
+      labels={{ container: 'Container', pallet: 'ΠΑΛ', base: unit }}
+      heightClass="h-full" expandable={false} fitScale={0.8}
+      selectedSlots={picked} maxSelectable={MY_PALLETS}
+      className="h-full [&>div>.pointer-events-none]:hidden [&>div]:rounded-none [&>div]:border-0 [&>div]:![background:transparent] [&_figcaption]:hidden"
+    />
+  );
+});
+
 /**
  * Η δυναμική προσφορά ως ιστορία: η κύλιση γεμίζει το 3D container, η τιμή πέφτει κλιμάκιο-κλιμάκιο, τα
  * κεφάλαια εξηγούν τι συμβαίνει και τα «γεγονότα» της πύλης εμφανίζονται πάνω στη σκηνή. Χωρίς pin:
@@ -45,24 +58,57 @@ const MY_PALLETS = 4;
  */
 export function AuctionStory({ capacity = 20, tiers, product, unit = 'τ.μ.', perPallet = 48 }: { capacity?: number; tiers: Tier[]; product: string; unit?: string; perPallet?: number }) {
   const root = React.useRef<HTMLDivElement>(null);
+  // Δύο ρυθμοί: τα νούμερα/μπάρες/διάγραμμα κυλούν ομαλά (κάθε frame, φθηνά)· η 3D σκηνή —που ΞΑΝΑΧΤΙΖΕΤΑΙ
+  // σε κάθε αλλαγή γεμίσματος— αλλάζει μόνο σε ακέραιες παλέτες και το πολύ ~8 φορές το δευτερόλεπτο.
   const [filled, setFilled] = React.useState(0);
+  const [sceneFilled, setSceneFilled] = React.useState(0);
 
   React.useLayoutEffect(() => {
     const el = root.current;
     if (!el) return;
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) { setFilled(capacity); return; }
-    let last = -1;
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) { setFilled(capacity); setSceneFilled(capacity); return; }
+
+    const proxy = { v: 0 };
+    let sceneAt = 0, sceneTimer: ReturnType<typeof setTimeout> | null = null, sceneLast = -1;
+    const pushScene = () => {
+      const n = Math.floor(proxy.v + 1e-6);
+      if (n === sceneLast) return;
+      const wait = 125 - (performance.now() - sceneAt);
+      if (wait > 0) { if (!sceneTimer) sceneTimer = setTimeout(() => { sceneTimer = null; pushScene(); }, wait); return; }
+      sceneLast = n; sceneAt = performance.now(); setSceneFilled(n);
+    };
+    const glide = gsap.quickTo(proxy, 'v', {
+      duration: 0.35, ease: 'power3.out',
+      onUpdate: () => { setFilled(Math.round(proxy.v * 10) / 10); pushScene(); },
+    });
+
+    // «Κεφαλή ανάγνωσης» που προχωρά ΓΡΗΓΟΡΟΤΕΡΑ από την κύλιση όταν ο χρήστης κυλά γρήγορα (velocity boost),
+    // ώστε η ιστορία να μη «φρενάρει» ποτέ τη σελίδα. Δεν μένει ποτέ πίσω από την πραγματική πρόοδο.
+    let head = 0, prev = 0;
     const st = ScrollTrigger.create({
       trigger: el, start: 'top top', end: 'bottom bottom',
       onUpdate: (s) => {
-        // Λίγο «αέρα» στην αρχή/τέλος ώστε το 1ο και το 5ο κεφάλαιο να διαβάζονται.
-        const p = Math.min(1, Math.max(0, (s.progress - 0.04) / 0.86));
-        const v = Math.round(p * capacity * 2) / 2;
-        if (v !== last) { last = v; setFilled(v); }
+        const delta = s.progress - prev;
+        prev = s.progress;
+        const boost = 1.35 + Math.min(1.6, Math.abs(s.getVelocity()) / 1800);
+        head = Math.min(1, Math.max(0, head + delta * boost));
+        if (delta > 0) head = Math.max(head, s.progress);
+        else head = Math.min(head, Math.min(1, s.progress * 1.8));
+        if (s.progress >= 0.999) head = 1;
+        if (s.progress <= 0.001) head = 0;
+        glide(head * capacity);
       },
     });
-    return () => st.kill();
+    return () => { st.kill(); if (sceneTimer) clearTimeout(sceneTimer); gsap.killTweensOf(proxy); };
   }, [capacity]);
+
+  const skip = () => {
+    const el = root.current;
+    if (!el) return;
+    const y = el.getBoundingClientRect().bottom + window.scrollY - 60;
+    const lenis = (window as unknown as { __lenis?: { scrollTo: (y: number, o?: object) => void } }).__lenis;
+    if (lenis) lenis.scrollTo(y, { duration: 1.1 }); else window.scrollTo({ top: y, behavior: 'smooth' });
+  };
 
   const idx = tiers.reduce((acc, t, i) => (filled + 1e-9 >= t.from ? i : acc), 0);
   const cur = tiers[idx];
@@ -84,7 +130,7 @@ export function AuctionStory({ capacity = 20, tiers, product, unit = 'τ.μ.', p
   const d = tiers.map((t, i) => `${i === 0 ? 'M' : 'L'}${x(t.from)},${y(t.price)} L${x(tiers[i + 1]?.from ?? capacity)},${y(t.price)}`).join(' ');
 
   return (
-    <div ref={root} className="relative h-[480vh] bg-[var(--s-paper)]">
+    <div ref={root} className="relative h-[230vh] bg-[var(--s-paper)] lg:h-[270vh]">
       <div className="sticky top-16 flex h-[calc(100dvh-4rem)] items-center overflow-hidden md:top-20 md:h-[calc(100dvh-5rem)]">
         <div aria-hidden className="pointer-events-none absolute inset-0 opacity-[0.06] [background-image:linear-gradient(#1C3241_1px,transparent_1px),linear-gradient(90deg,#1C3241_1px,transparent_1px)] [background-size:48px_48px]" />
         <div aria-hidden className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_55%_60%_at_32%_50%,rgba(255,255,255,0.95),transparent_70%)]" />
@@ -98,6 +144,10 @@ export function AuctionStory({ capacity = 20, tiers, product, unit = 'τ.μ.', p
           ))}
         </ol>
 
+        <button type="button" onClick={skip} className="absolute bottom-4 right-5 z-10 inline-flex min-h-11 cursor-pointer items-center gap-2 border border-[var(--s-line)] bg-white/90 px-4 text-[length:var(--fs-13)] text-[var(--s-ink-2)] transition-colors hover:border-[var(--s-ink)] hover:text-[var(--s-ink)] sm:right-8 lg:right-12">
+          Παράλειψη <FiArrowDown className="size-3.5" aria-hidden />
+        </button>
+
         <div className="relative mx-auto grid w-full max-w-[1280px] items-center gap-4 px-5 sm:px-8 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)] lg:gap-12 lg:px-12">
           <div className="min-w-0">
             <p className="s-kicker text-[var(--s-accent)]">Δυναμική προσφορά · {String(chapter + 1).padStart(2, '0')} / 05</p>
@@ -110,13 +160,7 @@ export function AuctionStory({ capacity = 20, tiers, product, unit = 'τ.μ.', p
               ))}
             </div>
             <div className="relative aspect-[16/10] w-full lg:aspect-[16/9]">
-              <ContainerScene
-                pallets={capacity} perPallet={perPallet} filled={filled} load="stones"
-                labels={{ container: 'Container', pallet: 'ΠΑΛ', base: unit }}
-                heightClass="h-full" expandable={false} fitScale={0.8}
-                selectedSlots={chapter === 3 ? MY_PALLETS : 0} maxSelectable={MY_PALLETS}
-                className="h-full [&>div>.pointer-events-none]:hidden [&>div]:rounded-none [&>div]:border-0 [&>div]:![background:transparent] [&_figcaption]:hidden"
-              />
+              <Scene capacity={capacity} perPallet={perPallet} unit={unit} filled={sceneFilled} picked={chapter === 3 ? MY_PALLETS : 0} />
               {/* «Κέρσορας» που κλείνει θέσεις στο κεφάλαιο 4 */}
               <span aria-hidden className={cn('pointer-events-none absolute left-[62%] top-[46%] transition-[opacity,transform] duration-700', chapter === 3 ? 'scale-100 opacity-100' : 'scale-75 opacity-0')}>
                 <span className="absolute -left-3 -top-3 size-8 animate-ping rounded-full bg-[#7A5C43]/40 motion-reduce:hidden" />
@@ -154,7 +198,7 @@ export function AuctionStory({ capacity = 20, tiers, product, unit = 'τ.μ.', p
             <div className="mt-4 lg:mt-6">
               <div className="flex justify-between text-[length:var(--fs-13)] text-[var(--s-ink-2)]"><span>Γέμισμα · <b className="font-num font-normal tabular-nums text-[var(--s-ink)]">{num(filled)}</b> / {capacity} παλέτες</span><span className="tabular-nums">{Math.round(pct)}%</span></div>
               <div className="relative mt-2 h-2 bg-[var(--s-line)]" role="progressbar" aria-valuemin={0} aria-valuemax={capacity} aria-valuenow={filled} aria-label="Γέμισμα container">
-                <div className="absolute inset-y-0 left-0 transition-[width] duration-200" style={{ width: `${pct}%`, background: `linear-gradient(90deg, ${tierColor(0, tiers.length)}, ${color})` }} />
+                <div className="absolute inset-y-0 left-0" style={{ width: `${pct}%`, background: `linear-gradient(90deg, ${tierColor(0, tiers.length)}, ${color})` }} />
                 {tiers.slice(1).map((t, i) => (
                   <span key={t.from} className="absolute -top-1 h-4 w-0.5" style={{ left: `${(t.from / capacity) * 100}%`, background: filled >= t.from ? tierColor(i + 1, tiers.length) : '#CFC9C0' }} aria-hidden />
                 ))}

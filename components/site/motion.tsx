@@ -24,17 +24,54 @@ gsap.registerPlugin(ScrollTrigger, SplitText);
 export function SiteMotion() {
   const path = usePathname();
 
-  // Ομαλή κύλιση: ΜΙΑ φορά για όλη τη σελίδα.
+  // Ομαλή κύλιση με αδράνεια: ΜΙΑ φορά για όλη τη σελίδα. Η ταχύτητα κύλισης (velocity) τροφοδοτεί και
+  // «αισθητά» εφέ: οι εικόνες [data-velocity] γέρνουν ελαφρά και οι ταινίες (ticker) επιταχύνουν.
   React.useEffect(() => {
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-    const lenis = new Lenis({ lerp: 0.11, wheelMultiplier: 0.95, smoothWheel: true, anchors: { offset: -80 } });
-    lenis.on('scroll', ScrollTrigger.update);
+    const lenis = new Lenis({
+      lerp: 0.075,                 // πιο «γλιστερό» φρενάρισμα (μικρότερο = μεγαλύτερη αδράνεια)
+      wheelMultiplier: 1,
+      smoothWheel: true,
+      syncTouch: true,             // ίδια αδράνεια και στην αφή (κινητό/tablet)
+      syncTouchLerp: 0.085,
+      touchInertiaExponent: 1.7,
+      touchMultiplier: 1.1,
+      anchors: { offset: -80 },
+    });
     const raf = (t: number) => lenis.raf(t * 1000);
     gsap.ticker.add(raf);
     gsap.ticker.lagSmoothing(0);
     (window as unknown as { __lenis?: Lenis }).__lenis = lenis;
-    return () => { gsap.ticker.remove(raf); lenis.destroy(); delete (window as unknown as { __lenis?: Lenis }).__lenis; };
-  }, []);
+
+    // Ταινίες: GSAP αντί για CSS ώστε η ταχύτητα να ακολουθεί την κύλιση (και την κατεύθυνσή της).
+    const marquees = gsap.utils.toArray<HTMLElement>('.s-marquee').map((el) => {
+      el.style.animation = 'none';
+      return gsap.to(el, { xPercent: -50, duration: 38, ease: 'none', repeat: -1 });
+    });
+    const tilt = gsap.utils.toArray<HTMLElement>('[data-velocity]').map((el) => {
+      el.style.willChange = 'transform';
+      return gsap.quickTo(el, 'skewY', { duration: 0.6, ease: 'power3.out' });
+    });
+    let settle: ReturnType<typeof setTimeout> | null = null;
+    lenis.on('scroll', (l: Lenis) => {
+      ScrollTrigger.update();
+      const v = l.velocity;                       // px/frame, με πρόσημο
+      const skew = gsap.utils.clamp(-3.5, 3.5, v * -0.18);
+      tilt.forEach((q) => q(skew));
+      const ts = gsap.utils.clamp(-6, 6, 1 + v * 0.35);
+      marquees.forEach((m) => gsap.to(m, { timeScale: Math.abs(ts) < 1 ? (ts < 0 ? -1 : 1) : ts, duration: 0.3, overwrite: true }));
+      if (settle) clearTimeout(settle);
+      settle = setTimeout(() => { tilt.forEach((q) => q(0)); marquees.forEach((m) => gsap.to(m, { timeScale: 1, duration: 0.8, overwrite: true })); }, 120);
+    });
+
+    return () => {
+      if (settle) clearTimeout(settle);
+      marquees.forEach((m) => m.kill());
+      gsap.ticker.remove(raf);
+      lenis.destroy();
+      delete (window as unknown as { __lenis?: Lenis }).__lenis;
+    };
+  }, [path]);
 
   React.useLayoutEffect(() => {
     document.documentElement.classList.add('js');

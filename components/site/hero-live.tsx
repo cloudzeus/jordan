@@ -2,7 +2,6 @@
 
 import * as React from 'react';
 import dynamic from 'next/dynamic';
-import gsap from 'gsap';
 import { FiTrendingDown } from 'react-icons/fi';
 import { tierColor } from '@/components/site/tier-colors';
 
@@ -12,29 +11,51 @@ const TIERS = [{ from: 0, price: 48 }, { from: 6, price: 45.1 }, { from: 11, pri
 const CAP = 20;
 const eur = (n: number) => n.toLocaleString('el-GR', { style: 'currency', currency: 'EUR' });
 
+/** Η 3D σκηνή απομονωμένη: ξαναχτίζεται ΜΟΝΟ όταν αλλάζει το (ακέραιο) γέμισμα. */
+const Scene = React.memo(function Scene({ filled }: { filled: number }) {
+  return (
+    <ContainerScene pallets={CAP} perPallet={48} filled={filled} load="stones" labels={{ container: 'Container', pallet: 'ΠΑΛ', base: 'τ.μ.' }}
+      heightClass="h-full" expandable={false} fitScale={0.86}
+      className="h-full [&>div>.pointer-events-none]:hidden [&>div]:rounded-none [&>div]:border-0 [&>div]:![background:transparent] [&_figcaption]:hidden" />
+  );
+});
+
+/** «Κρατήσεις» της επίδειξης: κάθε βήμα = μία κράτηση (παλέτες) — διακριτά, όπως στην πραγματική πύλη. */
+const STEPS = [2, 1, 2, 1, 2, 1, 1, 2, 1, 2];
+const START = 3;
+
 /**
- * Κάρτα «ζωντανής» δημοπρασίας στο hero: γυάλινο πάνελ σε προοπτική με το 3D container να γεμίζει
- * σε βρόχο και την τιμή να πέφτει. Ενδεικτικά νούμερα (οι πραγματικές τιμές μόνο μετά τη σύνδεση).
+ * Κάρτα «ζωντανής» δημοπρασίας στο hero: το 3D container γεμίζει με διακριτές κρατήσεις (μία ανά ~1,1s),
+ * η τιμή πέφτει στα κλιμάκια και στο τέλος ο βρόχος ξαναρχίζει. Η σκηνή ξαναχτίζεται ΜΟΝΟ ανά κράτηση,
+ * καμία κλίση/blur πάνω στον καμβά (αυτά προκαλούσαν «τρεμόπαιγμα»), παύση όταν δεν φαίνεται.
+ * Ενδεικτικά νούμερα — οι πραγματικές τιμές μόνο μετά τη σύνδεση.
  */
 export function HeroLive() {
-  const [filled, setFilled] = React.useState(3);
+  const [filled, setFilled] = React.useState(START);
+  const [last, setLast] = React.useState<{ n: number; k: number } | null>(null);
   const card = React.useRef<HTMLDivElement>(null);
 
   React.useEffect(() => {
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) { setFilled(13); return; }
-    const o = { v: 3 };
-    const tl = gsap.timeline({ repeat: -1, repeatDelay: 1.2 })
-      .to(o, { v: 18, duration: 9, ease: 'none', onUpdate: () => setFilled(Math.round(o.v * 2) / 2) })
-      .to(o, { v: 3, duration: 1.2, ease: 'power2.inOut', delay: 1.6, onUpdate: () => setFilled(Math.round(o.v * 2) / 2) });
-    // Ελαφριά κλίση που ακολουθεί τον δείκτη (μόνο desktop/ποντίκι).
-    const el = card.current;
-    const move = (e: PointerEvent) => {
-      if (!el || e.pointerType !== 'mouse') return;
-      const r = el.getBoundingClientRect();
-      gsap.to(el, { rotateY: ((e.clientX - r.left) / r.width - 0.5) * 10 - 8, rotateX: -((e.clientY - r.top) / r.height - 0.5) * 8 + 4, duration: 0.8, ease: 'power3.out' });
+    let i = 0, f = START, visible = true, timer: ReturnType<typeof setTimeout> | null = null;
+    const tick = () => {
+      timer = null;
+      if (!visible || document.hidden) return;
+      if (i >= STEPS.length) { i = 0; f = START; setFilled(f); setLast(null); timer = setTimeout(tick, 1400); return; }
+      const n = STEPS[i++];
+      f = Math.min(CAP, f + n);
+      setFilled(f);
+      setLast({ n, k: i });
+      timer = setTimeout(tick, i >= STEPS.length ? 2600 : 1100);
     };
-    window.addEventListener('pointermove', move);
-    return () => { tl.kill(); window.removeEventListener('pointermove', move); };
+    const io = new IntersectionObserver(([e]) => {
+      visible = e.isIntersecting;
+      if (visible && !timer) timer = setTimeout(tick, 700);
+    }, { threshold: 0.2 });
+    if (card.current) io.observe(card.current);
+    const onVis = () => { if (!document.hidden && visible && !timer) timer = setTimeout(tick, 500); };
+    document.addEventListener('visibilitychange', onVis);
+    return () => { if (timer) clearTimeout(timer); io.disconnect(); document.removeEventListener('visibilitychange', onVis); };
   }, []);
 
   const idx = TIERS.reduce((a, t, i) => (filled >= t.from ? i : a), 0);
@@ -42,8 +63,8 @@ export function HeroLive() {
   const drop = ((TIERS[0].price - TIERS[idx].price) / TIERS[0].price) * 100;
 
   return (
-    <div className="[perspective:1400px]">
-      <div ref={card} className="relative border border-white/25 bg-[#0B1620]/55 p-4 text-white shadow-[0_40px_120px_-30px_rgba(0,0,0,0.65)] backdrop-blur-md [transform:rotateY(-8deg)_rotateX(4deg)] [transform-style:preserve-3d] sm:p-5">
+    <div>
+      <div ref={card} className="relative border border-white/20 bg-[#0B1620]/80 p-4 text-white shadow-[0_40px_120px_-30px_rgba(0,0,0,0.7)] sm:p-5">
         <div className="flex items-center justify-between gap-3">
           <p className="text-[length:var(--fs-11)] uppercase tracking-[0.2em] text-white/75">Κοινό container · Τραβερτίνης Classic</p>
           <span className="inline-flex items-center gap-1.5 text-[length:var(--fs-11)] font-medium uppercase tracking-[0.16em] text-[#FCA5A5]">
@@ -51,9 +72,12 @@ export function HeroLive() {
           </span>
         </div>
         <div className="relative mt-2 aspect-[16/10] w-full">
-          <ContainerScene pallets={CAP} perPallet={48} filled={filled} load="stones" labels={{ container: 'Container', pallet: 'ΠΑΛ', base: 'τ.μ.' }}
-            heightClass="h-full" expandable={false} fitScale={0.86}
-            className="h-full [&>div>.pointer-events-none]:hidden [&>div]:rounded-none [&>div]:border-0 [&>div]:![background:transparent] [&_figcaption]:hidden" />
+          <Scene filled={filled} />
+          {last && (
+            <span key={last.k} className="s-pop absolute right-2 top-2 inline-flex items-center gap-1.5 bg-white px-2.5 py-1 text-[length:var(--fs-12)] font-medium text-[var(--s-ink)] shadow-lg">
+              <span className="size-1.5 rounded-full bg-[#15803D]" aria-hidden />Νέα κράτηση · +{last.n} {last.n === 1 ? 'παλέτα' : 'παλέτες'}
+            </span>
+          )}
         </div>
         <div className="mt-2 flex items-end justify-between gap-4 border-t border-white/20 pt-3">
           <div>
@@ -65,7 +89,7 @@ export function HeroLive() {
             <p className="mt-1 text-[length:var(--fs-13)] tabular-nums text-white/80">{filled.toLocaleString('el-GR')} / {CAP} παλέτες</p>
           </div>
         </div>
-        <div className="mt-3 h-1 bg-white/20"><div className="h-full transition-[width] duration-300" style={{ width: `${(filled / CAP) * 100}%`, background: `linear-gradient(90deg, ${tierColor(0, 4)}, ${c})` }} /></div>
+        <div className="mt-3 h-1 bg-white/20"><div className="h-full transition-[width] duration-700 ease-out" style={{ width: `${(filled / CAP) * 100}%`, background: `linear-gradient(90deg, ${tierColor(0, 4)}, ${c})` }} /></div>
       </div>
     </div>
   );

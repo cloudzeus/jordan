@@ -39,7 +39,7 @@ export default async function HomePage() {
       {/* ═══ HERO: βίντεο showroom + γιγάντια τυπογραφία + ζωντανό 3D container ═══ */}
       <section className="relative isolate -mt-16 min-h-[100svh] overflow-hidden bg-[#0B1620] text-white md:-mt-20">
         <div className="absolute inset-0 -z-10">
-          <video data-zoom className="size-full object-cover" src="/site/brand/showroom.mp4" poster="/site/brand/showroom.jpg" autoPlay muted loop playsInline preload="metadata" aria-hidden />
+          <video className="size-full object-cover" src="/site/brand/showroom.mp4" poster="/site/brand/showroom.jpg" autoPlay muted loop playsInline preload="metadata" aria-hidden />
           <div className="absolute inset-0 bg-[linear-gradient(100deg,rgba(11,22,32,0.92)_0%,rgba(11,22,32,0.72)_45%,rgba(11,22,32,0.25)_100%)]" />
           <div className="absolute inset-x-0 bottom-0 h-48 bg-gradient-to-t from-[#0B1620] to-transparent" />
         </div>
@@ -134,7 +134,7 @@ export default async function HomePage() {
           <div data-track className="mt-12 flex snap-x snap-mandatory gap-6 overflow-x-auto px-5 pb-24 sm:px-8 lg:mt-8 lg:w-max lg:snap-none lg:overflow-visible lg:px-12 lg:pb-0">
             {GALLERY.map((g, i) => (
               <figure key={g.t} className="group relative w-[78vw] shrink-0 snap-start sm:w-[52vw] lg:w-[calc(54vh*0.8)]">
-                <div className="relative aspect-[4/5] overflow-hidden bg-[var(--s-paper)]">
+                <div data-velocity className="relative aspect-[4/5] origin-center overflow-hidden bg-[var(--s-paper)]">
                   <Image src={g.img} alt={g.t} fill sizes="(min-width: 1024px) 30rem, 78vw" className="s-img object-cover" />
                   <span className="absolute left-4 top-4 bg-white/90 px-2 py-1 text-[length:var(--fs-11)] uppercase tracking-[0.18em] text-[var(--s-ink)]">Φ. 0{i + 1}</span>
                 </div>
@@ -164,7 +164,7 @@ export default async function HomePage() {
           <ul className="mt-16 grid gap-10 md:grid-cols-3 md:gap-6" data-reveal data-stagger>
             {ROLES.map((r) => (
               <li key={r.k} className="group">
-                <div className="relative aspect-[3/4] overflow-hidden bg-[var(--s-paper)]">
+                <div data-velocity className="relative aspect-[3/4] overflow-hidden bg-[var(--s-paper)]">
                   <div data-parallax="0.12" className="absolute inset-[-8%]"><Image src={r.img} alt="" fill sizes="(min-width: 768px) 33vw, 100vw" className="s-img object-cover" /></div>
                   <div className="absolute inset-0 bg-gradient-to-t from-[#0B1620]/85 via-[#0B1620]/10 to-transparent" />
                   <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-4 p-6 text-white">
