@@ -19,15 +19,20 @@ export function InViewVideo({ sources, poster, className, label }: { sources: So
       video.controls = true;
       return;
     }
+    // Αν η συσκευή μπλοκάρει το autoplay (iPhone σε «Χαμηλή κατανάλωση», Safari με απενεργοποιημένο
+    // autoplay) το play() απορρίπτεται: τότε εμφανίζονται τα controls — αλλιώς μένει μόνο το poster
+    // χωρίς τρόπο να ξεκινήσει και μοιάζει σαν να «λείπει» το βίντεο.
+    const showControls = () => { video.controls = true; };
     const io = new IntersectionObserver(
       ([entry]) => {
-        if (entry.isIntersecting) video.play().catch(() => {});
+        if (entry.isIntersecting) video.play().catch(showControls);
         else video.pause();
       },
       { threshold: 0.35 },
     );
+    video.addEventListener('error', showControls, true);
     io.observe(video);
-    return () => io.disconnect();
+    return () => { io.disconnect(); video.removeEventListener('error', showControls, true); };
   }, []);
 
   return (
