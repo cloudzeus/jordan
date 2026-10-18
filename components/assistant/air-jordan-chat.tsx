@@ -12,6 +12,8 @@ import {
 import { AirJordanAvatar } from './air-jordan-icon';
 import { MarkdownView } from './markdown-view';
 import { useVoiceInput } from './use-voice-input';
+import { AppointmentConfirmCard } from './appointment-card';
+import type { AppointmentCard } from '@/lib/assistant/tools';
 
 export interface Citation { refKey: string; label: string; url: string | null }
 export interface ChatMsg {
@@ -21,6 +23,7 @@ export interface ChatMsg {
   citations?: Citation[];
   feedback?: number | null;
   error?: boolean;
+  cards?: AppointmentCard[];
 }
 
 const ITEM = 'cursor-pointer gap-2 text-[length:var(--fs-12)]';
@@ -119,7 +122,7 @@ export function AirJordanChat({
           const ev = JSON.parse(line);
           if (ev.type === 'conversation') { setConversationId(ev.id); onConversation?.(ev.id, ev.title); }
           else if (ev.type === 'step') setSteps((s) => (s.at(-1) === ev.label ? s : [...s, ev.label]));
-          else if (ev.type === 'answer') { answered = true; setMessages((m) => [...m, { id: ev.messageId, role: 'assistant', content: ev.text, citations: ev.citations }]); }
+          else if (ev.type === 'answer') { answered = true; setMessages((m) => [...m, { id: ev.messageId, role: 'assistant', content: ev.text, citations: ev.citations, cards: ev.cards }]); }
           else if (ev.type === 'error') { answered = true; setMessages((m) => [...m, { role: 'assistant', content: ev.message, error: true }]); }
         }
       }
@@ -169,7 +172,7 @@ export function AirJordanChat({
         <AirJordanAvatar size={32} />
         <div className="min-w-0 flex-1">
           <p className="truncate text-[length:var(--fs-14)] font-semibold leading-tight text-foreground">Air Jordan</p>
-          <p className="truncate text-[length:var(--fs-11)] text-muted-foreground">Έργα · συναλλασσόμενοι · υλικά — μόνο ανάγνωση</p>
+          <p className="truncate text-[length:var(--fs-11)] text-muted-foreground">Έργα · συναλλασσόμενοι · υλικά · ραντεβού</p>
         </div>
         <DropdownMenu>
           <DropdownMenuTrigger className={TRIGGER} aria-label="Ενέργειες Air Jordan">
@@ -234,6 +237,7 @@ export function AirJordanChat({
                 <div className={cn('rounded-2xl rounded-tl-md border px-3.5 py-2.5', m.error ? 'border-destructive/30 bg-destructive/5 text-destructive' : 'border-border bg-card')}>
                   {m.error ? <p className="text-[length:var(--fs-13)]">{m.content}</p> : <MarkdownView text={m.content} />}
                 </div>
+                {m.cards?.map((c) => <AppointmentConfirmCard key={c.token} card={c} conversationId={conversationId} />)}
                 {!m.error && (
                   <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
                     {(m.citations ?? []).map((c) => (

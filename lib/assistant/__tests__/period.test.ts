@@ -53,3 +53,9 @@ describe('parsePeriod', () => {
     expect(s1Date('2026-10-01')).toBe('20261001');
   });
 });
+
+describe('parsePeriod — εβδομάδες', () => {
+  it('επόμενη εβδομάδα = Δευτέρα–Κυριακή', () => {
+    expect(parsePeriod('ραντεβού την επόμενη εβδομάδα', NOW)).toMatchObject({ from: '2026-10-19', to: '2026-10-26' });
+  });
+});

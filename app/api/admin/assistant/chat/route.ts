@@ -24,7 +24,7 @@ export async function POST(req: Request) {
         try { controller.enqueue(enc.encode(`${JSON.stringify(e)}\n`)); } catch { /* ο χρήστης έκλεισε */ }
       };
       try {
-        await runAgent({ userId: u.id, userName: u.name, canFinancials: u.canFinancials, conversationId, question, signal: req.signal }, send);
+        await runAgent({ userId: u.id, userName: u.name, canFinancials: u.canFinancials, canSchedule: u.canSchedule, conversationId, question, signal: req.signal }, send);
       } catch (e) {
         console.error('assistant chat failed', e);
         send({ type: 'error', message: e instanceof AssistantConfigError ? e.message : 'Ο Air Jordan δεν μπόρεσε να απαντήσει αυτή τη στιγμή. Δοκιμάστε ξανά.' });

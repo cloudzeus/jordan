@@ -8,7 +8,7 @@ import { NextResponse } from 'next/server';
 import { getCurrentUserWithPermissions, type UserWithRole } from '@/lib/rbac';
 import { assistantAllowed } from './access-rules';
 
-export type AssistantUser = NonNullable<UserWithRole> & { canFinancials: boolean; canMemory: boolean };
+export type AssistantUser = NonNullable<UserWithRole> & { canFinancials: boolean; canMemory: boolean; canSchedule: boolean };
 
 export async function getAssistantUser(): Promise<AssistantUser | null> {
   const u = await getCurrentUserWithPermissions();
@@ -19,6 +19,7 @@ export async function getAssistantUser(): Promise<AssistantUser | null> {
     ...u,
     canFinancials: roleKey === 'SUPER_ADMIN' || u.permissionKeys.has('projects.financials'),
     canMemory: assistantAllowed(roleKey, u.permissionKeys, 'assistant.memory'),
+    canSchedule: roleKey === 'SUPER_ADMIN' || u.permissionKeys.has('appointments.schedule'),
   };
 }
 

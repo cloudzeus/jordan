@@ -97,6 +97,10 @@ export function parsePeriod(text: string, now = new Date()): Period | null {
     const dow = (new Date(Date.UTC(y, m, d)).getUTCDay() + 6) % 7; // Δευτέρα = 0
     return { from: ymd(y, m, d - dow), to: ymd(y, m, d + 1), label: 'Αυτή την εβδομάδα' };
   }
+  if (/(επομεν|ερχομεν|αλλη|next|epomen)\p{L}*\s+(την\s+)?(εβδομαδα|week|evdomada)/u.test(t)) {
+    const dow = (new Date(Date.UTC(y, m, d)).getUTCDay() + 6) % 7;
+    return { from: ymd(y, m, d - dow + 7), to: ymd(y, m, d - dow + 14), label: 'Επόμενη εβδομάδα' };
+  }
   if (/(προηγουμεν|περασμεν|last|proigoumen|perasmen)\p{L}*\s+(την\s+)?(εβδομαδα|week|evdomada)/u.test(t)) {
     const dow = (new Date(Date.UTC(y, m, d)).getUTCDay() + 6) % 7;
     return { from: ymd(y, m, d - dow - 7), to: ymd(y, m, d - dow), label: 'Προηγούμενη εβδομάδα' };

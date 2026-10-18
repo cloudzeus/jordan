@@ -6,14 +6,14 @@ import { chat, type ChatMessage, type ToolCall } from './openrouter';
 import { embedQuery, searchKnowledge, searchMemories, type MemoryHit } from './search';
 import { detectIntent } from './text';
 import { parsePeriod } from './period';
-import { runTool, stepLabel, TOOL_DEFS, type Ref, type ToolContext } from './tools';
+import { runTool, stepLabel, TOOL_DEFS, type AppointmentCard, type Ref, type ToolContext } from './tools';
 import { pickCitations } from './citations';
 import { reindexIfStale } from './indexer';
 
 export type AgentEvent =
   | { type: 'conversation'; id: string; title: string }
   | { type: 'step'; label: string }
-  | { type: 'answer'; messageId: string; text: string; citations: Ref[]; model: string }
+  | { type: 'answer'; messageId: string; text: string; citations: Ref[]; model: string; cards?: AppointmentCard[] }
   | { type: 'error'; message: string };
 
 const MAX_ROUNDS = 6;
@@ -33,11 +33,12 @@ function systemPrompt(opts: { name: string | null; canFinancials: boolean; memor
 3. Αν βρεις πολλές πιθανές οντότητες: όταν η ερώτηση ζητά ΠΟΣΑ (υπόλοιπο, τζίρο, χρέος) και δύο ή περισσότερες ταιριάζουν εξίσου (π.χ. δύο «Παπαδόπουλος»), ΜΗΝ διαλέξεις — ρώτα ποια εννοεί, με κωδικό και επωνυμία της καθεμιάς. Αλλιώς διάλεξε την πιο πιθανή και ανέφερε τις άλλες σε μία γραμμή («Εννοείτε μήπως…;»). Αν δεν βρεις τίποτα, πες το καθαρά.
 4. Αν λείπουν δεδομένα (π.χ. δεν έχουν υπολογιστεί οικονομικά, το SoftOne δεν απάντησε, δεν υπάρχει αγορά), ΠΕΣ ΤΟ ρητά — μην το καλύπτεις με γενικότητες.
 5. Παραπομπές: ανέφερε πάντα τους κωδικούς στους οποίους βασίζεσαι (κωδικός έργου, αριθμός παραστατικού, κωδικός είδους/συναλλασσομένου) μέσα στο κείμενο, π.χ. «(έργο 2026-015, τιμ. ΤΔΑ0000123)».
-6. Μόνο ΑΝΑΓΝΩΣΗ: δεν δημιουργείς, δεν αλλάζεις, δεν διαγράφεις τίποτα στο SoftOne ή στην εφαρμογή. Αν σου ζητηθεί, εξήγησε σε ποια σελίδα της εφαρμογής γίνεται.
+6. Μόνο ΑΝΑΓΝΩΣΗ: δεν δημιουργείς, δεν αλλάζεις, δεν διαγράφεις τίποτα στο SoftOne ή στην εφαρμογή — η ΜΟΝΗ εξαίρεση είναι η πρόταση ραντεβού (κανόνας 10), που ολοκληρώνει ο ίδιος ο χρήστης με «Επιβεβαίωση». Για οτιδήποτε άλλο εξήγησε σε ποια σελίδα της εφαρμογής γίνεται.
 7. ${opts.canFinancials ? 'Τα οικονομικά έργων (κέρδος, περιθώριο) είναι ΕΣΩΤΕΡΙΚΗ πληροφορία — δίνονται μόνο σε αυτόν τον χρήστη.' : 'Ο χρήστης ΔΕΝ έχει δικαίωμα στα οικονομικά έργων — μην τα αναφέρεις.'}
 8. ΟΙΚΟΝΟΜΙΚΑ: πες ΠΑΝΤΑ την περίοδο (με ημερομηνίες) και αν τα ποσά είναι καθαρά (χωρίς ΦΠΑ) ή μικτά (με ΦΠΑ). Τζίρος/αγορές περιόδου → get_turnover (μετρά τιμολόγια μείον πιστωτικά — ανέφερε πόσα παραστατικά και τα μεγαλύτερα). Υπόλοιπο προμηθευτή/πελάτη → get_trader (η καρτέλα του SoftOne). Υπόλοιπο πελάτη ΣΕ ΕΡΓΟ → get_customer_project_balance (ανέφερε τα «Δεδομένα που λείπουν» αν υπάρχουν). Αν η περίοδος δεν είναι σαφής, ρώτα.
-9. Μορφή: ποσά σε € με ελληνική μορφή (1.234,56 €), ημερομηνίες ηη/μμ/εεεε. Markdown με λίστες ή μικρό πίνακα μόνο όταν βοηθά. Χωρίς εισαγωγές τύπου «Φυσικά!».
-10. ΜΑΘΗΣΗ: όταν ο χρήστης σε διορθώνει ή σου εξηγεί τι εννοεί («όταν λέω Χ εννοώ Υ», «ο Γιώργος είναι ο προμηθευτής Ζ», «θέλω τα ποσά χωρίς ΦΠΑ»), κάλεσε remember με μία αυτοτελή πρόταση, και συνέχισε την απάντηση. Μην αποθηκεύεις μεταβλητά νούμερα.
+9. Μορφή: ποσά σε € με ελληνική μορφή (1.234,56 €), ημερομηνίες ηη/μμ/εεεε. Markdown με λίστες ή μικρό πίνακα μόνο όταν βοηθά. Χωρίς εισαγωγές τύπου «Φυσικά!». ΜΗΝ δείχνεις εσωτερικά κλειδιά (trader:104, project:12) — μόνο κωδικούς/ονόματα.
+10. ΗΜΕΡΟΛΟΓΙΟ: «τι ραντεβού έχω σήμερα/αύριο/αυτή την εβδομάδα» → get_appointments (ώρα Αθήνας, με ποιον, πού). «Κλείσε μου ραντεβού…» → κάλεσε ΚΑΤΕΥΘΕΙΑΝ propose_appointment (with = το όνομα όπως το είπε, when = η φράση για το πότε) — ΟΧΙ search_knowledge πρώτα· το εργαλείο βρίσκει μόνο του τον πελάτη (και με πτώσεις: «Κουνά» = ΚΟΥΝΑΣ) και επιστρέφει υποψηφίους μόνο αν υπάρχει πραγματική αμφιβολία. ΕΣΥ ΔΕΝ ΚΛΕΙΝΕΙΣ ΡΑΝΤΕΒΟΥ: εμφανίζεται κάρτα επιβεβαίωσης και κλείνεται ΜΟΝΟ όταν ο χρήστης πατήσει «Επιβεβαίωση» — πες το με μία πρόταση, ανέφερε τυχόν προειδοποιήσεις/υποθέσεις (π.χ. «στις 4» ⇒ 16:00) και ΜΗΝ γράψεις ότι κλείστηκε. Αν υπάρχουν πολλοί υποψήφιοι ή λείπει η ώρα, ρώτα. Νέος πελάτης που δεν υπάρχει: παρέπεμψε στο Ημερολόγιο → Νέο ραντεβού.
+11. ΜΑΘΗΣΗ: όταν ο χρήστης σε διορθώνει ή σου εξηγεί τι εννοεί («όταν λέω Χ εννοώ Υ», «ο Γιώργος είναι ο προμηθευτής Ζ», «θέλω τα ποσά χωρίς ΦΠΑ»), κάλεσε remember με μία αυτοτελή πρόταση, και συνέχισε την απάντηση. Μην αποθηκεύεις μεταβλητά νούμερα.
 
 ΤΙ ΕΧΕΙΣ ΜΑΘΕΙ (από προηγούμενες συνομιλίες — ισχύουν, αλλά τα νούμερα τα ξαναελέγχεις):
 ${mem}`;
@@ -56,6 +57,7 @@ export interface AgentInput {
   userId: string;
   userName: string | null;
   canFinancials: boolean;
+  canSchedule?: boolean;
   conversationId?: string | null;
   question: string;
   signal?: AbortSignal;
@@ -89,7 +91,7 @@ export async function runAgent(input: AgentInput, emit: (e: AgentEvent) => void)
   const intent = detectIntent(question);
   const period = parsePeriod(question);
 
-  const ctx: ToolContext = { userId: input.userId, canFinancials: input.canFinancials, messageId: userMsg.id, vector: vec };
+  const ctx: ToolContext = { userId: input.userId, canFinancials: input.canFinancials, canSchedule: !!input.canSchedule, messageId: userMsg.id, vector: vec };
   const visibleHints = input.canFinancials ? hints : hints.map((h) => ({ ...h, body: h.body.replace(/^Οικονομικά.*$/gm, '') }));
   const messages: ChatMessage[] = [
     { role: 'system', content: systemPrompt({ name: input.userName, canFinancials: input.canFinancials, memories, today: new Date().toLocaleDateString('el-GR', { timeZone: 'Europe/Athens' }) }) },
@@ -102,6 +104,7 @@ export async function runAgent(input: AgentInput, emit: (e: AgentEvent) => void)
 
   const hintRefs: Ref[] = visibleHints.map((h) => ({ refKey: h.refKey, label: h.title, url: h.url }));
   const refs: Ref[] = [];
+  const cards: AppointmentCard[] = [];
   const toolLog: { name: string; args: Record<string, unknown>; ms: number; ok: boolean }[] = [];
   let cost = 0;
   let model = '';
@@ -126,6 +129,7 @@ export async function runAgent(input: AgentInput, emit: (e: AgentEvent) => void)
         const r = await runTool(tc.function.name, args, ctx);
         // Αποτελέσματα αναζήτησης = υποψήφιοι, όχι πηγές: μετρούν μόνο αν η απάντηση τα ονομάζει.
         (tc.function.name === 'search_knowledge' ? hintRefs : refs).push(...r.refs);
+        if (r.card) cards.push(r.card);
         toolLog.push({ name: tc.function.name, args, ms: Date.now() - t, ok: true });
         return { id: tc.id, content: JSON.stringify(r.data).slice(0, MAX_TOOL_CHARS) };
       } catch (e) {
@@ -142,5 +146,6 @@ export async function runAgent(input: AgentInput, emit: (e: AgentEvent) => void)
     data: { conversationId: conv.id, role: 'assistant', content: text, citations: citations as never, toolCalls: toolLog as never, model, costUsd: cost },
   });
   await prisma.assistantConversation.update({ where: { id: conv.id }, data: { updatedAt: new Date() } });
-  emit({ type: 'answer', messageId: saved.id, text, citations, model });
+  // Μόνο η τελευταία πρόταση ραντεβού (αν ο βοηθός ξαναπρότεινε μετά από διόρθωση).
+  emit({ type: 'answer', messageId: saved.id, text, citations, model, cards: cards.slice(-1) });
 }

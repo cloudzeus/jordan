@@ -4,6 +4,7 @@
 // έργου, αγορές είδους, συντεταγμένες. Κάθε αποτέλεσμα φέρει `refs` — τις πηγές για τις παραπομπές.
 import 'server-only';
 import { prisma } from '@/lib/db';
+import { resolveParty } from '@/lib/appointment-parties';
 import { softoneGetTable, SODTYPE_LABEL } from '@/lib/softone';
 import { getProject, projectStatusLabel } from '@/lib/projects';
 import { getProjectFinancials, listProjectFinancials } from '@/lib/project-profit';
@@ -17,10 +18,33 @@ import { MEMORY_KINDS, remember, searchKnowledge, type MemoryKind } from './sear
 import { fold } from './text';
 import { parsePeriod, type Period } from './period';
 import { projectCustomerBalance, turnover } from './finance';
+import { appointmentsBetween, checkSlot, findParties, freeSlots, pickParty, signProposal } from './calendar';
+import { parseWhen } from './when';
+import { formatSlotEl, zonedParts, zonedToUtc } from '@/lib/appointments-core';
+import { appointmentsSoftoneEnabled } from '@/lib/appointment-softone';
 
 export interface Ref { refKey: string; label: string; url: string | null }
-export interface ToolContext { userId: string; canFinancials: boolean; messageId?: string | null; vector?: string | null }
-export interface ToolResult { data: unknown; refs: Ref[] }
+export interface ToolContext { userId: string; canFinancials: boolean; canSchedule?: boolean; messageId?: string | null; vector?: string | null }
+
+/** Κάρτα επιβεβαίωσης ραντεβού — το ραντεβού δημιουργείται ΜΟΝΟ όταν ο χρήστης πατήσει «Επιβεβαίωση». */
+export interface AppointmentCard {
+  type: 'appointment';
+  token: string;
+  when: string;
+  minutes: number;
+  with: string;
+  sub: string;
+  email: string | null;
+  place: string;
+  topic: string | null;
+  notes: string | null;
+  warnings: string[];
+  assumed: string[];
+  /** Η ώρα είναι γεμάτη: η επιβεβαίωση θα κλείσει ραντεβού πάνω σε άλλο. */
+  overlap: boolean;
+  saveTo: string[];
+}
+export interface ToolResult { data: unknown; refs: Ref[]; card?: AppointmentCard }
 
 const SOURCE_ENUM = ['project', 'document', 'trader', 'item', 'service', 'unit', 'classification', 'lookup', 'partner', 'offer', 'order_request', 'appointment', 'lead', 'wiki', 'glossary'];
 
@@ -118,6 +142,43 @@ export const TOOL_DEFS: ToolDef[] = [
       name: 'get_customer_project_balance',
       description: 'Υπόλοιπο του ΠΕΛΑΤΗ ΣΕ ΕΝΑ ΕΡΓΟ: μικτά τιμολογημένα, εισπράξεις, ανοιχτό υπόλοιπο με παλαιότητα, τα τιμολόγια και οι εισπράξεις του έργου, και τα «Δεδομένα που λείπουν». Για «πόσα μας χρωστά ο πελάτης στο έργο Χ». (Το συνολικό υπόλοιπο του πελάτη σε όλα τα έργα: get_trader.)',
       parameters: { type: 'object', properties: { prjc: { type: 'integer' }, code: { type: 'string' } } },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'get_appointments',
+      description: 'Ραντεβού του ημερολογίου της εφαρμογής για μια μέρα/περίοδο (ώρα Αθήνας): ποιος, πότε, πού, θέμα, κατάσταση. Προεπιλογή: τα δικά μου (ανατεθειμένα σε μένα + χωρίς ανάθεση) σήμερα. Για «τι ραντεβού έχω σήμερα/αύριο/αυτή την εβδομάδα».',
+      parameters: {
+        type: 'object',
+        properties: {
+          period: { type: 'string', description: '«σήμερα», «αύριο», «Δευτέρα», «αυτή την εβδομάδα», «20/10»…' },
+          scope: { type: 'string', enum: ['mine', 'all'], description: 'mine (προεπιλογή) ή all = όλων' },
+        },
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'propose_appointment',
+      description: 'ΠΡΟΤΑΣΗ νέου ραντεβού με πελάτη/επαφή/συνεργάτη: βρίσκει με ποιον, ερμηνεύει μέρα/ώρα (ώρα Αθήνας), ελέγχει αν η ώρα είναι ελεύθερη και δείχνει στον χρήστη ΚΑΡΤΑ ΕΠΙΒΕΒΑΙΩΣΗΣ. ΔΕΝ κλείνει τίποτα — το ραντεβού γίνεται μόνο αν ο χρήστης πατήσει «Επιβεβαίωση» στην κάρτα. Νέος πελάτης που δεν υπάρχει: δεν γίνεται από εδώ (Ημερολόγιο → Νέο ραντεβού).',
+      parameters: {
+        type: 'object',
+        properties: {
+          with: { type: 'string', description: 'Με ποιον, όπως το είπε ο χρήστης (όνομα, εταιρεία, κωδικός).' },
+          party_kind: { type: 'string', enum: ['trader', 'contact', 'partner', 'partnerContact'], description: 'Αν είναι ήδη γνωστό από προηγούμενο βήμα.' },
+          party_id: { type: 'string' },
+          when: { type: 'string', description: 'Μέρα και ώρα όπως τις είπε ο χρήστης: «στις 4 το απόγευμα της Δευτέρας», «αύριο 10:30».' },
+          date: { type: 'string', description: 'Εναλλακτικά yyyy-mm-dd' },
+          time: { type: 'string', description: 'Εναλλακτικά HH:MM (24ωρο, ώρα Αθήνας)' },
+          minutes: { type: 'integer', description: 'Διάρκεια (προεπιλογή 60)' },
+          place: { type: 'string', enum: ['atelier', 'customer'], description: 'Πού: στο atelier (προεπιλογή) ή στον πελάτη' },
+          location: { type: 'string', description: 'Διεύθυνση όταν είναι στον πελάτη' },
+          topic: { type: 'string' },
+          notes: { type: 'string' },
+        },
+      },
     },
   },
   {
@@ -435,6 +496,91 @@ export async function runTool(name: string, args: Record<string, unknown>, ctx: 
       };
     }
 
+    case 'get_appointments': {
+      const text = str(args.period) ?? 'σήμερα';
+      const scope = args.scope === 'all' ? 'all' : 'mine';
+      const day = parseWhen(text).date;
+      let per = day ? null : parsePeriod(text);
+      // Για το ημερολόγιο «αυτή την εβδομάδα» = ολόκληρη η εβδομάδα (Δευτέρα–Κυριακή), όχι μέχρι σήμερα.
+      if (per?.label === 'Αυτή την εβδομάδα') per = { ...per, to: new Date(Date.parse(`${per.from}T00:00:00Z`) + 7 * 86_400_000).toISOString().slice(0, 10) };
+      const fromD = day ?? per?.from ?? zonedParts(new Date()).date;
+      const toD = day ? new Date(Date.parse(`${day}T00:00:00Z`) + 86_400_000).toISOString().slice(0, 10) : per?.to ?? fromD;
+      const label = day ? formatSlotEl(zonedToUtc(day, '12:00').toISOString()).split(',').slice(0, 2).join(',') : per?.label ?? text;
+      const list = await appointmentsBetween(zonedToUtc(fromD, '00:00'), zonedToUtc(toD, '00:00'), { userId: ctx.userId, scope });
+      return {
+        data: { period: label, scope: scope === 'mine' ? 'δικά μου (ανατεθειμένα σε μένα + χωρίς ανάθεση)' : 'όλων', count: list.length, appointments: list },
+        refs: [{ refKey: 'calendar', label: 'Ημερολόγιο ραντεβού', url: '/admin/appointments' }],
+      };
+    }
+
+    case 'propose_appointment': {
+      if (!ctx.canSchedule) return { data: { error: 'Ο χρήστης δεν έχει δικαίωμα να κλείνει ραντεβού (appointments.schedule).' }, refs: [] };
+      // 1. Με ποιον
+      let party: { kind: 'trader' | 'contact' | 'partner' | 'partnerContact'; id: string } | null = null;
+      const kinds = ['trader', 'contact', 'partner', 'partnerContact'] as const;
+      if (str(args.party_id) && kinds.includes(args.party_kind as (typeof kinds)[number])) party = { kind: args.party_kind as (typeof kinds)[number], id: String(args.party_id) };
+      else {
+        const q = str(args.with);
+        if (!q) return { data: { error: 'Με ποιον είναι το ραντεβού; Ρώτα τον χρήστη.' }, refs: [] };
+        const cands = await findParties(q);
+        if (!cands.length) return { data: { error: `Δεν βρέθηκε πελάτης/επαφή/συνεργάτης «${q}». Αν είναι νέος πελάτης, κλείνεται από Ημερολόγιο ραντεβού → Νέο ραντεβού (εκεί δημιουργείται και στο SoftOne).` }, refs: [{ refKey: 'calendar', label: 'Ημερολόγιο ραντεβού', url: '/admin/appointments' }] };
+        const one = pickParty(q, cands);
+        if (!one) return { data: { ambiguous: true, ask: 'Ρώτα τον χρήστη ποιον εννοεί (δώσε τις επιλογές με περιγραφή) και ξανακάλεσε με party_kind + party_id.', candidates: cands.map((c) => ({ party_kind: c.kind, party_id: c.id, label: c.label, sub: c.sub })) }, refs: [] };
+        party = { kind: one.kind, id: one.id };
+      }
+      const snap = await resolveParty(party).catch(() => null);
+      if (!snap) return notFound('πελάτης/επαφή');
+
+      // 2. Πότε
+      const w = str(args.when) ? parseWhen(String(args.when)) : { date: null, time: null, partOfDay: null, assumed: [] as string[] };
+      const date = (typeof args.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(args.date) ? args.date : null) ?? w.date;
+      const time = (typeof args.time === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(args.time) ? args.time : null) ?? w.time;
+      if (!date) return { data: { error: 'Ποια μέρα; Ρώτα τον χρήστη.' }, refs: [] };
+      if (!time) {
+        const free = await freeSlots(date, w.partOfDay);
+        return { data: { needTime: true, date, freeTimes: free, ask: free.length ? `Ρώτα ποια ώρα — ελεύθερες: ${free.join(', ')}` : 'Ρώτα ποια ώρα — δεν υπάρχει ελεύθερη θέση στο ωράριο εκείνης της μέρας.' }, refs: [] };
+      }
+      const minutes = Number.isInteger(args.minutes) && Number(args.minutes) >= 15 && Number(args.minutes) <= 600 ? Number(args.minutes) : 60;
+      const start = zonedToUtc(date, time);
+      const check = await checkSlot(start, minutes);
+      if (check.past) return { data: { error: `Η ώρα ${formatSlotEl(start.toISOString())} έχει περάσει — ρώτα για άλλη.` }, refs: [] };
+      const place = args.place === 'customer' ? 'customer' : 'atelier';
+      const location = place === 'customer' ? str(args.location) : null;
+      const topic = str(args.topic);
+      const notes = str(args.notes);
+      const token = signProposal({ uid: ctx.userId, party, start: start.toISOString(), minutes, place, location, topic, notes });
+      const [softoneOn, me] = await Promise.all([
+        appointmentsSoftoneEnabled().catch(() => false),
+        prisma.user.findUnique({ where: { id: ctx.userId }, select: { softoneUserId: true } }),
+      ]);
+      const softoneLine = !softoneOn ? 'SoftOne: η αποστολή ραντεβού είναι κλειστή (Ρυθμίσεις ραντεβού) — δεν θα σταλεί'
+        : !me?.softoneUserId ? 'SoftOne: δεν θα σταλεί — ο χρήστης σας δεν είναι συνδεδεμένος με χρήστη SoftOne (Χρήστες → SoftOne)'
+          : 'SoftOne — Ραντεβού (CRM)';
+      const card: AppointmentCard = {
+        type: 'appointment', token,
+        when: formatSlotEl(start.toISOString(), new Date(start.getTime() + minutes * 60_000).toISOString()),
+        minutes,
+        with: snap.company && snap.company !== snap.name ? `${snap.name} (${snap.company})` : snap.name,
+        sub: [snap.phone, snap.email].filter(Boolean).join(' · '),
+        email: snap.email,
+        place: place === 'customer' ? `Στον πελάτη${location ? `: ${location}` : ''}` : 'Στο atelier',
+        topic, notes,
+        warnings: check.warnings,
+        assumed: w.assumed,
+        overlap: check.full,
+        saveTo: [
+          'Ημερολόγιο της εφαρμογής (επιβεβαιωμένο)',
+          softoneLine,
+          snap.email ? `Email με .ics σε εσάς και στο ${snap.email}` : 'Email με .ics σε εσάς (ο προσκεκλημένος δεν έχει email)',
+        ],
+      };
+      return {
+        data: { proposal: 'Εμφανίστηκε κάρτα επιβεβαίωσης στον χρήστη. ΔΕΝ έχει κλειστεί ακόμη — πες του να πατήσει «Επιβεβαίωση» στην κάρτα.', when: card.when, with: card.with, place: card.place, warnings: card.warnings, assumed: card.assumed, overlapping: check.overlapping },
+        refs: [],
+        card,
+      };
+    }
+
     case 'remember': {
       const kind = String(args.kind) as MemoryKind;
       if (!MEMORY_KINDS.includes(kind) || kind === 'answer') return { data: { error: 'Μη έγκυρο είδος μνήμης' }, refs: [] };
@@ -459,6 +605,8 @@ export function stepLabel(name: string, args: Record<string, unknown>): string {
     case 'get_trader': return args.include_ledger === false ? 'Διαβάζω τον συναλλασσόμενο' : 'Διαβάζω την καρτέλα από το SoftOne';
     case 'get_item': return 'Διαβάζω το είδος, απόθεμα & αγορές';
     case 'remember': return 'Το κρατώ στη μνήμη';
+    case 'get_appointments': return 'Κοιτάζω το ημερολόγιο';
+    case 'propose_appointment': return 'Ετοιμάζω το ραντεβού για επιβεβαίωση';
     case 'get_turnover': return args.side === 'purchases' ? 'Υπολογίζω τις αγορές της περιόδου από το SoftOne' : 'Υπολογίζω τον τζίρο της περιόδου από το SoftOne';
     case 'get_customer_project_balance': return 'Διαβάζω το υπόλοιπο του πελάτη στο έργο';
     default: return fold(name);
