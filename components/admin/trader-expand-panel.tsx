@@ -5,7 +5,9 @@ import Link from 'next/link';
 import {
   FiInfo, FiBookOpen, FiBriefcase, FiShoppingBag, FiFileText, FiShield, FiGlobe, FiEdit3, FiAlertTriangle,
   FiRefreshCw, FiCheckCircle, FiMapPin, FiPhone, FiMail, FiLink, FiHash, FiArrowDownLeft, FiArrowUpRight, FiUsers,
+  FiMap, FiExternalLink, FiNavigation,
 } from 'react-icons/fi';
+import { formatCoords, validCoords } from '@/lib/coords';
 import { cn } from '@/lib/utils';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { TraderDocsPanel } from '@/components/admin/trader-docs-panel';
@@ -18,7 +20,7 @@ const eur = new Intl.NumberFormat('el-GR', { style: 'currency', currency: 'EUR' 
 const fmtDate = (v: string | null) => (v ? new Date(v).toLocaleDateString('el-GR', { timeZone: 'UTC' }) : '—');
 const soft = (hex: string, pct: number) => `color-mix(in srgb, ${hex} ${pct}%, var(--background))`;
 
-const TONE = { info: '#0369A1', people: '#BE185D', ledger: '#047857', projects: '#7C3AED', orders: '#B45309', scans: '#475569' } as const;
+const TONE = { info: '#0369A1', people: '#BE185D', map: '#0F766E', ledger: '#047857', projects: '#7C3AED', orders: '#B45309', scans: '#475569' } as const;
 const DOC_TONE: Record<string, string> = {
   invoice: '#B45309', credit: '#BE123C', payment: '#047857', order: '#0369A1', quote: '#7C3AED', movement: '#475569', other: '#475569',
 };
@@ -330,9 +332,74 @@ function OrdersTab({ data }: { data: TraderActivity }) {
   );
 }
 
+/* ───────────────────────── Χάρτης ───────────────────────── */
+
+/**
+ * Η θέση του συναλλασσομένου (TRDR.LATITUDE / LONGITUDE), διαβασμένη ΖΩΝΤΑΝΑ από το SoftOne όταν ανοίγει
+ * η καρτέλα. Χάρτης OpenStreetMap (χωρίς κλειδί). Χωρίς θέση ⇒ «Ορισμός θέσης» ανοίγει την καρτέλα.
+ */
+function MapTab({ t, canManage, onAction }: { t: TraderRecord; canManage: boolean; onAction: (m: TraderDialogMode) => void }) {
+  const [state, setState] = React.useState<{ pos: { lat: number; lng: number } | null } | 'loading' | { error: string }>('loading');
+  React.useEffect(() => {
+    let alive = true;
+    void (async () => {
+      try {
+        const r = await fetch(`/api/admin/traders/${t.trdr}?only=geo`, { cache: 'no-store' });
+        const d = await r.json().catch(() => null);
+        if (!alive) return;
+        if (!r.ok || !d) { setState({ error: d?.message ?? 'Η θέση δεν διαβάστηκε από το SoftOne.' }); return; }
+        setState({ pos: validCoords(d.values?.lat, d.values?.lng) });
+      } catch { if (alive) setState({ error: 'Σφάλμα δικτύου.' }); }
+    })();
+    return () => { alive = false; };
+  }, [t.trdr]);
+
+  if (state === 'loading') return <Skeleton h="h-[260px]" />;
+  if ('error' in state) return <Empty>{state.error}</Empty>;
+  const address = [t.address, [t.zip, t.city].filter(Boolean).join(' ')].filter(Boolean).join(', ');
+  if (!state.pos) {
+    return (
+      <div className="space-y-2 rounded-md border border-dashed border-border px-3 py-5 text-center">
+        <p className="text-[length:var(--fs-12)] text-muted-foreground">Δεν έχει οριστεί γεωγραφική θέση στο SoftOne{address ? ` · διεύθυνση: ${address}` : ''}.</p>
+        {canManage && (
+          <button type="button" onClick={() => onAction('edit')}
+            className="inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-md border border-border bg-background px-3 text-[length:var(--fs-12)] hover:bg-muted">
+            <FiMapPin className="size-3.5" aria-hidden /> Ορισμός θέσης
+          </button>
+        )}
+      </div>
+    );
+  }
+  const { lat, lng } = state.pos;
+  return (
+    <div className="overflow-hidden rounded-md border border-border bg-background">
+      <iframe
+        title={`Χάρτης: ${t.name}`}
+        src={`https://www.openstreetmap.org/export/embed.html?bbox=${lng - 0.006}%2C${lat - 0.0035}%2C${lng + 0.006}%2C${lat + 0.0035}&layer=mapnik&marker=${lat}%2C${lng}`}
+        className="block h-[240px] w-full border-0 sm:h-[300px]"
+      />
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-border px-3 py-2 text-[length:var(--fs-12)]">
+        <span className="font-mono tabular-nums text-muted-foreground">{formatCoords(state.pos)}</span>
+        {address && <span className="min-w-0 flex-1 truncate text-foreground">{address}</span>}
+        <a href={`https://www.openstreetmap.org/?mlat=${lat}&mlon=${lng}#map=17/${lat}/${lng}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground">
+          <FiExternalLink className="size-3" aria-hidden /> Μεγάλος χάρτης
+        </a>
+        <a href={`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground">
+          <FiNavigation className="size-3" aria-hidden /> Οδηγίες
+        </a>
+        {canManage && (
+          <button type="button" onClick={() => onAction('edit')} className="inline-flex cursor-pointer items-center gap-1 text-muted-foreground hover:text-foreground">
+            <FiEdit3 className="size-3" aria-hidden /> Αλλαγή θέσης
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 /* ───────────────────────── Το panel ───────────────────────── */
 
-/** Ανοιγμένη γραμμή συναλλασσομένου: Στοιχεία · Καρτέλα · Έργα · Παραγγελίες · Σκαναρίσματα. */
+/** Ανοιγμένη γραμμή συναλλασσομένου: Στοιχεία · (Πρόσωπα) · Χάρτης · Καρτέλα · Έργα · Παραγγελίες · Σκαναρίσματα. */
 export function TraderExpandPanel({ trader, canManage, onAction }: {
   trader: TraderRecord; canManage: boolean; onAction: (mode: TraderDialogMode) => void;
 }) {
@@ -370,6 +437,7 @@ export function TraderExpandPanel({ trader, canManage, onAction }: {
         <TabsList variant="line" className="h-9 min-w-0 flex-1 justify-start gap-0 overflow-x-auto overflow-y-hidden p-0">
           <TabsTrigger value="details" className={TRIGGER} style={{ ['--tab-tone' as string]: TONE.info }}><FiInfo className="hidden size-3.5 sm:inline" aria-hidden /> Στοιχεία</TabsTrigger>
           {isCustomer && <TabsTrigger value="people" className={TRIGGER} style={{ ['--tab-tone' as string]: TONE.people }}><FiUsers className="hidden size-3.5 sm:inline" aria-hidden /> Πρόσωπα & πρόσβαση <Badge n={people} tone={TONE.people} /></TabsTrigger>}
+          <TabsTrigger value="map" className={TRIGGER} style={{ ['--tab-tone' as string]: TONE.map }}><FiMap className="hidden size-3.5 sm:inline" aria-hidden /> Χάρτης</TabsTrigger>
           <TabsTrigger value="ledger" className={TRIGGER} style={{ ['--tab-tone' as string]: TONE.ledger }}><FiBookOpen className="hidden size-3.5 sm:inline" aria-hidden /> Καρτέλα <Badge n={data?.ledger.length ?? null} tone={TONE.ledger} /></TabsTrigger>
           <TabsTrigger value="projects" className={TRIGGER} style={{ ['--tab-tone' as string]: TONE.projects }}><FiBriefcase className="hidden size-3.5 sm:inline" aria-hidden /> Έργα <Badge n={data?.projects.length ?? null} tone={TONE.projects} /></TabsTrigger>
           <TabsTrigger value="orders" className={TRIGGER} style={{ ['--tab-tone' as string]: TONE.orders }}><FiShoppingBag className="hidden size-3.5 sm:inline" aria-hidden /> Παραγγελίες <Badge n={data?.orders.length ?? null} tone={TONE.orders} /></TabsTrigger>
@@ -388,6 +456,7 @@ export function TraderExpandPanel({ trader, canManage, onAction }: {
           <CustomerContactsPanel trdr={trader.trdr} customer={trader.name} defaultEmail={trader.email?.split(';').map((x) => x.trim()).find(Boolean) ?? null} canManage={canManage} onCount={setPeople} />
         </TabsContent>
       )}
+      <TabsContent value="map"><MapTab t={trader} canManage={canManage} onAction={onAction} /></TabsContent>
       <TabsContent value="ledger">{remote((d) => <LedgerTab data={d} />)}</TabsContent>
       <TabsContent value="projects">{remote((d) => <ProjectsTab data={d} />)}</TabsContent>
       <TabsContent value="orders">{remote((d) => <OrdersTab data={d} />)}</TabsContent>

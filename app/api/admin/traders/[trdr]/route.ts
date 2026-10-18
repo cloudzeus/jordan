@@ -2,7 +2,8 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { requirePermission } from '@/lib/rbac';
 import { logAudit } from '@/lib/audit';
-import { softoneFetchCountries, softoneFetchKadIndex, softoneFetchTaxOffices, SoftoneError } from '@/lib/softone';
+import { softoneFetchCountries, softoneFetchKadIndex, softoneFetchTaxOffices, softoneGetTable, SoftoneError } from '@/lib/softone';
+import { validCoords } from '@/lib/coords';
 import { readTraderLive, updateTrader } from '@/lib/softone-sync/trader-update';
 import { TRADER_OBJECT_BY_SODTYPE, TRADER_EDIT_FIELDS } from '@/lib/trader-update';
 
@@ -15,10 +16,21 @@ const idOf = async (params: Promise<{ trdr: string }>) => {
 };
 
 // GET — η καρτέλα όπως είναι ΤΩΡΑ στη SoftOne + τα μητρώα της φόρμας (Δ.Ο.Υ., χώρες, ετικέτες ΚΑΔ).
-export async function GET(_req: Request, { params }: { params: Promise<{ trdr: string }> }) {
+// GET ?only=geo — μόνο η γεωγραφική θέση (ένα GetTable), για την καρτέλα «Χάρτης» της λίστας.
+export async function GET(req: Request, { params }: { params: Promise<{ trdr: string }> }) {
   await requirePermission('metadata.read');
   const trdr = await idOf(params);
   if (!trdr) return NextResponse.json({ error: 'invalid_trdr' }, { status: 400 });
+  if (new URL(req.url).searchParams.get('only') === 'geo') {
+    try {
+      const [row] = await softoneGetTable('TRDR', ['TRDR', 'LATITUDE', 'LONGITUDE'], `TRDR=${trdr}`);
+      if (!row) return NextResponse.json({ error: 'not_found', message: 'Ο συναλλασσόμενος δεν βρέθηκε στη SoftOne.' }, { status: 404 });
+      const c = validCoords(row.LATITUDE, row.LONGITUDE);
+      return NextResponse.json({ trdr, values: { lat: c?.lat ?? null, lng: c?.lng ?? null } });
+    } catch (e) {
+      return NextResponse.json({ error: 'softone_error', message: (e as Error).message }, { status: 502 });
+    }
+  }
   try {
     const live = await readTraderLive(trdr);
     const [offices, countries, kadIdx] = await Promise.all([
