@@ -8,7 +8,7 @@ import { appUrl, sendLeadMail, staffRecipient } from '@/lib/lead-mail';
 import { syncLeadToSoftone, upsertLead } from '@/lib/leads';
 import { subscribeNewsletter } from '@/lib/newsletter';
 import { syncAppointmentToSoftone } from '@/lib/appointment-softone';
-import { createCustomerParty, resolveParty, type NewCustomerInput, type PartyRef, type PartySnapshot } from '@/lib/appointment-parties';
+import { createContactParty, createCustomerParty, resolveParty, type NewContactInput, type NewCustomerInput, type PartyRef, type PartySnapshot } from '@/lib/appointment-parties';
 import {
   addDays, APPOINTMENT_LABEL, appointmentCode, ATELIER_TZ, canReschedule, computeSlots, formatSlotEl, isActiveStatus, isSlotFree,
   parseAvailability, staffCanMove, zonedParts, zonedToUtc, type Availability, type AppointmentStatus, type Interval,
@@ -102,7 +102,7 @@ export async function bookAppointment(input: BookingInput) {
 // ── ραντεβού από το προσωπικό ────────────────────────────────────────────────────────────────
 
 export type StaffAppointmentInput = {
-  start: string; minutes: number; party: PartyRef | { kind: 'new'; customer: NewCustomerInput };
+  start: string; minutes: number; party: PartyRef | { kind: 'new'; customer: NewCustomerInput } | { kind: 'newContact'; contact: NewContactInput };
   topic?: string | null; message?: string | null; staffNote?: string | null;
   /** Πάνω σε άλλο ενεργό ραντεβού όταν η χωρητικότητα είναι γεμάτη. */
   allowOverlap?: boolean; notify?: boolean;
@@ -127,7 +127,9 @@ export async function scheduleStaffAppointment(input: StaffAppointmentInput, use
   const overlapping = await prisma.appointment.count({ where: { status: { in: ['PENDING', 'CONFIRMED'] }, startsAt: { lt: end }, endsAt: { gt: start } } });
   if (overlapping >= a.capacity && !input.allowOverlap) throw new AppointmentError(`Υπάρχει ήδη ${overlapping === 1 ? 'ραντεβού' : `${overlapping} ραντεβού`} σε αυτή την ώρα`, 409);
 
-  const party: PartySnapshot = input.party.kind === 'new' ? await createCustomerParty(input.party.customer) : await resolveParty(input.party);
+  const party: PartySnapshot = input.party.kind === 'new' ? await createCustomerParty(input.party.customer)
+    : input.party.kind === 'newContact' ? await createContactParty(input.party.contact)
+    : await resolveParty(input.party);
   const created = await prisma.appointment.create({
     data: {
       source: 'staff', startsAt: start, endsAt: end, status: 'CONFIRMED',

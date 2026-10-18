@@ -12,8 +12,9 @@ const db = vi.hoisted(() => ({
 }));
 vi.mock('@/lib/db', () => ({ prisma: db }));
 vi.mock('@/lib/settings', () => ({ getSetting: vi.fn(async () => undefined), setSetting: vi.fn() }));
-const s1 = vi.hoisted(() => ({ softoneCreateCustomer: vi.fn() }));
-vi.mock('@/lib/softone-lead', () => s1);
+const s1 = vi.hoisted(() => ({ softoneCreateCustomer: vi.fn(), softoneCreatePerson: vi.fn() }));
+vi.mock('@/lib/softone-lead', () => ({ softoneCreateCustomer: s1.softoneCreateCustomer }));
+vi.mock('@/lib/softone-person', () => ({ softoneCreatePerson: s1.softoneCreatePerson }));
 vi.mock('@/lib/softone', () => ({ SODTYPE_LABEL: { 13: 'Πελάτης' } }));
 vi.mock('@/lib/appointment-softone', () => ({ syncAppointmentToSoftone: vi.fn() }));
 vi.mock('@/lib/newsletter', () => ({ subscribeNewsletter: vi.fn() }));
@@ -45,13 +46,25 @@ describe('ραντεβού από το προσωπικό', () => {
     db.customerContact.findFirst.mockResolvedValue(null);
     await expect(scheduleStaffAppointment({ ...base, allowOverlap: true, party: { kind: 'trader', id: '63' } }, 'u1')).resolves.toBeTruthy();
   });
-  it('νέος πελάτης: χωρίς ΑΦΜ → υποψήφιος στο SoftOne, καθρέφτης + επαφή', async () => {
+  it('νέος πελάτης: χωρίς ΑΦΜ → υποψήφιος στο SoftOne, καθρέφτης + υπεύθυνος ως πρόσωπο στο SoftOne', async () => {
     s1.softoneCreateCustomer.mockResolvedValue({ trdr: 900, code: '0313', linked: false });
+    s1.softoneCreatePerson.mockResolvedValue({ prsn: 300, code: '000138', linked: false });
     db.customerContact.create.mockResolvedValue({ id: 'cc1' });
-    await scheduleStaffAppointment({ ...base, party: { kind: 'new', customer: { name: 'Νέα ΑΕ', contactName: 'Άννα', email: 'a@n.gr' } } }, 'u1');
-    expect(s1.softoneCreateCustomer).toHaveBeenCalledWith(expect.objectContaining({ company: 'Νέα ΑΕ', name: 'Άννα', afm: null }), { prospect: true });
+    await scheduleStaffAppointment({ ...base, party: { kind: 'new', customer: { name: 'Νέα ΑΕ', contactFirstName: 'Άννα', contactLastName: 'Πάνου', email: 'a@n.gr' } } }, 'u1');
+    expect(s1.softoneCreateCustomer).toHaveBeenCalledWith(expect.objectContaining({ company: 'Νέα ΑΕ', name: 'Άννα Πάνου', afm: null }), { prospect: true });
     expect(db.softoneTrader.upsert).toHaveBeenCalledWith(expect.objectContaining({ where: { trdr: 900 } }));
-    expect(db.appointment.create).toHaveBeenCalledWith({ data: expect.objectContaining({ trdr: 900, customerContactId: 'cc1', name: 'Άννα', company: 'Νέα ΑΕ' }) });
+    expect(s1.softoneCreatePerson).toHaveBeenCalledWith(expect.objectContaining({ trdr: 900, firstName: 'Άννα', lastName: 'Πάνου' }));
+    expect(db.customerContact.create).toHaveBeenCalledWith({ data: expect.objectContaining({ trdr: 900, softonePrsn: 300 }) });
+    expect(db.appointment.create).toHaveBeenCalledWith({ data: expect.objectContaining({ trdr: 900, customerContactId: 'cc1', name: 'Άννα Πάνου', company: 'Νέα ΑΕ' }) });
+  });
+  it('νέα επαφή υπάρχοντος συναλλασσομένου → πρόσωπο στο SoftOne + επαφή στην εφαρμογή', async () => {
+    db.softoneTrader.findUnique.mockResolvedValue({ trdr: 63, name: 'DORIC ΙΚΕ', email: 'info@doric.gr', phone: '210' });
+    s1.softoneCreatePerson.mockResolvedValue({ prsn: 301, code: '000139', linked: false });
+    db.customerContact.findFirst.mockResolvedValue(null);
+    db.customerContact.create.mockImplementation(async ({ data }: any) => ({ id: 'cc2', ...data }));
+    await scheduleStaffAppointment({ ...base, party: { kind: 'newContact', contact: { trdr: 63, firstName: 'Κώστας', lastName: 'Ιωάννου', mobile: '6900000000', role: 'Μηχανικός' } } }, 'u1');
+    expect(s1.softoneCreatePerson).toHaveBeenCalledWith({ trdr: 63, firstName: 'Κώστας', lastName: 'Ιωάννου', email: null, mobile: '6900000000', role: 'Μηχανικός' });
+    expect(db.appointment.create).toHaveBeenCalledWith({ data: expect.objectContaining({ trdr: 63, customerContactId: 'cc2', name: 'Κώστας Ιωάννου', company: 'DORIC ΙΚΕ', phone: '6900000000' }) });
   });
   it('νέος πελάτης με ΑΦΜ → κανονικός πελάτης (όχι υποψήφιος)', async () => {
     s1.softoneCreateCustomer.mockResolvedValue({ trdr: 901, code: '0314', linked: false });

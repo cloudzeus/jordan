@@ -17,11 +17,21 @@ const party = z.discriminatedUnion('kind', [
     kind: z.literal('new'),
     customer: z.object({
       name: z.string().trim().min(2, 'Συμπληρώστε επωνυμία').max(128),
-      contactName: opt(120),
+      contactFirstName: opt(64), contactLastName: opt(64),
       afm: z.string().trim().max(20).optional().nullable().transform((v) => v?.replace(/\s/g, '') || null)
         .refine((v) => !v || /^[A-Z]{0,2}\d{8,12}$/i.test(v), 'Ο ΑΦΜ δεν φαίνεται σωστός'),
       email: z.string().trim().toLowerCase().max(64).email('Το email δεν φαίνεται σωστό').optional().nullable().or(z.literal('').transform(() => null)),
       phone: opt(32), profession: opt(64), address: opt(128), city: opt(64), zip: opt(10),
+    }).refine((c) => !c.contactFirstName === !c.contactLastName, 'Για τον υπεύθυνο συμπληρώστε όνομα ΚΑΙ επώνυμο'),
+  }),
+  z.object({
+    kind: z.literal('newContact'),
+    contact: z.object({
+      trdr: z.number().int().positive(),
+      firstName: z.string().trim().min(1, 'Συμπληρώστε όνομα').max(64),
+      lastName: z.string().trim().min(1, 'Συμπληρώστε επώνυμο').max(64),
+      role: opt(64), mobile: opt(32),
+      email: z.string().trim().toLowerCase().max(64).email('Το email δεν φαίνεται σωστό').optional().nullable().or(z.literal('').transform(() => null)),
     }),
   }),
 ]);

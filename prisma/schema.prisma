@@ -2870,20 +2870,21 @@ model OfferEmail {
 // Πρόσωπα επικοινωνίας ΠΕΛΑΤΗ (SoftOne TRDR) — τοπικά. Κάθε πρόσωπο μπορεί να έχει πρόσβαση στο
 // portal (χρήστης με ρόλο CUSTOMER, δεμένος με τον πελάτη μέσω User.customerTrdr).
 model CustomerContact {
-  id        String   @id @default(cuid())
-  trdr      Int
-  name      String
-  role      String? // ιδιότητα (π.χ. «Υπεύθυνος αγορών»)
-  phone     String?
-  mobile    String?
-  email     String?
-  notes     String?
-  isPrimary Boolean  @default(false)
-  sortOrder Int      @default(0)
-  userId    String?  @unique
-  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id          String   @id @default(cuid())
+  trdr        Int
+  name        String
+  role        String? // ιδιότητα (π.χ. «Υπεύθυνος αγορών»)
+  phone       String?
+  mobile      String?
+  email       String?
+  notes       String?
+  isPrimary   Boolean  @default(false)
+  softonePrsn Int? // το «Πρόσωπο» στο SoftOne (PRSNOUT/PRSN), όταν η επαφή δημιουργήθηκε/συνδέθηκε εκεί
+  sortOrder   Int      @default(0)
+  userId      String?  @unique
+  user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   @@index([trdr])
 }
