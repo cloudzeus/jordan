@@ -1,6 +1,6 @@
 import 'server-only';
 import { getSetting } from '@/lib/settings';
-import { mailgunConfig, sendTransactionalEmail } from '@/lib/mailgun';
+import { mailgunConfig, sendTransactionalEmail, type MailAttachment } from '@/lib/mailgun';
 import { appUrl } from '@/lib/app-url';
 
 /**
@@ -17,14 +17,14 @@ export const isReservedRecipient = (to: string) => RESERVED.test(to.trim());
 
 export type MailResult = 'sent' | 'skipped' | 'failed';
 
-export async function sendLeadMail(to: string, subject: string, html: string, opts: { replyTo?: string | null } = {}): Promise<MailResult> {
+export async function sendLeadMail(to: string, subject: string, html: string, opts: { replyTo?: string | null; attachments?: MailAttachment[] } = {}): Promise<MailResult> {
   if (process.env.MAIL_DRY_RUN === '1' || isReservedRecipient(to)) {
     console.info(`[lead-mail] δεν στάλθηκε (δοκιμή) → ${to}: ${subject}`);
     return 'skipped';
   }
   try {
     const brand = (await getSetting<string>('company.name'))?.trim() || 'Atelier by Damask';
-    await sendTransactionalEmail(to, subject, html, { replyTo: opts.replyTo, fromName: brand });
+    await sendTransactionalEmail(to, subject, html, { replyTo: opts.replyTo, fromName: brand, attachments: opts.attachments });
     return 'sent';
   } catch (e) {
     console.error('[lead-mail] αποτυχία αποστολής', e instanceof Error ? e.message : e);

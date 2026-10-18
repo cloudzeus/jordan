@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 vi.mock('server-only', () => ({}));
 const s1 = vi.hoisted(() => ({ softoneCall: vi.fn(), softoneGetTable: vi.fn() }));
 vi.mock('@/lib/softone', () => ({ ...s1, SoftoneError: class SoftoneError extends Error {} }));
-const db = vi.hoisted(() => ({ appointment: { findUnique: vi.fn(), update: vi.fn() }, user: { findUnique: vi.fn() } }));
+const db = vi.hoisted(() => ({ appointment: { findUnique: vi.fn(), update: vi.fn() }, user: { findUnique: vi.fn() }, customerContact: { findUnique: vi.fn(async () => null) } }));
 vi.mock('@/lib/db', () => ({ prisma: db }));
 const settings = vi.hoisted(() => ({ v: undefined as unknown }));
 vi.mock('@/lib/settings', () => ({ getSetting: vi.fn(async () => settings.v) }));
@@ -18,11 +18,12 @@ const APPT = { id: 'a1', number: 7, startsAt: START, endsAt: END, status: 'CONFI
 beforeEach(() => { vi.clearAllMocks(); settings.v = undefined; db.appointment.update.mockResolvedValue({}); });
 
 describe('SOACTION payload', () => {
-  it('σειρά 1002 «Συνάντηση», ώρα Αθήνας, χειριστής και πελάτης', () => {
+  it('CRM «Ραντεβού» (SOMEETING): σειρά 1001 στην εταιρία, ώρα Αθήνας, χειριστής/εντολέας, πελάτης, επαφή', () => {
     expect(s1DateTime(START)).toBe('2026-10-20 10:00:00');
-    expect(buildActionPayload({ actor: 8, trdr: 63, start: START, end: END, subject: 'Θέμα', remarks: 'Λεπτομέρειες' })).toEqual({
-      OBJECT: 'SOACTION', KEY: '', DATA: { SOACTION: [{ SERIES: 1002, TRNDATE: '2026-10-20', FROMDATE: '2026-10-20 10:00:00', FINALDATE: '2026-10-20 11:00:00', ACTOR: 8, TRDR: 63, COMMENTS: 'Θέμα', REMARKS: 'Λεπτομέρειες' }] },
+    expect(buildActionPayload({ actor: 8, trdr: 63, contactPrsn: 205, start: START, end: END, subject: 'Θέμα', remarks: 'Λεπτομέρειες' })).toEqual({
+      OBJECT: 'SOMEETING', KEY: '', DATA: { SOACTION: [{ SERIES: 1001, TRNDATE: '2026-10-20', FROMDATE: '2026-10-20 10:00:00', FINALDATE: '2026-10-20 11:00:00', ACTOR: 8, ORDEREDBY: 8, TRDR: 63, TRDPRSN: 205, COMMENTS: 'Θέμα', REMARKS: 'Λεπτομέρειες' }] },
     });
+    expect(buildActionPayload({ actor: 8, place: 'customer', start: START, end: END, subject: 'x' }).DATA.SOACTION[0].SERIES).toBe(1002);
   });
   it('ενημέρωση: KEY, χωρίς σειρά', () => {
     const p = buildActionPayload({ actor: 8, start: START, end: END, subject: 'x' }, 12);
@@ -62,7 +63,7 @@ describe('ραντεβού → SoftOne', () => {
     s1.softoneCall.mockResolvedValue({ success: true, id: 77 });
     s1.softoneGetTable.mockResolvedValue([{ SOACTION: '77', SOACTIONCODE: 'ΣΥΝ0000001', ACTOR: '8', FROMDATE: '2026-10-20 10:00:00' }]);
     expect(await syncAppointmentToSoftone('a1')).toBe('SYNCED');
-    expect(s1.softoneCall).toHaveBeenCalledWith('setData', expect.objectContaining({ OBJECT: 'SOACTION', KEY: '', DATA: { SOACTION: [expect.objectContaining({ ACTOR: 8, TRDR: 63, COMMENTS: 'Τεχνική συνάντηση — Studio Λίθος (Μαρία)' })] } }));
+    expect(s1.softoneCall).toHaveBeenCalledWith('setData', expect.objectContaining({ OBJECT: 'SOMEETING', KEY: '', DATA: { SOACTION: [expect.objectContaining({ ACTOR: 8, TRDR: 63, COMMENTS: 'Τεχνική συνάντηση — Studio Λίθος (Μαρία)' })] } }));
     expect(db.appointment.update).toHaveBeenCalledWith({ where: { id: 'a1' }, data: { softoneSync: 'SYNCED', softoneError: null, softoneAction: 77, softoneActionCode: 'ΣΥΝ0000001' } });
   });
   it('ακύρωση υπάρχουσας ενέργειας → ενημέρωση θέματος με «ΑΚΥΡΩΘΗΚΕ», ποτέ διαγραφή', async () => {

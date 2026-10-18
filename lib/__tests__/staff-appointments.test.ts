@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 vi.mock('server-only', () => ({}));
 vi.mock('next/server', () => ({ after: vi.fn() }));
 const db = vi.hoisted(() => ({
-  appointment: { count: vi.fn(), create: vi.fn() },
+  appointment: { count: vi.fn(), create: vi.fn(), findUnique: vi.fn(async () => ({ softoneError: null, softoneActionCode: 'ΡΑΝΕ0000001' })) },
   appSetting: { findUnique: vi.fn(async () => null) },
   softoneTrader: { findUnique: vi.fn(), upsert: vi.fn() },
   customerContact: { findFirst: vi.fn(), findUnique: vi.fn(), create: vi.fn() },
@@ -16,11 +16,14 @@ const s1 = vi.hoisted(() => ({ softoneCreateCustomer: vi.fn(), softoneCreatePers
 vi.mock('@/lib/softone-lead', () => ({ softoneCreateCustomer: s1.softoneCreateCustomer }));
 vi.mock('@/lib/softone-person', () => ({ softoneCreatePerson: s1.softoneCreatePerson }));
 vi.mock('@/lib/softone', () => ({ SODTYPE_LABEL: { 13: 'Πελάτης' } }));
-vi.mock('@/lib/appointment-softone', () => ({ syncAppointmentToSoftone: vi.fn() }));
+const sync = vi.hoisted(() => ({ syncAppointmentToSoftone: vi.fn(async () => 'SYNCED') }));
+vi.mock('@/lib/appointment-softone', () => sync);
+const inv = vi.hoisted(() => ({ sendAppointmentInvites: vi.fn(async () => ({ invitee: 'sent', users: [{ email: 'g@a.test', result: 'sent' }] })) }));
+vi.mock('@/lib/appointment-mail', () => inv);
 vi.mock('@/lib/newsletter', () => ({ subscribeNewsletter: vi.fn() }));
 vi.mock('@/lib/lead-mail', () => ({ sendLeadMail: vi.fn(), staffRecipient: vi.fn(), appUrl: () => '' }));
 
-import { scheduleStaffAppointment } from '../appointments';
+import { bookStaffAppointment, scheduleStaffAppointment } from '../appointments';
 
 const base = { start: '2026-10-24T09:00:00.000Z', minutes: 60 }; // Σάββατο (κλειστά) — το προσωπικό μπορεί
 
@@ -75,5 +78,15 @@ describe('ραντεβού από το προσωπικό', () => {
     db.partnerContact.findUnique.mockResolvedValue({ id: 'pc1', name: 'Νίκος', email: null, phone: null, mobile: '69', partnerId: 'p1', partner: { name: 'Αρχιτεκτονικό Χ', email: 'x@x.gr', phone: null } });
     await scheduleStaffAppointment({ ...base, party: { kind: 'partnerContact', id: 'pc1' } }, 'u1');
     expect(db.appointment.create).toHaveBeenCalledWith({ data: expect.objectContaining({ partnerId: 'p1', partnerContactId: 'pc1', email: 'x@x.gr', phone: '69', company: 'Αρχιτεκτονικό Χ' }) });
+  });
+  it('βοηθός φωνής: απλή υπογραφή, περιμένει SoftOne + email και δίνει περίληψη', async () => {
+    db.softoneTrader.findUnique.mockResolvedValue({ trdr: 63, name: 'DORIC ΙΚΕ', email: 'info@doric.gr', phone: null });
+    db.customerContact.findFirst.mockResolvedValue(null);
+    const r = await bookStaffAppointment({ who: { kind: 'trader', id: '63' }, when: '2026-10-20T07:00:00.000Z', minutes: 45, place: 'customer', location: 'Σαρωνίδα', notes: 'σχέδια', createdBy: 'u1' });
+    expect(db.appointment.create).toHaveBeenCalledWith({ data: expect.objectContaining({ place: 'customer', location: 'Σαρωνίδα', message: 'σχέδια', createdById: 'u1', assignedToId: 'u1' }) });
+    expect(sync.syncAppointmentToSoftone).toHaveBeenCalledWith('ap1');
+    expect(inv.sendAppointmentInvites).toHaveBeenCalledWith('ap1', 'created', { invitee: true });
+    expect(r).toMatchObject({ code: 'ΡΝΤ-000003', softone: 'SYNCED', softoneCode: 'ΡΑΝΕ0000001' });
+    expect(r.summary).toMatch(/Κλείστηκε ΡΝΤ-000003.*SoftOne: ΡΑΝΕ0000001· email στο info@doric.gr/);
   });
 });

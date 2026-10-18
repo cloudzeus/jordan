@@ -37,7 +37,13 @@ function getClient(): MailgunClient {
   return cached;
 }
 
-export async function sendTransactionalEmail(to: string, subject: string, html: string, opts: { replyTo?: string | null; fromName?: string | null } = {}) {
+export type MailAttachment = { filename: string; content: string | Uint8Array; contentType: string };
+
+/**
+ * Συνημμένα: με το ΕΓΓΕΝΕΣ FormData το mailgun.js καλεί `append(name, data, filename)` — που δέχεται
+ * μόνο Blob όταν δίνεται filename. Γι' αυτό κάθε συνημμένο γίνεται Blob με τον σωστό τύπο.
+ */
+export async function sendTransactionalEmail(to: string, subject: string, html: string, opts: { replyTo?: string | null; fromName?: string | null; attachments?: MailAttachment[] } = {}) {
   const { domain, address } = mailgunConfig();
   return getClient().messages.create(domain, {
     from: opts.fromName ? `${opts.fromName.replace(/[<>"]/g, '').trim()} <${address}>` : address,
@@ -45,5 +51,6 @@ export async function sendTransactionalEmail(to: string, subject: string, html: 
     subject,
     html,
     ...(opts.replyTo ? { 'h:Reply-To': opts.replyTo } : {}),
+    ...(opts.attachments?.length ? { attachment: opts.attachments.map((a) => ({ filename: a.filename, data: new Blob([a.content as BlobPart], { type: a.contentType }) })) } : {}),
   });
 }

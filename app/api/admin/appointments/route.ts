@@ -42,6 +42,8 @@ const input = z.object({
   topic: opt(80), message: opt(2000), staffNote: opt(1000),
   allowOverlap: z.boolean().optional(), notify: z.boolean().optional(),
   assignedToId: z.string().min(1).optional().nullable(),
+  place: z.enum(['atelier', 'customer']).optional(),
+  location: opt(200),
 });
 
 // POST — ραντεβού από το προσωπικό, με υπάρχοντα ή ΝΕΟ πελάτη (ο νέος γράφεται στο SoftOne).

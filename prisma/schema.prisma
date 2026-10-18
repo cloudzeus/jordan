@@ -3064,6 +3064,10 @@ model Appointment {
   softoneActionCode String?
   softoneSync       String? // SYNCED · FAILED · null = δεν αφορά/δεν στάλθηκε
   softoneError      String?
+  // Πού: atelier (στην εταιρία) · customer (στον πελάτη) — ορίζει και τη σειρά «Ραντεβού» στο SoftOne
+  place             String    @default("atelier")
+  location          String? // διεύθυνση όταν δεν είναι στο atelier
+  icsSequence       Int       @default(0) // αυξάνει σε κάθε αλλαγή, ώστε τα ημερολόγια να ενημερώνουν το ίδιο γεγονός
   startsAt          DateTime
   endsAt            DateTime
   // PENDING (αίτημα) → CONFIRMED → COMPLETED | NO_SHOW · PENDING/CONFIRMED → CANCELLED

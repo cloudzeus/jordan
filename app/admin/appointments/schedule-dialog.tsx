@@ -84,7 +84,8 @@ export function ScheduleDialog({ open, prefill, defaultMinutes, staff, meId, sof
   const [date, setDate] = React.useState('');
   const [time, setTime] = React.useState('10:00');
   const [minutes, setMinutes] = React.useState(defaultMinutes);
-  const [notify, setNotify] = React.useState(false);
+  const [notify, setNotify] = React.useState(true);
+  const [place, setPlace] = React.useState<'atelier' | 'customer'>('atelier');
   const [overlap, setOverlap] = React.useState<string | null>(null);
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
@@ -95,7 +96,7 @@ export function ScheduleDialog({ open, prefill, defaultMinutes, staff, meId, sof
     if (!open) return;
     setMode('existing'); setPicked(null); setOwner(null); setOverlap(null); setError(null); setNewEmail(''); setNewAfm('');
     setDate(prefill?.date ?? new Date().toISOString().slice(0, 10)); setTime(prefill?.time ?? '10:00');
-    setMinutes(DURATIONS.includes(defaultMinutes) ? defaultMinutes : 60); setNotify(false); setAssignee(meId ?? '');
+    setMinutes(DURATIONS.includes(defaultMinutes) ? defaultMinutes : 60); setNotify(true); setPlace('atelier'); setAssignee(meId ?? '');
   }, [open, prefill, defaultMinutes, meId]);
 
   const email = mode === 'existing' ? picked?.email ?? '' : newEmail.trim();
@@ -115,7 +116,7 @@ export function ScheduleDialog({ open, prefill, defaultMinutes, staff, meId, sof
     try {
       const res = await fetch('/api/admin/appointments', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ start: zonedToUtc(date, time).toISOString(), minutes, party, topic: s('topic'), message: s('message'), notify: notify && !!email, allowOverlap: !!overlap, assignedToId: assignee || null }),
+        body: JSON.stringify({ start: zonedToUtc(date, time).toISOString(), minutes, party, topic: s('topic'), message: s('message'), notify: notify && !!email, allowOverlap: !!overlap, assignedToId: assignee || null, place, location: place === 'customer' ? s('location') : null }),
       });
       const d = await res.json().catch(() => ({}));
       if (res.status === 409 && !overlap) { setOverlap(d.message ?? 'Υπάρχει ήδη ραντεβού σε αυτή την ώρα'); return; }
@@ -201,6 +202,13 @@ export function ScheduleDialog({ open, prefill, defaultMinutes, staff, meId, sof
                 </select>
               </label>
             </div>
+            <div className="space-y-2">
+              <div className="flex gap-1 rounded-md bg-muted p-1" role="radiogroup" aria-label="Πού">
+                <button type="button" role="radio" aria-checked={place === 'atelier'} className={tab(place === 'atelier')} onClick={() => setPlace('atelier')}>Στο atelier</button>
+                <button type="button" role="radio" aria-checked={place === 'customer'} className={tab(place === 'customer')} onClick={() => setPlace('customer')}>Στον πελάτη</button>
+              </div>
+              {place === 'customer' && <Input name="location" maxLength={200} placeholder="Διεύθυνση συνάντησης (π.χ. εργοτάξιο)" aria-label="Διεύθυνση συνάντησης" />}
+            </div>
             <label className={label}>
               <span>Υπεύθυνος</span>
               <select value={assignee} onChange={(e) => setAssignee(e.target.value)} className="h-9 w-full rounded-md border border-input bg-background px-2 text-[length:var(--fs-13)] font-normal">
@@ -208,7 +216,7 @@ export function ScheduleDialog({ open, prefill, defaultMinutes, staff, meId, sof
               </select>
               <span className="block text-[length:var(--fs-11)] font-normal text-muted-foreground">
                 {staff.find((u) => u.id === assignee)?.softone
-                  ? (softoneEnabled ? 'Θα καταχωριστεί και στο SoftOne ως Ενέργεια «Συνάντηση».' : 'Συνδεδεμένος με SoftOne — η καταχώριση είναι κλειστή στις Ρυθμίσεις.')
+                  ? (softoneEnabled ? `Θα καταχωριστεί και στο SoftOne ως «Ραντεβού» (${place === 'customer' ? 'στον πελάτη' : 'στην εταιρία'}).` : 'Συνδεδεμένος με SoftOne — η καταχώριση είναι κλειστή στις Ρυθμίσεις.')
                   : 'Δεν είναι συνδεδεμένος με χρήστη SoftOne — μένει μόνο στην εφαρμογή.'}
               </span>
             </label>
@@ -220,7 +228,7 @@ export function ScheduleDialog({ open, prefill, defaultMinutes, staff, meId, sof
             </label>
             <label className={label}><span>Σημειώσεις (εσωτερικά)</span><textarea name="message" rows={2} maxLength={2000} className={textarea} placeholder="π.χ. φέρνει σχέδια για την κουζίνα" /></label>
             <label className={cn('flex items-center gap-2 text-[length:var(--fs-12)]', !email && 'opacity-50')}>
-              <Switch checked={notify && !!email} onCheckedChange={setNotify} disabled={!email} /> Email επιβεβαίωσης στον πελάτη{email ? ` (${email})` : ' — δεν υπάρχει email'}
+              <Switch checked={notify && !!email} onCheckedChange={setNotify} disabled={!email} /> Email με πρόσκληση ημερολογίου (.ics) στον προσκεκλημένο{email ? ` (${email})` : ' — δεν υπάρχει email· θα ενημερωθείτε μόνο εσείς'}
             </label>
             {overlap && (
               <p role="alert" className="flex items-start gap-2 rounded-md bg-[color-mix(in_srgb,#B45309_10%,var(--background))] px-3 py-2 text-[length:var(--fs-12)] text-[#92400E]">

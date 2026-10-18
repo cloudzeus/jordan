@@ -7,7 +7,9 @@ import { ATELIER_PROFILE } from '@/lib/site-company';
 import { appUrl, sendLeadMail, staffRecipient } from '@/lib/lead-mail';
 import { syncLeadToSoftone, upsertLead } from '@/lib/leads';
 import { subscribeNewsletter } from '@/lib/newsletter';
-import { syncAppointmentToSoftone } from '@/lib/appointment-softone';
+import { syncAppointmentToSoftone, type AppointmentSyncResult } from '@/lib/appointment-softone';
+import { sendAppointmentInvites, type InviteKind, type InviteResult } from '@/lib/appointment-mail';
+import { buildIcs } from '@/lib/ics';
 import { createContactParty, createCustomerParty, resolveParty, type NewContactInput, type NewCustomerInput, type PartyRef, type PartySnapshot } from '@/lib/appointment-parties';
 import {
   addDays, APPOINTMENT_LABEL, appointmentCode, ATELIER_TZ, canReschedule, computeSlots, formatSlotEl, isActiveStatus, isSlotFree,
@@ -104,18 +106,36 @@ export async function bookAppointment(input: BookingInput) {
 export type StaffAppointmentInput = {
   start: string; minutes: number; party: PartyRef | { kind: 'new'; customer: NewCustomerInput } | { kind: 'newContact'; contact: NewContactInput };
   topic?: string | null; message?: string | null; staffNote?: string | null;
+  /** Πού: στο atelier (προεπιλογή) ή στον πελάτη (με διεύθυνση). Ορίζει και τη σειρά στο SoftOne. */
+  place?: 'atelier' | 'customer'; location?: string | null;
   /** Πάνω σε άλλο ενεργό ραντεβού όταν η χωρητικότητα είναι γεμάτη. */
-  allowOverlap?: boolean; notify?: boolean;
+  allowOverlap?: boolean;
+  /** Email + .ics στον προσκεκλημένο (προεπιλογή: ναι, αν υπάρχει email). Ο χρήστης λαμβάνει πάντα. */
+  notify?: boolean;
   /** Υπεύθυνος (χρήστης της εφαρμογής)· προεπιλογή ο ίδιος. */
   assignedToId?: string | null;
 };
 
+export type StaffSideEffects = { softone: AppointmentSyncResult; softoneError: string | null; softoneCode: string | null; mail: InviteResult };
+
+/** SoftOne + email ενός ραντεβού προσωπικού. Καμία αποτυχία δεν χάνει το ραντεβού της εφαρμογής. */
+async function staffSideEffects(id: string, kind: InviteKind, invitee: boolean): Promise<StaffSideEffects> {
+  const [softone, mail] = await Promise.all([
+    syncAppointmentToSoftone(id).catch(() => 'FAILED' as const),
+    sendAppointmentInvites(id, kind, { invitee }).catch(() => ({ invitee: 'failed' as const, users: [] })),
+  ]);
+  const a = await prisma.appointment.findUnique({ where: { id }, select: { softoneError: true, softoneActionCode: true } });
+  return { softone, softoneError: a?.softoneError ?? null, softoneCode: a?.softoneActionCode ?? null, mail };
+}
+
 /**
  * Το προσωπικό κλείνει ραντεβού με πελάτη/συνεργάτη σε ΟΠΟΙΑΔΗΠΟΤΕ μέρα/ώρα (και εκτός ωραρίου ή σε
  * αποκλεισμό — είναι δική του απόφαση). Μόνο η επικάλυψη με γεμάτη χωρητικότητα θέλει ρητή έγκριση.
- * Επιβεβαιωμένο αμέσως· email στον πελάτη μόνο αν ζητηθεί και υπάρχει email.
+ * Επιβεβαιωμένο αμέσως· μετά: SoftOne (ραντεβού CRM, αν επιτρέπεται) και email με .ics στον
+ * προσκεκλημένο και στον χρήστη. `wait` = περίμενε τα παραπάνω και επέστρεψε το αποτέλεσμά τους
+ * (π.χ. για τον βοηθό φωνής)· αλλιώς τρέχουν μετά την απάντηση.
  */
-export async function scheduleStaffAppointment(input: StaffAppointmentInput, userId: string) {
+export async function scheduleStaffAppointment(input: StaffAppointmentInput, userId: string, opts: { wait?: boolean } = {}) {
   const start = new Date(input.start);
   if (Number.isNaN(start.getTime())) throw new AppointmentError('Η ώρα δεν είναι έγκυρη');
   if (!Number.isInteger(input.minutes) || input.minutes < 15 || input.minutes > 600) throw new AppointmentError('Η διάρκεια πρέπει να είναι 15–600 λεπτά');
@@ -130,22 +150,49 @@ export async function scheduleStaffAppointment(input: StaffAppointmentInput, use
   const party: PartySnapshot = input.party.kind === 'new' ? await createCustomerParty(input.party.customer)
     : input.party.kind === 'newContact' ? await createContactParty(input.party.contact)
     : await resolveParty(input.party);
+  const place = input.place === 'customer' ? 'customer' : 'atelier';
   const created = await prisma.appointment.create({
     data: {
-      source: 'staff', startsAt: start, endsAt: end, status: 'CONFIRMED',
+      source: 'staff', startsAt: start, endsAt: end, status: 'CONFIRMED', place, location: place === 'customer' ? input.location?.trim() || null : null,
       name: party.name, company: party.company, email: party.email?.toLowerCase() ?? null, phone: party.phone,
       trdr: party.trdr, customerContactId: party.customerContactId, partnerId: party.partnerId, partnerContactId: party.partnerContactId,
       topic: input.topic?.trim() || null, message: input.message?.trim() || null, staffNote: input.staffNote?.trim() || null,
       createdById: userId, assignedToId: input.assignedToId || userId, decidedById: userId, decidedAt: new Date(),
     },
   });
-  after(async () => {
-    await Promise.allSettled([
-      input.notify && created.email ? mailVisitor(created.id, 'confirmed') : Promise.resolve(),
-      syncAppointmentToSoftone(created.id),
-    ]);
-  });
-  return { appointment: created, party };
+  const invitee = input.notify !== false;
+  if (opts.wait) return { appointment: created, party, effects: await staffSideEffects(created.id, 'created', invitee) };
+  after(() => staffSideEffects(created.id, 'created', invitee).then(() => undefined));
+  return { appointment: created, party, effects: null };
+}
+
+/**
+ * Απλή είσοδος για τον βοηθό (Air Jordan / φωνή): ποιος, πότε, πόσο, πού, σημειώσεις, ποιος το
+ * κλείνει. Περιμένει SoftOne + email και επιστρέφει σύντομη περίληψη στα Ελληνικά.
+ */
+export async function bookStaffAppointment(input: {
+  who: StaffAppointmentInput['party'];
+  when: string; // ISO instant
+  minutes?: number;
+  place?: 'atelier' | 'customer'; location?: string | null;
+  notes?: string | null; topic?: string | null;
+  createdBy: string; // User.id
+  notifyInvitee?: boolean; allowOverlap?: boolean;
+}) {
+  const r = await scheduleStaffAppointment({
+    start: input.when, minutes: input.minutes ?? 60, party: input.who, place: input.place, location: input.location,
+    topic: input.topic ?? 'Ραντεβού', message: input.notes ?? null, notify: input.notifyInvitee !== false, allowOverlap: input.allowOverlap,
+  }, input.createdBy, { wait: true });
+  const e = r.effects!;
+  const code = appointmentCode(r.appointment.number);
+  const when = formatSlotEl(r.appointment.startsAt.toISOString(), r.appointment.endsAt.toISOString());
+  const mailText = e.mail.invitee === 'no-email' ? 'ο προσκεκλημένος δεν έχει email' : e.mail.invitee === 'sent' ? `email στο ${r.appointment.email}` : `email στον προσκεκλημένο: ${e.mail.invitee}`;
+  const softoneText = e.softone === 'SYNCED' ? `SoftOne: ${e.softoneCode}` : e.softone === 'FAILED' ? `SoftOne: αποτυχία (${e.softoneError})` : e.softone === 'DISABLED' ? 'SoftOne: κλειστό στις ρυθμίσεις' : 'SoftOne: δεν αφορά (χωρίς συνδεδεμένο χρήστη)';
+  return {
+    id: r.appointment.id, code, when, with: r.party.company && r.party.company !== r.party.name ? `${r.party.company} (${r.party.name})` : r.party.name,
+    inviteeEmail: r.appointment.email, softone: e.softone, softoneCode: e.softoneCode, softoneError: e.softoneError, mail: e.mail,
+    summary: `Κλείστηκε ${code}, ${when}, με ${r.party.name}. ${softoneText}· ${mailText}.`,
+  };
 }
 
 // ── προσωπικό ────────────────────────────────────────────────────────────────────────────────
@@ -164,7 +211,7 @@ type Row = Awaited<ReturnType<typeof prisma.appointment.findMany>>[number] & { l
 function view(r: Row) {
   return {
     id: r.id, number: r.number, code: appointmentCode(r.number), leadId: r.leadId, source: r.source as 'website' | 'staff',
-    trdr: r.trdr, partnerId: r.partnerId, assignedToId: r.assignedToId,
+    trdr: r.trdr, partnerId: r.partnerId, assignedToId: r.assignedToId, place: r.place, location: r.location,
     softoneSync: r.softoneSync, softoneActionCode: r.softoneActionCode, softoneActionError: r.softoneError,
     start: r.startsAt.toISOString(), end: r.endsAt.toISOString(), when: formatSlotEl(r.startsAt.toISOString(), r.endsAt.toISOString()),
     status: r.status as AppointmentStatus, statusLabel: APPOINTMENT_LABEL[r.status as AppointmentStatus] ?? r.status,
@@ -183,6 +230,14 @@ export async function changeAppointmentStatus(id: string, staffId: string, to: A
     where: { id },
     data: { status: to, ...(staffNote !== undefined ? { staffNote: staffNote?.trim() || null } : {}), decidedById: staffId, decidedAt: new Date() },
   });
+  if (r.source === 'staff') {
+    if (r.status !== to && to === 'CANCELLED') {
+      await prisma.appointment.update({ where: { id }, data: { icsSequence: { increment: 1 } } });
+      after(() => staffSideEffects(id, 'cancelled', notify).then(() => undefined));
+    } else if (r.status !== to) after(() => syncAppointmentToSoftone(id).then(() => undefined));
+    return updated;
+  }
+  if (r.status !== to && to === 'CANCELLED') await prisma.appointment.update({ where: { id }, data: { icsSequence: { increment: 1 } } });
   if (notify && r.status !== to && (to === 'CONFIRMED' || to === 'CANCELLED')) after(() => mailVisitor(id, to === 'CONFIRMED' ? 'confirmed' : 'cancelled').then(() => undefined));
   if (r.status !== to) after(() => syncAppointmentToSoftone(id).then(() => undefined));
   return updated;
@@ -211,10 +266,13 @@ export async function rescheduleAppointment(id: string, staffId: string, startIs
     }
     const updated = await tx.appointment.update({
       where: { id },
-      data: { startsAt: start, endsAt: end, rescheduledFrom: r.startsAt, ...(opts.staffNote !== undefined ? { staffNote: opts.staffNote?.trim() || null } : {}), decidedById: staffId, decidedAt: new Date() },
+      data: { startsAt: start, endsAt: end, rescheduledFrom: r.startsAt, icsSequence: { increment: 1 }, ...(opts.staffNote !== undefined ? { staffNote: opts.staffNote?.trim() || null } : {}), decidedById: staffId, decidedAt: new Date() },
     });
-    if (opts.notify !== false) after(() => mailVisitor(id, 'rescheduled').then(() => undefined));
-    after(() => syncAppointmentToSoftone(id).then(() => undefined));
+    if (r.source === 'staff') after(() => staffSideEffects(id, 'rescheduled', opts.notify !== false).then(() => undefined));
+    else {
+      if (opts.notify !== false) after(() => mailVisitor(id, 'rescheduled').then(() => undefined));
+      after(() => syncAppointmentToSoftone(id).then(() => undefined));
+    }
     return updated;
   });
 }
@@ -296,7 +354,15 @@ async function mailVisitor(id: string, kind: VisitorMail) {
   const brand = (await getSetting<string>('company.name'))?.trim() || ATELIER_PROFILE.brand;
   const staff = await staffRecipient();
   const m = visitorEmailHtml(kind, { code: appointmentCode(r.number), start: r.startsAt.toISOString(), end: r.endsAt.toISOString(), staffNote: r.staffNote, topic: r.topic }, brand);
-  await sendLeadMail(r.email, m.subject, m.html, { replyTo: staff ?? ATELIER_PROFILE.salesEmail });
+  // .ics μόνο για επιβεβαιωμένη ώρα (όχι για το «λάβαμε το αίτημα»): ίδιο UID, SEQUENCE από τη βάση.
+  const ics = kind === 'received' ? null : buildIcs({
+    uid: `appointment-${r.id}@atelierdamask.gr`, start: r.startsAt, end: r.endsAt, summary: `${r.topic ?? 'Ραντεβού'} · ${brand}`,
+    description: appointmentCode(r.number), location: ATELIER_PROFILE.address, sequence: r.icsSequence, cancelled: kind === 'cancelled',
+  });
+  await sendLeadMail(r.email, m.subject, m.html, {
+    replyTo: staff ?? ATELIER_PROFILE.salesEmail,
+    attachments: ics ? [{ filename: kind === 'cancelled' ? 'akyrosi-rantevou.ics' : 'rantevou.ics', content: ics, contentType: `text/calendar; charset=utf-8; method=${kind === 'cancelled' ? 'CANCEL' : 'PUBLISH'}` }] : undefined,
+  });
 }
 
 async function mailStaffNew(id: string) {

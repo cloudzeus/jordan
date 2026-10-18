@@ -4,7 +4,7 @@ import { logAudit } from '@/lib/audit';
 import { staffWith } from '@/lib/staff-guard';
 import { APPOINTMENT_STATUSES } from '@/lib/appointments-core';
 import { AppointmentError, assignAppointment, changeAppointmentStatus, rescheduleAppointment } from '@/lib/appointments';
-import { syncAppointmentToSoftone } from '@/lib/appointment-softone';
+import { dryRunAppointmentSoftone, syncAppointmentToSoftone } from '@/lib/appointment-softone';
 import { prisma } from '@/lib/db';
 
 export const runtime = 'nodejs';
@@ -16,6 +16,7 @@ const input = z.discriminatedUnion('action', [
   z.object({ action: z.literal('reschedule'), start: z.string().datetime(), force: z.boolean().optional(), staffNote: note, notify: z.boolean().optional() }),
   z.object({ action: z.literal('assign'), assignedToId: z.string().min(1).nullable() }),
   z.object({ action: z.literal('softone') }),
+  z.object({ action: z.literal('softonePreview') }),
 ]);
 
 // PATCH — επιβεβαίωση / ακύρωση / ολοκλήρωση / μη προσέλευση / μεταφορά ραντεβού.
@@ -27,6 +28,7 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
   const { id } = await ctx.params;
   const b = parsed.data;
   try {
+    if (b.action === 'softonePreview') return NextResponse.json(await dryRunAppointmentSoftone(id));
     if (b.action === 'softone') {
       const result = await syncAppointmentToSoftone(id, { force: true });
       const a = await prisma.appointment.findUnique({ where: { id }, select: { softoneActionCode: true, softoneError: true } });
