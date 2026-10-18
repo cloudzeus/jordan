@@ -1,5 +1,6 @@
 // lib/softone-mirror/worker.ts — SERVER. Ο περιοδικός συγχρονισμός του καθρέφτη SoftOne μέσα στον Next
-// server (ξεκινά από το instrumentation.ts). Κάθε λίγα λεπτά ένας αυξητικός κύκλος· τη νύχτα, συμφωνία.
+// server (ξεκινά από το instrumentation.ts). Χτυπά ανά λεπτό· κάθε πίνακας τρέχει όταν έρθει η ώρα του
+// κατά τον δικό του ρυθμό (lib/softone-mirror/sync.ts → DEFAULT_EVERY_MIN, αλλάζει από την οθόνη)· τη νύχτα, συμφωνία.
 //
 // Δεν τρέχει όταν `JOBS_DISABLED=1` (π.χ. το σταθερό preview στο :3001 — εκεί τον κάνει ο dev server ή
 // το cron) ούτε σε tests/scripts. Το ίδιο κάνει και το `SOFTONE_MIRROR_DISABLED=1`, αν χρειαστεί
@@ -7,7 +8,7 @@
 import 'server-only';
 import { runMirrorCycle } from './sync';
 
-const DEFAULT_INTERVAL_MS = 3 * 60_000;
+const DEFAULT_INTERVAL_MS = 60_000;
 const FIRST_DELAY_MS = 30_000;
 
 const g = globalThis as unknown as { __softoneMirrorWorker?: ReturnType<typeof setInterval> };
@@ -20,8 +21,8 @@ export function mirrorWorkerDisabled(): boolean {
 
 export function mirrorIntervalMs(): number {
   const n = Number(process.env.SOFTONE_MIRROR_INTERVAL_MS);
-  // Κάτω από 1′ δεν έχει νόημα (και φορτώνει ένα ήδη αργό SoftOne).
-  return Number.isFinite(n) && n >= 60_000 ? n : DEFAULT_INTERVAL_MS;
+  // Ο χτύπος μόνο ελέγχει ποιος πίνακας είναι «της ώρας του» — κάτω από 30″ δεν έχει νόημα.
+  return Number.isFinite(n) && n >= 30_000 ? n : DEFAULT_INTERVAL_MS;
 }
 
 async function tick(): Promise<void> {
@@ -31,8 +32,8 @@ async function tick(): Promise<void> {
     const changed = r.steps.reduce((s, x) => s + x.changed, 0);
     const failed = r.steps.filter((s) => !s.ok);
     if (r.skipped) console.log(`[softone-mirror] παράλειψη: ${r.skipped}`);
-    else if (changed > 0 || failed.length || r.mode === 'reconcile') {
-      console.log(`[softone-mirror] ${r.mode}: ${changed} αλλαγές σε ${r.ms}ms${failed.length ? ` · σφάλματα: ${failed.map((f) => `${f.table} (${f.error})`).join('; ')}` : ''}`);
+    else if (changed > 0 || failed.length || r.steps.some((x) => x.full || x.note)) {
+      console.log(`[softone-mirror] ${r.steps.map((x) => `${x.table}${x.full ? '(πλήρης)' : ''}`).join(',')}: ${changed} αλλαγές σε ${r.ms}ms${r.steps.filter((x) => x.note).map((x) => ` · ${x.note}`).join('')}${failed.length ? ` · σφάλματα: ${failed.map((f) => `${f.table} (${f.error})`).join('; ')}` : ''}`);
     }
   } catch (e) {
     console.error('[softone-mirror] tick', (e as Error).message);
@@ -46,6 +47,6 @@ export function startMirrorWorker(): boolean {
   first.unref?.();
   g.__softoneMirrorWorker = setInterval(() => { void tick(); }, every);
   g.__softoneMirrorWorker.unref?.();
-  console.log(`[softone-mirror] worker started (κάθε ${Math.round(every / 1000)}″)`);
+  console.log(`[softone-mirror] worker started (έλεγχος κάθε ${Math.round(every / 1000)}″, ρυθμός ανά πίνακα)`);
   return true;
 }

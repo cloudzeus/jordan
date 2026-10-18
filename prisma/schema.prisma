@@ -2473,6 +2473,11 @@ model SoftoneMirrorState {
   // ΕΙΔΑΜΕ από το SoftOne, όπως το έγραψε ο ίδιος ο SQL Server («yyyy-mm-dd hh:mm:ss», χωρίς ζώνη) —
   // ΠΟΤΕ το δικό μας ρολόι: ο SoftOne γράφει UPDDATE σε άλλη ζώνη από το INSDATE.
   watermark    String?
+  // Δεύτερο watermark για το INSDATE: στο SoftOne το INSDATE γράφεται συχνά σε ώρα Ελλάδας και το
+  // UPDDATE σε UTC (2–3 ώρες διαφορά) — ΔΕΝ συγχωνεύονται σε ένα, κάθε στήλη έχει το δικό της.
+  watermarkIns String?
+  everyMin     Int? // κάθε πόσα λεπτά (null = η προεπιλογή του πίνακα στο lib/softone-mirror/sync.ts)
+  progress     Json? // πρόοδος αρχικής φόρτωσης (backfill) — null όταν δεν τρέχει
   lastRunAt    DateTime? // τελευταία προσπάθεια (επιτυχής ή όχι)
   lastOkAt     DateTime? // τελευταία ΕΠΙΤΥΧΗΣ — με αυτό κρίνεται αν ο καθρέφτης είναι φρέσκος
   lastError    String?
@@ -2570,15 +2575,34 @@ model SoftoneTrdLine {
 /// MYDATAHEADER — ΜΑΡΚ/QR ανά παραστατικό (SOID = FINDOC). Μόνο ανάγνωση· ΠΟΤΕ εγγραφή προς myDATA.
 model SoftoneMyData {
   id         Int     @id // MYDATAHEADER
-  soid       Int
-  sosource   Int
+  soid       Int? // FINDOC — κενό στα παραστατικά που ήρθαν από την ΑΑΔΕ και δεν έχουν αντιστοιχιστεί
+  sosource   Int?
   mark       String?
   qrUrl      String?
   invoiceUrl String?
   isCancel   Int     @default(0)
   updRaw     String?
+  insRaw     String?
+  /// Τα υπόλοιπα πεδία της ΑΑΔΕ (ΑΦΜ εκδότη, σειρά/α.α., ημερομηνία, τύπος, ποσά…) όπως τα δίνει το SoftOne.
+  data       Json?
 
   @@index([soid])
+}
+
+/// Γενικός καθρέφτης πινάκων SoftOne που δεν χρειάζονται δικά τους πεδία στη βάση: FINPAYTERMS
+/// (λήξεις/δόσεις), EXPANAL/VATANAL (ανάλυση εξόδων/ΦΠΑ) ως παιδιά του FINDOC· TRDEXTRA/TRDPRSN ως
+/// παιδιά του TRDR· PRSN (επαφές) και SERIES. `data` = τα πεδία όπως τα δίνει το GetTable.
+model SoftoneRecord {
+  table    String
+  id       String
+  parent   Int? // FINDOC ή TRDR του γονέα (για παιδιά)
+  updRaw   String?
+  insRaw   String?
+  data     Json
+  syncedAt DateTime @default(now())
+
+  @@id([table, id])
+  @@index([table, parent])
 }
 
 /// TRDBALSHEET — επίσημα σύνολα χρέωσης/πίστωσης ανά συναλλασσόμενο, χρήση και περίοδο.

@@ -5,6 +5,7 @@ import {
   s1Stamp, s1DateTime, stampOf, maxStamp, sinceOf, changedSinceFilter, nextWatermark, chunk,
   mapFindoc, findocRow, mapMtrLine, mtrLineRow, mapMyData, myDataRow, mapTrdLine, trdLineRow, mapBalance,
   planReconcile, mirrorUsable, onlyChanged, reconcileDue, sameData, planWrites, STALE_MS,
+  RECORD_SPECS, mapRecord, pickData,
 } from '../core';
 
 describe('watermark', () => {
@@ -38,12 +39,22 @@ describe('watermark', () => {
     expect(sinceOf(null)).toBeNull();
   });
 
-  it('το φίλτρο πιάνει UPDDATE ή INSDATE και αρνείται ό,τι δεν είναι ISO', () => {
-    expect(changedSinceFilter('2026-10-16T08:31:54')).toBe(
-      "(UPDDATE >= CONVERT(datetime,'2026-10-16T08:31:54',126) OR INSDATE >= CONVERT(datetime,'2026-10-16T08:31:54',126))",
+  it('το φίλτρο πιάνει UPDDATE ή INSDATE — το καθένα από το ΔΙΚΟ του watermark — και αρνείται ό,τι δεν είναι ISO', () => {
+    expect(changedSinceFilter('2026-10-16T08:31:54', '2026-10-16T11:31:54')).toBe(
+      "(UPDDATE >= CONVERT(datetime,'2026-10-16T08:31:54',126) OR INSDATE >= CONVERT(datetime,'2026-10-16T11:31:54',126))",
     );
-    expect(changedSinceFilter('2026-10-16T08:31:54', false)).toBe("UPDDATE >= CONVERT(datetime,'2026-10-16T08:31:54',126)");
+    expect(changedSinceFilter('2026-10-16T08:31:54')).toContain("INSDATE >= CONVERT(datetime,'2026-10-16T08:31:54',126)");
+    expect(changedSinceFilter('2026-10-16T08:31:54', null)).toBe("UPDDATE >= CONVERT(datetime,'2026-10-16T08:31:54',126)");
     expect(() => changedSinceFilter("2026-10-16'; DROP TABLE x--")).toThrow();
+    expect(() => changedSinceFilter('2026-10-16T08:31:54', "x' OR 1=1--")).toThrow();
+  });
+
+  it('νέα εγγραφή με ΚΕΝΟ UPDDATE: δεν πάει πίσω το watermark UPDDATE, προχωρά το INSDATE', () => {
+    const rows = [{ UPDDATE: '', INSDATE: '2026-10-19 12:00:00' }, { UPDDATE: '2026-10-19 08:00:00', INSDATE: '2026-10-19 11:00:00' }];
+    expect(nextWatermark('2026-10-19 07:00:00', rows, 'UPDDATE')).toBe('2026-10-19 08:00:00');
+    expect(nextWatermark('2026-10-19 10:00:00', rows, 'INSDATE')).toBe('2026-10-19 12:00:00');
+    // Τα δύο ΔΕΝ ενώνονται: το INSDATE (ώρα Ελλάδας) είναι 3 ώρες μπροστά από το UPDDATE (UTC).
+    expect(sinceOf(nextWatermark(null, rows, 'UPDDATE'))).toBe('2026-10-19T07:00:00');
   });
 
   it('το νέο watermark είναι το μέγιστο UPDDATE που γύρισε — ή μένει το παλιό', () => {
@@ -121,6 +132,9 @@ describe('αυξητικό: μόνο ό,τι άλλαξε', () => {
     expect(w.update.map((x) => x.key)).toEqual([2]);
     expect(w.create.map((x) => x.key)).toEqual([3]);
     expect(sameData(undefined, { a: 1 })).toBe(false);
+    // Το JSONB του Postgres αλλάζει τη σειρά των κλειδιών — δεν είναι «αλλαγή».
+    expect(sameData({ data: { B: '2', A: '1' } }, { data: { A: '1', B: '2' } })).toBe(true);
+    expect(sameData({ data: { A: '1' } }, { data: { A: '2' } })).toBe(false);
     expect(sameData({ a: null }, { a: undefined })).toBe(true);
   });
 });
@@ -162,6 +176,21 @@ describe('νυχτερινή συμφωνία', () => {
     expect(reconcileDue(at('2026-10-17T23:00:00Z'), at('2026-10-19T12:00:00Z'))).toBe(true);
     // ήδη έγινε απόψε
     expect(reconcileDue(at('2026-10-19T00:00:00Z'), at('2026-10-19T00:30:00Z'))).toBe(false);
+  });
+});
+
+describe('γενικοί πίνακες', () => {
+  it('κλειδί, γονέας, watermarks και μόνο τα μη κενά πεδία', () => {
+    const r = mapRecord(RECORD_SPECS.FINPAYTERMS, { FINPAYTERMS: '7', FINDOC: '1703', TRDR: '142', OPNTAMNT: '50', COMMENTS: '', UPDDATE: '' })!;
+    expect(r).toEqual({ table: 'FINPAYTERMS', id: '7', parent: 1703, updRaw: null, insRaw: null, data: { FINPAYTERMS: '7', FINDOC: '1703', TRDR: '142', OPNTAMNT: '50' } });
+    expect(mapRecord(RECORD_SPECS.EXPANAL, { FINDOC: '57', LINENUM: '1' })!.id).toBe('57:1');
+    expect(mapRecord(RECORD_SPECS.EXPANAL, { FINDOC: '57', LINENUM: '' })).toBeNull();
+    expect(mapRecord(RECORD_SPECS.TRDEXTRA, { TRDR: '9', KAD: '43.31' })).toMatchObject({ id: '9', parent: 9 });
+    expect(pickData({ A: ' x ', B: '' })).toEqual({ A: 'x' });
+  });
+
+  it('τα πρόσωπα ΔΕΝ ζητούν κωδικό πρόσβασης / ΑΜΚΑ / αρ. ταυτότητας', () => {
+    for (const f of ['SOPASSWORD', 'SOCSECCODE', 'IDENTITYNUM', 'PERSONALNUM']) expect(RECORD_SPECS.PRSN.fields).not.toContain(f);
   });
 });
 

@@ -56,20 +56,28 @@ export function sinceOf(watermark: string | null | undefined, overlapMin = DEFAU
   return new Date(d.getTime() - overlapMin * 60_000).toISOString().slice(0, 19);
 }
 
+const ISO = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/;
+const conv = (since: string) => {
+  if (!ISO.test(since)) throw new Error(`Μη έγκυρη ημερομηνία φίλτρου: ${since}`);
+  return `CONVERT(datetime,'${since}',126)`;
+};
+
 /**
- * Φίλτρο GetTable «άλλαξε ή γράφτηκε από τότε». Το INSDATE μπαίνει ως δίχτυ για εγγραφές με κενό
- * UPDDATE· επειδή είναι σε ζώνη ΜΠΡΟΣΤΑ από το UPDDATE, φέρνει απλώς λίγα παραπάνω — ποτέ λιγότερα.
+ * Φίλτρο GetTable «άλλαξε ή γράφτηκε από τότε»: UPDDATE από το δικό του watermark ΚΑΙ INSDATE από το
+ * δικό του. Το INSDATE πιάνει νέα εγγραφή ακόμη κι αν το UPDDATE της είναι κενό. Τα δύο watermarks
+ * ΔΕΝ ενώνονται σε ένα: στο atelier το INSDATE γράφεται 2–3 ώρες ΜΠΡΟΣΤΑ από το UPDDATE (ώρα Ελλάδας
+ * έναντι UTC) — ένα κοινό «μέγιστο των δύο» θα πηδούσε 3 ώρες ενημερώσεων. `sinceIns` null ⇒ ίδιο με
+ * το `since` (το INSDATE είναι μπροστά, άρα φέρνει απλώς λίγα παραπάνω).
  */
-export function changedSinceFilter(since: string, withInsDate = true): string {
-  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/.test(since)) throw new Error(`Μη έγκυρη ημερομηνία φίλτρου: ${since}`);
-  const c = `CONVERT(datetime,'${since}',126)`;
-  return withInsDate ? `(UPDDATE >= ${c} OR INSDATE >= ${c})` : `UPDDATE >= ${c}`;
+export function changedSinceFilter(since: string, sinceIns: string | null | undefined = since): string {
+  if (sinceIns === undefined) sinceIns = since;
+  return sinceIns === null ? `UPDDATE >= ${conv(since)}` : `(UPDDATE >= ${conv(since)} OR INSDATE >= ${conv(sinceIns)})`;
 }
 
-/** Το νέο watermark μετά από έναν κύκλο: το μέγιστο UPDDATE των γραμμών που ήρθαν (ή το παλιό). */
-export function nextWatermark(prev: string | null | undefined, rows: { UPDDATE?: string }[]): string | null {
+/** Το νέο watermark μετά από έναν κύκλο: το μέγιστο της στήλης (UPDDATE ή INSDATE) των γραμμών που ήρθαν (ή το παλιό). */
+export function nextWatermark(prev: string | null | undefined, rows: Record<string, string | null | undefined>[], col = 'UPDDATE'): string | null {
   let wm = s1Stamp(prev);
-  for (const r of rows) wm = maxStamp(wm, r.UPDDATE);
+  for (const r of rows) wm = maxStamp(wm, r[col]);
   return wm;
 }
 
@@ -88,7 +96,11 @@ export function chunk<T>(arr: T[], size: number): T[][] {
 export const FINDOC_FIELDS = ['FINDOC', 'FINCODE', 'TRNDATE', 'SERIES', 'SOSOURCE', 'TRDR', 'PRJC', 'NETAMNT', 'VATAMNT', 'SUMAMNT', 'DISC1PRC', 'DISC1VAL', 'ISCANCEL', 'COMMENTS', 'COMMENTS1', 'REMARKS', 'INSDATE', 'UPDDATE'];
 export const MTRLINE_FIELDS = ['FINDOC', 'MTRLINES', 'LINENUM', 'MTRL', 'QTY1', 'QTY', 'MTRUNIT', 'PRICE', 'DISC1PRC', 'DISC2PRC', 'DISC1VAL', 'LINEVAL', 'NETLINEVAL', 'VAT', 'VATAMNT', 'COMMENTS', 'COMMENTS1', 'PRJC', 'SODTYPE', 'FINDOCS'];
 export const TRDLINE_FIELDS = ['FINDOC', 'TRDTLINES', 'TRDR', 'LINENUM', 'LINEVAL', 'PRJC'];
-export const MYDATA_FIELDS = ['MYDATAHEADER', 'SOSOURCE', 'SOID', 'MARK', 'QRURL', 'INVOICEURL', 'ISCANCEL', 'UPDDATE'];
+/** Τα πρώτα 8 έχουν δικές τους στήλες· τα υπόλοιπα (ΑΑΔΕ) πάνε στο `data`. Επιβεβαιωμένα ζωντανά 2026-10-19. */
+export const MYDATA_FIELDS = ['MYDATAHEADER', 'SOSOURCE', 'SOID', 'MARK', 'QRURL', 'INVOICEURL', 'ISCANCEL', 'UPDDATE', 'INSDATE',
+  'SOTYPE', 'SODTYPE', 'TRDR', 'VATNUMBER', 'SERIES', 'AA', 'ISSUEDATE', 'INVOICETYPE', 'NETVALUE', 'VATVALUE', 'WITHHELDVALUE',
+  'GROSSVALUE', 'CANCELMARK', 'CORRELATEDINVOICES', 'CLASSPERINVOICE', 'SOUID'];
+const MYDATA_OWN = new Set(['MYDATAHEADER', 'SOSOURCE', 'SOID', 'MARK', 'QRURL', 'INVOICEURL', 'ISCANCEL', 'UPDDATE', 'INSDATE']);
 export const BALANCE_FIELDS = ['TRDR', 'FISCPRD', 'PERIOD', 'LDEBIT', 'LCREDIT'];
 
 type Row = Record<string, string>;
@@ -165,13 +177,97 @@ export function mapTrdLine(r: Row) {
 }
 export type TrdLineData = NonNullable<ReturnType<typeof mapTrdLine>>;
 
+/** Όλες οι γραμμές MYDATAHEADER — και όσες ήρθαν από την ΑΑΔΕ χωρίς SOID (δεν έχουν αντιστοιχιστεί σε παραστατικό). */
 export function mapMyData(r: Row) {
   const id = idOrNull(r.MYDATAHEADER);
-  const soid = idOrNull(r.SOID);
-  if (id == null || soid == null) return null;
+  if (id == null) return null;
   return {
-    id, soid, sosource: num(r.SOSOURCE), mark: text(r.MARK), qrUrl: text(r.QRURL), invoiceUrl: text(r.INVOICEURL),
-    isCancel: num(r.ISCANCEL), updRaw: s1Stamp(r.UPDDATE),
+    id, soid: idOrNull(r.SOID), sosource: idOrNull(r.SOSOURCE), mark: text(r.MARK), qrUrl: text(r.QRURL), invoiceUrl: text(r.INVOICEURL),
+    isCancel: num(r.ISCANCEL), updRaw: s1Stamp(r.UPDDATE), insRaw: s1Stamp(r.INSDATE), data: pickData(r, (k) => !MYDATA_OWN.has(k)),
+  };
+}
+
+/** Τα μη κενά πεδία μιας γραμμής GetTable (για τη στήλη `data`). */
+export function pickData(r: Row, keep: (k: string) => boolean = () => true): Record<string, string> {
+  const o: Record<string, string> = {};
+  for (const [k, v] of Object.entries(r)) { const t = String(v ?? '').trim(); if (t && keep(k)) o[k] = t; }
+  return o;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Γενικοί πίνακες (SoftoneRecord). Πεδία ελεγμένα ένα-ένα ζωντανά (atelier 2026-10-19): άγνωστο πεδίο
+// κάνει το GetTable να ΑΠΟΤΥΧΕΙ, και όσα πεδία κλειδιού δεν ζητηθούν προστίθενται ΣΤΟ ΤΕΛΟΣ — οι
+// θέσεις των ζητούμενων δεν μετακινούνται.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type RecordSpec = {
+  table: string;
+  fields: string[];
+  id: (r: Row) => string | null;
+  /** Παιδί FINDOC ή TRDR: ξανακατεβαίνει ολόκληρο όταν αλλάξει ο γονέας. */
+  parentKey?: 'FINDOC' | 'TRDR';
+  /** Φίλτρο «όλα» για πλήρη φόρτωση. */
+  all: string;
+  /** Ο πίνακας δεν δέχεται φίλτρο ημερομηνίας (CONVERT ή ISO με ώρα ⇒ «Database error») — πάντα πλήρης ανάγνωση. */
+  fullOnly?: boolean;
+};
+
+const sid = (...xs: (string | undefined)[]) => (xs.every((x) => x && String(x).trim()) ? xs.map((x) => String(x).trim()).join(':') : null);
+
+export const RECORD_SPECS: Record<'FINPAYTERMS' | 'EXPANAL' | 'VATANAL' | 'TRDEXTRA' | 'TRDPRSN' | 'PRSN' | 'SERIES', RecordSpec> = {
+  // Λήξεις / δόσεις πληρωμής ανά παραστατικό (ανοιχτό υπόλοιπο, ημερομηνία λήξης).
+  FINPAYTERMS: {
+    table: 'FINPAYTERMS', parentKey: 'FINDOC', all: 'FINDOC>0', id: (r) => sid(r.FINPAYTERMS),
+    fields: ['FINPAYTERMS', 'FINDOC', 'LINENUM', 'FINPAY', 'TRDR', 'TRDBRANCH', 'SOCURRENCY', 'PAYDEMANDMD', 'SOPAYTYPE', 'ISCANCEL', 'APPRV',
+      'FINALDATE', 'TRNDATE', 'ENDDATE', 'TRDRRATE', 'AMNT', 'TAMNT', 'LAMNT', 'OPNTAMNT', 'ISCLOSE', 'COMMENTS', 'PAYMENT', 'INSTALMENT',
+      'TRDFLINES', 'FINPAYTERMSS', 'UPDDATE'],
+  },
+  // Ανάλυση εξόδων (παραστατικά δαπανών).
+  EXPANAL: {
+    table: 'EXPANAL', parentKey: 'FINDOC', all: 'FINDOC>0', id: (r) => sid(r.FINDOC, r.LINENUM),
+    fields: ['FINDOC', 'LINENUM', 'EXPN', 'VAT', 'SOCASHEXP', 'EXPVAL', 'TEXPVAL', 'LEXPVAL', 'EXPVATVAL', 'TEXPVATVAL', 'LEXPVATVAL', 'ISSTOCK', 'ISEXPN', 'VATSTS', 'VAT1'],
+  },
+  // Ανάλυση ΦΠΑ ανά συντελεστή.
+  VATANAL: {
+    table: 'VATANAL', parentKey: 'FINDOC', all: 'FINDOC>0', id: (r) => sid(r.FINDOC, r.VAT),
+    fields: ['FINDOC', 'VAT', 'SUBVAL', 'LSUBVAL', 'VATVAL', 'LVATVAL', 'LVATNOEXM'],
+  },
+  // Επιπλέον στοιχεία συναλλασσομένου (ΚΑΔ, πεδία χρήστη…).
+  TRDEXTRA: {
+    table: 'TRDEXTRA', parentKey: 'TRDR', all: 'TRDR>0', id: (r) => sid(r.TRDR),
+    fields: ['TRDR', 'KAD', 'KAD1', 'SOSDATE', 'SOEDATE', 'REFCODE', 'AAITCODE', 'VARCHAR01', 'VARCHAR02', 'VARCHAR03', 'VARCHAR04', 'VARCHAR05',
+      'NUM01', 'NUM02', 'NUM03', 'NUM04', 'NUM05', 'UTBL01', 'UTBL02', 'UTBL03', 'UTBL04', 'UTBL05',
+      'DATE01', 'DATE02', 'DATE03', 'DATE04', 'DATE05', 'BOOL01', 'BOOL02', 'BOOL03', 'BOOL04', 'SOESHOP', 'SOESHOPENABLE'],
+  },
+  // Επαφές συναλλασσομένου (σύνδεση TRDR ↔ PRSN).
+  TRDPRSN: {
+    table: 'TRDPRSN', parentKey: 'TRDR', all: 'TRDR>0', id: (r) => sid(r.TRDR, r.LINENUM),
+    fields: ['TRDR', 'LINENUM', 'TRDBRANCH', 'PRSN', 'ISACTIVE', 'COMMENTS'],
+  },
+  // Πρόσωπα/επαφές. ΕΚΤΟΣ σκόπιμα: κωδικός πρόσβασης, ΑΜΚΑ, αρ. ταυτότητας/μητρώου.
+  PRSN: {
+    table: 'PRSN', all: 'PRSN>0', id: (r) => sid(r.PRSN),
+    fields: ['PRSN', 'COMPANY', 'CODE', 'NAME', 'NAME2', 'NAME3', 'ISACTIVE', 'TPRSN', 'USERS', 'BRANCH', 'PRJC', 'AFM', 'DEPART', 'SOTITLE',
+      'SOTITLENAME', 'SPECIALTY', 'SOSEX', 'BIRTHDATE', 'ADDRESS', 'ZIP', 'DISTRICT', 'CITY', 'COUNTRY', 'PHONE1', 'PHONE2', 'PHONEEXT', 'FAX',
+      'MOBILEPHONE', 'MOBILEPHONE2', 'WEBPAGE', 'EMAIL', 'EMAIL1', 'CONSENT', 'NOCONSENT', 'IRSDATA', 'ISPROSP', 'REMARKS', 'INSDATE', 'UPDDATE'],
+  },
+  // Σειρές παραστατικών όλων των ενοτήτων. Ο αριθμός σειράς ΔΕΝ είναι μοναδικός μόνος του (ίδιος σε
+  // άλλη ενότητα/εταιρεία). Το GetTable στο SERIES απορρίπτει φίλτρα ημερομηνίας με ώρα (atelier 2026-10-19)
+  // — μικρός πίνακας, διαβάζεται πάντα ολόκληρος.
+  SERIES: {
+    table: 'SERIES', all: 'SERIES>0', fullOnly: true, id: (r) => sid(r.COMPANY, r.SOSOURCE, r.SERIES),
+    fields: ['SERIES', 'COMPANY', 'SOSOURCE', 'CODE', 'NAME', 'FPRMS', 'TFPRMS', 'ISACTIVE', 'BRANCH', 'WHOUSE', 'COMMENTS', 'PFINPAYTERMS', 'INSDATE', 'UPDDATE'],
+  },
+};
+
+export type RecordData = { table: string; id: string; parent: number | null; updRaw: string | null; insRaw: string | null; data: Record<string, string> };
+
+export function mapRecord(spec: RecordSpec, r: Row): RecordData | null {
+  const id = spec.id(r);
+  if (!id) return null;
+  return {
+    table: spec.table, id, parent: spec.parentKey ? idOrNull(r[spec.parentKey]) : null,
+    updRaw: s1Stamp(r.UPDDATE), insRaw: s1Stamp(r.INSDATE), data: pickData(r),
   };
 }
 export type MyDataData = NonNullable<ReturnType<typeof mapMyData>>;
@@ -221,10 +317,12 @@ export function trdLineRow(l: TrdLineData): Row {
   return { FINDOC: s(l.findoc), TRDTLINES: s(l.trdtlines), TRDR: s(l.trdr), LINENUM: s(l.lineNum), LINEVAL: s(l.lineVal), PRJC: s(l.prjc) };
 }
 
-export function myDataRow(m: MyDataData): Row {
+export function myDataRow(m: Omit<MyDataData, 'data' | 'insRaw'> & { data?: unknown; insRaw?: string | null }): Row {
+  const extra = m.data && typeof m.data === 'object' ? (m.data as Record<string, string>) : {};
   return {
+    ...extra,
     MYDATAHEADER: s(m.id), SOSOURCE: s(m.sosource), SOID: s(m.soid), MARK: m.mark ?? '', QRURL: m.qrUrl ?? '',
-    INVOICEURL: m.invoiceUrl ?? '', ISCANCEL: s(m.isCancel), UPDDATE: m.updRaw ?? '',
+    INVOICEURL: m.invoiceUrl ?? '', ISCANCEL: s(m.isCancel), UPDDATE: m.updRaw ?? '', INSDATE: m.insRaw ?? '',
   };
 }
 
@@ -313,7 +411,18 @@ export function reconcileDue(reconciledAt: Date | null | undefined, now = new Da
   return age > 20 * 3600_000 && h >= 2 && h < 5;
 }
 
-const norm = (v: unknown): unknown => (v instanceof Date ? v.getTime() : v === undefined ? null : v);
+/** Σταθερή αναπαράσταση: ημερομηνίες ως χρόνος, αντικείμενα (JSON) με ταξινομημένα κλειδιά — το Postgres αναδιατάσσει τα κλειδιά του JSONB. */
+const norm = (v: unknown): unknown => {
+  if (v instanceof Date) return v.getTime();
+  if (v === undefined) return null;
+  if (v && typeof v === 'object') return stable(v);
+  return v;
+};
+function stable(v: unknown): string {
+  if (Array.isArray(v)) return `[${v.map(stable).join(',')}]`;
+  if (v && typeof v === 'object') return `{${Object.keys(v).sort().map((k) => `${JSON.stringify(k)}:${stable((v as Record<string, unknown>)[k])}`).join(',')}}`;
+  return JSON.stringify(v ?? null);
+}
 
 /** Ίδια δεδομένα; (μόνο τα πεδία του `data` — ό,τι άλλο έχει η τοπική γραμμή δεν μετρά). */
 export function sameData(local: Record<string, unknown> | undefined, data: Record<string, unknown>): boolean {

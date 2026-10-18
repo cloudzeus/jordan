@@ -16,6 +16,7 @@ const { db, s1, leaseState } = vi.hoisted(() => {
       if (c.notIn) return !c.notIn.includes(v);
       if (c.gt != null) return typeof v === 'number' && v > c.gt;
       if ('not' in c) return v !== c.not;
+      if (!('in' in c) && !('notIn' in c) && !('gt' in c)) return match(row, cond as Rec); // σύνθετο κλειδί (table_id)
     }
     return v === cond;
   });
@@ -59,6 +60,7 @@ const { db, s1, leaseState } = vi.hoisted(() => {
     softoneMtrLine: model((r) => `${r.findoc}:${r.mtrlines}`),
     softoneTrdLine: model((r) => `${r.findoc}:${r.trdtlines}`),
     softoneMyData: model((r) => String(r.id)),
+    softoneRecord: model((r) => `${r.table}:${r.id}`),
     softoneTrdBalance: model((r) => `${r.trdr}:${r.fiscPrd}:${r.period}`),
     softoneTrader: model((r) => String(r.trdr)),
     softoneItem: model((r) => String(r.mtrl)),
@@ -81,15 +83,18 @@ const { db, s1, leaseState } = vi.hoisted(() => {
   const s1 = {
     tables: {} as Record<string, Record<string, string>[]>,
     calls: [] as { table: string; filter: string }[],
+    sinces: [] as { table: string; sinceU?: string; sinceI?: string }[],
     softoneGetTable: vi.fn(async (table: string, fields: string[], filter: string) => {
       s1.calls.push({ table, filter });
       const inIds = /FINDOC IN \(([\d,]+)\)/.exec(filter)?.[1]?.split(',');
       const trdrIn = /TRDR IN \(([\d,]+)\)/.exec(filter)?.[1]?.split(',');
-      const since = /CONVERT\(datetime,'([^']+)'/.exec(filter)?.[1]?.replace('T', ' ');
+      const sinceU = /UPDDATE >= CONVERT\(datetime,'([^']+)'/.exec(filter)?.[1]?.replace('T', ' ');
+      const sinceI = /INSDATE >= CONVERT\(datetime,'([^']+)'/.exec(filter)?.[1]?.replace('T', ' ');
+      s1.sinces.push({ table, sinceU, sinceI });
       return (s1.tables[table] ?? [])
         .filter((r) => !inIds || inIds.includes(r.FINDOC))
         .filter((r) => !trdrIn || trdrIn.includes(r.TRDR))
-        .filter((r) => !since || (r.UPDDATE ?? '') >= since)
+        .filter((r) => !sinceU || (r.UPDDATE ?? '') >= sinceU || (!!sinceI && (r.INSDATE ?? '') >= sinceI))
         .map((r) => Object.fromEntries(fields.map((f) => [f, r[f] ?? ''])));
     }),
   };
@@ -98,10 +103,10 @@ const { db, s1, leaseState } = vi.hoisted(() => {
 
 vi.mock('@/lib/db', () => ({ prisma: db }));
 vi.mock('@/lib/softone', () => ({
+  SoftoneTransportError: class extends Error { httpStatus: number | null = null; },
   softoneGetTable: s1.softoneGetTable,
   softoneFetchTradersWhere: vi.fn(async () => []),
-  softoneFetchItemsChanged: vi.fn(async () => []),
-  softoneFetchItems: vi.fn(async () => []),
+  softoneFetchItemsWhere: vi.fn(async () => []),
   softoneFetchProjects: vi.fn(async () => []),
   softoneFetchStock: vi.fn(async () => []),
   isHiddenTrader: () => false,
@@ -123,6 +128,7 @@ beforeEach(() => {
   for (const m of Object.values(db)) if (typeof m === 'object' && 'rows' in m) (m as { rows: Map<string, Rec> }).rows.clear();
   s1.tables = {};
   s1.calls = [];
+  s1.sinces = [];
   leaseState.holder = null;
 });
 
@@ -133,7 +139,7 @@ describe('κύκλος καθρέφτη', () => {
     s1.tables.TRDBALSHEET = [{ TRDR: '142', FISCPRD: '2026', PERIOD: '10', LDEBIT: '248', LCREDIT: '0' }];
     const r = await runMirrorCycle({ mode: 'auto', trigger: 'test' });
     expect(r.ok).toBe(true);
-    expect(r.mode).toBe('reconcile');
+    expect(r.steps.find((x) => x.table === 'docs')).toMatchObject({ ok: true, full: true, changed: 2 });
     expect(db.softoneFindoc.rows.size).toBe(2);
     expect(db.softoneMtrLine.rows.size).toBe(3);
     expect(db.softoneTrdBalance.rows.size).toBe(1);
@@ -161,6 +167,8 @@ describe('κύκλος καθρέφτη', () => {
     expect(findocCall.filter).toContain("CONVERT(datetime,'2026-10-16T09:00:00',126)");
     const linesCall = s1.calls.find((c) => c.table === 'MTRLINES')!;
     expect(linesCall.filter).toBe('FINDOC IN (2,3)'); // όχι το 1 (ήρθε λόγω overlap, αμετάβλητο)
+    // Και τα παιδιά χωρίς UPDDATE (λήξεις, αναλύσεις) ξανακατεβαίνουν ΜΟΝΟ για τα αλλαγμένα.
+    expect(s1.calls.find((c) => c.table === 'FINPAYTERMS')!.filter).toBe('FINDOC IN (2,3)');
 
     expect(db.softoneFindoc.rows.get('2')).toMatchObject({ isCancel: 1, updRaw: '2026-10-16 10:30:00' });
     expect(db.softoneMtrLine.rows.has('2:2')).toBe(false); // η σβησμένη γραμμή χάθηκε και από εμάς
@@ -200,6 +208,44 @@ describe('κύκλος καθρέφτη', () => {
     expect(docs.ok).toBe(false);
     expect(db.softoneFindoc.rows.size).toBe(1);
     expect(db.softoneMirrorState.rows.get('docs')!.lastError).toMatch(/καμία εγγραφή/);
+  });
+
+  it('νέο παραστατικό με ΚΕΝΟ UPDDATE πιάνεται από το INSDATE (με το δικό του watermark)', async () => {
+    s1.tables.FINDOC = [head(1, '2026-10-16 09:00:00', { INSDATE: '2026-10-16 12:00:00' })];
+    await runMirrorCycle({ mode: 'reconcile', trigger: 'test' });
+    expect(db.softoneMirrorState.rows.get('docs')).toMatchObject({ watermark: '2026-10-16 09:00:00', watermarkIns: '2026-10-16 12:00:00' });
+    s1.tables.FINDOC.push(head(2, '', { INSDATE: '2026-10-16 12:30:00' }));
+    s1.sinces = [];
+    await runMirrorCycle({ mode: 'incremental', trigger: 'test' });
+    expect(s1.sinces.find((x) => x.table === 'FINDOC')).toEqual({ table: 'FINDOC', sinceU: '2026-10-16 08:00:00', sinceI: '2026-10-16 11:00:00' });
+    expect(db.softoneFindoc.rows.has('2')).toBe(true);
+    // Το κενό UPDDATE δεν «γυρίζει» το watermark — το INSDATE προχωρά.
+    expect(db.softoneMirrorState.rows.get('docs')).toMatchObject({ watermark: '2026-10-16 09:00:00', watermarkIns: '2026-10-16 12:30:00' });
+  });
+
+  it('λήξεις πληρωμής (FINPAYTERMS) αντικαθίστανται μαζί με το παραστατικό', async () => {
+    s1.tables.FINDOC = [head(1, '2026-10-16 09:00:00')];
+    s1.tables.FINPAYTERMS = [{ FINPAYTERMS: '10', FINDOC: '1', OPNTAMNT: '124' }, { FINPAYTERMS: '11', FINDOC: '1', OPNTAMNT: '0' }];
+    await runMirrorCycle({ mode: 'reconcile', trigger: 'test' });
+    expect([...db.softoneRecord.rows.keys()].sort()).toEqual(['FINPAYTERMS:10', 'FINPAYTERMS:11']);
+    s1.tables.FINDOC = [head(1, '2026-10-16 10:00:00')];
+    s1.tables.FINPAYTERMS = [{ FINPAYTERMS: '10', FINDOC: '1', OPNTAMNT: '0' }];
+    await runMirrorCycle({ mode: 'incremental', trigger: 'test' });
+    expect([...db.softoneRecord.rows.keys()]).toEqual(['FINPAYTERMS:10']);
+    expect(db.softoneRecord.rows.get('FINPAYTERMS:10')!.data).toMatchObject({ OPNTAMNT: '0' });
+  });
+
+  it('auto: τρέχει μόνο ό,τι είναι «της ώρας του» κατά τον ρυθμό του', async () => {
+    s1.tables.FINDOC = [head(1, '2026-10-16 09:00:00')];
+    await runMirrorCycle({ mode: 'reconcile', trigger: 'test' });
+    const recent = new Date();
+    for (const t of ['docs', 'mydata', 'traders', 'contacts', 'items', 'projects', 'series', 'lookups', 'stock']) {
+      db.softoneMirrorState.rows.set(t, { ...(db.softoneMirrorState.rows.get(t) ?? { table: t, tenantKey: 'T', rows: 1 }), lastRunAt: recent, reconciledAt: recent });
+    }
+    // Οι συναλλασσόμενοι έτρεξαν πριν από 61′ (ρυθμός 60′), τα παραστατικά πριν από 1′ (ρυθμός 3′).
+    db.softoneMirrorState.rows.get('traders')!.lastRunAt = new Date(Date.now() - 61 * 60_000);
+    const r = await runMirrorCycle({ mode: 'auto', trigger: 'test' });
+    expect(r.steps.map((x) => x.table)).toEqual(['traders']);
   });
 
   it('άλλος κρατά τη μίσθωση ⇒ ο κύκλος παραλείπεται χωρίς καμία κλήση στο SoftOne', async () => {

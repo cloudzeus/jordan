@@ -812,8 +812,9 @@ export interface TrdrRow {
   /** TRDR.LATITUDE/LONGITUDE (έγκυρο ζεύγος ή null). */
   lat?: number | null;
   lng?: number | null;
-  /** UPDDATE αυτούσιο — watermark του αυξητικού συγχρονισμού (lib/softone-mirror). */
+  /** UPDDATE / INSDATE αυτούσια — watermarks του αυξητικού συγχρονισμού (lib/softone-mirror). */
   updDate?: string | null;
+  insDate?: string | null;
 }
 
 interface GetTableResp {
@@ -855,7 +856,7 @@ export async function softoneGetTable(
 const TRDR_FIELDS = [
   'TRDR', 'CODE', 'NAME', 'AFM', 'IRSDATA', 'JOBTYPETRD',
   'ADDRESS', 'ZIP', 'CITY', 'DISTRICT',
-  'PHONE01', 'PHONE02', 'FAX', 'EMAIL', 'WEBPAGE', 'SODTYPE', 'ISACTIVE', 'LATITUDE', 'LONGITUDE', 'UPDDATE',
+  'PHONE01', 'PHONE02', 'FAX', 'EMAIL', 'WEBPAGE', 'SODTYPE', 'ISACTIVE', 'LATITUDE', 'LONGITUDE', 'UPDDATE', 'INSDATE',
 ];
 
 // TRDR.SODTYPE → human label. Verified against the tenant's SoftOne objects:
@@ -900,6 +901,7 @@ function mapTrdr(o: Record<string, string>): TrdrRow {
     isActive: o.ISACTIVE !== '0',
     ...(() => { const c = validCoords(o.LATITUDE, o.LONGITUDE); return { lat: c?.lat ?? null, lng: c?.lng ?? null }; })(),
     updDate: o.UPDDATE || null,
+    insDate: o.INSDATE || null,
   };
 }
 
@@ -947,13 +949,14 @@ export interface ItemRow {
   buyRatio: number | null;
   unitSell: string | null;
   sellRatio: number | null;
-  /** UPDDATE αυτούσιο (watermark αυξητικού συγχρονισμού). */
+  /** UPDDATE / INSDATE αυτούσια (watermarks αυξητικού συγχρονισμού). */
   updDate?: string | null;
+  insDate?: string | null;
 }
 
 const MTRL_FIELDS = [
   'MTRL', 'CODE', 'CODE1', 'CODE2', 'NAME', 'NAME1', 'PRICER', 'SODTYPE', 'ISACTIVE', 'MYDATACODE',
-  'MTRUNIT1', 'MTRUNIT3', 'MU31', 'MTRUNIT4', 'MU41', 'UPDDATE',
+  'MTRUNIT1', 'MTRUNIT3', 'MU31', 'MTRUNIT4', 'MU41', 'UPDDATE', 'INSDATE',
 ];
 
 /** Σχέση μονάδας: θετικός αριθμός, αλλιώς `null` (κενό/0 = «δεν ορίστηκε»). */
@@ -981,13 +984,19 @@ function mapItem(o: Record<string, string>): ItemRow {
     unitSell: idOrNull(o.MTRUNIT4),
     sellRatio: ratioOrNull(o.MU41),
     updDate: o.UPDDATE || null,
+    insDate: o.INSDATE || null,
   };
 }
 
 // MTRL.SODTYPE: 51 = προϊόν/είδος, 52 = υπηρεσία.
 /** Reads all items + services from SoftOne (MTRL SODTYPE 51/52) via GetTable. */
 export async function softoneFetchItems(): Promise<ItemRow[]> {
-  const rows = await softoneGetTable('MTRL', MTRL_FIELDS, 'SODTYPE IN (51,52)');
+  return softoneFetchItemsWhere();
+}
+
+/** Είδη/υπηρεσίες με επιπλέον φίλτρο (π.χ. UPDDATE/INSDATE για τον αυξητικό συγχρονισμό). */
+export async function softoneFetchItemsWhere(extra = ''): Promise<ItemRow[]> {
+  const rows = await softoneGetTable('MTRL', MTRL_FIELDS, 'SODTYPE IN (51,52)' + (extra ? ` AND (${extra})` : ''));
   return rows.map(mapItem).filter((r) => Number.isFinite(r.mtrl));
 }
 
@@ -2760,6 +2769,7 @@ export interface ProjectRow {
   finalDate: Date | null;
   closeDate: Date | null;
   updDate?: string | null;
+  insDate?: string | null;
 }
 
 /** «2025-06-27 00:00:00» (ώρα SoftOne, χωρίς ζώνη) → Date στις 00:00 UTC της ίδιας ημέρας· κενό → null. */
@@ -2781,7 +2791,7 @@ export async function softoneFetchProjects(extra = ''): Promise<ProjectRow[]> {
   const rows = await softoneGetTable(
     'PRJC',
     ['PRJC', 'CODE', 'NAME', 'TRDR', 'PRJTYPE', 'ISACTIVE', 'ACTSTATUS', 'TRDRSU', 'REMARKS',
-      'CRDDATE', 'FROMDATE', 'FINALDATE', 'CLOSEDATE', 'UPDDATE'],
+      'CRDDATE', 'FROMDATE', 'FINALDATE', 'CLOSEDATE', 'UPDDATE', 'INSDATE'],
     'ISACTIVE=1' + (extra ? ` AND (${extra})` : ''),
   );
   return rows
@@ -2800,6 +2810,7 @@ export async function softoneFetchProjects(extra = ''): Promise<ProjectRow[]> {
       finalDate: s1DateOrNull(o.FINALDATE),
       closeDate: s1DateOrNull(o.CLOSEDATE),
       updDate: o.UPDDATE || null,
+      insDate: o.INSDATE || null,
     }))
     .filter((r) => Number.isFinite(r.prjc) && r.prjc !== 0);
 }
