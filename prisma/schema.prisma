@@ -2169,34 +2169,72 @@ enum ItemMediaKind {
   IMAGE
   VIDEO
   PANORAMA
+  DOCUMENT // «Αρχεία» του είδους (PDF) — π.χ. ο οδηγός εγκατάστασης
 }
 
 model ItemMedia {
-  id             String        @id @default(cuid())
-  mtrl           Int // SoftOne MTRL
-  kind           ItemMediaKind
-  storageKey     String        @unique // Bunny key του αρχείου προβολής
-  publicUrl      String
-  thumbKey       String?
-  thumbUrl       String?
-  originalKey    String? // πρωτότυπο (κανονικοποιημένο) — μόνο IMAGE/PANORAMA
-  originalUrl    String?
-  originalWidth  Int?
-  originalHeight Int?
-  originalName   String
-  mimeType       String
-  size           Int
-  width          Int?
-  height         Int?
-  transform      Json? // IMAGE: { zoom, x, y, rotate, background }
-  isPrimary      Boolean       @default(false)
-  order          Int           @default(0)
-  title          String?
-  uploadedById   String?
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
+  id              String        @id @default(cuid())
+  mtrl            Int // SoftOne MTRL
+  kind            ItemMediaKind
+  storageKey      String        @unique // Bunny key του αρχείου προβολής
+  publicUrl       String
+  thumbKey        String?
+  thumbUrl        String?
+  originalKey     String? // πρωτότυπο (κανονικοποιημένο) — μόνο IMAGE/PANORAMA
+  originalUrl     String?
+  originalWidth   Int?
+  originalHeight  Int?
+  originalName    String
+  mimeType        String
+  size            Int
+  width           Int?
+  height          Int?
+  transform       Json? // IMAGE: { zoom, x, y, rotate, background }
+  isPrimary       Boolean       @default(false)
+  order           Int           @default(0)
+  title           String?
+  // Δείγμα εγκατάστασης: χρησιμοποιείται ΜΟΝΟ για τον οδηγό εγκατάστασης — ποτέ σε προσφορές/site/κύρια.
+  isInstallSample Boolean       @default(false)
+  // VIDEO δείγμα: καρέ που τράβηξε ο browser (Bunny) — [{ key, url, t }] — για το AI και το PDF.
+  sampleFrames    Json?
+  uploadedById    String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
 
   @@index([mtrl, kind, order])
+}
+
+// Οδηγίες εγκατάστασης: ηχογραφήσεις του χρήστη (ήχος στο Bunny) + απομαγνητοφώνηση (επεξεργάσιμη).
+model ItemInstallNote {
+  id          String   @id @default(cuid())
+  mtrl        Int // SoftOne MTRL
+  audioKey    String? // Bunny key (WAV) — null για σημείωση γραμμένη με το χέρι
+  audioUrl    String?
+  durationSec Float?
+  transcript  String   @default("")
+  order       Int      @default(0)
+  createdById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([mtrl, order])
+}
+
+// Ο οδηγός εγκατάστασης που έφτιαξε το AI (δομημένο JSON) + το PDF του στα «Αρχεία» (ItemMedia DOCUMENT).
+model ItemInstallGuide {
+  id          String   @id @default(cuid())
+  mtrl        Int
+  content     Json // InstallGuide (lib/install-guide/guide.ts)
+  profile     String // προφίλ κατηγορίας (π.χ. tiles, electrical)
+  category    String? // όνομα κατηγορίας/ομάδας τη στιγμή της δημιουργίας
+  model       String
+  provider    String
+  pdfMediaId  String? // ItemMedia (DOCUMENT)
+  pdfUrl      String?
+  createdById String?
+  createdAt   DateTime @default(now())
+
+  @@index([mtrl, createdAt])
 }
 
 // Προϋπολογισμός έργου — ΔΙΚΑ ΜΑΣ δεδομένα (όχι SoftOne): τα υλικά/υπηρεσίες που προβλέπονται για

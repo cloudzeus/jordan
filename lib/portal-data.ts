@@ -28,7 +28,7 @@ export async function portalData(user: PortalUser) {
     prisma.containerOffer.findMany({ where: { id: { in: offerIds } }, select: { id: true, snapshotUrl: true } }),
     prisma.containerReservation.findMany({ where: { ...mineWhere(b), offerId: { in: offerIds }, status: { in: ['ACTIVE', 'PENDING'] } }, select: { id: true, offerId: true, offerItemId: true, pallets: true, status: true, createdAt: true } }),
     orgName(b),
-    prisma.itemMedia.findMany({ where: { mtrl: { in: offers.flatMap((o) => o.items.map((i) => i.mtrl)) }, kind: 'IMAGE' }, orderBy: [{ isPrimary: 'desc' }, { createdAt: 'asc' }], select: { mtrl: true, thumbUrl: true, publicUrl: true } }),
+    prisma.itemMedia.findMany({ where: { mtrl: { in: offers.flatMap((o) => o.items.map((i) => i.mtrl)) }, kind: 'IMAGE', isInstallSample: false }, orderBy: [{ isPrimary: 'desc' }, { createdAt: 'asc' }], select: { mtrl: true, thumbUrl: true, publicUrl: true } }),
   ]);
   const snap = new Map(snapshots.map((o) => [o.id, o.snapshotUrl]));
   const photo = new Map<number, string>();
@@ -69,7 +69,7 @@ export async function portalOffer(user: PortalUser, offerId: string) {
     }),
     // Όλα τα media των προϊόντων (φωτογραφίες, βίντεο, πανοράματα) για το modal προϊόντος.
     prisma.itemMedia.findMany({
-      where: { mtrl: { in: offer.items.map((i) => i.mtrl) } },
+      where: { mtrl: { in: offer.items.map((i) => i.mtrl) }, kind: { not: 'DOCUMENT' }, isInstallSample: false },
       orderBy: [{ isPrimary: 'desc' }, { order: 'asc' }, { createdAt: 'asc' }],
       select: { mtrl: true, kind: true, publicUrl: true, thumbUrl: true, title: true, mimeType: true },
     }),

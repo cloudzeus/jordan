@@ -7,7 +7,7 @@ import { badMtrl, mediaError, mtrlOf } from '../_shared';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const Body = z.object({ kind: z.enum(['IMAGE', 'VIDEO', 'PANORAMA']), ids: z.array(z.string()).min(1).max(500) });
+const Body = z.object({ kind: z.enum(['IMAGE', 'VIDEO', 'PANORAMA', 'DOCUMENT']), ids: z.array(z.string()).min(1).max(500) });
 
 // PUT { kind, ids } — νέα σειρά εμφάνισης για έναν τύπο.
 export async function PUT(req: Request, { params }: { params: Promise<{ mtrl: string }> }) {

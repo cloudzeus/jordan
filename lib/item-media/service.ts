@@ -3,6 +3,7 @@ import path from 'node:path';
 import { customAlphabet } from 'nanoid';
 import type { ItemMedia, ItemMediaKind, Prisma } from '@prisma/client';
 import { prisma } from '@/lib/db';
+import sharp from 'sharp';
 import { bunnyDelete, bunnyDownload, bunnyUpload } from '@/lib/bunny';
 import { normalizeOriginal, renderPanorama, renderSquare, thumbnail } from './render';
 import { DEFAULT_TRANSFORM, normalizeTransform, type ImageTransform } from './transform';
@@ -16,7 +17,16 @@ export const LIMITS: Record<ItemMediaKind, { bytes: number; mimes: RegExp; label
   IMAGE: { bytes: 40 * 1024 * 1024, mimes: /^image\/(jpeg|png|webp|avif|tiff|heic|heif|gif|bmp)$/, label: 'φωτογραφία' },
   PANORAMA: { bytes: 80 * 1024 * 1024, mimes: /^image\/(jpeg|png|webp|avif|tiff)$/, label: 'πανόραμα 360°' },
   VIDEO: { bytes: 500 * 1024 * 1024, mimes: /^video\/(mp4|webm|quicktime)$/, label: 'βίντεο' },
+  DOCUMENT: { bytes: 50 * 1024 * 1024, mimes: /^application\/pdf$/, label: 'αρχείο PDF' },
 };
+
+// ΚΑΘΕ χρήση εκτός διαχείρισης (προσφορές, portal, site, μικρογραφίες λιστών) φιλτράρει
+// `isInstallSample: false`: τα δείγματα εγκατάστασης υπάρχουν ΜΟΝΟ για τον οδηγό. Τα «Αρχεία»
+// (DOCUMENT, PDF) δεν είναι πολυμέσα — όπου δεν φιλτράρεται ήδη `kind: 'IMAGE'`, εξαιρούνται ρητά.
+
+export type SampleFrame = { key: string; url: string; t: number };
+export const sampleFramesOf = (v: unknown): SampleFrame[] =>
+  Array.isArray(v) ? v.filter((f): f is SampleFrame => !!f && typeof f.key === 'string' && typeof f.url === 'string').map((f) => ({ key: f.key, url: f.url, t: Number(f.t) || 0 })) : [];
 
 const id8 = customAlphabet('0123456789abcdefghijklmnopqrstuvwxyz', 8);
 // Ελληνικά → λατινικά για τα κλειδιά του CDN (αλλιώς «πλακάκι-1» γινόταν σκέτο «1»).
@@ -48,6 +58,9 @@ export type ItemMediaDTO = {
   height: number | null;
   transform: ImageTransform | null;
   isPrimary: boolean;
+  isInstallSample: boolean;
+  /** VIDEO δείγμα: καρέ για τον οδηγό (URLs). */
+  sampleFrames: string[];
   order: number;
   createdAt: string;
 };
@@ -57,7 +70,8 @@ export const toDTO = (m: ItemMedia): ItemMediaDTO => ({
   originalWidth: m.originalWidth, originalHeight: m.originalHeight, name: m.originalName,
   mimeType: m.mimeType, size: m.size, width: m.width, height: m.height,
   transform: m.kind === 'IMAGE' ? normalizeTransform(m.transform) : null,
-  isPrimary: m.isPrimary, order: m.order, createdAt: m.createdAt.toISOString(),
+  isPrimary: m.isPrimary, isInstallSample: m.isInstallSample, sampleFrames: sampleFramesOf(m.sampleFrames).map((f) => f.url),
+  order: m.order, createdAt: m.createdAt.toISOString(),
 });
 
 export async function listItemMedia(mtrl: number): Promise<ItemMediaDTO[]> {
@@ -124,6 +138,10 @@ export async function uploadItemMedia(input: {
         mtrl, kind, storageKey, publicUrl, thumbKey, thumbUrl, originalName: name, mimeType: 'image/webp',
         size: pano.data.byteLength, width: pano.width, height: pano.height,
       };
+    } else if (kind === 'DOCUMENT') {
+      const storageKey = keyFor(mtrl, 'files', base, 'pdf');
+      const publicUrl = await put(storageKey, buffer, 'application/pdf');
+      data = { mtrl, kind, storageKey, publicUrl, originalName: name, mimeType: 'application/pdf', size: buffer.byteLength };
     } else {
       const ext = mime === 'video/webm' ? 'webm' : mime === 'video/quicktime' ? 'mov' : 'mp4';
       const storageKey = keyFor(mtrl, 'videos', base, ext);
@@ -154,6 +172,7 @@ async function getOwned(mtrl: number, id: string) {
 export async function setPrimary(mtrl: number, id: string): Promise<void> {
   const m = await getOwned(mtrl, id);
   if (m.kind !== 'IMAGE') throw new ItemMediaError('Κύρια μπορεί να είναι μόνο φωτογραφία.');
+  if (m.isInstallSample) throw new ItemMediaError('Τα δείγματα εγκατάστασης δεν γίνονται κύρια φωτογραφία — βγάλε πρώτα τη σήμανση.');
   await prisma.$transaction([
     prisma.itemMedia.updateMany({ where: { mtrl, kind: 'IMAGE', isPrimary: true }, data: { isPrimary: false } }),
     prisma.itemMedia.update({ where: { id }, data: { isPrimary: true } }),
@@ -196,11 +215,58 @@ export async function deleteMedia(mtrl: number, id: string): Promise<ItemMedia> 
   await prisma.$transaction(async (tx) => {
     await tx.itemMedia.delete({ where: { id } });
     // Σβήστηκε η κύρια ⇒ κύρια γίνεται η επόμενη στη σειρά (αν υπάρχει).
-    if (m.isPrimary) {
-      const next = await tx.itemMedia.findFirst({ where: { mtrl, kind: 'IMAGE' }, orderBy: [{ order: 'asc' }, { createdAt: 'asc' }] });
-      if (next) await tx.itemMedia.update({ where: { id: next.id }, data: { isPrimary: true } });
-    }
+    if (m.isPrimary) await promoteNextPrimary(tx, mtrl);
   });
-  await quietDelete([m.storageKey, m.thumbKey, m.originalKey]);
+  await quietDelete([m.storageKey, m.thumbKey, m.originalKey, ...sampleFramesOf(m.sampleFrames).map((f) => f.key)]);
   return m;
+}
+
+/** Νέα κύρια: η πρώτη φωτογραφία στη σειρά που ΔΕΝ είναι δείγμα εγκατάστασης (αν υπάρχει). */
+async function promoteNextPrimary(tx: Prisma.TransactionClient, mtrl: number) {
+  const next = await tx.itemMedia.findFirst({ where: { mtrl, kind: 'IMAGE', isInstallSample: false }, orderBy: [{ order: 'asc' }, { createdAt: 'asc' }] });
+  if (next) await tx.itemMedia.update({ where: { id: next.id }, data: { isPrimary: true } });
+}
+
+/**
+ * Σήμανση φωτογραφίας/βίντεο ως δείγμα εγκατάστασης. Η κύρια φωτογραφία που γίνεται δείγμα
+ * χάνει την «κύρια» (τα δείγματα δεν φαίνονται πουθενά αλλού) — κύρια γίνεται η επόμενη.
+ */
+export async function setInstallSample(mtrl: number, id: string, on: boolean): Promise<ItemMediaDTO> {
+  const m = await getOwned(mtrl, id);
+  if (m.kind !== 'IMAGE' && m.kind !== 'VIDEO') throw new ItemMediaError('Δείγμα εγκατάστασης μπορεί να είναι μόνο φωτογραφία ή βίντεο.');
+  const row = await prisma.$transaction(async (tx) => {
+    const r = await tx.itemMedia.update({ where: { id }, data: { isInstallSample: on, ...(on && m.isPrimary ? { isPrimary: false } : {}) } });
+    if (on && m.isPrimary) await promoteNextPrimary(tx, mtrl);
+    return r;
+  });
+  return toDTO(row);
+}
+
+/** Καρέ ενός VIDEO δείγματος (JPEG από τον browser) — αντικαθιστούν τα προηγούμενα. */
+export async function saveSampleFrames(mtrl: number, id: string, frames: { data: Buffer; t: number }[]): Promise<ItemMediaDTO> {
+  const m = await getOwned(mtrl, id);
+  if (m.kind !== 'VIDEO') throw new ItemMediaError('Καρέ αποθηκεύονται μόνο για βίντεο.');
+  if (!frames.length || frames.length > 8) throw new ItemMediaError('Στείλε από 1 έως 8 καρέ.');
+  const base = safe(m.originalName);
+  const saved: SampleFrame[] = [];
+  try {
+    for (const f of frames) {
+      // Κανονικοποίηση από τον server: ό,τι κι αν έστειλε ο browser, γίνεται JPEG ≤ 1280 px.
+      const jpg = await sharp(f.data).rotate().resize({ width: 1280, height: 1280, fit: 'inside', withoutEnlargement: true }).jpeg({ quality: 82 }).toBuffer()
+        .catch(() => { throw new ItemMediaError('Ένα καρέ δεν διαβάζεται ως εικόνα.', 422); });
+      const key = keyFor(mtrl, 'frames', base, 'jpg');
+      const r = await bunnyUpload({ key, body: jpg, contentType: 'image/jpeg' });
+      saved.push({ key, url: r.publicUrl, t: Math.max(0, Math.round(f.t * 10) / 10) });
+    }
+  } catch (e) {
+    await quietDelete(saved.map((f) => f.key));
+    throw e;
+  }
+  // Το πρώτο καρέ γίνεται και μικρογραφία, αν το βίντεο δεν είχε.
+  const row = await prisma.itemMedia.update({
+    where: { id },
+    data: { sampleFrames: saved, ...(m.thumbKey ? {} : { thumbUrl: saved[0].url }) },
+  });
+  await quietDelete(sampleFramesOf(m.sampleFrames).map((f) => f.key));
+  return toDTO(row);
 }

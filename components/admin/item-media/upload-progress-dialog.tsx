@@ -8,13 +8,13 @@ import {
   Dialog, DialogBody, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
 
-export type MediaKind = 'IMAGE' | 'VIDEO' | 'PANORAMA';
+export type MediaKind = 'IMAGE' | 'VIDEO' | 'PANORAMA' | 'DOCUMENT';
 
 type Status = 'queued' | 'uploading' | 'processing' | 'done' | 'error';
 type Job = { id: string; file: File; status: Status; progress: number; error?: string };
 
 const CONCURRENCY = 2;
-const KIND_LABEL: Record<MediaKind, string> = { IMAGE: 'φωτογραφίες', VIDEO: 'βίντεο', PANORAMA: 'πανοράματα 360°' };
+const KIND_LABEL: Record<MediaKind, string> = { IMAGE: 'φωτογραφίες', VIDEO: 'βίντεο', PANORAMA: 'πανοράματα 360°', DOCUMENT: 'αρχεία PDF' };
 
 const fmtSize = (b: number) => (b >= 1048576 ? `${(b / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(b / 1024))} KB`);
 

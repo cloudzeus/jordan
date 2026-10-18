@@ -4,7 +4,7 @@ import * as React from 'react';
 import { useDropzone } from 'react-dropzone';
 import {
   FiImage, FiFilm, FiGlobe, FiStar, FiEdit3, FiArrowLeft, FiArrowRight, FiExternalLink, FiCopy, FiTrash2,
-  FiMoreVertical, FiUploadCloud, FiAlertTriangle, FiRefreshCw, FiArchive,
+  FiMoreVertical, FiUploadCloud, FiAlertTriangle, FiRefreshCw, FiArchive, FiFileText, FiTool, FiCheckSquare, FiSquare,
 } from 'react-icons/fi';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -17,6 +17,8 @@ import type { ItemMediaDTO } from '@/lib/item-media/service';
 import type { ItemStock } from '@/lib/item-stock';
 import { UploadProgressDialog, type MediaKind } from './upload-progress-dialog';
 import { ImageEditorDialog } from './image-editor-dialog';
+import { InstallGuideDialog } from './install-guide-dialog';
+import { toggleInstallSample } from './video-frames';
 
 const KINDS: { kind: MediaKind; tab: string; label: string; icon: React.ComponentType<{ className?: string; style?: React.CSSProperties }>; tone: string; accept: Record<string, string[]>; hint: string }[] = [
   { kind: 'IMAGE', tab: 'images', label: 'Φωτογραφίες', icon: FiImage, tone: '#0369A1',
@@ -28,17 +30,31 @@ const KINDS: { kind: MediaKind; tab: string; label: string; icon: React.Componen
   { kind: 'PANORAMA', tab: 'panoramas', label: '360°', icon: FiGlobe, tone: '#047857',
     accept: { 'image/*': ['.jpg', '.jpeg', '.png', '.webp', '.tif', '.tiff'] },
     hint: 'Πανόραμα equirectangular (αναλογία 2:1) · έως 80 MB' },
+  { kind: 'DOCUMENT', tab: 'files', label: 'Αρχεία', icon: FiFileText, tone: '#B45309',
+    accept: { 'application/pdf': ['.pdf'] },
+    hint: 'PDF · έως 50 MB · εδώ σώζονται και οι οδηγοί εγκατάστασης' },
 ];
+const SAMPLE_TONE = '#B45309';
 
 const soft = (hex: string, pct: number) => `color-mix(in srgb, ${hex} ${pct}%, var(--background))`;
 const fmtSize = (b: number) => (b >= 1048576 ? `${(b / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(b / 1024))} KB`);
 const ITEM = 'cursor-pointer gap-2 text-[length:var(--fs-12)]';
 
+/** Ένα PDF στα «Αρχεία»: εικονίδιο + όνομα, άνοιγμα σε νέα καρτέλα. */
+function DocumentPreview({ m }: { m: ItemMediaDTO }) {
+  return (
+    <a href={m.url} target="_blank" rel="noopener" className="flex size-full cursor-pointer flex-col items-center justify-center gap-1.5 p-3 text-center transition-colors duration-150 hover:bg-muted/60" aria-label={`Άνοιγμα ${m.name}`}>
+      <span className="grid size-12 place-items-center rounded-lg" style={{ backgroundColor: soft(SAMPLE_TONE, 14), color: SAMPLE_TONE }}><FiFileText className="size-6" aria-hidden /></span>
+      <span className="line-clamp-3 text-[length:var(--fs-11)] font-medium text-foreground">{m.name.replace(/\.pdf$/i, '')}</span>
+    </a>
+  );
+}
+
 function MediaCard({
-  m, index, count, canManage, onPrimary, onEdit, onMove, onDelete,
+  m, index, count, canManage, onPrimary, onEdit, onMove, onDelete, onSample,
 }: {
   m: ItemMediaDTO; index: number; count: number; canManage: boolean;
-  onPrimary: () => void; onEdit: () => void; onMove: (dir: -1 | 1) => void; onDelete: () => void;
+  onPrimary: () => void; onEdit: () => void; onMove: (dir: -1 | 1) => void; onDelete: () => void; onSample: () => void;
 }) {
   const copy = () => navigator.clipboard.writeText(m.url).then(() => toast.success('Αντιγράφηκε το URL'), () => toast.error('Δεν επετράπη η αντιγραφή'));
   return (
@@ -47,9 +63,10 @@ function MediaCard({
         'group relative overflow-hidden rounded-md border bg-background transition-shadow duration-150 hover:shadow-md',
         m.isPrimary ? 'border-amber-400 ring-2 ring-amber-400/40' : 'border-border',
       )}
+      style={m.isInstallSample ? { borderColor: SAMPLE_TONE, boxShadow: `0 0 0 2px ${soft(SAMPLE_TONE, 35)}` } : undefined}
     >
       <div className={cn('relative bg-muted', m.kind === 'PANORAMA' ? 'aspect-[2/1]' : 'aspect-square')}>
-        {m.kind === 'VIDEO' ? (
+        {m.kind === 'DOCUMENT' ? <DocumentPreview m={m} /> : m.kind === 'VIDEO' ? (
           <video src={`${m.url}#t=0.5`} preload="metadata" muted playsInline controls className="size-full object-contain" aria-label={m.name} />
         ) : (
           // eslint-disable-next-line @next/next/no-img-element
@@ -58,6 +75,11 @@ function MediaCard({
         {m.isPrimary && (
           <span className="absolute left-1.5 top-1.5 inline-flex items-center gap-1 rounded-full bg-amber-400 px-2 py-0.5 text-[length:var(--fs-10)] font-semibold text-amber-950 shadow-sm">
             <FiStar className="size-3 fill-current" aria-hidden /> Κύρια
+          </span>
+        )}
+        {m.isInstallSample && (
+          <span className="absolute bottom-1.5 left-1.5 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[length:var(--fs-10)] font-semibold text-white shadow-sm" style={{ backgroundColor: SAMPLE_TONE }}>
+            <FiTool className="size-3" aria-hidden /> Δείγμα εγκατάστασης
           </span>
         )}
         {m.kind === 'PANORAMA' && (
@@ -72,7 +94,7 @@ function MediaCard({
             <FiMoreVertical className="size-4" aria-hidden />
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56">
-            {canManage && m.kind === 'IMAGE' && !m.isPrimary && (
+            {canManage && m.kind === 'IMAGE' && !m.isPrimary && !m.isInstallSample && (
               <DropdownMenuItem className={ITEM} onSelect={onPrimary}>
                 <FiStar className="size-3.5 text-amber-500" aria-hidden /> Ορισμός ως κύρια
               </DropdownMenuItem>
@@ -80,6 +102,13 @@ function MediaCard({
             {canManage && m.kind === 'IMAGE' && (
               <DropdownMenuItem className={ITEM} onSelect={onEdit}>
                 <FiEdit3 className="size-3.5" aria-hidden /> Επεξεργασία στον καμβά
+              </DropdownMenuItem>
+            )}
+            {canManage && (m.kind === 'IMAGE' || m.kind === 'VIDEO') && (
+              <DropdownMenuItem className={ITEM} onSelect={onSample}>
+                {m.isInstallSample
+                  ? <><FiSquare className="size-3.5" aria-hidden /> Αφαίρεση από δείγματα εγκατάστασης</>
+                  : <><FiCheckSquare className="size-3.5" style={{ color: SAMPLE_TONE }} aria-hidden /> Δείγμα εγκατάστασης</>}
               </DropdownMenuItem>
             )}
             {canManage && count > 1 && (
@@ -216,6 +245,7 @@ export function ItemMediaPanel({ mtrl, canManage, showStock = false }: { mtrl: n
   const [error, setError] = React.useState<string | null>(null);
   const [upload, setUpload] = React.useState<{ kind: MediaKind; files: File[] } | null>(null);
   const [editing, setEditing] = React.useState<ItemMediaDTO | null>(null);
+  const [guideOpen, setGuideOpen] = React.useState(false);
 
   const load = React.useCallback(async () => {
     try {
@@ -273,9 +303,33 @@ export function ItemMediaPanel({ mtrl, canManage, showStock = false }: { mtrl: n
 
   const byKind = (k: MediaKind) => media.filter((m) => m.kind === k);
 
+  const sample = async (m: ItemMediaDTO) => {
+    try {
+      const { framesError } = await toggleInstallSample(mtrl, m, !m.isInstallSample);
+      if (framesError) toast.warning(`Μαρκαρίστηκε, αλλά τα καρέ του βίντεο δεν τραβήχτηκαν (${framesError}). Δοκίμασε «Λήψη καρέ» στις Οδηγίες εγκατάστασης.`);
+      else toast.success(m.isInstallSample ? 'Αφαιρέθηκε από τα δείγματα εγκατάστασης' : 'Σημάνθηκε ως δείγμα εγκατάστασης — μόνο για τον οδηγό');
+      await load();
+    } catch (e) { toast.error((e as Error).message); }
+  };
+  const samples = media.filter((m) => m.isInstallSample).length;
+
   return (
     <>
       {showStock && <div className="mb-3"><StockStrip mtrl={mtrl} /></div>}
+      {canManage && (
+        <div className="mb-2 flex flex-wrap items-center gap-2">
+          <button
+            type="button" onClick={() => setGuideOpen(true)}
+            className="inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-md border px-3 text-[length:var(--fs-12)] font-medium transition-colors duration-150 hover:bg-muted"
+            style={{ borderColor: soft(SAMPLE_TONE, 45), color: SAMPLE_TONE }}
+          >
+            <FiTool className="size-3.5" aria-hidden /> Οδηγίες εγκατάστασης
+          </button>
+          <span className="text-[length:var(--fs-11)] text-muted-foreground">
+            {samples ? `${samples} δείγματα εγκατάστασης` : 'Ηχογράφησε οδηγίες, μάρκαρε δείγματα και φτιάξε PDF για τα μαστόρια.'}
+          </span>
+        </div>
+      )}
       <Tabs defaultValue="images" className="gap-2">
         <TabsList variant="line" className="!h-auto min-h-8 flex-wrap w-full justify-start gap-0 border-b border-border p-0">
           {KINDS.map((k) => {
@@ -308,6 +362,7 @@ export function ItemMediaPanel({ mtrl, canManage, showStock = false }: { mtrl: n
                       onEdit={() => setEditing(m)}
                       onMove={(dir) => move(list, i, dir)}
                       onDelete={() => remove(m)}
+                      onSample={() => void sample(m)}
                     />
                   ))}
                 </div>
@@ -324,6 +379,7 @@ export function ItemMediaPanel({ mtrl, canManage, showStock = false }: { mtrl: n
           onFinished={load}
         />
       )}
+      {guideOpen && <InstallGuideDialog mtrl={mtrl} open={guideOpen} onOpenChange={setGuideOpen} canManage={canManage} onChanged={() => { void load(); }} />}
       <ImageEditorDialog
         mtrl={mtrl} media={editing} open={!!editing}
         onOpenChange={(o) => { if (!o) setEditing(null); }}

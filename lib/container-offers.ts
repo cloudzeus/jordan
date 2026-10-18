@@ -458,7 +458,7 @@ async function emailContext(offerId: string) {
   const [name, phone, email, address, logoUrl, photo] = await Promise.all([
     getSetting<string>('company.name'), getSetting<string>('company.phone'), getSetting<string>('company.email'),
     getSetting<string>('company.address'), getSetting<string>('company.logoUrl'),
-    prisma.itemMedia.findFirst({ where: { mtrl: { in: row.items.map((i) => i.mtrl) }, kind: 'IMAGE' }, orderBy: [{ isPrimary: 'desc' }, { createdAt: 'asc' }], select: { publicUrl: true } }).catch(() => null),
+    prisma.itemMedia.findFirst({ where: { mtrl: { in: row.items.map((i) => i.mtrl) }, kind: 'IMAGE', isInstallSample: false }, orderBy: [{ isPrimary: 'desc' }, { createdAt: 'asc' }], select: { publicUrl: true } }).catch(() => null),
   ]);
   const company = { name: (name ?? 'ATELIER').trim(), phone, email, address, logoUrl: logoUrl || null };
   const subject = `Κράτηση — ${row.title}`;
@@ -569,7 +569,7 @@ export async function searchItems(q: string) {
     select: { mtrl: true, code: true, name: true, unit1: true, unitBuy: true, buyRatio: true, price: true },
   });
   const [media, units] = await Promise.all([
-    prisma.itemMedia.findMany({ where: { mtrl: { in: items.map((i) => i.mtrl) }, kind: 'IMAGE' }, orderBy: [{ isPrimary: 'desc' }, { createdAt: 'asc' }], select: { mtrl: true, thumbUrl: true, publicUrl: true } }),
+    prisma.itemMedia.findMany({ where: { mtrl: { in: items.map((i) => i.mtrl) }, kind: 'IMAGE', isInstallSample: false }, orderBy: [{ isPrimary: 'desc' }, { createdAt: 'asc' }], select: { mtrl: true, thumbUrl: true, publicUrl: true } }),
     prisma.softoneUnit.findMany({ select: { code: true, shortcut: true } }),
   ]);
   const photo = new Map<number, string>();

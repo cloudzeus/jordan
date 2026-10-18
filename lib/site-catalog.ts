@@ -49,7 +49,7 @@ export async function siteCategories() {
 
 async function photos(mtrls: number[]) {
   const media = await prisma.itemMedia.findMany({
-    where: { mtrl: { in: mtrls }, kind: 'IMAGE' }, orderBy: [{ isPrimary: 'desc' }, { createdAt: 'asc' }],
+    where: { mtrl: { in: mtrls }, kind: 'IMAGE', isInstallSample: false }, orderBy: [{ isPrimary: 'desc' }, { createdAt: 'asc' }],
     select: { mtrl: true, publicUrl: true, thumbUrl: true },
   });
   const out = new Map<number, { url: string; thumb: string }[]>();

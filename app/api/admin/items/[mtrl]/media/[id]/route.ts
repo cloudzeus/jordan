@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { requirePermission } from '@/lib/rbac';
 import { logAudit } from '@/lib/audit';
-import { deleteMedia, rerenderImage, setPrimary } from '@/lib/item-media/service';
+import { deleteMedia, rerenderImage, setInstallSample, setPrimary } from '@/lib/item-media/service';
 import { badMtrl, mediaError, mtrlOf } from '../_shared';
 
 export const runtime = 'nodejs';
@@ -11,10 +11,12 @@ export const maxDuration = 120;
 
 const Body = z.union([
   z.object({ primary: z.literal(true) }),
+  z.object({ installSample: z.boolean() }),
   z.object({ transform: z.record(z.string(), z.unknown()) }),
 ]);
 
-// PATCH { primary: true } — ορισμός κύριας · { transform } — νέα παραγωγή του 1920×1920 από το πρωτότυπο.
+// PATCH { primary: true } — ορισμός κύριας · { installSample } — σήμανση δείγματος εγκατάστασης ·
+// { transform } — νέα παραγωγή του 1920×1920 από το πρωτότυπο.
 export async function PATCH(req: Request, { params }: { params: Promise<{ mtrl: string; id: string }> }) {
   const u = await requirePermission('metadata.manage');
   const mtrl = await mtrlOf(params);
@@ -27,6 +29,11 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ mtrl: 
       await setPrimary(mtrl, id);
       await logAudit({ userId: u.id, userEmail: u.email, action: 'item.media.primary', resource: 'softone_item', resourceId: String(mtrl), metadata: { mediaId: id } }).catch(() => null);
       return NextResponse.json({ ok: true });
+    }
+    if ('installSample' in parsed.data) {
+      const media = await setInstallSample(mtrl, id, parsed.data.installSample);
+      await logAudit({ userId: u.id, userEmail: u.email, action: 'item.media.install-sample', resource: 'softone_item', resourceId: String(mtrl), metadata: { mediaId: id, on: parsed.data.installSample } }).catch(() => null);
+      return NextResponse.json({ media });
     }
     const media = await rerenderImage(mtrl, id, parsed.data.transform);
     await logAudit({ userId: u.id, userEmail: u.email, action: 'item.media.edit', resource: 'softone_item', resourceId: String(mtrl), metadata: { mediaId: id, transform: media.transform } }).catch(() => null);
