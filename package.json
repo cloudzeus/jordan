@@ -23,6 +23,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "permissions:sync": "npx tsx scripts/sync-permissions.ts",
+    "preview:start": "bash scripts/preview.sh start",
+    "preview:update": "bash scripts/preview.sh update",
     "assistant:reindex": "npx tsx --import ./scripts/templates/register.mjs scripts/assistant-reindex.ts"
   },
   "dependencies": {
