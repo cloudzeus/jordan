@@ -19,6 +19,12 @@ import { Field, FormSection, RowHint, fieldCls } from '@/components/admin/form-k
 import { DataTable } from '@/components/ui/data-table';
 import { syncErrorMessage } from '@/lib/softone-sync/sync-error';
 
+import { MultiSelectCombo, type MultiGroup } from '@/components/ui/multi-select-combo';
+import { ITEM_GROUPS, itemGroupColor, isItemGroupLeaf, itemGroupParent } from '@/lib/item-groups';
+
+/** Ομάδα του είδους (πρόταση ή ανατεθειμένη) — lib/item-groups.ts. */
+export type ItemGroupTag = { key: string; name: string; path: string; status: string; review: boolean };
+
 export type ItemRecord = {
   mtrl: number;
   code: string;
@@ -33,7 +39,27 @@ export type ItemRecord = {
   thumbUrl?: string | null;
   /** Υπόλοιπα ανά αποθήκη (καθρέφτης SoftoneStock) — μόνο είδη. */
   stock?: Record<string, number>;
+  /** Ομάδα κατηγοριοποίησης (ιεραρχία ομάδων) — null αν δεν υπάρχει πρόταση. */
+  group?: ItemGroupTag | null;
 };
+
+const NO_GROUP = '__none';
+
+/** Μικρό badge ομάδας: χρώμα του κλάδου· διακεκομμένο περίγραμμα όσο είναι μόνο πρόταση. */
+function GroupBadge({ g }: { g: ItemGroupTag }) {
+  const color = itemGroupColor(g.key);
+  const applied = g.status === 'APPLIED';
+  return (
+    <span
+      title={`${g.path}${applied ? '' : ' · πρόταση (δεν έχει περάσει στο SoftOne)'}${g.review ? ' · θέλει έλεγχο' : ''}`}
+      className={cn('inline-flex max-w-full items-center gap-1 truncate rounded-full border px-1.5 py-px text-[length:var(--fs-10)] font-medium leading-tight', !applied && 'border-dashed')}
+      style={{ color, borderColor: `color-mix(in srgb, ${color} 45%, transparent)`, background: `color-mix(in srgb, ${color} ${applied ? 14 : 7}%, transparent)` }}
+    >
+      <span aria-hidden className="size-1.5 shrink-0 rounded-full" style={{ background: color }} />
+      <span className="truncate">{g.name}</span>
+    </span>
+  );
+}
 
 const qtyFmt = new Intl.NumberFormat('el-GR', { maximumFractionDigits: 3 });
 /** Ποσότητα: 0 αχνό, αρνητικό κόκκινο με σύμβολο (όχι μόνο χρώμα). */
@@ -200,6 +226,28 @@ export function ItemsTableClient({
 }) {
   const router = useRouter();
   const [busy, setBusy] = React.useState(false);
+  // Φίλτρο κατηγοριών (multi-select): φύλλα του δέντρου ομάδων + «Χωρίς κατηγορία».
+  const [groupFilter, setGroupFilter] = React.useState<string[]>([]);
+  const kind = variant === 'services' ? 'service' : 'item';
+  const groupOptions = React.useMemo<MultiGroup[]>(() => {
+    const counts = new Map<string, number>();
+    for (const r of rows) counts.set(r.group?.key ?? NO_GROUP, (counts.get(r.group?.key ?? NO_GROUP) ?? 0) + 1);
+    const tops = ITEM_GROUPS.filter((n) => n.kind === kind && !itemGroupParent(n));
+    const out: MultiGroup[] = tops.map((t) => {
+      const leaves = isItemGroupLeaf(t) ? [t] : ITEM_GROUPS.filter((n) => n.kind === kind && itemGroupParent(n)?.key === t.key);
+      return {
+        label: t.name, color: itemGroupColor(t.key),
+        options: leaves.map((l) => ({ value: l.key, label: l.name, count: counts.get(l.key) ?? 0, color: itemGroupColor(l.key) })).filter((o) => o.count > 0),
+      };
+    }).filter((g) => g.options.length);
+    if (counts.get(NO_GROUP)) out.push({ label: 'Άλλο', options: [{ value: NO_GROUP, label: 'Χωρίς κατηγορία', count: counts.get(NO_GROUP) }] });
+    return out;
+  }, [rows, kind]);
+  const shownRows = React.useMemo(() => {
+    if (!groupFilter.length) return rows;
+    const want = new Set(groupFilter);
+    return rows.filter((r) => want.has(r.group?.key ?? NO_GROUP));
+  }, [rows, groupFilter]);
 
   const sync = async () => {
     setBusy(true);
@@ -240,6 +288,7 @@ export function ItemsTableClient({
               {row.original.isActive === false && <span className="ml-1.5 rounded bg-muted px-1.5 py-px text-[length:var(--fs-10)] font-semibold text-muted-foreground">ανενεργό</span>}
             </div>
             {row.original.name2 && <div className="text-[length:var(--fs-10)] text-muted-foreground truncate">{row.original.name2}</div>}
+            {row.original.group && <div className="mt-0.5 flex min-w-0"><GroupBadge g={row.original.group} /></div>}
           </div>
           </div>
         ),
@@ -279,18 +328,31 @@ export function ItemsTableClient({
     return base;
   }, [variant, canManage, router, warehouses]);
 
-  const toolbar = canManage ? (
-    <Button variant="secondary" size="sm" onClick={sync} disabled={busy}>
-      <FiRefreshCw className={cn('mr-1.5 h-3.5 w-3.5', busy && 'animate-spin')} />
-      {busy ? 'Συγχρονισμός…' : 'Συγχρονισμός από SoftOne'}
-    </Button>
-  ) : undefined;
+  // Μπάρα: φίλτρο κατηγοριών δίπλα στην αναζήτηση, πλήθος όταν υπάρχει φίλτρο, συγχρονισμός στο τέλος.
+  const toolbar = (
+    <>
+      {groupOptions.length > 0 && (
+        <MultiSelectCombo id={`items-groups-${variant}`} label="Κατηγορία" groups={groupOptions} value={groupFilter} onChange={setGroupFilter} placeholder="Όλες" className="max-w-[18rem]" />
+      )}
+      {groupFilter.length > 0 && (
+        <span className="text-[length:var(--fs-12)] tabular-nums text-muted-foreground">
+          {shownRows.length.toLocaleString('el-GR')} από {rows.length.toLocaleString('el-GR')}
+        </span>
+      )}
+      {canManage && (
+        <Button variant="secondary" size="sm" onClick={sync} disabled={busy} title="Συγχρονισμός ειδών και υπολοίπων από SoftOne">
+          <FiRefreshCw className={cn('h-3.5 w-3.5', busy && 'animate-spin')} />
+          <span className="hidden md:inline">{busy ? 'Συγχρονισμός…' : 'Συγχρονισμός'}</span>
+        </Button>
+      )}
+    </>
+  );
 
   return (
     <div className="space-y-2">
       <DataTable
         columns={columns}
-        data={rows}
+        data={shownRows}
         searchKey="name"
         searchPlaceholder="Αναζήτηση (κωδικός, EAN, εργοστασίου, περιγραφή…)"
         persistKey={`admin.${variant}.table.v1`}

@@ -83,7 +83,9 @@ function Fact({ label, children }: { label: string; children: React.ReactNode })
 
 /** Info: υπόλοιπα αποθηκών + βασικά στοιχεία του είδους (ζωντανά από το SoftOne) + χαρακτηριστικά. */
 function InfoTab({ mtrl, isService }: { mtrl: number; isService: boolean }) {
-  const full = useJson<FullItem>(`/api/admin/softone/items/${mtrl}/full`);
+  // Η καρτέλα χωρίς την (αργή) τελευταία τιμή αγοράς· αυτή φορτώνει παράλληλα και συμπληρώνεται όταν έρθει.
+  const full = useJson<FullItem>(`/api/admin/softone/items/${mtrl}/full?lp=0`);
+  const lastBuy = useJson<{ lastPurchase: FullItem['lastPurchase'] }>(`/api/admin/softone/items/${mtrl}/last-purchase`);
   const attrs = useJson<{ attributes: { name: string; value: string; unit: string | null }[] }>(`/api/admin/items/${mtrl}/attributes`);
   const nameOf = (list: { id: string; name: string }[] | undefined, id: string | null) => (id ? list?.find((o) => o.id === id)?.name ?? `#${id}` : '—');
   const dash = (n: number, unit = '') => (n ? `${qtyFmt.format(n)}${unit}` : '—');
@@ -94,7 +96,7 @@ function InfoTab({ mtrl, isService }: { mtrl: number; isService: boolean }) {
       {full.error && !full.data && <ErrorBox message={full.error} onRetry={full.reload} />}
       {!full.data && !full.error && <div className="h-24 animate-pulse rounded-md bg-muted motion-reduce:animate-none" aria-busy="true" aria-label="Φόρτωση στοιχείων" />}
       {full.data && (() => {
-        const r = full.data.record; const o = full.data.options; const lp = full.data.lastPurchase;
+        const r = full.data.record; const o = full.data.options; const lp = lastBuy.data?.lastPurchase ?? null;
         return (
           <dl className="grid grid-cols-2 gap-x-4 gap-y-2.5 rounded-md border border-border bg-background px-3 py-2.5 sm:grid-cols-4 lg:grid-cols-6">
             <Fact label="Εμπορική κατηγορία">{nameOf(o.categories, r.category)}</Fact>
@@ -103,7 +105,8 @@ function InfoTab({ mtrl, isService }: { mtrl: number; isService: boolean }) {
             <Fact label="ΦΠΑ">{nameOf(o.vats, r.vat)}</Fact>
             <Fact label="Τιμή λιανικής">{r.priceRetail ? eur.format(r.priceRetail) : '—'}</Fact>
             <Fact label="Τελ. τιμή αγοράς">
-              {lp ? <span title={`${lp.fincode} · ${fmtDate(lp.date)}`}>{eur.format(lp.unitCost)} <span className="text-muted-foreground">· {fmtDate(lp.date)}</span></span> : '—'}
+              {lp ? <span title={`${lp.fincode} · ${fmtDate(lp.date)}`}>{eur.format(lp.unitCost)} <span className="text-muted-foreground">· {fmtDate(lp.date)}</span></span>
+                : lastBuy.loading ? <span className="inline-block h-3 w-16 animate-pulse rounded bg-muted motion-reduce:animate-none" aria-label="Φόρτωση" /> : '—'}
             </Fact>
             {!isService && (
               <>

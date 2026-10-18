@@ -22,31 +22,36 @@ const fail = (e: unknown) => {
   return NextResponse.json({ error: 'internal_error', message: (e as Error).message }, { status: 500 });
 };
 
-// GET — η ζωντανή καρτέλα του είδους + οι λίστες της φόρμας + τελευταία τιμή αγοράς.
-export async function GET(_req: Request, { params }: { params: Promise<{ mtrl: string }> }) {
+// GET — η ζωντανή καρτέλα του είδους + οι λίστες της φόρμας (+ τελευταία τιμή αγοράς, εκτός αν `?lp=0`).
+// ΟΛΑ παράλληλα: κάθε κλήση στο SoftOne κοστίζει ~2″, οπότε ο σειριακός δεύτερος γύρος (κινήσεις, κατηγορίες)
+// και η αργή τελευταία τιμή αγοράς (~4″) έκαναν τη φόρμα και το expand να ανοίγουν σε 6–8″. Η φόρμα και το
+// expand ζητούν πλέον `?lp=0` και φέρνουν την τιμή αγοράς χωριστά (`/last-purchase`), χωρίς να περιμένουν.
+export async function GET(req: Request, { params }: { params: Promise<{ mtrl: string }> }) {
   await requirePermission('metadata.read');
   const mtrl = await mtrlOf(params);
   if (!mtrl) return NextResponse.json({ error: 'invalid_mtrl', message: 'Άκυρη εγγραφή.' }, { status: 400 });
+  const withLastPurchase = new URL(req.url).searchParams.get('lp') !== '0';
   try {
-    const [record, lookups, vats, lp] = await Promise.all([
+    // Είδος ή υπηρεσία από τον καθρέφτη (άμεσο) — για να ξεκινήσουν όλα μαζί με την ανάγνωση της καρτέλας.
+    const mirror = await prisma.softoneItem.findUnique({ where: { mtrl }, select: { isService: true } });
+    const isService = mirror?.isService ?? false;
+    const [record, lookups, vats, lp, cls, unitsMeta, movements] = await Promise.all([
       readSoftoneItem(mtrl),
       prisma.softoneLookup.findMany({
         where: { kind: { in: ['MTRUNIT', 'MTRCATEGORY', 'MTRGROUP', 'MTRMANFCTR', 'MTRMARK'] } },
         orderBy: { order: 'asc' }, select: { kind: true, code: true, name: true },
       }),
       prisma.vatCategory.findMany({ where: { isActive: true }, orderBy: [{ order: 'asc' }, { code: 'asc' }], select: { code: true, descr: true, rate: true } }),
-      lastPurchasePrices([mtrl]).catch(() => new Map()),
+      withLastPurchase ? lastPurchasePrices([mtrl]).catch(() => new Map()) : Promise.resolve(new Map()),
+      // Κατηγορίες/ομάδες του ΙΔΙΟΥ μητρώου (είδη 51 / υπηρεσίες 52) — το SoftoneLookup τις μπερδεύει.
+      classificationOptions(isService ? 52 : 51),
+      // Μονάδες με σύντμηση (για το «1 ΠΑΛ = 52 Μετ²» και το πρότυπο Container → Παλέτα → τ.μ.)
+      prisma.softoneUnit.findMany({ where: { isActive: true }, orderBy: { code: 'asc' }, select: { code: true, shortcut: true, name: true, interCode: true, decimals: true } }),
+      // Αν το είδος έχει κινήσεις — τότε η βασική μονάδα κλειδώνει.
+      isService ? Promise.resolve([]) : softoneGetTable('MTRLINES', ['MTRL'], `MTRL=${mtrl}`).catch(() => null),
     ]);
     const opt = (kind: string) => lookups.filter((l) => l.kind === kind).map((l) => ({ id: l.code, name: l.name }));
-    // Κατηγορίες/ομάδες του ΙΔΙΟΥ μητρώου (είδη 51 / υπηρεσίες 52) — το SoftoneLookup τις μπερδεύει.
-    const cls = await classificationOptions(record.isService ? 52 : 51);
     const hasCls = cls.categories.length + cls.groups.length > 0;
-    // Μονάδες με σύντμηση (για το «1 ΠΑΛ = 52 Μετ²» και το πρότυπο Container → Παλέτα → τ.μ.)
-    // και αν το είδος έχει κινήσεις — τότε η βασική μονάδα κλειδώνει.
-    const [unitsMeta, movements] = await Promise.all([
-      prisma.softoneUnit.findMany({ where: { isActive: true }, orderBy: { code: 'asc' }, select: { code: true, shortcut: true, name: true, interCode: true, decimals: true } }),
-      record.isService ? Promise.resolve([]) : softoneGetTable('MTRLINES', ['MTRL'], `MTRL=${mtrl}`).catch(() => null),
-    ]);
     return NextResponse.json({
       unitsMeta: unitsMeta.map((u) => ({ id: String(u.code), shortcut: u.shortcut, name: u.name, interCode: u.interCode, decimals: u.decimals })),
       // null = άγνωστο (το SoftOne δεν απάντησε): η φόρμα δεν κλειδώνει, αλλά ο server ελέγχει ξανά.

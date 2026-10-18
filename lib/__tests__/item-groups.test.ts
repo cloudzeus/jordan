@@ -102,3 +102,13 @@ describe('εφεδρεία από προμηθευτή και ενδείξεις
       .toMatchObject({ group: 'G_CEMENT', looksLikeService: true });
   });
 });
+
+describe('χρώματα ομάδων', () => {
+  it('κάθε κορυφαία ομάδα έχει χρώμα· οι υπο-ομάδες παίρνουν της κορυφαίας', async () => {
+    const { ITEM_GROUP_COLORS, itemGroupColor } = await import('@/lib/item-groups');
+    for (const n of ITEM_GROUPS.filter((x) => !x.soh.includes('.'))) expect(ITEM_GROUP_COLORS[n.key], n.key).toMatch(/^#[0-9A-F]{6}$/i);
+    expect(itemGroupColor('G_TILES')).toBe(ITEM_GROUP_COLORS.G_SURF);
+    expect(itemGroupColor('G_LIME')).toBe(ITEM_GROUP_COLORS.G_FINISH);
+    expect(itemGroupColor(null)).toBe('#6B7280');
+  });
+});

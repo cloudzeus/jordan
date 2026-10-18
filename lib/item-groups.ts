@@ -153,3 +153,17 @@ export function proposeItemGroup(input: ItemGroupInput): ItemGroupProposal {
   }
   return { group: input.kind === 'service' ? 'V_OTHER' : 'G_OTHER', basis: 'none', rule: null, review: true, looksLikeService };
 }
+
+/** Χρώμα (hex) ανά κορυφαία ομάδα — όλες οι υπο-ομάδες ενός κλάδου παίρνουν το χρώμα του. */
+export const ITEM_GROUP_COLORS: Readonly<Record<string, string>> = {
+  G_SURF: '#B45309', G_FINISH: '#0E7490', G_MADE: '#7C3AED', G_BUILD: '#475569', G_SUPPLY: '#047857',
+  G_CHARGE: '#BE123C', G_OTHER: '#6B7280',
+  V_APPLY: '#1D4ED8', V_TRANSPORT: '#BE123C', V_SAMPLE: '#7C3AED', V_OTHER: '#6B7280',
+};
+
+/** Το χρώμα μιας ομάδας = το χρώμα της κορυφαίας της. */
+export function itemGroupColor(key: string | null | undefined): string {
+  let n = key ? ITEM_GROUP_BY_KEY.get(key) : undefined;
+  while (n && itemGroupParent(n)) n = itemGroupParent(n)!;
+  return (n && ITEM_GROUP_COLORS[n.key]) ?? '#6B7280';
+}

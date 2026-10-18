@@ -49,8 +49,21 @@ export default async function ItemsPage() {
     })),
     { synced: chartRows.length > 0, accounts: chartRows },
   );
-  const [thumbs, stock, whs] = await Promise.all([primaryThumbs(), stockByItem(), warehouses()]);
-  const withThumb = items.map((i) => ({ ...i, thumbUrl: thumbs.get(i.mtrl) ?? null, stock: i.isService ? undefined : stock.get(i.mtrl) ?? {} }));
+  const [thumbs, stock, whs, groupRows] = await Promise.all([
+    primaryThumbs(), stockByItem(), warehouses(),
+    // Ομάδα κατηγοριοποίησης ανά είδος (πρόταση ή ανατεθειμένη) — ένα ερώτημα, δείκτης στο mtrl.
+    prisma.itemGroupAssignment.findMany({
+      where: { groupId: { not: null } },
+      select: { mtrl: true, status: true, needsReview: true, group: { select: { key: true, name: true, parent: { select: { name: true } } } } },
+    }),
+  ]);
+  const groupOf = new Map(groupRows.map((g) => [g.mtrl, g.group ? {
+    key: g.group.key, name: g.group.name, path: [g.group.parent?.name, g.group.name].filter(Boolean).join(' › '),
+    status: g.status, review: g.needsReview,
+  } : null]));
+  const withThumb = items.map((i) => ({
+    ...i, thumbUrl: thumbs.get(i.mtrl) ?? null, stock: i.isService ? undefined : stock.get(i.mtrl) ?? {}, group: groupOf.get(i.mtrl) ?? null,
+  }));
   const products = withThumb.filter((i) => !i.isService);
   const services = withThumb.filter((i) => i.isService);
 

@@ -150,13 +150,18 @@ export function ItemEditDialog({ mtrl, open, onOpenChange, onSaved }: {
     if (!mtrl) return;
     setRec(null); setForm(null); setLoadError(null); setSaveError(null);
     try {
-      const res = await fetch(`/api/admin/softone/items/${mtrl}/full`, { cache: 'no-store' });
+      // Παράλληλα: καρτέλα (SoftOne), χαρακτηριστικά (βάση) και τελευταία τιμή αγοράς (αργή — δεν την περιμένουμε).
+      setLastBuy(null);
+      void fetch(`/api/admin/softone/items/${mtrl}/last-purchase`, { cache: 'no-store' })
+        .then((r) => (r.ok ? r.json() : null)).then((d) => { if (d) setLastBuy(d.lastPurchase ?? null); }).catch(() => null);
+      const attrsP = fetch(`/api/admin/items/${mtrl}/attributes`, { cache: 'no-store' }).then((r) => (r.ok ? r.json() : { attributes: [] })).catch(() => ({ attributes: [] }));
+      const res = await fetch(`/api/admin/softone/items/${mtrl}/full?lp=0`, { cache: 'no-store' });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body.message || 'Αποτυχία ανάγνωσης από το SoftOne');
-      setRec(body.record); setOpts(body.options); setLastBuy(body.lastPurchase ?? null); setForm(toForm(body.record));
+      setRec(body.record); setOpts(body.options); setForm(toForm(body.record));
       setUnitsMeta(body.unitsMeta ?? []); setHasMovements(body.hasMovements ?? null);
       // Χαρακτηριστικά: δικά μας δεδομένα — αποτυχία εδώ δεν μπλοκάρει την καρτέλα του SoftOne.
-      const ar = await fetch(`/api/admin/items/${mtrl}/attributes`, { cache: 'no-store' }).then((r) => (r.ok ? r.json() : { attributes: [] })).catch(() => ({ attributes: [] }));
+      const ar = await attrsP;
       const list: Attr[] = (ar.attributes ?? []).map((a: { name: string; value: string; unit: string | null }) => ({ name: a.name, value: a.value, unit: a.unit ?? '' }));
       setAttrs(list); setAttrsOrig(list);
     } catch (e) {

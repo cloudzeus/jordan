@@ -59,20 +59,37 @@ export function ItemsTabs({
 }) {
   const [tab, setTab] = React.useState('products');
   const count = (n: number) => n.toLocaleString('el-GR');
+  const GROUPS = [
+    { label: 'Μητρώο', tabs: [{ value: 'products', label: 'Είδη', n: products.length }, { value: 'services', label: 'Υπηρεσίες', n: services.length }] },
+    { label: 'Λογιστικά', tabs: [
+      { value: 'expenses', label: 'Έξοδα', n: expenses.length }, { value: 'lineitems', label: 'Χρεοπιστώσεις', n: lineItems.length },
+      { value: 'linecategories', label: 'Κατηγορίες δαπανών', n: lineCategories.length }, { value: 'mydata', label: 'myDATA', n: myDataClasses.length },
+    ] },
+    { label: 'Αναλυτική', tabs: [
+      { value: 'costcenters', label: 'Κέντρα κόστους', n: costCenters.length }, { value: 'projects', label: 'Έργα', n: projects.length },
+      { value: 'projectstages', label: 'Δραστηριότητες', n: projectStages.length },
+    ] },
+  ];
 
   return (
     <Tabs value={tab} onValueChange={setTab} className="w-full">
-      <TabsList>
-        <TabsTrigger value="products" className="cursor-pointer">Είδη ({count(products.length)})</TabsTrigger>
-        <TabsTrigger value="services" className="cursor-pointer">Υπηρεσίες ({count(services.length)})</TabsTrigger>
-        <TabsTrigger value="expenses" className="cursor-pointer">Έξοδα ({count(expenses.length)})</TabsTrigger>
-        <TabsTrigger value="lineitems" className="cursor-pointer">Χρεοπιστώσεις ({count(lineItems.length)})</TabsTrigger>
-        <TabsTrigger value="linecategories" className="cursor-pointer">Κατηγορίες δαπανών ({count(lineCategories.length)})</TabsTrigger>
-        <TabsTrigger value="mydata" className="cursor-pointer">Χαρακτηρισμοί myDATA ({count(myDataClasses.length)})</TabsTrigger>
-        <TabsTrigger value="costcenters" className="cursor-pointer">Κέντρα κόστους ({count(costCenters.length)})</TabsTrigger>
-        <TabsTrigger value="projects" className="cursor-pointer">Έργα ({count(projects.length)})</TabsTrigger>
-        <TabsTrigger value="projectstages" className="cursor-pointer">Δραστηριότητες ({count(projectStages.length)})</TabsTrigger>
-      </TabsList>
+      {/* Οι 9 μητρώα σε τρεις ομάδες, σε μία γραμμή που κυλά οριζόντια (όχι αναδίπλωση/κόψιμο). */}
+      <div className="-mx-1 overflow-x-auto px-1 pb-1 [scrollbar-width:thin]">
+        <TabsList className="h-auto w-max flex-nowrap gap-0.5">
+          {GROUPS.map((g, gi) => (
+            <React.Fragment key={g.label}>
+              {gi > 0 && <span aria-hidden className="mx-1 h-5 w-px shrink-0 bg-border" />}
+              <span className="hidden px-1.5 text-[length:var(--fs-10)] font-semibold uppercase tracking-wide text-muted-foreground/70 lg:inline">{g.label}</span>
+              {g.tabs.map((t) => (
+                <TabsTrigger key={t.value} value={t.value} className="flex-none cursor-pointer gap-1.5 px-2.5">
+                  {t.label}
+                  <span className="rounded bg-foreground/5 px-1 text-[length:var(--fs-10)] tabular-nums text-muted-foreground">{count(t.n)}</span>
+                </TabsTrigger>
+              ))}
+            </React.Fragment>
+          ))}
+        </TabsList>
+      </div>
       <TabsContent value="products">
         <ItemsTableClient rows={products} variant="products" canManage={canManage} lastSync={itemsLastSync} warehouses={warehouses} />
       </TabsContent>
