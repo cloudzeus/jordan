@@ -23,7 +23,7 @@ const ONLY = at('--mtrl');
 const OBJECT: Record<number, 'ITEM' | 'SERVICE'> = { 51: 'ITEM', 52: 'SERVICE' };
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 type S1 = { success?: boolean; error?: string; errorcode?: number; data?: Record<string, Record<string, unknown>[]> };
-const fail = (m: string): never => { console.error(`\n✖ ΣΤΟΠ: ${m}`); process.exit(1); };
+function fail(m: string): never { console.error(`\n✖ ΣΤΟΠ: ${m}`); process.exit(1); }
 const keyOf = (v: unknown) => String(v ?? '').split('|')[0].trim();
 const clean = (s: string) => (String(s ?? '').match(/el=([^|}]+)/)?.[1] ?? String(s ?? '')).trim();
 
