@@ -5,7 +5,7 @@ import Link from 'next/link';
 import {
   FiInfo, FiBookOpen, FiBriefcase, FiShoppingBag, FiFileText, FiShield, FiGlobe, FiEdit3, FiAlertTriangle,
   FiRefreshCw, FiCheckCircle, FiMapPin, FiPhone, FiMail, FiLink, FiHash, FiArrowDownLeft, FiArrowUpRight, FiUsers,
-  FiMap, FiExternalLink, FiNavigation,
+  FiMap, FiExternalLink, FiNavigation, FiFolder,
 } from 'react-icons/fi';
 import { formatCoords, validCoords } from '@/lib/coords';
 import { TraderPointMap } from '@/components/admin/trader-point-map';
@@ -13,6 +13,7 @@ import { cn } from '@/lib/utils';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { TraderDocsPanel } from '@/components/admin/trader-docs-panel';
 import { CustomerContactsPanel } from '@/components/admin/customer-contacts-panel';
+import { EntityFilesPanel } from '@/components/admin/entity-files/entity-files-panel';
 import type { TraderRecord } from '@/components/admin/traders-view';
 import type { TraderDialogMode } from '@/components/admin/trader-edit-dialog';
 import type { TraderActivity, TraderDoc } from '@/lib/trader-activity';
@@ -21,7 +22,7 @@ const eur = new Intl.NumberFormat('el-GR', { style: 'currency', currency: 'EUR' 
 const fmtDate = (v: string | null) => (v ? new Date(v).toLocaleDateString('el-GR', { timeZone: 'UTC' }) : '—');
 const soft = (hex: string, pct: number) => `color-mix(in srgb, ${hex} ${pct}%, var(--background))`;
 
-const TONE = { info: '#0369A1', people: '#BE185D', map: '#0F766E', ledger: '#047857', projects: '#7C3AED', orders: '#B45309', scans: '#475569' } as const;
+const TONE = { info: '#0369A1', people: '#BE185D', map: '#0F766E', ledger: '#047857', projects: '#7C3AED', orders: '#B45309', scans: '#475569', files: '#B91C1C' } as const;
 const DOC_TONE: Record<string, string> = {
   invoice: '#B45309', credit: '#BE123C', payment: '#047857', order: '#0369A1', quote: '#7C3AED', movement: '#475569', other: '#475569',
 };
@@ -398,10 +399,33 @@ function MapTab({ t, canManage, onAction }: { t: TraderRecord; canManage: boolea
 
 /* ───────────────────────── Το panel ───────────────────────── */
 
+// «Άνοιγμα σε καρτέλα» από το ⋮ της γραμμής: η γραμμή μπορεί να μην έχει ανοίξει ακόμη (τότε το
+// διαβάζει στο mount) ή να είναι ήδη ανοιχτή (τότε ακούει το event).
+const pendingTab = new Map<number, string>();
+const TAB_EVENT = 'trader-expand-tab';
+export function openTraderTab(trdr: number, tab: string) {
+  pendingTab.set(trdr, tab);
+  window.dispatchEvent(new CustomEvent(TAB_EVENT, { detail: { trdr, tab } }));
+}
+
 /** Ανοιγμένη γραμμή συναλλασσομένου: Στοιχεία · (Πρόσωπα) · Χάρτης · Καρτέλα · Έργα · Παραγγελίες · Σκαναρίσματα. */
-export function TraderExpandPanel({ trader, canManage, onAction }: {
-  trader: TraderRecord; canManage: boolean; onAction: (mode: TraderDialogMode) => void;
+export function TraderExpandPanel({ trader, canManage, canFiles = false, onAction }: {
+  trader: TraderRecord; canManage: boolean; canFiles?: boolean; onAction: (mode: TraderDialogMode) => void;
 }) {
+  const [tab, setTab] = React.useState(() => {
+    const t = pendingTab.get(trader.trdr);
+    pendingTab.delete(trader.trdr);
+    return t ?? 'details';
+  });
+  const [files, setFiles] = React.useState<number | null>(null);
+  React.useEffect(() => {
+    const on = (e: Event) => {
+      const d = (e as CustomEvent<{ trdr: number; tab: string }>).detail;
+      if (d.trdr === trader.trdr) { pendingTab.delete(d.trdr); setTab(d.tab); }
+    };
+    window.addEventListener(TAB_EVENT, on);
+    return () => window.removeEventListener(TAB_EVENT, on);
+  }, [trader.trdr]);
   const [data, setData] = React.useState<TraderActivity | null>(null);
   const [error, setError] = React.useState<string | null>(null);
   const [loading, setLoading] = React.useState(false);
@@ -431,7 +455,7 @@ export function TraderExpandPanel({ trader, canManage, onAction }: {
     ) : !data ? <Skeleton /> : child(data);
 
   return (
-    <Tabs defaultValue="details" className="gap-3">
+    <Tabs value={tab} onValueChange={setTab} className="gap-3">
       <div className="flex items-center gap-2 border-b border-border">
         <TabsList variant="line" className="!h-auto min-h-9 flex-wrap min-w-0 flex-1 justify-start gap-0 p-0">
           <TabsTrigger value="details" className={TRIGGER} style={{ ['--tab-tone' as string]: TONE.info }}><FiInfo className="hidden size-3.5 sm:inline" aria-hidden /> Στοιχεία</TabsTrigger>
@@ -441,6 +465,7 @@ export function TraderExpandPanel({ trader, canManage, onAction }: {
           <TabsTrigger value="projects" className={TRIGGER} style={{ ['--tab-tone' as string]: TONE.projects }}><FiBriefcase className="hidden size-3.5 sm:inline" aria-hidden /> Έργα <Badge n={data?.projects.length ?? null} tone={TONE.projects} /></TabsTrigger>
           <TabsTrigger value="orders" className={TRIGGER} style={{ ['--tab-tone' as string]: TONE.orders }}><FiShoppingBag className="hidden size-3.5 sm:inline" aria-hidden /> Παραγγελίες <Badge n={data?.orders.length ?? null} tone={TONE.orders} /></TabsTrigger>
           <TabsTrigger value="scans" className={TRIGGER} style={{ ['--tab-tone' as string]: TONE.scans }}><FiFileText className="hidden size-3.5 sm:inline" aria-hidden /> Σκαναρίσματα <Badge n={trader.docCount ?? 0} tone={TONE.scans} /></TabsTrigger>
+          {canFiles && <TabsTrigger value="files" className={TRIGGER} style={{ ['--tab-tone' as string]: TONE.files }}><FiFolder className="hidden size-3.5 sm:inline" aria-hidden /> Αρχεία <Badge n={files} tone={TONE.files} /></TabsTrigger>}
         </TabsList>
         <button
           type="button" onClick={load} disabled={loading} title={data ? `Από SoftOne · ${new Date(data.fetchedAt).toLocaleTimeString('el-GR')}` : undefined}
@@ -460,6 +485,7 @@ export function TraderExpandPanel({ trader, canManage, onAction }: {
       <TabsContent value="projects">{remote((d) => <ProjectsTab data={d} />)}</TabsContent>
       <TabsContent value="orders">{remote((d) => <OrdersTab data={d} />)}</TabsContent>
       <TabsContent value="scans"><TraderDocsPanel trdr={trader.trdr} count={trader.docCount ?? 0} /></TabsContent>
+      {canFiles && <TabsContent value="files"><EntityFilesPanel scope="traders" id={trader.trdr} onCount={setFiles} /></TabsContent>}
     </Tabs>
   );
 }

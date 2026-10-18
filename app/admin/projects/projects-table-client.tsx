@@ -79,6 +79,7 @@ export function ProjectsTableClient({
   financialsAt,
   financialsError,
   canManage,
+  canFiles = false,
   lastSync,
 }: {
   rows: ProjectFinRow[];
@@ -86,6 +87,8 @@ export function ProjectsTableClient({
   financialsAt: string | null;
   financialsError: string | null;
   canManage: boolean;
+  /** files.read: «Αρχεία έργου» στο ⋮ */
+  canFiles?: boolean;
   lastSync: string | null;
 }) {
   const router = useRouter();
@@ -199,11 +202,11 @@ export function ProjectsTableClient({
       enableSorting: false, enableHiding: false, enableResizing: false,
       cell: ({ row }) => (
         <div className="flex justify-end">
-          <ProjectRowActions prjc={row.original.prjc} code={row.original.code} name={row.original.name} canManage={canManage} exportDoc={showFinancials && (row.original.fin?.issues ?? 0) > 0} />
+          <ProjectRowActions prjc={row.original.prjc} code={row.original.code} name={row.original.name} canManage={canManage} files={canFiles} exportDoc={showFinancials && (row.original.fin?.issues ?? 0) > 0} />
         </div>
       ),
     },
-  ], [canManage, finColumns, showFinancials]);
+  ], [canManage, canFiles, finColumns, showFinancials]);
 
   const chip = (active: boolean) => cn(
     'inline-flex h-7 items-center gap-1 rounded-md border px-2.5 text-[length:var(--fs-11)] font-medium transition',

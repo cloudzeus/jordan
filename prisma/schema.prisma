@@ -3227,3 +3227,43 @@ model ProjectSite {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }
+
+// ============================================================
+// Αρχεία πελατών/προμηθευτών (TRDR) και έργων (PRJC) — AutoCAD, PDF, Excel, Word στο Bunny.
+// ΧΩΡΙΣΤΟΙ πίνακες (όχι στήλες στο SoftoneTrader/SoftoneProject): ο resync σβήνει και ξαναγράφει
+// τους καθρέφτες, ο φάκελος όμως πρέπει να μείνει ίδιος. Η διαδρομή γράφεται ΜΙΑ φορά, στη
+// δημιουργία, και δεν αλλάζει με μετονομασία — π.χ. `traders/30-0012-papadopoulos-ae`.
+// ============================================================
+model EntityFolder {
+  id         String       @id @default(cuid())
+  /// TRADER (TRDR — πελάτης ή προμηθευτής, κοινό δέντρο) · PROJECT (PRJC)
+  entityType String
+  entityId   Int // TRDR ή PRJC
+  basePath   String       @unique // διαδρομή στο Bunny, χωρίς / στην αρχή/τέλος
+  /// υποφάκελοι (ονόματα όπως τα βλέπει ο χρήστης) — και οι άδειοι
+  subfolders String[]     @default([])
+  createdAt  DateTime     @default(now())
+  files      EntityFile[]
+
+  @@unique([entityType, entityId])
+}
+
+model EntityFile {
+  id           String       @id @default(cuid())
+  folderId     String
+  folder       EntityFolder @relation(fields: [folderId], references: [id], onDelete: Cascade)
+  subfolder    String       @default("") // "" = ρίζα
+  name         String // όνομα που βλέπει ο χρήστης (μετονομάζεται)
+  originalName String
+  ext          String // dwg · dxf · dwf · dwfx · pdf · xls · xlsx · csv · doc · docx
+  mimeType     String // από τον πίνακα τύπων — ΟΧΙ ό,τι δήλωσε ο browser
+  size         Int
+  storageKey   String       @unique // ιδιωτικό κλειδί στο Bunny — δεν φεύγει ποτέ προς τον browser
+  notes        String?
+  uploadedById String?
+  uploadedBy   String? // όνομα/email τη στιγμή του ανεβάσματος (για τη λίστα)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  @@index([folderId, subfolder])
+}

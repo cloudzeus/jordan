@@ -39,6 +39,7 @@ export default async function ProjectsPage() {
         financialsAt={fresh?.computedAt ?? null}
         financialsError={fresh?.error ?? null}
         canManage={canManage}
+        canFiles={await hasPermission('files.read')}
         lastSync={lastSync ?? null}
       />
     </div>

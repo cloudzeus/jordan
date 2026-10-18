@@ -31,7 +31,7 @@ export default async function TradersPage() {
         description={`Μητρώο συναλλασσομένων από SoftOne (${rows.length.toLocaleString('el-GR')} εγγραφές).`}
         helpAnchor="traders"
       />
-      <TradersTabs list={<TradersView rows={rows} canManage={canManage} lastSync={lastSync ?? null} />} />
+      <TradersTabs list={<TradersView rows={rows} canManage={canManage} canFiles={await hasPermission('files.read')} lastSync={lastSync ?? null} />} />
     </div>
   );
 }

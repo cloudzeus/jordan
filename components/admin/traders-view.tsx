@@ -3,13 +3,13 @@
 import * as React from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { type ColumnDef } from '@tanstack/react-table';
-import { FiRefreshCw, FiGlobe, FiUsers, FiFileText, FiMoreVertical, FiEdit3, FiShield, FiEye } from 'react-icons/fi';
+import { FiRefreshCw, FiGlobe, FiUsers, FiFileText, FiMoreVertical, FiEdit3, FiShield, FiEye, FiFolder } from 'react-icons/fi';
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { TraderEditDialog, type TraderDialogMode } from '@/components/admin/trader-edit-dialog';
 import { isValidAfm } from '@/lib/ocr/validate';
-import { TraderExpandPanel } from '@/components/admin/trader-expand-panel';
+import { TraderExpandPanel, openTraderTab } from '@/components/admin/trader-expand-panel';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -60,10 +60,13 @@ const EDITABLE = new Set([12, 13, 15, 16]);
 export function TradersView({
   rows,
   canManage,
+  canFiles = false,
   lastSync,
 }: {
   rows: TraderRecord[];
   canManage: boolean;
+  /** files.read: καρτέλα «Αρχεία» + ενέργεια «Αρχεία & φάκελοι» */
+  canFiles?: boolean;
   lastSync: string | null;
 }) {
   const router = useRouter();
@@ -145,6 +148,11 @@ export function TradersView({
                 <DropdownMenuItem onSelect={() => row.toggleExpanded(true)} className="text-[length:var(--fs-13)]">
                   <FiFileText aria-hidden className="mr-2 size-3.5" /> Καρτέλα & κινήσεις{(c.docCount ?? 0) > 0 ? ` · ${c.docCount} σκαναρίσματα` : ''}
                 </DropdownMenuItem>
+                {canFiles && (
+                  <DropdownMenuItem onSelect={() => { openTraderTab(c.trdr, 'files'); row.toggleExpanded(true); }} className="text-[length:var(--fs-13)]">
+                    <FiFolder aria-hidden className="mr-2 size-3.5" /> Αρχεία & φάκελοι
+                  </DropdownMenuItem>
+                )}
               </DropdownMenuContent>
             </DropdownMenu>
           );
@@ -307,7 +315,7 @@ export function TradersView({
             searchPlaceholder="Αναζήτηση (κωδικός, επωνυμία, ΑΦΜ, ΔΟΥ, πόλη, τηλ…)"
             persistKey="admin.traders.table.v1"
             // Στοιχεία (ΑΑΔΕ/VIES) · Καρτέλα · Έργα · Παραγγελίες · Σκαναρίσματα.
-            expandable={(r) => <TraderExpandPanel trader={r} canManage={canManage} onAction={(mode) => setDialog({ trdr: r.trdr, mode })} />}
+            expandable={(r) => <TraderExpandPanel trader={r} canManage={canManage} canFiles={canFiles} onAction={(mode) => setDialog({ trdr: r.trdr, mode })} />}
             toolbar={toolbar}
           />
         </div>

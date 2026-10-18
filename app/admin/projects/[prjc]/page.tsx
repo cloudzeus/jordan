@@ -11,6 +11,7 @@ import { ensureFreshFinancials, getProjectFinancials } from '@/lib/project-profi
 import { ProjectFinancials } from './project-financials';
 import { getProjectSite } from '@/lib/project-site';
 import { siteLine } from '@/lib/project-site-core';
+import { EntityFilesPanel } from '@/components/admin/entity-files/entity-files-panel';
 
 export const dynamic = 'force-dynamic';
 
@@ -47,7 +48,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ prjc: 
   if (!Number.isInteger(id)) notFound();
   const p = await getProject(id);
   if (!p) notFound();
-  const [canManage, canFinancials] = await Promise.all([hasPermission('projects.manage'), hasPermission('projects.financials')]);
+  const [canManage, canFinancials, canFiles] = await Promise.all([hasPermission('projects.manage'), hasPermission('projects.financials'), hasPermission('files.read')]);
   // Οικονομικά: στιγμιότυπο όλων των έργων — ξαναϋπολογίζεται μόνο αν έχει παλιώσει.
   const fresh = canFinancials ? await ensureFreshFinancials() : null;
   const fin = canFinancials ? await getProjectFinancials(p.prjc) : null;
@@ -63,7 +64,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ prjc: 
         title={p.name}
         description={`Έργο ${p.code}${p.isActive ? '' : ' · ανενεργό'}`}
         helpAnchor="projects"
-        actions={<ProjectRowActions prjc={p.prjc} code={p.code} name={p.name} canManage={canManage} financials={canFinancials} />}
+        actions={<ProjectRowActions prjc={p.prjc} code={p.code} name={p.name} canManage={canManage} financials={canFinancials} files={canFiles} />}
       />
 
       {/* Στοιχεία έργου — μία πυκνή λωρίδα: μόνο τα πεδία με τιμή, συναλλασσόμενοι σε μία γραμμή. */}
@@ -98,6 +99,13 @@ export default async function ProjectPage({ params }: { params: Promise<{ prjc: 
         <p role="alert" className="mt-4 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-[length:var(--fs-12)] text-destructive">
           Τα οικονομικά του έργου δεν υπολογίστηκαν ακόμη{fresh?.error ? ` — ${fresh.error}` : ''}.
         </p>
+      )}
+
+      {canFiles && (
+        <Card id="files" className="mt-4 scroll-mt-20">
+          <CardHeader className="px-3 sm:px-6"><CardTitle className="text-[length:var(--fs-14)]">Αρχεία έργου</CardTitle></CardHeader>
+          <CardContent className="px-3 sm:px-6"><EntityFilesPanel scope="projects" id={p.prjc} /></CardContent>
+        </Card>
       )}
 
       <Card className="mt-4">

@@ -95,6 +95,9 @@ export const PERMISSIONS: PermissionDef[] = [
   { key: 'units.manage', resource: 'units', action: 'manage', description: 'Δημιουργία/επεξεργασία μονάδων μέτρησης στο SoftOne' },
   // Είδη — ευαίσθητες ενέργειες
   { key: 'items.unit2_override', resource: 'items', action: 'unit2_override', description: 'Αλλαγή Μ.Μ.2 μέσω script σε είδος με παραστατικά (παράκαμψη ελέγχου SoftOne)' },
+  // Αρχεία πελατών/προμηθευτών & έργων (AutoCAD, PDF, Excel, Word στο Bunny — ιδιωτικά)
+  { key: 'files.read', resource: 'files', action: 'read', description: 'Προβολή και λήψη αρχείων πελατών, προμηθευτών και έργων' },
+  { key: 'files.manage', resource: 'files', action: 'manage', description: 'Ανέβασμα, μετονομασία, μετακίνηση, διαγραφή αρχείων και φακέλων' },
   // Air Jordan — βοηθός AI (μόνο ADMIN / SUPER_ADMIN: ο ρόλος ελέγχεται ΚΑΙ στον server, όποιος κι αν πάρει το δικαίωμα)
   { key: 'assistant.use', resource: 'assistant', action: 'use', description: 'Air Jordan: ερωτήσεις (κείμενο/φωνή) για έργα, συναλλασσόμενους, υλικά — μόνο ανάγνωση' },
   { key: 'assistant.memory', resource: 'assistant', action: 'memory', description: 'Air Jordan: διαχείριση μνήμης (ό,τι έμαθε) και επανευρετηρίαση' },
@@ -125,6 +128,7 @@ export const ROLE_DEFAULTS: Record<string, string[]> = {
     'classifications.read', 'classifications.manage',
     'units.read', 'units.manage',
     'items.unit2_override',
+    'files.read', 'files.manage',
     'assistant.use', 'assistant.memory',
   ],
   EMPLOYEE: ['users.read', 'appointments.read', 'appointments.manage', 'appointments.schedule', 'leads.read'],
@@ -138,7 +142,7 @@ export const RESOURCE_LABELS: Record<string, string> = {
   users: 'Χρήστες', roles: 'Ρόλοι', permissions: 'Δικαιώματα', media: 'Media', companies: 'Εταιρείες',
   kad: 'ΚΑΔ', metadata: 'Μητρώα αναφοράς', ocr: 'OCR / Έγγραφα', system: 'Σύστημα',
   projects: 'Έργα', dynamic_offers: 'Δυναμικές προσφορές', payments: 'Πληρωμές (Viva)', order_requests: 'Αιτήματα παραγγελίας', appointments: 'Ραντεβού', leads: 'Leads & newsletter', partners: 'Συνεργάτες',
-  classifications: 'Κατηγορίες & ομάδες', units: 'Μονάδες μέτρησης', items: 'Είδη', assistant: 'Air Jordan (βοηθός AI)',
+  classifications: 'Κατηγορίες & ομάδες', units: 'Μονάδες μέτρησης', items: 'Είδη', files: 'Αρχεία πελατών & έργων', assistant: 'Air Jordan (βοηθός AI)',
 };
 
 /**
@@ -147,10 +151,10 @@ export const RESOURCE_LABELS: Record<string, string> = {
  * items.unit2_override — αυτό δίνεται μόνο ρητά (προεπιλογή: SUPER_ADMIN/ADMIN).
  */
 export const LEGACY_GRANTS: Record<string, string[]> = {
-  'metadata.read': ['projects.read', 'dynamic_offers.read', 'partners.read', 'classifications.read', 'units.read'],
+  'metadata.read': ['projects.read', 'dynamic_offers.read', 'partners.read', 'classifications.read', 'units.read', 'files.read'],
   'metadata.manage': [
     'projects.manage', 'projects.financials', 'dynamic_offers.manage', 'dynamic_offers.reservations',
-    'partners.manage', 'partners.access', 'classifications.manage', 'units.manage',
+    'partners.manage', 'partners.access', 'classifications.manage', 'units.manage', 'files.manage',
   ],
 };
 

@@ -1,8 +1,8 @@
 'use client';
 
 import * as React from 'react';
-import { useRouter } from 'next/navigation';
-import { FiMoreVertical, FiPackage, FiTool, FiExternalLink, FiRefreshCw, FiCopy, FiMapPin } from 'react-icons/fi';
+import { usePathname, useRouter } from 'next/navigation';
+import { FiMoreVertical, FiPackage, FiTool, FiExternalLink, FiRefreshCw, FiCopy, FiMapPin, FiFolder } from 'react-icons/fi';
 import { toast } from 'sonner';
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
@@ -16,7 +16,7 @@ const ITEM = 'cursor-pointer gap-2 text-[length:var(--fs-12)]';
 
 /** Μενού ενεργειών δεξιά σε κάθε έργο (λίστα) ή στην κεφαλίδα της καρτέλας του. */
 export function ProjectRowActions({
-  prjc, code, name, canManage, financials = false, exportDoc = false,
+  prjc, code, name, canManage, financials = false, exportDoc = false, files = false,
 }: {
   prjc: number;
   code: string;
@@ -26,8 +26,16 @@ export function ProjectRowActions({
   financials?: boolean;
   /** Λίστα έργων με projects.financials: «Κατευθύνσεις έργου (Word)» στο μενού της γραμμής. */
   exportDoc?: boolean;
+  /** files.read: «Αρχεία έργου» (φάκελος στο Bunny, ενότητα #files της καρτέλας) */
+  files?: boolean;
 }) {
   const router = useRouter();
+  const pathname = usePathname();
+  const openFiles = () => {
+    const here = `/admin/projects/${prjc}`;
+    if (pathname === here) document.getElementById('files')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    else router.push(`${here}#files`);
+  };
   const fin = useFinancialsActions(canManage, prjc);
   const [dialog, setDialog] = React.useState<'product' | 'service' | null>(null);
   const [siteOpen, setSiteOpen] = React.useState(false);
@@ -72,6 +80,11 @@ export function ProjectRowActions({
           <DropdownMenuItem className={ITEM} onSelect={() => router.push(`/admin/projects/${prjc}`)}>
             <FiExternalLink className="size-3.5" aria-hidden /> Άνοιγμα καρτέλας έργου
           </DropdownMenuItem>
+          {files && (
+            <DropdownMenuItem className={ITEM} onSelect={openFiles}>
+              <FiFolder className="size-3.5" style={{ color: '#B91C1C' }} aria-hidden /> Αρχεία & φάκελοι έργου
+            </DropdownMenuItem>
+          )}
           <DropdownMenuItem
             className={ITEM}
             onSelect={() => { emitProjectRefresh(prjc, 'all'); toast.message('Ανανέωση κινήσεων από το SoftOne…'); }}

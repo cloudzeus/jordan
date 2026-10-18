@@ -51,6 +51,8 @@ export interface ServeStoredFileOpts {
   contentType: string;
   /** όνομα για το `Content-Disposition: inline` */
   fileName: string;
+  /** ολόκληρη η κεφαλίδα `Content-Disposition` (π.χ. `attachment; …`) — αντί για το inline */
+  disposition?: string;
 }
 
 /**
@@ -68,7 +70,7 @@ export async function serveStoredFile(req: Request, opts: ServeStoredFileOpts): 
   }
 
   const etag = storedFileEtag(opts.key, head.size, head.etag);
-  const disposition = `inline; filename="${encodeURIComponent(opts.fileName)}"`;
+  const disposition = opts.disposition ?? `inline; filename="${encodeURIComponent(opts.fileName)}"`;
   const common: Record<string, string> = {
     'Accept-Ranges': 'bytes',
     'Cache-Control': CACHE_CONTROL,
