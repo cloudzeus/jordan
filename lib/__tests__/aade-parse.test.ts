@@ -78,6 +78,8 @@ describe('parseAfm2Info', () => {
       city: 'ΜΑΡΟΥΣΙ',
       legalForm: 'ΑΕ',
       isActive: true,
+      naturalPerson: null,
+      firmFlag: null,
       activities: [
         { code: '46512000', descr: 'ΧΟΝΔΡΙΚΟ ΕΜΠΟΡΙΟ ΛΟΓΙΣΜΙΚΟΥ', kind: '1' },
         { code: '62011000', descr: 'ΔΕΥΤΕΡΕΥΟΥΣΑ', kind: '2' },
@@ -139,7 +141,14 @@ describe('parseAfm2Info', () => {
     });
     expect(r).toEqual({
       afm: '094073495', name: 'ΠΑΡΑΔΕΙΓΜΑ', doyCode: null, doyDescr: null, profession: null,
-      address: null, zip: null, city: null, legalForm: null, isActive: true, activities: [],
+      address: null, zip: null, city: null, legalForm: null, isActive: true, naturalPerson: null, firmFlag: null, activities: [],
     });
+  });
+
+  it('φυσικό πρόσωπο και ιδιότητα επιτηδευματία (για τεχνίτη ↔ συνεργείο)', () => {
+    const base = { afm: '094073495', onomasia: 'Χ' };
+    expect(parseAfm2Info({ basic_rec: { ...base, i_ni_flag_descr: 'ΦΠ', firm_flag_descr: 'ΕΠΙΤΗΔΕΥΜΑΤΙΑΣ' } }))
+      .toMatchObject({ naturalPerson: true, firmFlag: 'ΕΠΙΤΗΔΕΥΜΑΤΙΑΣ' });
+    expect(parseAfm2Info({ basic_rec: { ...base, i_ni_flag_descr: 'ΜΗ ΦΠ' } })).toMatchObject({ naturalPerson: false });
   });
 });

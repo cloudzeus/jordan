@@ -77,16 +77,18 @@ describe('γεωγραφική θέση (TRDR.LATITUDE / LONGITUDE)', () => {
   });
 });
 
-describe('κατηγοριοποίηση (TRDCATEGORY / TRDBUSINESS / TRDGROUP)', () => {
-  it('διαβάζονται από τη γραμμή TRDR', () => {
-    expect(traderValuesFromRow({ TRDCATEGORY: '2', TRDBUSINESS: '', TRDGROUP: '7' })).toMatchObject({ trdCategory: '2', trdBusiness: null, trdGroup: '7' });
+describe('εμπορική κατηγορία (TRDBUSINESS)', () => {
+  it('διαβάζεται από τη γραμμή TRDR· TRDCATEGORY / TRDGROUP δεν είναι πεδία της φόρμας', () => {
+    const v = traderValuesFromRow({ TRDCATEGORY: '2', TRDBUSINESS: '7', TRDGROUP: '3' });
+    expect(v).toMatchObject({ trdBusiness: '7' });
+    expect(v).not.toHaveProperty('trdCategory');
+    expect(v).not.toHaveProperty('trdGroup');
   });
-  it('γράφονται ως αριθμοί, μόνο όσα άλλαξαν', () => {
-    const p = planTraderUpdate({ trdCategory: '2', trdBusiness: null, trdGroup: null }, { trdCategory: '2', trdBusiness: '5', trdGroup: '12' });
-    expect(p.row).toEqual({ TRDBUSINESS: 5, TRDGROUP: 12 });
-    expect(p.changes.map((c) => c.key)).toEqual(['trdBusiness', 'trdGroup']);
+  it('γράφεται ως αριθμός, μόνο αν άλλαξε', () => {
+    expect(planTraderUpdate({ trdBusiness: null }, { trdBusiness: '5' }).row).toEqual({ TRDBUSINESS: 5 });
+    expect(planTraderUpdate({ trdBusiness: '5' }, { trdBusiness: '5' }).changes).toHaveLength(0);
   });
   it('μη αριθμητική τιμή ⇒ σφάλμα', () => {
-    expect(planTraderUpdate({}, { trdGroup: 'ΑΡΧ' }).errors).toHaveLength(1);
+    expect(planTraderUpdate({}, { trdBusiness: 'ΠΛΑΚ' }).errors).toHaveLength(1);
   });
 });

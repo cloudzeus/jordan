@@ -1,18 +1,16 @@
-// lib/trader-classes.ts — ΚΑΘΑΡΟ. Ιεραρχία κατηγοριών συναλλασσομένων (πελάτες & προμηθευτές),
-// 3 επίπεδα από το γενικό στο ειδικό, και αυτόματη ανάθεση από τον ΚΥΡΙΟ ΚΑΔ της ΑΑΔΕ.
+// lib/trader-classes.ts — ΚΑΘΑΡΟ. Εμπορικές κατηγορίες συναλλασσομένων (SoftOne TRDBUSINESS «Εμπορική
+// κατηγορία») σε ιεραρχία με τον «Κωδικό ιεραρχίας» (SOHCODE), και αυτόματη πρόταση από τον ΚΥΡΙΟ ΚΑΔ.
 //
-//   Επίπεδο 1 → TRDCATEGORY «Λογ. κατηγορία»   ανά SODTYPE · ΥΠΑΡΧΕΙ ήδη (λογαριασμοί λογιστικής) — δεν
-//                                               δημιουργείται· βγαίνει από τη ΧΩΡΑ (εσωτερικού/ΕΕ/τρίτες).
-//   Επίπεδο 2 → TRDBUSINESS «Εμπορ. κατηγορία» ανά SODTYPE (ξεχωριστή λίστα πελατών / προμηθευτών).
-//   Επίπεδο 3 → TRDGROUP    «Όμιλος»           ΚΟΙΝΗ λίστα για όλους τους συναλλασσόμενους (χωρίς SODTYPE).
+//   10 Πελάτες      → 10.1 Επαγγελματίες → 10.1.01 Αρχιτέκτονες & μελετητές …
+//   20 Προμηθευτές  → 20.1 Οικοδομικών Υλικών → 20.1.01 Πλακίδια & πέτρα …
 //
-// Το επίπεδο 3 είναι το σημείο ΣΥΣΧΕΤΙΣΗΣ: η ίδια δραστηριότητα (π.χ. Η/Μ εγκαταστάσεις) είναι ΜΙΑ
-// ομάδα TRDGROUP είτε ο συναλλασσόμενος είναι πελάτης (εργολάβος που αγοράζει) είτε προμηθευτής
-// (υπεργολάβος). Γι' αυτό τα φύλλα «SH_*» είναι κοινά στα δύο δέντρα.
+// Το TRDBUSINESS είναι λίστα ανά (εταιρία, SODTYPE): το «10» ζει στη λίστα των πελατών (13), το «20»
+// στη λίστα των προμηθευτών (12). Στην καρτέλα (TRDR.TRDBUSINESS) γράφεται ΕΝΑ φύλλο (κόμβος χωρίς παιδιά)·
+// οι γονείς του φαίνονται από το SOHCODE. ΔΕΝ αγγίζουμε TRDCATEGORY (λογιστική κατηγορία, λογαριασμοί)
+// ούτε TRDGROUP (όμιλοι)· το TRDPGROUP («Ομάδα») μένει για τα μελλοντικά groups.
 //
-// Το SoftOne κρατά τα τρία πεδία ΑΝΕΞΑΡΤΗΤΑ· το δέντρο (γονέας → παιδί) ζει στη βάση μας (`TraderClass`).
-// Τα επίπεδα 2→3 είναι αυστηρό δέντρο. Το επίπεδο 1 είναι η λογιστική κατηγορία: οι κλάδοι κρέμονται από
-// το «εσωτερικού», και για ξένο συναλλασσόμενο αλλάζει ΜΟΝΟ το επίπεδο 1 (ΕΕ/τρίτες) — ο κλάδος μένει.
+// Ονόματα: σύντομα και κατανοητά, ΠΟΤΕ ο τίτλος του ΚΑΔ (ο ΚΑΔ είναι μόνο ο κανόνας από πίσω).
+// Όρια SoftOne: CODE ≤ 10, NAME ≤ 50, SOHCODE ≤ 64.
 //
 // ΚΑΔ: NACE Rev. 2.1 (kad2025/2026) όπως τους δίνει η ΑΑΔΕ. ΠΡΟΣΟΧΗ: ίδιος κωδικός ≠ ίδια σημασία με
 // τους παλιούς (π.χ. 46.73 ήταν δομικά υλικά, τώρα μοτοσυκλέτες) — οι κανόνες είναι μόνο σε νέους ΚΑΔ.
@@ -20,168 +18,127 @@
 
 export type Side = 'customer' | 'supplier';
 export const SODTYPE: Record<Side, 12 | 13> = { customer: 13, supplier: 12 };
-export type ClassLevel = 1 | 2 | 3;
 
 export interface ClassNode {
-  /** Σταθερό κλειδί της εφαρμογής. «C*» πελάτες, «S*» προμηθευτές, «SH_*» κοινά φύλλα επιπέδου 3. */
+  /** Σταθερό κλειδί της εφαρμογής («C_…» πελάτες, «S_…» προμηθευτές). */
   key: string;
-  level: ClassLevel;
-  /** Σύντμηση για το SoftOne (CODE). Στο επίπεδο 3 μοναδική σε ΟΛΟ το TRDGROUP. */
+  side: Side;
+  /** Κωδικός ιεραρχίας (SOHCODE): «10», «10.1», «10.1.01». Το βάθος = πλήθος τμημάτων. */
+  soh: string;
+  /** Σύντμηση (CODE) — μοναδική στη λίστα της πλευράς. */
   code: string;
+  /** Σύντομο, κατανοητό όνομα (NAME). */
   name: string;
-  /** Γονέας ανά πλευρά (τα κοινά φύλλα έχουν διαφορετικό γονέα σε πελάτες και προμηθευτές). */
-  parent: Partial<Record<Side, string>>;
-  sides: Side[];
   description?: string;
-  /** Μόνο επίπεδο 1: το υπάρχον κλειδί TRDCATEGORY του SoftOne. */
-  softoneId?: number;
-  /** Μόνο επίπεδο 3: προθέματα ΚΑΔ (ψηφία) ανά πλευρά. */
-  kad?: Partial<Record<Side, string[]>>;
+  /** Μόνο φύλλα: προθέματα ΚΑΔ (ψηφία) που οδηγούν εδώ. */
+  kad?: string[];
 }
 
-const both: Side[] = ['customer', 'supplier'];
-const C: Side[] = ['customer'];
-const S: Side[] = ['supplier'];
 const range = (from: number, to: number) => Array.from({ length: to - from + 1 }, (_, i) => String(from + i).padStart(2, '0'));
+const C = (soh: string, key: string, code: string, name: string, kad?: string[], description?: string): ClassNode =>
+  ({ key, side: 'customer', soh, code, name, kad, description });
+const S = (soh: string, key: string, code: string, name: string, kad?: string[], description?: string): ClassNode =>
+  ({ key, side: 'supplier', soh, code, name, kad, description });
 
-// ── Επίπεδο 1 — λογιστική κατηγορία (υπάρχουσες εγγραφές TRDCATEGORY) ────────────────────────────
-const L1: ClassNode[] = [
-  { key: 'C1_RETAIL', level: 1, code: 'ΛΕΣ', name: 'Λιανικής', parent: {}, sides: C, softoneId: 1, description: 'Ιδιώτες — αποδείξεις λιανικής.' },
-  { key: 'C1_DOMESTIC', level: 1, code: 'ΠΕΣ', name: 'Χονδρικής Εσωτερικού', parent: {}, sides: C, softoneId: 2, description: 'Επιχειρήσεις & φορείς με ελληνικό ΑΦΜ.' },
-  { key: 'C1_EU', level: 1, code: 'ΠΕΕ', name: 'Χονδρικής Ευρωπαϊκής Ένωσης', parent: {}, sides: C, softoneId: 3 },
-  { key: 'C1_THIRD', level: 1, code: 'ΠΤΧ', name: 'Χονδρικής Τρίτων χωρών', parent: {}, sides: C, softoneId: 4 },
-  { key: 'S1_DOMESTIC', level: 1, code: 'ΠΕΣ', name: 'Προμηθευτές εσωτερικού', parent: {}, sides: S, softoneId: 1 },
-  { key: 'S1_EU', level: 1, code: 'ΠΕΕ', name: 'Προμηθευτές Ευρωπαϊκής Ένωσης', parent: {}, sides: S, softoneId: 2 },
-  { key: 'S1_THIRD', level: 1, code: 'ΠΤΧ', name: 'Προμηθευτές Τρίτων χωρών', parent: {}, sides: S, softoneId: 3 },
+// ── Πελάτες (TRDBUSINESS, SODTYPE 13) ────────────────────────────────────────────────────────────
+const CUSTOMERS: ClassNode[] = [
+  C('10', 'C_ROOT', 'ΠΕΛ', 'Πελάτες'),
+  C('10.1', 'C_PRO', 'ΠΕΛ-ΕΠΑΓ', 'Επαγγελματίες', undefined, 'Επιχειρήσεις και επιτηδευματίες με ΚΑΔ.'),
+  C('10.1.01', 'C_DESIGN', 'ΜΕΛ', 'Αρχιτέκτονες & μελετητές', ['711', '7413', '7414'], 'Αρχιτέκτονες, μηχανικοί, interior designers, διακοσμητές.'),
+  C('10.1.02', 'C_BUILD', 'ΚΑΤ', 'Κατασκευαστικές', ['41', '42', '43'], 'Κατασκευαστικές εταιρίες, εργολάβοι, τεχνικά γραφεία.'),
+  C('10.1.03', 'C_HOTEL', 'ΞΕΝ', 'Ξενοδοχεία & ενοικιάσεις', ['55'], 'Ξενοδοχεία, ενοικιαζόμενα, βραχυχρόνια μίσθωση.'),
+  C('10.1.04', 'C_FOOD', 'ΕΣΤ', 'Εστίαση & αναψυχή', ['56', '5914', '9031', '93'], 'Εστιατόρια, καφέ-μπαρ, κινηματογράφοι, χώροι εκδηλώσεων.'),
+  C('10.1.05', 'C_ESTATE', 'ΑΚΙ', 'Ακίνητα & developers', ['68']),
+  C('10.1.06', 'C_MATTRADE', 'ΥΛΙ', 'Έμποροι υλικών & επίπλων',
+    ['4613', '4615', '4644', '4647', '4649', '4683', '4684', '4752', '4753', '4755'], 'Μεταπωλητές δομικών υλικών, ειδών υγιεινής, επίπλων, διακόσμησης.'),
+  C('10.1.07', 'C_TRADE', 'ΕΜΠ', 'Λοιπό εμπόριο & παραγωγή', ['45', '46', '47', ...range(1, 39)]),
+  C('10.1.08', 'C_SERVICES', 'ΥΠΗ', 'Γραφεία & υπηρεσίες', [], 'Λογιστές, δικηγόροι, γιατροί, διαφήμιση, ΙΤ και κάθε άλλη υπηρεσία.'),
+  C('10.2', 'C_PRIVATE', 'ΙΔΙΩΤ', 'Ιδιώτες', undefined, 'Φυσικά πρόσωπα χωρίς επιχειρηματική δραστηριότητα.'),
+  C('10.3', 'C_PUBLIC', 'ΔΗΜ', 'Δημόσιο', ['84'], 'Δημόσιοι φορείς, ΟΤΑ, ΝΠΔΔ.'),
+  C('10.4', 'C_FOREIGN', 'ΕΞΩ', 'Πελάτες εξωτερικού', undefined, 'Χωρίς ελληνικό ΚΑΔ.'),
 ];
 
-// ── Επίπεδο 2 — κλάδος (TRDBUSINESS, ξεχωριστή λίστα ανά πλευρά) ─────────────────────────────────
-const L2: ClassNode[] = [
-  // Πελάτες
-  { key: 'C2_PRIVATE', level: 2, code: 'ΙΔΙ', name: 'Ιδιώτες', parent: { customer: 'C1_RETAIL' }, sides: C },
-  { key: 'C2_CONSTRUCTION', level: 2, code: 'ΚΑΤ', name: 'Κατασκευαστικές & τεχνικές εταιρίες', parent: { customer: 'C1_DOMESTIC' }, sides: C },
-  { key: 'C2_DESIGN', level: 2, code: 'ΜΕΛ', name: 'Αρχιτέκτονες, μηχανικοί & designers', parent: { customer: 'C1_DOMESTIC' }, sides: C },
-  { key: 'C2_REALESTATE', level: 2, code: 'ΑΚΙ', name: 'Ακίνητα & developers', parent: { customer: 'C1_DOMESTIC' }, sides: C },
-  { key: 'C2_HOSPITALITY', level: 2, code: 'ΤΟΥ', name: 'Ξενοδοχεία & τουριστικά καταλύματα', parent: { customer: 'C1_DOMESTIC' }, sides: C },
-  { key: 'C2_LEISURE', level: 2, code: 'ΕΣΤ', name: 'Εστίαση, ψυχαγωγία & εκδηλώσεις', parent: { customer: 'C1_DOMESTIC' }, sides: C },
-  { key: 'C2_MATERIALS', level: 2, code: 'ΥΛΙ', name: 'Εμπόριο υλικών, επίπλων & διακόσμησης', parent: { customer: 'C1_DOMESTIC' }, sides: C },
-  { key: 'C2_TRADE', level: 2, code: 'ΕΜΠ', name: 'Λοιπό εμπόριο & παραγωγή', parent: { customer: 'C1_DOMESTIC' }, sides: C },
-  { key: 'C2_SERVICES', level: 2, code: 'ΥΠΗ', name: 'Επιχειρήσεις & επαγγελματίες υπηρεσιών', parent: { customer: 'C1_DOMESTIC' }, sides: C },
-  { key: 'C2_PUBLIC', level: 2, code: 'ΔΗΜ', name: 'Δημόσιο & ΝΠΔΔ', parent: { customer: 'C1_DOMESTIC' }, sides: C },
-  { key: 'C2_FOREIGN', level: 2, code: 'ΕΞΩ', name: 'Πελάτες εξωτερικού', parent: { customer: 'C1_EU' }, sides: C },
-  { key: 'C2_REVIEW', level: 2, code: 'ΛΟΙ', name: 'Λοιποί — για έλεγχο', parent: { customer: 'C1_DOMESTIC' }, sides: C },
-  // Προμηθευτές
-  { key: 'S2_MATERIALS', level: 2, code: 'ΥΛΙ', name: 'Δομικά υλικά & επενδύσεις', parent: { supplier: 'S1_DOMESTIC' }, sides: S, description: 'Πέτρα, πλακάκια, δάπεδα, κονιάματα, χρώματα, είδη υγιεινής.' },
-  { key: 'S2_FURNISHING', level: 2, code: 'ΕΠΙ', name: 'Έπιπλα, φωτισμός & διακόσμηση', parent: { supplier: 'S1_DOMESTIC' }, sides: S },
-  { key: 'S2_SUBCONTRACTORS', level: 2, code: 'ΥΠΕ', name: 'Υπεργολάβοι & τεχνίτες', parent: { supplier: 'S1_DOMESTIC' }, sides: S, description: 'Κατασκευαστικά συνεργεία, Η/Μ, τελειώματα, σιδηροκατασκευές.' },
-  { key: 'S2_DESIGN', level: 2, code: 'ΜΕΛ', name: 'Μελετητές & σύμβουλοι έργου', parent: { supplier: 'S1_DOMESTIC' }, sides: S },
-  { key: 'S2_LOGISTICS', level: 2, code: 'ΜΕΤ', name: 'Μεταφορές & logistics', parent: { supplier: 'S1_DOMESTIC' }, sides: S },
-  { key: 'S2_OPERATING', level: 2, code: 'ΛΕΙ', name: 'Λειτουργικά έξοδα & υπηρεσίες', parent: { supplier: 'S1_DOMESTIC' }, sides: S, description: 'Ενέργεια, τηλεπικοινωνίες, λογιστές, ενοίκια, IT, τράπεζες.' },
-  { key: 'S2_TRADE', level: 2, code: 'ΕΜΠ', name: 'Εξοπλισμός, λοιπό εμπόριο & παραγωγή', parent: { supplier: 'S1_DOMESTIC' }, sides: S },
-  { key: 'S2_PUBLIC', level: 2, code: 'ΔΗΜ', name: 'Δημόσιο & ΝΠΔΔ', parent: { supplier: 'S1_DOMESTIC' }, sides: S },
-  { key: 'S2_REVIEW', level: 2, code: 'ΛΟΙ', name: 'Λοιποί — για έλεγχο', parent: { supplier: 'S1_DOMESTIC' }, sides: S },
+// ── Προμηθευτές (TRDBUSINESS, SODTYPE 12) ────────────────────────────────────────────────────────
+const SUPPLIERS: ClassNode[] = [
+  S('20', 'S_ROOT', 'ΠΡΟΜ', 'Προμηθευτές'),
+  S('20.1', 'S_MAT', 'ΟΙΚ-ΥΛ', 'Οικοδομικών Υλικών'),
+  S('20.1.01', 'S_TILES', 'ΠΛΑΚ', 'Πλακίδια & πέτρα', ['081', '233', '234', '237'], 'Πλακάκια, ψηφίδες, κεραμικά, μάρμαρα, φυσική πέτρα.'),
+  S('20.1.02', 'S_PAINT', 'ΧΡΩΜ', 'Χρώματα & κονιάματα', ['203', '2052', '235', '236'], 'Χρώματα, βερνίκια, κόλλες, τσιμεντοκονίες, μονωτικά.'),
+  S('20.1.03', 'S_WOOD', 'ΞΥΛ', 'Ξυλεία & κουφώματα', ['16', '2223', '2512'], 'Ξυλεία, πάρκετα, πόρτες, παράθυρα.'),
+  S('20.1.04', 'S_BUILDMAT', 'ΔΟΜ', 'Δομικά & είδη υγιεινής', ['23', '4613', '4682', '4683', '4752'], 'Γενικά οικοδομικά υλικά, μέταλλα, είδη υγιεινής.'),
+  S('20.1.05', 'S_MEPMAT', 'ΗΛ-ΥΔΡ', 'Ηλεκτρολογικά & υδραυλικά', ['27', '4643', '4684', '4754'], 'Ηλεκτρολογικό υλικό, καλώδια, φωτισμός, υδραυλικά, θέρμανση.'),
+  S('20.1.06', 'S_FURN', 'ΕΠΙΠ', 'Έπιπλα & διακόσμηση', ['13', '31', '4615', '4641', '4647', '4649', '4753', '4755'], 'Έπιπλα, υφάσματα, χαλιά, διακοσμητικά.'),
+  S('20.1.07', 'S_TOOLS', 'ΕΡΓΑΛ', 'Εργαλεία & εξοπλισμός', ['4614', '4662', '4663', '4664', '4774']),
+  S('20.1.08', 'S_GOODS', 'ΕΜΠ-Λ', 'Λοιπά εμπορεύματα', ['45', '46', '47', ...range(1, 34), '39']),
+  S('20.2', 'S_SERV', 'ΥΠΗΡ', 'Παροχή Υπηρεσιών'),
+  S('20.2.01', 'S_TRANSPORT', 'ΜΕΤΦ', 'Μεταφορές', range(49, 53), 'Μεταφορικές, ταχυμεταφορές, εκτελωνισμοί.'),
+  S('20.2.02', 'S_DESIGN', 'ΜΕΛ-Π', 'Μελετητές', ['711', '712', '7413', '7414'], 'Αρχιτέκτονες, μηχανικοί, interior designers.'),
+  S('20.2.03', 'S_PROF', 'ΛΟΓ', 'Λογιστικά & νομικά', ['69', '70']),
+  S('20.2.04', 'S_UTIL', 'ΕΝΕΡ', 'Ενέργεια & τηλεπικοινωνίες', ['35', '36', '37', '38', '61']),
+  S('20.2.05', 'S_RENT', 'ΕΝΟΙΚ', 'Ενοίκια & μισθώσεις', ['68', '77']),
+  S('20.2.06', 'S_FIN', 'ΤΡΑΠ', 'Τράπεζες & ασφάλειες', ['64', '65', '66']),
+  S('20.2.07', 'S_MEDIA', 'ΔΙΑΦ', 'Διαφήμιση & πληροφορική', ['58', '59', '60', '62', '63', '73', '74', '90']),
+  S('20.2.08', 'S_PUBLIC', 'ΔΗΜ-Π', 'Δημόσιοι φορείς', ['84']),
+  S('20.2.09', 'S_OTHERSERV', 'ΥΠΗ-Λ', 'Λοιπές υπηρεσίες', []),
+  S('20.3', 'S_WORKS', 'ΟΙΚ-ΕΡΓ', 'Οικοδομικών Εργασιών', undefined, 'Όσοι εκτελούν εργασίες στο έργο.'),
+  S('20.3.01', 'S_CREW', 'ΣΥΝΕΡΓ', 'Συνεργεία & υπεργολάβοι', ['41', '42', '43', '251'], 'Εταιρίες κατασκευών, Η/Μ, τελειωμάτων, σιδηροκατασκευών.'),
+  S('20.3.02', 'S_CRAFT', 'ΤΕΧΝ', 'Τεχνίτες', [], 'Μάστορες — φυσικά πρόσωπα με κατασκευαστικό ΚΑΔ.'),
 ];
 
-// ── Επίπεδο 3 — ειδική ομάδα (TRDGROUP, κοινή λίστα) ─────────────────────────────────────────────
-const L3: ClassNode[] = [
-  // Κοινά — ίδια δραστηριότητα και στις δύο πλευρές
-  { key: 'SH_BUILDING', level: 3, code: 'ΚΤΙ', name: 'Κατασκευή κτιρίων', parent: { customer: 'C2_CONSTRUCTION', supplier: 'S2_SUBCONTRACTORS' }, sides: both, kad: { customer: ['41'], supplier: ['41'] } },
-  { key: 'SH_CIVIL', level: 3, code: 'ΠΟΛ', name: 'Έργα πολιτικού μηχανικού', parent: { customer: 'C2_CONSTRUCTION', supplier: 'S2_SUBCONTRACTORS' }, sides: both, kad: { customer: ['42', '435'], supplier: ['42', '435'] } },
-  { key: 'SH_MEP', level: 3, code: 'ΗΜΕ', name: 'Ηλεκτρομηχανολογικές εγκαταστάσεις', parent: { customer: 'C2_CONSTRUCTION', supplier: 'S2_SUBCONTRACTORS' }, sides: both, kad: { customer: ['432'], supplier: ['432'] } },
-  { key: 'SH_FINISHING', level: 3, code: 'ΤΕΛ', name: 'Τελειώματα & εξειδικευμένες εργασίες', parent: { customer: 'C2_CONSTRUCTION', supplier: 'S2_SUBCONTRACTORS' }, sides: both, kad: { customer: ['43'], supplier: ['43'] } },
-  { key: 'SH_ARCHITECTS', level: 3, code: 'ΑΡΧ', name: 'Αρχιτέκτονες', parent: { customer: 'C2_DESIGN', supplier: 'S2_DESIGN' }, sides: both, kad: { customer: ['7111'], supplier: ['7111'] } },
-  { key: 'SH_ENGINEERS', level: 3, code: 'ΜΗΧ', name: 'Μηχανικοί & τεχνικοί σύμβουλοι', parent: { customer: 'C2_DESIGN', supplier: 'S2_DESIGN' }, sides: both, kad: { customer: ['711'], supplier: ['711', '712'] } },
-  { key: 'SH_INTERIOR', level: 3, code: 'INT', name: 'Interior designers & διακοσμητές', parent: { customer: 'C2_DESIGN', supplier: 'S2_DESIGN' }, sides: both, kad: { customer: ['7413', '7414'], supplier: ['7413', '7414'] } },
-  { key: 'SH_PROFESSIONAL', level: 3, code: 'ΝΟΜ', name: 'Λογιστικά, νομικά & σύμβουλοι', parent: { customer: 'C2_SERVICES', supplier: 'S2_OPERATING' }, sides: both, kad: { customer: ['69', '70'], supplier: ['69', '70'] } },
-  { key: 'SH_CREATIVE', level: 3, code: 'ΔΗΙ', name: 'Media, διαφήμιση & δημιουργικά', parent: { customer: 'C2_SERVICES', supplier: 'S2_OPERATING' }, sides: both, kad: { customer: ['58', '59', '60', '73', '74', '90'], supplier: ['58', '59', '60', '62', '63', '73', '74', '90'] } },
-  { key: 'SH_TRADE', level: 3, code: 'ΕΜΠ', name: 'Εμπόριο', parent: { customer: 'C2_TRADE', supplier: 'S2_TRADE' }, sides: both, kad: { customer: ['45', '46', '47'], supplier: ['45', '46', '47'] } },
-  { key: 'SH_INDUSTRY', level: 3, code: 'ΒΙΟ', name: 'Βιομηχανία, παραγωγή & ενέργεια', parent: { customer: 'C2_TRADE', supplier: 'S2_TRADE' }, sides: both, kad: { customer: range(1, 39), supplier: [...range(1, 34), '39'] } },
-  { key: 'SH_PUBLIC', level: 3, code: 'ΔΗΜ', name: 'Δημόσιο & ΝΠΔΔ', parent: { customer: 'C2_PUBLIC', supplier: 'S2_PUBLIC' }, sides: both, kad: { customer: ['84'], supplier: ['84'] } },
-  { key: 'SH_REVIEW', level: 3, code: 'ΛΟΙ', name: 'Για έλεγχο', parent: { customer: 'C2_REVIEW', supplier: 'S2_REVIEW' }, sides: both },
-
-  // Μόνο πελάτες
-  { key: 'C3_PRIVATE', level: 3, code: 'ΙΔΙ', name: 'Ιδιώτες', parent: { customer: 'C2_PRIVATE' }, sides: C },
-  { key: 'C3_DEVELOPERS', level: 3, code: 'DEV', name: 'Developers & αγοραπωλησία ακινήτων', parent: { customer: 'C2_REALESTATE' }, sides: C, kad: { customer: ['681'] } },
-  { key: 'C3_PROPERTY', level: 3, code: 'ΔΙΑ', name: 'Εκμίσθωση & διαχείριση ακινήτων', parent: { customer: 'C2_REALESTATE' }, sides: C, kad: { customer: ['68'] } },
-  { key: 'C3_HOTELS', level: 3, code: 'ΞΕΝ', name: 'Ξενοδοχεία', parent: { customer: 'C2_HOSPITALITY' }, sides: C, kad: { customer: ['551'] } },
-  { key: 'C3_SHORTSTAY', level: 3, code: 'ΒΡΑ', name: 'Ενοικιαζόμενα & βραχυχρόνια μίσθωση', parent: { customer: 'C2_HOSPITALITY' }, sides: C, kad: { customer: ['552'] } },
-  { key: 'C3_LODGING', level: 3, code: 'ΚΑΛ', name: 'Λοιπά καταλύματα', parent: { customer: 'C2_HOSPITALITY' }, sides: C, kad: { customer: ['55'] } },
-  { key: 'C3_RESTAURANTS', level: 3, code: 'ΕΣΤ', name: 'Εστιατόρια & catering', parent: { customer: 'C2_LEISURE' }, sides: C, kad: { customer: ['561', '562', '564'] } },
-  { key: 'C3_BARS', level: 3, code: 'ΚΑΦ', name: 'Καφέ & μπαρ', parent: { customer: 'C2_LEISURE' }, sides: C, kad: { customer: ['563'] } },
-  { key: 'C3_VENUES', level: 3, code: 'ΕΚΔ', name: 'Ψυχαγωγία, πολιτισμός & χώροι εκδηλώσεων', parent: { customer: 'C2_LEISURE' }, sides: C, kad: { customer: ['5914', '9031', '93'] } },
-  { key: 'C3_MAT_WHOLESALE', level: 3, code: 'ΧΥΛ', name: 'Χονδρικό υλικών & εξοπλισμού', parent: { customer: 'C2_MATERIALS' }, sides: C, kad: { customer: ['4613', '4615', '4644', '4647', '4649', '4683', '4684'] } },
-  { key: 'C3_MAT_RETAIL', level: 3, code: 'ΛΥΛ', name: 'Λιανικό υλικών, επίπλων & διακόσμησης', parent: { customer: 'C2_MATERIALS' }, sides: C, kad: { customer: ['4752', '4753', '4755'] } },
-  { key: 'C3_HEALTH', level: 3, code: 'ΥΓΕ', name: 'Υγεία & κοινωνική μέριμνα', parent: { customer: 'C2_SERVICES' }, sides: C, kad: { customer: ['86', '87', '88'] } },
-  { key: 'C3_OTHER_SERVICES', level: 3, code: 'ΥΠΗ', name: 'Λοιπές υπηρεσίες', parent: { customer: 'C2_SERVICES' }, sides: C, kad: { customer: [] } },
-  { key: 'C3_FOREIGN', level: 3, code: 'ΕΞΩ', name: 'Πελάτες εξωτερικού', parent: { customer: 'C2_FOREIGN' }, sides: C },
-
-  // Μόνο προμηθευτές
-  { key: 'S3_STONE', level: 3, code: 'ΠΕΤ', name: 'Φυσική πέτρα & μάρμαρα', parent: { supplier: 'S2_MATERIALS' }, sides: S, kad: { supplier: ['081', '237'] } },
-  { key: 'S3_TILES', level: 3, code: 'ΠΛΑ', name: 'Πλακάκια, ψηφίδες & κεραμικά', parent: { supplier: 'S2_MATERIALS' }, sides: S, kad: { supplier: ['233', '234'] } },
-  { key: 'S3_WOOD', level: 3, code: 'ΞΥΛ', name: 'Ξυλεία & ξύλινα δάπεδα', parent: { supplier: 'S2_MATERIALS' }, sides: S, kad: { supplier: ['16'] } },
-  { key: 'S3_MORTARS', level: 3, code: 'ΚΟΝ', name: 'Κονιάματα, χρώματα & δομικά χημικά', parent: { supplier: 'S2_MATERIALS' }, sides: S, kad: { supplier: ['203', '2052', '235', '236'] } },
-  { key: 'S3_BUILDMAT', level: 3, code: 'ΔΟΜ', name: 'Δομικά υλικά, σιδηρικά & είδη υγιεινής', parent: { supplier: 'S2_MATERIALS' }, sides: S, kad: { supplier: ['4613', '4682', '4683', '4684', '4752', '23'] } },
-  { key: 'S3_FURNITURE', level: 3, code: 'ΕΠΙ', name: 'Έπιπλα & κατασκευές επίπλου', parent: { supplier: 'S2_FURNISHING' }, sides: S, kad: { supplier: ['31', '4615', '4647', '4755'] } },
-  { key: 'S3_LIGHTING', level: 3, code: 'ΦΩΤ', name: 'Φωτισμός & ηλεκτρολογικό υλικό', parent: { supplier: 'S2_FURNISHING' }, sides: S, kad: { supplier: ['27', '4643', '4754'] } },
-  { key: 'S3_DECOR', level: 3, code: 'ΥΦΑ', name: 'Υφάσματα, χαλιά & διακοσμητικά', parent: { supplier: 'S2_FURNISHING' }, sides: S, kad: { supplier: ['13', '4641', '4649', '4753'] } },
-  { key: 'S3_TOOLS', level: 3, code: 'ΕΡΓ', name: 'Εργαλεία, μηχανήματα & εξοπλισμός', parent: { supplier: 'S2_TRADE' }, sides: S, kad: { supplier: ['4614', '4662', '4663', '4664', '4774'] } },
-  { key: 'S3_METAL', level: 3, code: 'ΣΙΔ', name: 'Σιδηροκατασκευές & μεταλλικά', parent: { supplier: 'S2_SUBCONTRACTORS' }, sides: S, kad: { supplier: ['25'] } },
-  { key: 'S3_TRANSPORT', level: 3, code: 'ΜΕΤ', name: 'Μεταφορές & ταχυμεταφορές', parent: { supplier: 'S2_LOGISTICS' }, sides: S, kad: { supplier: range(49, 53) } },
-  { key: 'S3_UTILITIES', level: 3, code: 'ΕΝΕ', name: 'Ενέργεια, νερό & τηλεπικοινωνίες', parent: { supplier: 'S2_OPERATING' }, sides: S, kad: { supplier: ['35', '36', '37', '38', '61'] } },
-  { key: 'S3_FINANCE', level: 3, code: 'ΤΡΑ', name: 'Τράπεζες & ασφάλειες', parent: { supplier: 'S2_OPERATING' }, sides: S, kad: { supplier: ['64', '65', '66'] } },
-  { key: 'S3_RENTALS', level: 3, code: 'ΕΝΟ', name: 'Ενοίκια & εκμισθώσεις εξοπλισμού', parent: { supplier: 'S2_OPERATING' }, sides: S, kad: { supplier: ['68', '77'] } },
-  { key: 'S3_OTHER_SERVICES', level: 3, code: 'ΛΥΠ', name: 'Λοιπές υπηρεσίες', parent: { supplier: 'S2_OPERATING' }, sides: S, kad: { supplier: [] } },
-];
-
-// Προμηθευτές: τα τμήματα που έχουν δικό τους φύλλο (π.χ. 16 ξυλεία, 25 μεταλλικά) φεύγουν από τη Βιομηχανία.
+// Τμήματα 49–99 / 35–99 χωρίς δικό τους κανόνα → «Γραφεία & υπηρεσίες» / «Λοιπές υπηρεσίες».
+for (const [list, key, from] of [[CUSTOMERS, 'C_SERVICES', 49], [SUPPLIERS, 'S_OTHERSERV', 35]] as const) {
+  const taken = new Set(list.flatMap((n) => n.kad ?? []).filter((p) => p.length === 2));
+  const node = list.find((n) => n.key === key)!;
+  for (let d = from; d <= 99; d++) if (!taken.has(String(d))) node.kad!.push(String(d));
+}
+// Προμηθευτές: τμήματα με δικό τους φύλλο (π.χ. 16 ξυλεία, 27 ηλεκτρολογικά) φεύγουν από τα «Λοιπά εμπορεύματα».
 {
-  const ind = L3.find((n) => n.key === 'SH_INDUSTRY')!;
-  const own = new Set(L3.filter((n) => n !== ind).flatMap((n) => n.kad?.supplier ?? []).filter((p) => p.length === 2));
-  ind.kad!.supplier = ind.kad!.supplier!.filter((p) => !own.has(p));
+  const goods = SUPPLIERS.find((n) => n.key === 'S_GOODS')!;
+  const own = new Set(SUPPLIERS.filter((n) => n !== goods).flatMap((n) => n.kad ?? []).filter((p) => p.length === 2));
+  goods.kad = goods.kad!.filter((p) => !own.has(p));
 }
 
-// Τμήματα χωρίς δικό τους κανόνα → «Λοιπές υπηρεσίες» (πελάτες 49–99, προμηθευτές 35–99).
-for (const [side, key, from] of [['customer', 'C3_OTHER_SERVICES', 49], ['supplier', 'S3_OTHER_SERVICES', 35]] as const) {
-  const taken = new Set(L3.flatMap((n) => n.kad?.[side] ?? []).filter((p) => p.length === 2));
-  const node = L3.find((n) => n.key === key)!;
-  for (let d = from; d <= 99; d++) if (!taken.has(String(d))) node.kad![side]!.push(String(d));
-}
-
-export const CLASS_TREE: ClassNode[] = [...L1, ...L2, ...L3];
+export const CLASS_TREE: ClassNode[] = [...CUSTOMERS, ...SUPPLIERS];
 export const CLASS_BY_KEY = new Map(CLASS_TREE.map((n) => [n.key, n]));
 
-/** Οι κόμβοι μιας πλευράς. */
-export const treeFor = (side: Side) => CLASS_TREE.filter((n) => n.sides.includes(side));
+/** Ο γονέας ενός κόμβου (από το SOHCODE). */
+export function parentOf(n: ClassNode): ClassNode | null {
+  const i = n.soh.lastIndexOf('.');
+  if (i < 0) return null;
+  const soh = n.soh.slice(0, i);
+  return CLASS_TREE.find((x) => x.side === n.side && x.soh === soh) ?? null;
+}
+export const childrenOf = (n: ClassNode) => CLASS_TREE.filter((x) => parentOf(x)?.key === n.key);
+export const isLeaf = (n: ClassNode) => childrenOf(n).length === 0;
+export const treeFor = (side: Side) => CLASS_TREE.filter((n) => n.side === side);
 
-/** Η αλυσίδα από το γενικό στο ειδικό για ένα φύλλο επιπέδου 3, στη δοσμένη πλευρά. */
-export function classPath(side: Side, leafKey: string): [ClassNode, ClassNode, ClassNode] {
-  const l3 = CLASS_BY_KEY.get(leafKey);
-  if (!l3 || l3.level !== 3 || !l3.parent[side]) throw new Error(`Άγνωστο φύλλο ${leafKey} για ${side}`);
-  const l2 = CLASS_BY_KEY.get(l3.parent[side]!)!;
-  const l1 = CLASS_BY_KEY.get(l2.parent[side]!)!;
-  return [l1, l2, l3];
+/** Η αλυσίδα από τη ρίζα μέχρι τον κόμβο (γενικό → ειδικό). */
+export function classPath(key: string): ClassNode[] {
+  const out: ClassNode[] = [];
+  for (let n: ClassNode | null = CLASS_BY_KEY.get(key) ?? null; n; n = parentOf(n)) out.unshift(n);
+  if (!out.length) throw new Error(`Άγνωστη κατηγορία: ${key}`);
+  return out;
 }
 
 /** Κανόνες ΚΑΔ μιας πλευράς (πρόθεμα → φύλλο). */
 export function kadRules(side: Side): Array<readonly [string, string]> {
-  return L3.flatMap((n) => (n.kad?.[side] ?? []).map((p) => [p, n.key] as const));
+  return treeFor(side).flatMap((n) => (n.kad ?? []).map((p) => [p, n.key] as const));
 }
 const RULES: Record<Side, Array<readonly [string, string]>> = { customer: kadRules('customer'), supplier: kadRules('supplier') };
 
 /** Κανόνες ΠΕΡΙΓΡΑΦΗΣ ΚΑΔ: εφαρμόζονται πριν από τα προθέματα. */
 export const DESCR_RULES: Record<Side, ReadonlyArray<readonly [RegExp, string]>> = {
   customer: [
-    [/ΔΙΑΚΟΣΜΗΤ|ΔΙΑΚΟΣΜΗΣΗΣ\s+ΕΣΩΤΕΡΙΚ|ΣΧΕΔΙΑΣΜΟΥ\s+ΕΣΩΤΕΡΙΚ/, 'SH_INTERIOR'],
-    [/ΚΤΗΜΑΤΟΣ.*ΕΚΔΗΛΩΣ|ΔΙΟΡΓΑΝΩΣΗΣ.*ΕΚΔΗΛΩΣ/, 'C3_VENUES'],
+    [/ΔΙΑΚΟΣΜΗΤ|ΔΙΑΚΟΣΜΗΣΗΣ\s+ΕΣΩΤΕΡΙΚ|ΣΧΕΔΙΑΣΜΟΥ\s+ΕΣΩΤΕΡΙΚ/, 'C_DESIGN'],
+    [/ΚΤΗΜΑΤΟΣ.*ΕΚΔΗΛΩΣ|ΔΙΟΡΓΑΝΩΣΗΣ.*ΕΚΔΗΛΩΣ/, 'C_FOOD'],
   ],
   supplier: [
-    [/ΔΙΑΚΟΣΜΗΤ|ΔΙΑΚΟΣΜΗΣΗΣ\s+ΕΣΩΤΕΡΙΚ|ΣΧΕΔΙΑΣΜΟΥ\s+ΕΣΩΤΕΡΙΚ/, 'SH_INTERIOR'],
-    [/ΜΑΡΜΑΡ|ΓΡΑΝΙΤ|ΦΥΣΙΚΩΝ\s+ΛΙΘ|ΔΙΑΚΟΣΜΗΤΙΚΩΝ\s+ΛΙΘ/, 'S3_STONE'],
-    [/ΠΛΑΚΑΚ|ΠΛΑΚΙΔ|ΚΕΡΑΜΙΚ/, 'S3_TILES'],
-    [/ΕΠΙΠΛ/, 'S3_FURNITURE'],
-    [/ΦΩΤΙΣΤ|ΚΑΛΩΔΙ|ΗΛΕΚΤΡΟΛΟΓΙΚ/, 'S3_LIGHTING'],
-    [/ΧΡΩΜΑΤ(?!ΙΣΜ)|ΒΕΡΝΙΚ|ΚΟΝΙΑΜ/, 'S3_MORTARS'],
-    [/ΞΥΛΕΙ|ΞΥΛΙΝ|ΠΑΡΚΕ/, 'S3_WOOD'],
+    [/ΔΙΑΚΟΣΜΗΤ|ΔΙΑΚΟΣΜΗΣΗΣ\s+ΕΣΩΤΕΡΙΚ|ΣΧΕΔΙΑΣΜΟΥ\s+ΕΣΩΤΕΡΙΚ/, 'S_DESIGN'],
+    [/ΜΑΡΜΑΡ|ΓΡΑΝΙΤ|ΦΥΣΙΚΩΝ\s+ΛΙΘ|ΔΙΑΚΟΣΜΗΤΙΚΩΝ\s+ΛΙΘ|ΠΛΑΚΑΚ|ΠΛΑΚΙΔ|ΚΕΡΑΜΙΚ/, 'S_TILES'],
+    [/ΕΠΙΠΛ/, 'S_FURN'],
+    [/ΦΩΤΙΣΤ|ΚΑΛΩΔΙ|ΗΛΕΚΤΡΟΛΟΓΙΚ|ΥΔΡΑΥΛΙΚ/, 'S_MEPMAT'],
+    [/ΧΡΩΜΑΤ(?!ΙΣΜ)|ΒΕΡΝΙΚ|ΚΟΝΙΑΜ/, 'S_PAINT'],
+    [/ΞΥΛΕΙ|ΞΥΛΙΝ|ΠΑΡΚΕ|ΚΟΥΦΩΜ/, 'S_WOOD'],
   ],
 };
 
@@ -205,25 +162,38 @@ export function leafForKad(side: Side, code: unknown, descr?: string | null): { 
   return best;
 }
 
-// ── Συμπέρασμα από τα είδη που αγοράζουμε (για προμηθευτές χωρίς ΚΑΔ, π.χ. ξένους) ─────────────────
+// ── Ειδικότητα τεχνίτη (για πίνακα χρήστη UTBL στο TRDEXTRA — πρόταση, δεν γράφεται ακόμα) ─────────
+export const CRAFT_SPECIALTIES: ReadonlyArray<readonly [string, string]> = [
+  ['4321', 'Ηλεκτρολόγος'], ['4322', 'Υδραυλικός'], ['4329', 'Μονώσεις & λοιπές εγκαταστάσεις'],
+  ['4331', 'Σοβατζής'], ['4332', 'Ξυλουργός'], ['4333', 'Πλακάς'], ['4334', 'Ελαιοχρωματιστής'],
+  ['4339', 'Τελειώματα'], ['4341', 'Στεγάσεις'], ['4342', 'Μονώσεις'], ['4311', 'Κατεδαφίσεις'], ['4312', 'Χωματουργικά'],
+  ['41', 'Οικοδόμος'], ['42', 'Τεχνικά έργα'], ['43', 'Οικοδομικές εργασίες'], ['251', 'Σιδεράς'],
+];
+/** Ειδικότητα από ΚΑΔ (μακρύτερο πρόθεμα). */
+export function craftSpecialty(code: unknown): string | null {
+  const d = String(code ?? '').replace(/\D/g, '');
+  let best: readonly [string, string] | null = null;
+  for (const r of CRAFT_SPECIALTIES) if (d.startsWith(r[0]) && (!best || r[0].length > best[0].length)) best = r;
+  return best?.[1] ?? null;
+}
+
+// ── Συμπέρασμα από τα είδη που αγοράζουμε (προμηθευτές χωρίς ΚΑΔ ή με γενικό ΚΑΔ) ─────────────────
 export const ITEM_RULES: ReadonlyArray<readonly [RegExp, string]> = [
-  [/ZELLIGE|ΠΛΑΚΑΚ|ΠΛΑΚΙΔ|TILE|COTTO|ΨΗΦΙΔ|MOSAIC|TERRAZZO|ΚΕΡΑΜΙΚ|GEOLITH/, 'S3_TILES'],
-  [/ΠΕΤΡ|STONE|TRAVERTIN|ΜΑΡΜΑΡ|MARBLE|OPUS|BASTIDE|LIMESTONE|ΓΡΑΝΙΤ/, 'S3_STONE'],
-  [/ΔΡΥΣ|\bOAK\b|PARQ|ΠΑΡΚΕ|ΞΥΛΕΙ|ΞΥΛΙΝ|WOOD/, 'S3_WOOD'],
-  [/ΚΟΝΙ|ΤΣΙΜΕΝΤ|ISOMAT|ΚΟΛΛΑ|ΜΟΝΩΤ|ΑΣΤΑΡ|VARNISH|ΒΕΡΝΙΚ|MICROCEMENT|CALCE|ARGILLA|ΧΡΩΜΑ|PRIMER|NEOTEX|REVINEX|ΧΑΛΑΖΙ|SIKA|MAPE/, 'S3_MORTARS'],
-  [/SOFA|\bBEDS?\b|ΕΠΙΠΛ|CLOSET|KITCHEN|KICHEN|ΚΟΥΖΙΝ|ΝΙΠΤΗΡ|ΠΑΓΚΟΣ|ΤΡΑΠΕΖ|ΚΑΡΕΚΛ|BENCH/, 'S3_FURNITURE'],
-  [/ΦΩΤΙΣΤ|LIGHT|LAMP|ΛΑΜΠ|ΗΛΕΚΤΡΟΛΟΓ/, 'S3_LIGHTING'],
-  [/ΥΦΑΣΜ|ΚΟΥΡΤΙΝ|ΧΑΛΙ|FABRIC|TEXTILE/, 'S3_DECOR'],
-  [/ΜΕΤΑΦΟΡ|TRANSPORT|COURIER|ΑΠΟΣΤΟΛ/, 'S3_TRANSPORT'],
-  [/ΤΡΟΧΟΣ|ΕΡΓΑΛΕΙ|ΔΡΑΠΑΝ|ΤΟΝΕΡ|TONER/, 'S3_TOOLS'],
-  [/ΣΙΔΗΡΟΚΑΤ|ΣΥΔΕΡΟΚΑΤ|ΜΕΤΑΛΛΙΚ/, 'S3_METAL'],
+  [/ZELLIGE|ΠΛΑΚΑΚ|ΠΛΑΚΙΔ|TILE|COTTO|ΨΗΦΙΔ|MOSAIC|TERRAZZO|ΚΕΡΑΜΙΚ|GEOLITH|ΠΕΤΡ|STONE|TRAVERTIN|ΜΑΡΜΑΡ|MARBLE|OPUS|BASTIDE|LIMESTONE|ΓΡΑΝΙΤ/, 'S_TILES'],
+  [/ΔΡΥΣ|\bOAK\b|PARQ|ΠΑΡΚΕ|ΞΥΛΕΙ|ΞΥΛΙΝ|WOOD|\bMDF\b|ΚΟΥΦΩΜ/, 'S_WOOD'],
+  [/ΚΟΝΙ|ΤΣΙΜΕΝΤ|ISOMAT|ΚΟΛΛΑ|ΜΟΝΩΤ|ΑΣΤΑΡ|VARNISH|ΒΕΡΝΙΚ|MICROCEMENT|CALCE|ARGILLA|ΧΡΩΜΑ|PRIMER|NEOTEX|REVINEX|ΧΑΛΑΖΙ|SIKA|MAPE|ΣΙΛΙΚΟΝ/, 'S_PAINT'],
+  [/SOFA|\bBEDS?\b|ΕΠΙΠΛ|CLOSET|KITCHEN|KICHEN|ΚΟΥΖΙΝ|ΝΙΠΤΗΡ|ΠΑΓΚΟΣ|ΤΡΑΠΕΖ|ΚΑΡΕΚΛ|BENCH|ΥΦΑΣΜ|ΚΟΥΡΤΙΝ|ΧΑΛΙ|FABRIC|TEXTILE/, 'S_FURN'],
+  [/ΦΩΤΙΣΤ|LIGHT|LAMP|ΛΑΜΠ|ΗΛΕΚΤΡΟΛΟΓ|ΚΑΛΩΔ|ΥΔΡΑΥΛ/, 'S_MEPMAT'],
+  [/ΜΕΤΑΦΟΡ|TRANSPORT|COURIER|ΑΠΟΣΤΟΛ/, 'S_TRANSPORT'],
+  [/ΤΡΟΧΟΣ|ΕΡΓΑΛΕΙ|ΔΡΑΠΑΝ|ΤΟΝΕΡ|TONER/, 'S_TOOLS'],
+  [/ΣΙΔΗΡΟΚΑΤ|ΣΥΔΕΡΟΚΑΤ|ΜΕΤΑΛΛΙΚ|\bWORKS?\b|ΕΡΓΑΣΙΕΣ\s+\S/, 'S_CREW'],
 ];
 
 export interface PurchasedItem { name: string; value: number }
 
 /**
  * Φύλλο προμηθευτή από τα είδη των τιμολογίων αγοράς: ψηφοφορία σταθμισμένη με την αξία. Τα γενικά
- * είδη («ΥΠΗΡΕΣΙΕΣ», «ΕΡΓΑΣΙΕΣ») δεν ψηφίζουν. `share` = μερίδιο της αξίας που ψήφισε το νικητή.
+ * είδη («ΥΠΗΡΕΣΙΕΣ», «ΑΝΑΛΩΣΙΜΑ») δεν ψηφίζουν. `share` = μερίδιο της αξίας που ψήφισε το νικητή.
  */
 export function leafFromPurchases(items: PurchasedItem[]): { key: string; share: number } | null {
   const votes = new Map<string, number>();
@@ -242,18 +212,20 @@ export function leafFromPurchases(items: PurchasedItem[]): { key: string; share:
 
 // ── Αυτόματη ανάθεση ─────────────────────────────────────────────────────────────────────────────
 const PUBLIC_FORM = /Ν\.?\s*Π\.?\s*Δ\.?\s*Δ|ΝΠΔΔ|ΔΗΜΟΣΙ|Ο\.?Τ\.?Α|ΔΗΜΟΣ\b|ΠΕΡΙΦΕΡΕΙ|ΚΡΑΤ/;
-const EU = new Set(['AT', 'BE', 'BG', 'HR', 'CY', 'CZ', 'DK', 'EE', 'FI', 'FR', 'DE', 'HU', 'IE', 'IT', 'LV', 'LT', 'LU', 'MT', 'NL', 'PL', 'PT', 'RO', 'SK', 'SI', 'ES', 'SE', 'XI']);
+
+/** Φύλλα που ο ΚΑΔ δίνει χωρίς να λέει ΤΙ ακριβώς πουλά ο προμηθευτής — εκεί υπερισχύουν οι αγορές. */
+export const GENERIC_LEAVES = new Set(['S_BUILDMAT', 'S_GOODS']);
 
 export interface ClassifyInput {
   side: Side;
   afmKind: 'greek' | 'foreign' | 'invalid' | 'none';
-  /** ISO-2 της χώρας (για ξένους). */
-  countryIso?: string | null;
   /** Βρέθηκε στην ΑΑΔΕ; true / false (δεν υπάρχει) / undefined (δεν ρωτήθηκε ή σφάλμα). */
   aadeFound?: boolean;
   legalForm?: string | null;
   /** firm_flag_descr: «ΕΠΙΤΗΔΕΥΜΑΤΙΑΣ» / «ΜΗ ΕΠΙΤΗΔΕΥΜΑΤΙΑΣ» / «ΠΡΩΗΝ ΕΠΙΤΗΔΕΥΜΑΤΙΑΣ». */
   firmFlag?: string | null;
+  /** Φυσικό πρόσωπο (ΑΑΔΕ i_ni_flag_descr = «ΦΠ»). Χωρίζει τεχνίτες από συνεργεία. */
+  naturalPerson?: boolean | null;
   primaryKad?: string | null;
   primaryKadDescr?: string | null;
   /** Μόνο προμηθευτές: τι αγοράζουμε από αυτόν. */
@@ -265,77 +237,63 @@ export type ClassifyBasis =
   | 'no_afm' | 'invalid_afm' | 'aade_not_found' | 'unverified';
 
 export interface ClassifyResult {
-  /** Φύλλο επιπέδου 3. */
-  leaf: string;
-  /** [επίπεδο 1, 2, 3] — κλειδιά. Το επίπεδο 1 έρχεται από τη χώρα. */
-  path: [string, string, string];
+  /** Το φύλλο που προτείνεται — `null` = καμία πρόταση (θέλει απόφαση από άνθρωπο). */
+  leaf: string | null;
+  /** Τα κλειδιά από τη ρίζα μέχρι το φύλλο. */
+  path: string[];
   basis: ClassifyBasis;
   /** Ο κανόνας που ταίριαξε (πρόθεμα ΚΑΔ, περιγραφή, ή μερίδιο αγορών). */
   rule: string | null;
   /** Χρειάζεται ματιά από άνθρωπο πριν την ανάθεση. */
   review: boolean;
+  /** Μόνο συνεργεία/τεχνίτες: προτεινόμενη ειδικότητα από τον ΚΑΔ. */
+  specialty?: string | null;
 }
 
-/** Επίπεδο 1 από τη χώρα: εσωτερικού / ΕΕ / τρίτες χώρες (ιδιώτες πελάτες → λιανικής). */
-function level1(c: ClassifyInput, leaf: string): string {
-  if (c.afmKind === 'foreign') {
-    const iso = (c.countryIso ?? '').toUpperCase();
-    const third = !!iso && !EU.has(iso);
-    return c.side === 'customer' ? (third ? 'C1_THIRD' : 'C1_EU') : (third ? 'S1_THIRD' : 'S1_EU');
-  }
-  return classPath(c.side, leaf)[0].key;
+function result(leaf: string | null, basis: ClassifyBasis, rule: string | null, review: boolean): ClassifyResult {
+  return { leaf, path: leaf ? classPath(leaf).map((n) => n.key) : [], basis, rule, review };
 }
 
-function result(c: ClassifyInput, leaf: string, basis: ClassifyBasis, rule: string | null, review: boolean): ClassifyResult {
-  const [, l2, l3] = classPath(c.side, leaf);
-  return { leaf, path: [level1(c, leaf), l2.key, l3.key], basis, rule, review };
+/** Συνεργείο ή τεχνίτης: φυσικό πρόσωπο με κατασκευαστικό ΚΑΔ = τεχνίτης. */
+function worksLeaf(c: ClassifyInput, r: ClassifyResult): ClassifyResult {
+  if (r.leaf !== 'S_CREW') return r;
+  const out = c.naturalPerson ? result('S_CRAFT', r.basis, r.rule, r.review) : r;
+  return { ...out, specialty: craftSpecialty(c.primaryKad) };
 }
 
-/**
- * Γενικά φύλλα: ο ΚΑΔ λέει «εμπόριο/δομικά υλικά/βιομηχανία» χωρίς να λέει ΤΙ. Για προμηθευτή, αν οι
- * αγορές δείχνουν ξεκάθαρα (≥ 50% της αξίας) ειδικότερο φύλλο, υπερισχύουν.
- */
-export const GENERIC_LEAVES = new Set(['S3_BUILDMAT', 'SH_TRADE', 'SH_INDUSTRY']);
-
-/** Αυτόματη ανάθεση για έναν συναλλασσόμενο. Η σειρά των ελέγχων είναι ο κανόνας. */
+/** Αυτόματη πρόταση για έναν συναλλασσόμενο. Η σειρά των ελέγχων είναι ο κανόνας. */
 export function classifyTrader(c: ClassifyInput): ClassifyResult {
-  const review = 'SH_REVIEW';
-  if (c.legalForm && PUBLIC_FORM.test(plainUpper(c.legalForm))) return result(c, 'SH_PUBLIC', 'legal_form', null, false);
+  const pub = c.side === 'customer' ? 'C_PUBLIC' : 'S_PUBLIC';
+  if (c.legalForm && PUBLIC_FORM.test(plainUpper(c.legalForm))) return result(pub, 'legal_form', null, false);
   if (c.primaryKad) {
     const hit = leafForKad(c.side, c.primaryKad, c.primaryKadDescr);
     if (hit && c.side === 'supplier' && GENERIC_LEAVES.has(hit.key) && c.purchases?.length) {
       const p = leafFromPurchases(c.purchases);
       if (p && p.share >= 0.5 && p.key !== hit.key) {
-        return result(c, p.key, 'purchases', `ΚΑΔ ${hit.rule} (γενικός) · ${Math.round(p.share * 100)}% της αξίας αγορών`, false);
+        return worksLeaf(c, result(p.key, 'purchases', `ΚΑΔ ${hit.rule} (γενικός) · ${Math.round(p.share * 100)}% της αξίας αγορών`, false));
       }
     }
-    if (hit) return result(c, hit.key, 'kad', hit.rule, false);
+    if (hit) return worksLeaf(c, result(hit.key, 'kad', hit.rule, false));
   }
-  // Προμηθευτής χωρίς (αξιοποιήσιμο) ΚΑΔ: τι αγοράζουμε από αυτόν.
   if (c.side === 'supplier' && c.purchases?.length) {
     const p = leafFromPurchases(c.purchases);
-    if (p) return result(c, p.key, 'purchases', `${Math.round(p.share * 100)}% της αξίας αγορών`, p.share < 0.5);
+    if (p) return worksLeaf(c, result(p.key, 'purchases', `${Math.round(p.share * 100)}% της αξίας αγορών`, p.share < 0.5));
   }
-  if (c.primaryKad) return result(c, review, 'kad_unmatched', null, true);
-  if (c.afmKind === 'foreign') {
-    return c.side === 'customer'
-      ? result(c, 'C3_FOREIGN', 'foreign', null, !c.countryIso)
-      : result(c, review, 'foreign', null, true);
-  }
+  if (c.primaryKad) return result(null, 'kad_unmatched', null, true);
+  if (c.afmKind === 'foreign') return c.side === 'customer' ? result('C_FOREIGN', 'foreign', null, false) : result(null, 'foreign', null, true);
   if (c.side === 'supplier') {
-    // Προμηθευτής χωρίς ΚΑΔ και χωρίς αγορές ειδών: πάντα για έλεγχο.
     const basis: ClassifyBasis = c.afmKind === 'none' ? 'no_afm' : c.afmKind === 'invalid' ? 'invalid_afm'
       : c.aadeFound === false ? 'aade_not_found' : c.aadeFound ? 'no_activity' : 'unverified';
-    return result(c, review, basis, null, true);
+    return result(null, basis, null, true);
   }
-  if (c.afmKind === 'none') return result(c, 'C3_PRIVATE', 'no_afm', null, false);
-  if (c.afmKind === 'invalid') return result(c, 'C3_PRIVATE', 'invalid_afm', null, true);
-  if (c.aadeFound === false) return result(c, 'C3_PRIVATE', 'aade_not_found', null, true);
+  if (c.afmKind === 'none') return result('C_PRIVATE', 'no_afm', null, false);
+  if (c.afmKind === 'invalid') return result('C_PRIVATE', 'invalid_afm', null, true);
+  if (c.aadeFound === false) return result('C_PRIVATE', 'aade_not_found', null, true);
   if (c.aadeFound) {
     const flag = plainUpper(c.firmFlag);
-    if (/ΠΡΩΗΝ/.test(flag)) return result(c, 'C3_PRIVATE', 'former_business', null, false);
-    if (/^ΕΠΙΤΗΔ/.test(flag)) return result(c, review, 'no_activity', null, true);
-    return result(c, 'C3_PRIVATE', 'no_activity', null, false);
+    if (/ΠΡΩΗΝ/.test(flag)) return result('C_PRIVATE', 'former_business', null, false);
+    if (/^ΕΠΙΤΗΔ/.test(flag)) return result(null, 'no_activity', null, true);
+    return result('C_PRIVATE', 'no_activity', null, false);
   }
-  return result(c, review, 'unverified', null, true);
+  return result(null, 'unverified', null, true);
 }

@@ -1,74 +1,68 @@
 import { describe, expect, it } from 'vitest';
 import {
-  changeLevel, level2Options, level3Options, selectionFromLeaf, selectionFromSoftone, selectionLabel, softoneValues,
-  type ClassRow,
+  choose, leafOf, levelOptions, pathFromSoftone, pathLabel, pathTo, samePath, softoneValue, type ClassRow,
 } from '@/lib/trader-class-select';
 
-// Μικρό δέντρο προμηθευτών: 1 εσωτερικού, 2 ΕΕ · 10 υλικά (υπό 1) · 100 πλακάκια, 101 πέτρα (υπό 10)
-// · 11 μεταφορές (υπό 1) · 110 μεταφορές.
+// 20 Προμηθευτές → 20.1 Υλικά (→ 20.1.01 Πλακίδια [S1 7], 20.1.02 Χρώματα) · 20.2 Υπηρεσίες (→ 20.2.01 Μεταφορές)
+// · 20.4 «Λοιποί» φύλλο στο 2ο επίπεδο [S1 9].
 const rows: ClassRow[] = [
-  { id: 1, key: 'S1_DOMESTIC', level: 1, code: 'ΠΕΣ', name: 'Προμηθευτές εσωτερικού', parentId: null, softoneId: 1 },
-  { id: 2, key: 'S1_EU', level: 1, code: 'ΠΕΕ', name: 'Προμηθευτές ΕΕ', parentId: null, softoneId: 2 },
-  { id: 10, key: 'S2_MATERIALS', level: 2, code: 'ΥΛΙ', name: 'Δομικά υλικά', parentId: 1, softoneId: 5 },
-  { id: 11, key: 'S2_LOGISTICS', level: 2, code: 'ΜΕΤ', name: 'Μεταφορές', parentId: 1, softoneId: null },
-  { id: 100, key: 'S3_TILES', level: 3, code: 'ΠΛΑ', name: 'Πλακάκια', parentId: 10, softoneId: 7 },
-  { id: 101, key: 'S3_STONE', level: 3, code: 'ΠΕΤ', name: 'Πέτρα', parentId: 10, softoneId: null },
-  { id: 110, key: 'S3_TRANSPORT', level: 3, code: 'ΜΕΤ', name: 'Μεταφορές', parentId: 11, softoneId: null },
+  { id: 1, key: 'S_ROOT', level: 1, code: 'ΠΡΟΜ', name: 'Προμηθευτές', parentId: null, softoneId: null },
+  { id: 10, key: 'S_MAT', level: 2, code: 'ΟΙΚ-ΥΛ', name: 'Οικοδομικών Υλικών', parentId: 1, softoneId: 3 },
+  { id: 11, key: 'S_SERV', level: 2, code: 'ΥΠΗΡ', name: 'Παροχή Υπηρεσιών', parentId: 1, softoneId: null },
+  { id: 12, key: 'S_X', level: 2, code: 'ΛΟΙ', name: 'Λοιποί', parentId: 1, softoneId: 9 },
+  { id: 100, key: 'S_TILES', level: 3, code: 'ΠΛΑΚ', name: 'Πλακίδια & πέτρα', parentId: 10, softoneId: 7 },
+  { id: 101, key: 'S_PAINT', level: 3, code: 'ΧΡΩΜ', name: 'Χρώματα & κονιάματα', parentId: 10, softoneId: null },
+  { id: 110, key: 'S_TRANSPORT', level: 3, code: 'ΜΕΤΦ', name: 'Μεταφορές', parentId: 11, softoneId: null },
 ];
-const ids = (r: ClassRow[]) => r.map((x) => x.id);
+const ids = (l: ClassRow[]) => l.map((r) => r.id);
 
-describe('επιλογές ανά επίπεδο', () => {
-  it('επ.2 = παιδιά του επ.1· ξένο επ.1 βλέπει και τους κλάδους του εσωτερικού', () => {
-    expect(ids(level2Options(rows, 1))).toEqual([10, 11]);
-    expect(ids(level2Options(rows, 2))).toEqual([10, 11]);
-    expect(level2Options(rows, null)).toEqual([]);
+describe('levelOptions', () => {
+  it('χωρίς επιλογή: μόνο τα παιδιά της ρίζας', () => {
+    expect(levelOptions(rows, []).map(ids)).toEqual([[10, 11, 12]]);
   });
-  it('επ.3 = παιδιά του επ.2', () => {
-    expect(ids(level3Options(rows, 10))).toEqual([100, 101]);
-    expect(level3Options(rows, null)).toEqual([]);
+  it('μετά από κόμβο με παιδιά: και το επόμενο επίπεδο', () => {
+    expect(levelOptions(rows, [10]).map(ids)).toEqual([[10, 11, 12], [100, 101]]);
+  });
+  it('φύλλο στο 2ο επίπεδο: δεν ανοίγει 3ο combo', () => {
+    expect(levelOptions(rows, [12]).map(ids)).toEqual([[10, 11, 12]]);
+  });
+  it('άκυρη διαδρομή κόβεται', () => {
+    expect(levelOptions(rows, [999, 100]).map(ids)).toEqual([[10, 11, 12]]);
   });
 });
 
-describe('changeLevel', () => {
-  it('αλλαγή κλάδου καθαρίζει ομάδα που δεν ανήκει', () => {
-    expect(changeLevel(rows, { l1: 1, l2: 10, l3: 100 }, 2, 11)).toEqual({ l1: 1, l2: 11, l3: null });
+describe('choose / pathTo / leafOf', () => {
+  it('αλλαγή στο επίπεδο 0 καθαρίζει τα από κάτω', () => {
+    expect(choose([10, 100], 0, 11)).toEqual([11]);
+    expect(choose([10, 100], 1, 101)).toEqual([10, 101]);
+    expect(choose([10, 100], 0, null)).toEqual([]);
   });
-  it('αλλαγή λογ. κατηγορίας εσωτερικού → ΕΕ κρατά κλάδο και ομάδα', () => {
-    expect(changeLevel(rows, { l1: 1, l2: 10, l3: 100 }, 1, 2)).toEqual({ l1: 2, l2: 10, l3: 100 });
+  it('διαδρομή μέχρι κόμβο (χωρίς τη ρίζα)', () => {
+    expect(pathTo(rows, 100)).toEqual([10, 100]);
+    expect(pathTo(rows, 12)).toEqual([12]);
+    expect(pathTo(rows, 999)).toEqual([]);
   });
-  it('καθάρισμα επ.1 καθαρίζει τα πάντα', () => {
-    expect(changeLevel(rows, { l1: 1, l2: 10, l3: 100 }, 1, null)).toEqual({ l1: null, l2: null, l3: null });
-  });
-});
-
-describe('selectionFromLeaf', () => {
-  it('από φύλλο συμπληρώνει γονείς', () => {
-    expect(selectionFromLeaf(rows, 101)).toEqual({ l1: 1, l2: 10, l3: 101 });
-  });
-  it('κρατά συμβατή λογ. κατηγορία (ξένος → ΕΕ)', () => {
-    expect(selectionFromLeaf(rows, 101, 2)).toEqual({ l1: 2, l2: 10, l3: 101 });
-  });
-  it('άγνωστο φύλλο ⇒ κενό (ή μόνο το επ.1)', () => {
-    expect(selectionFromLeaf(rows, 999)).toEqual({ l1: null, l2: null, l3: null });
-    expect(selectionFromLeaf(rows, null, 2)).toEqual({ l1: 2, l2: null, l3: null });
+  it('φύλλο μόνο όταν η διαδρομή φτάσει σε κόμβο χωρίς παιδιά', () => {
+    expect(leafOf(rows, [10])).toBeNull();
+    expect(leafOf(rows, [10, 100])).toBe(100);
+    expect(leafOf(rows, [12])).toBe(12);
   });
 });
 
-describe('selectionFromSoftone', () => {
-  it('αντιστοιχίζει τα κλειδιά SoftOne στους κόμβους', () => {
-    expect(selectionFromSoftone(rows, { trdCategory: '2', trdBusiness: '5', trdGroup: '7' })).toEqual({ l1: 2, l2: 10, l3: 100 });
-    expect(selectionFromSoftone(rows, { trdCategory: '1', trdBusiness: '', trdGroup: null })).toEqual({ l1: 1, l2: null, l3: null });
+describe('SoftOne', () => {
+  it('διαδρομή από TRDR.TRDBUSINESS', () => {
+    expect(pathFromSoftone(rows, '7')).toEqual([10, 100]);
+    expect(pathFromSoftone(rows, '')).toEqual([]);
+    expect(pathFromSoftone(rows, 55)).toEqual([]);
   });
-});
-
-describe('softoneValues', () => {
-  it('γράφει μόνο ό,τι υπάρχει στο SoftOne· τα υπόλοιπα εκκρεμούν', () => {
-    expect(softoneValues(rows, { l1: 2, l2: 10, l3: 100 })).toEqual({ values: { trdCategory: '2', trdBusiness: '5', trdGroup: '7' }, pending: [] });
-    const r = softoneValues(rows, { l1: 1, l2: 11, l3: 110 });
-    expect(r.values).toEqual({ trdCategory: '1' });
-    expect(ids(r.pending)).toEqual([11, 110]);
+  it('γράφεται μόνο φύλλο που υπάρχει στο SoftOne· αλλιώς εκκρεμεί', () => {
+    expect(softoneValue(rows, [10, 100])).toEqual({ values: { trdBusiness: '7' }, pending: null });
+    expect(softoneValue(rows, [10, 101]).pending?.id).toBe(101);
+    expect(softoneValue(rows, [10])).toEqual({ values: {}, pending: null }); // όχι φύλλο — ούτε ο γονέας με softoneId
   });
-  it('ετικέτα διαδρομής', () => {
-    expect(selectionLabel(rows, { l1: 1, l2: 10, l3: 101 })).toBe('Προμηθευτές εσωτερικού › Δομικά υλικά › Πέτρα');
+  it('ετικέτα και σύγκριση', () => {
+    expect(pathLabel(rows, [10, 100])).toBe('Οικοδομικών Υλικών › Πλακίδια & πέτρα');
+    expect(samePath([10, 100], [10, 100])).toBe(true);
+    expect(samePath([10], [10, 100])).toBe(false);
   });
 });

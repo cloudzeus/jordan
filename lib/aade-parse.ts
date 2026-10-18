@@ -26,6 +26,10 @@ export interface Afm2InfoRecord {
   city: string | null;
   legalForm: string | null;
   isActive: boolean;
+  /** Φυσικό πρόσωπο (`i_ni_flag_descr` = «ΦΠ»)· `null` όταν η ΑΑΔΕ δεν το λέει. */
+  naturalPerson: boolean | null;
+  /** «ΕΠΙΤΗΔΕΥΜΑΤΙΑΣ» / «ΜΗ ΕΠΙΤΗΔΕΥΜΑΤΙΑΣ» / «ΠΡΩΗΝ ΕΠΙΤΗΔΕΥΜΑΤΙΑΣ» (`firm_flag_descr`). */
+  firmFlag: string | null;
   /** Όλες οι δραστηριότητες (ΚΑΔ) — η κύρια πρώτη. Για την αντιστοίχιση με το SoftOne (`lib/kad.ts`). */
   activities: { code: string; descr: string; kind: string }[];
 }
@@ -104,6 +108,8 @@ export function parseAfm2Info(raw: unknown): Afm2InfoRecord | null {
     legalForm: textOf(rec.legal_status_descr),
     // Στην ΑΑΔΕ το «1» σημαίνει ΕΝΕΡΓΟΣ.
     isActive: textOf(rec.deactivation_flag) === '1',
+    naturalPerson: textOf(rec.i_ni_flag_descr) == null ? null : textOf(rec.i_ni_flag_descr) === 'ΦΠ',
+    firmFlag: textOf(rec.firm_flag_descr),
     activities: acts
       .map((a) => ({ code: (textOf(a.firm_act_code) ?? '').replace(/\D/g, ''), descr: textOf(a.firm_act_descr) ?? '', kind: textOf(a.firm_act_kind) ?? '' }))
       .filter((a) => a.code)

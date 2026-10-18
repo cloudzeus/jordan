@@ -3,6 +3,7 @@ import { prisma } from '@/lib/db';
 import { SODTYPE_LABEL } from '@/lib/softone';
 import { softoneCreateCustomer, type CustomerInput } from '@/lib/softone-lead';
 import { softoneCreatePerson } from '@/lib/softone-person';
+import { proposeTraderClass } from '@/lib/trader-classes-server';
 
 /**
  * «Με ποιον» είναι ένα ραντεβού του προσωπικού: συναλλασσόμενος του SoftOne (καθρέφτης
@@ -103,6 +104,8 @@ export async function createCustomerParty(input: NewCustomerInput): Promise<Part
   const mirror = { sodtype: 13, kind: SODTYPE_LABEL[13], code: r.code, name: input.name.trim(), afm, profession: input.profession ?? null, address: input.address ?? null, city: input.city ?? null, zip: input.zip ?? null, phone: input.phone ?? null, email: input.email ?? null, isActive: true };
   // Υπάρχων πελάτης (linked): ο καθρέφτης ενημερώνεται από τον συγχρονισμό — δεν τον αλλάζουμε εδώ.
   if (!r.linked) await prisma.softoneTrader.upsert({ where: { trdr: r.trdr }, update: mirror, create: { trdr: r.trdr, ...mirror } });
+  // Πρόταση εμπορικής κατηγορίας από τον ΚΑΔ της ΑΑΔΕ — μόνο στη βάση μας, χωρίς αναμονή (δεν καθυστερεί την κράτηση).
+  if (!r.linked) void proposeTraderClass({ trdr: r.trdr, sodtype: 13, code: r.code, name: input.name.trim(), afm }).catch(() => null);
   let contactId: string | null = null;
   if (input.contactFirstName?.trim() && input.contactLastName?.trim()) {
     const p = await softoneCreatePerson({ trdr: r.trdr, firstName: input.contactFirstName, lastName: input.contactLastName, email: input.email ?? null, mobile: input.phone ?? null });

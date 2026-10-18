@@ -1,15 +1,15 @@
 'use client';
 
-// Κατηγορία συναλλασσομένου σε 3 συσχετιζόμενα combo boxes, από το γενικό στο ειδικό:
-//   Λογ. κατηγορία (TRDCATEGORY) → Εμπορ. κατηγορία / κλάδος (TRDBUSINESS) → Ομάδα (TRDGROUP).
-// Η ιεραρχία έρχεται από τη βάση (`/api/admin/trader-classes`)· η λογική από lib/trader-class-select.ts.
+// Εμπορική κατηγορία συναλλασσομένου (TRDBUSINESS) σε συσχετιζόμενα combo boxes, από το γενικό στο ειδικό:
+//   Κατηγορία (π.χ. Οικοδομικών Υλικών) → Υποκατηγορία (π.χ. Πλακίδια & πέτρα).
+// Ένα combo ανά επίπεδο κάτω από τη ρίζα, όσο ο επιλεγμένος κόμβος έχει παιδιά. Η ιεραρχία έρχεται από
+// τη βάση (`/api/admin/trader-classes`)· η λογική από lib/trader-class-select.ts.
 import * as React from 'react';
 import { FiLayers, FiZap } from 'react-icons/fi';
 import { Button } from '@/components/ui/button';
 import { Field, FormSection, FormSelect, RowHint } from '@/components/admin/form-kit';
 import {
-  changeLevel, level1Options, level2Options, level3Options, selectionFromLeaf, selectionLabel, softoneValues,
-  type ClassRow, type ClassSelection,
+  choose, leafOf, levelOptions, pathLabel, pathTo, samePath, softoneValue, type ClassPath, type ClassRow,
 } from '@/lib/trader-class-select';
 
 const BASIS_LABEL: Record<string, string> = {
@@ -18,11 +18,13 @@ const BASIS_LABEL: Record<string, string> = {
   no_activity: 'χωρίς δραστηριότητα στην ΑΑΔΕ', former_business: 'πρώην επιτηδευματίας', kad_unmatched: 'ΚΑΔ εκτός κανόνων',
   unverified: 'δεν εξακριβώθηκε', manual: 'χειροκίνητα',
 };
+const LEVEL_LABEL = ['Κατηγορία', 'Υποκατηγορία', 'Ειδικότερα'];
 
 export interface ClassProposal {
-  leafId: number | null; basis: string; rule?: string | null; needsReview?: boolean; primaryKad?: string | null; primaryKadDescr?: string | null;
-  /** Λογ. κατηγορία που προκύπτει ανεξάρτητα από το φύλλο (π.χ. ξένος → ΕΕ). */
-  l1Id?: number | null;
+  leafId: number | null; basis: string; rule?: string | null; needsReview?: boolean;
+  primaryKad?: string | null; primaryKadDescr?: string | null;
+  /** Τεχνίτες/συνεργεία: ειδικότητα από τον ΚΑΔ (πρόταση για πίνακα χρήστη, δεν γράφεται). */
+  specialty?: string | null;
 }
 
 /** Η ιεραρχία μιας πλευράς (12 προμηθευτές · 13 πελάτες). */
@@ -44,54 +46,53 @@ export function useTraderClassRows(sodtype: number | null | undefined): { rows: 
 }
 
 export function TraderClassPicker({ rows, loading, value, onChange, disabled, proposal, idPrefix = 'tc' }: {
-  rows: ClassRow[]; loading?: boolean; value: ClassSelection; onChange: (v: ClassSelection) => void;
+  rows: ClassRow[]; loading?: boolean; value: ClassPath; onChange: (v: ClassPath) => void;
   disabled?: boolean; proposal?: ClassProposal | null; idPrefix?: string;
 }) {
-  const opt = (list: ClassRow[]) => list.map((r) => ({ id: String(r.id), name: r.name }));
-  const pick = (level: 1 | 2 | 3) => (v: string) => onChange(changeLevel(rows, value, level, v ? Number(v) : null));
-  const proposed = proposal?.leafId != null ? selectionFromLeaf(rows, proposal.leafId, proposal.l1Id ?? value.l1) : null;
-  const proposedDiffers = !!proposed && proposed.l3 !== value.l3;
-  const { pending } = softoneValues(rows, value);
+  const levels = levelOptions(rows, value);
+  const proposed = proposal?.leafId != null ? pathTo(rows, proposal.leafId) : null;
+  const proposedDiffers = !!proposed && proposed.length > 0 && !samePath(proposed, value);
+  const { pending } = softoneValue(rows, value);
+  const leaf = leafOf(rows, value);
+  const incomplete = value.length > 0 && leaf == null;
 
   return (
-    <FormSection tone="amber" icon={<FiLayers />} title="Κατηγοριοποίηση"
-      aside={value.l3 ? <span className="truncate">{selectionLabel(rows, value)}</span> : <span>χωρίς κατηγορία</span>}>
+    <FormSection tone="amber" icon={<FiLayers />} title="Εμπορική κατηγορία"
+      aside={leaf ? <span className="truncate">{pathLabel(rows, value)}</span> : <span>χωρίς κατηγορία</span>}>
       {loading && <RowHint>Φόρτωση κατηγοριών…</RowHint>}
       {!loading && rows.length === 0 && <RowHint tone="warn">Δεν έχουν οριστεί κατηγορίες για αυτόν τον τύπο συναλλασσομένου.</RowHint>}
-      {rows.length > 0 && (
-        <div className="grid gap-2.5 sm:grid-cols-3">
-          <Field label="Λογ. κατηγορία" htmlFor={`${idPrefix}-l1`}>
-            <FormSelect id={`${idPrefix}-l1`} value={value.l1 != null ? String(value.l1) : ''} onChange={pick(1)} disabled={disabled}
-              ariaLabel="Λογιστική κατηγορία" opts={opt(level1Options(rows))} placeholder="— Λογ. κατηγορία —" />
-          </Field>
-          <Field label="Κλάδος (εμπορ. κατηγορία)" htmlFor={`${idPrefix}-l2`}>
-            <FormSelect id={`${idPrefix}-l2`} value={value.l2 != null ? String(value.l2) : ''} onChange={pick(2)} disabled={disabled || value.l1 == null}
-              ariaLabel="Κλάδος" opts={opt(level2Options(rows, value.l1))} placeholder={value.l1 == null ? 'Πρώτα λογ. κατηγορία' : '— Κλάδος —'} />
-          </Field>
-          <Field label="Ομάδα" htmlFor={`${idPrefix}-l3`}>
-            <FormSelect id={`${idPrefix}-l3`} value={value.l3 != null ? String(value.l3) : ''} onChange={pick(3)} disabled={disabled || value.l2 == null}
-              ariaLabel="Ομάδα" opts={opt(level3Options(rows, value.l2))} placeholder={value.l2 == null ? 'Πρώτα κλάδος' : '— Ομάδα —'} />
-          </Field>
+      {levels.length > 0 && (
+        <div className="grid gap-2.5 sm:grid-cols-2">
+          {levels.map((opts, depth) => (
+            <Field key={depth} label={LEVEL_LABEL[depth] ?? `Επίπεδο ${depth + 1}`} htmlFor={`${idPrefix}-l${depth}`}>
+              <FormSelect id={`${idPrefix}-l${depth}`} value={value[depth] != null ? String(value[depth]) : ''} disabled={disabled}
+                onChange={(v) => onChange(choose(value, depth, v ? Number(v) : null))}
+                ariaLabel={LEVEL_LABEL[depth] ?? `Επίπεδο ${depth + 1}`} opts={opts.map((r) => ({ id: String(r.id), name: r.name }))}
+                placeholder={`— ${LEVEL_LABEL[depth] ?? 'Επιλογή'} —`} />
+            </Field>
+          ))}
         </div>
       )}
-      {proposal && proposed && (
+      {incomplete && <RowHint tone="warn">Διάλεξε και {LEVEL_LABEL[value.length]?.toLocaleLowerCase('el') ?? 'το επόμενο επίπεδο'} — στην καρτέλα μπαίνει μόνο η πιο ειδική κατηγορία.</RowHint>}
+      {proposal && (proposed?.length || proposal.needsReview) ? (
         <div className="flex flex-wrap items-center gap-2 rounded-md bg-muted/40 px-2.5 py-1.5 text-[length:var(--fs-12)]">
           <FiZap aria-hidden className="size-3.5 shrink-0 text-amber-600" />
           <span className="min-w-0 flex-1">
-            Πρόταση: <strong className="font-medium">{selectionLabel(rows, proposed)}</strong>
+            {proposed?.length ? <>Πρόταση: <strong className="font-medium">{pathLabel(rows, proposed)}</strong></> : <>Χωρίς πρόταση</>}
             <span className="text-muted-foreground"> — {BASIS_LABEL[proposal.basis] ?? proposal.basis}
-              {proposal.primaryKad ? ` · ΚΑΔ ${proposal.primaryKad}${proposal.primaryKadDescr ? ` ${proposal.primaryKadDescr.toLocaleLowerCase('el')}` : ''}` : ''}
+              {proposal.primaryKad ? ` · ΚΑΔ ${proposal.primaryKad}` : ''}
+              {proposal.specialty ? ` · ειδικότητα: ${proposal.specialty}` : ''}
               {proposal.needsReview ? ' · θέλει έλεγχο' : ''}</span>
           </span>
           {proposedDiffers && !disabled && (
-            <Button type="button" size="sm" variant="outline" onClick={() => onChange(proposed)}>Εφαρμογή πρότασης</Button>
+            <Button type="button" size="sm" variant="outline" onClick={() => onChange(proposed!)}>Εφαρμογή πρότασης</Button>
           )}
         </div>
-      )}
-      {pending.length > 0 && (
-        <RowHint tone="warn">
-          {pending.map((p) => `«${p.name}»`).join(', ')} δεν έχει δημιουργηθεί ακόμα στο SoftOne: η επιλογή κρατιέται στην εφαρμογή
-          και θα περάσει στην καρτέλα μόλις δημιουργηθούν οι κατηγορίες.
+      ) : null}
+      {pending && (
+        <RowHint>
+          Η κατηγορία «{pending.name}» δεν έχει δημιουργηθεί ακόμα στο SoftOne: η επιλογή κρατιέται στην εφαρμογή
+          και η καρτέλα του SoftOne δεν αλλάζει.
         </RowHint>
       )}
     </FormSection>

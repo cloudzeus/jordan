@@ -31,14 +31,13 @@ export const TRADER_EDIT_FIELDS = [
   { key: 'fax', col: 'FAX', label: 'Fax', max: 20 },
   { key: 'email', col: 'EMAIL', label: 'Email', max: 128 },
   { key: 'webpage', col: 'WEBPAGE', label: 'Ιστοσελίδα', max: 64 },
-  // Κατηγοριοποίηση (κλειδιά μητρώων SoftOne· η ιεραρχία ζει στο `TraderClass` — lib/trader-classes.ts).
-  { key: 'trdCategory', col: 'TRDCATEGORY', label: 'Λογ. κατηγορία', max: 6 },
+  // Εμπορική κατηγορία (κλειδί TRDBUSINESS· η ιεραρχία ζει στο `TraderClass` — lib/trader-classes.ts).
+  // ΟΧΙ TRDCATEGORY (λογιστική κατηγορία) ούτε TRDGROUP (όμιλος): δεν τα αγγίζει η εφαρμογή.
   { key: 'trdBusiness', col: 'TRDBUSINESS', label: 'Εμπορ. κατηγορία', max: 6 },
-  { key: 'trdGroup', col: 'TRDGROUP', label: 'Όμιλος', max: 10 },
 ] as const;
 
 /** Πεδία που κρατούν ΚΛΕΙΔΙ μητρώου της SoftOne (αριθμός), όχι κείμενο. */
-const NUMERIC_KEYS = new Set<string>(['irsData', 'country', 'trdCategory', 'trdBusiness', 'trdGroup']);
+const NUMERIC_KEYS = new Set<string>(['irsData', 'country', 'trdBusiness']);
 
 export type TraderFieldKey = (typeof TRADER_EDIT_FIELDS)[number]['key'];
 export type TraderValues = Partial<Record<TraderFieldKey, string | null>> & {

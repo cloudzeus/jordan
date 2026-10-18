@@ -3268,25 +3268,25 @@ model EntityFile {
   @@index([folderId, subfolder])
 }
 
-// ── Κατηγορίες συναλλασσομένων — ιεραρχία 3 επιπέδων (γενικό → ειδικό) ────────────────────────────
-// Ορισμός και κανόνες ΚΑΔ: `lib/trader-classes.ts` (πηγή αλήθειας)· εδώ ο καθρέφτης για την εφαρμογή
-// και το κλειδί του SoftOne όταν δημιουργηθεί. Ένα node ανά (κλειδί, πλευρά): τα κοινά φύλλα «SH_*»
-// έχουν ΔΥΟ γραμμές (πελάτες/προμηθευτές) με τον ίδιο κωδικό TRDGROUP.
-//   level 1 → TRDCATEGORY (ανά SODTYPE, ΥΠΑΡΧΕΙ) · level 2 → TRDBUSINESS (ανά SODTYPE) · level 3 → TRDGROUP (κοινό)
+// ── Εμπορικές κατηγορίες συναλλασσομένων (SoftOne TRDBUSINESS) σε ιεραρχία με SOHCODE ─────────────
+// Ορισμός δέντρου και κανόνες ΚΑΔ: `lib/trader-classes.ts` (πηγή αλήθειας)· εδώ ο καθρέφτης για την εφαρμογή
+// και το κλειδί του SoftOne όταν δημιουργηθεί. Ένα δέντρο ανά SODTYPE (10 πελάτες · 20 προμηθευτές)·
+// στην καρτέλα γράφεται μόνο φύλλο (κόμβος χωρίς παιδιά). ΔΕΝ αγγίζουμε TRDCATEGORY / TRDGROUP.
 model TraderClass {
   id           Int           @id @default(autoincrement())
-  key          String // π.χ. «C2_HOSPITALITY», «SH_MEP»
+  key          String // π.χ. «C_HOTEL», «S_CRAFT»
   sodtype      Int // 13 πελάτες · 12 προμηθευτές
-  level        Int // 1 | 2 | 3
+  level        Int // βάθος στο δέντρο (1 = ρίζα)
+  sohCode      String? // «Κωδικός ιεραρχίας» SoftOne, π.χ. «20.3.02»
   code         String // σύντμηση (CODE) στο SoftOne
   name         String
   description  String?
   parentId     Int?
   parent       TraderClass?  @relation("TraderClassTree", fields: [parentId], references: [id], onDelete: SetNull)
   children     TraderClass[] @relation("TraderClassTree")
-  softoneField String // TRDCATEGORY | TRDBUSINESS | TRDGROUP
+  softoneField String // TRDBUSINESS
   softoneId    Int? // το κλειδί της εγγραφής στο SoftOne (null = δεν έχει δημιουργηθεί ακόμα)
-  kadPrefixes  String[]      @default([]) // κανόνες ΚΑΔ (μόνο επίπεδο 3, για εμφάνιση)
+  kadPrefixes  String[]      @default([]) // κανόνες ΚΑΔ (μόνο φύλλα, για εμφάνιση)
   order        Int           @default(0)
   isActive     Boolean       @default(true)
   createdAt    DateTime      @default(now())
@@ -3300,7 +3300,7 @@ model TraderClass {
 }
 
 // ΚΑΔ ΑΑΔΕ + προτεινόμενη κατηγορία ανά συναλλασσόμενο (αποτέλεσμα της αυτόματης ανάθεσης).
-// Η ανάθεση στο SoftOne (TRDR.TRDCATEGORY/TRDBUSINESS/TRDGROUP) γίνεται ΜΟΝΟ μετά από έγκριση.
+// Η ανάθεση στο SoftOne (TRDR.TRDBUSINESS) γίνεται ΜΟΝΟ μετά από έγκριση.
 model TraderClassAssignment {
   id              Int          @id @default(autoincrement())
   trdr            Int          @unique // SoftOne TRDR
@@ -3318,7 +3318,7 @@ model TraderClassAssignment {
   purchasesHint   Json? // προμηθευτές: τι αγοράζουμε (κορυφαία είδη)
   leafId          Int?
   leaf            TraderClass? @relation(fields: [leafId], references: [id], onDelete: SetNull)
-  pathKeys        String[]     @default([]) // [επ.1, επ.2, επ.3]
+  pathKeys        String[]     @default([]) // κλειδιά από τη ρίζα μέχρι το φύλλο
   basis           String // kad | purchases | legal_form | no_afm | …
   rule            String?
   needsReview     Boolean      @default(false)

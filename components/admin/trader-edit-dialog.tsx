@@ -16,7 +16,7 @@ import { Field, FormSection, FormSelect, RowHint, fieldCls } from '@/components/
 import { ViesCheck, type ViesCheckResult } from '@/components/admin/vies-check';
 import { TraderClassPicker, useTraderClassRows, type ClassProposal } from '@/components/admin/trader-class-picker';
 import {
-  EMPTY_SELECTION, sameSelection, selectionFromLeaf, selectionFromSoftone, selectionLabel, softoneValues, type ClassSelection,
+  leafOf, pathFromSoftone, pathLabel, pathTo, samePath, softoneValue, type ClassPath,
 } from '@/lib/trader-class-select';
 import { isValidAfm } from '@/lib/ocr/validate';
 import { formatCoords, validCoords } from '@/lib/coords';
@@ -24,9 +24,7 @@ import { cn } from '@/lib/utils';
 
 export type TraderDialogMode = 'edit' | 'aade' | 'vies';
 type Key = 'name' | 'afm' | 'irsData' | 'profession' | 'address' | 'district' | 'zip' | 'city' | 'country' | 'phone' | 'phone2' | 'fax' | 'email' | 'webpage';
-type ClassKey = 'trdCategory' | 'trdBusiness' | 'trdGroup';
-type Values = Partial<Record<Key | ClassKey, string | null>> & { kad?: number | null; kad1?: number | null; lat?: number | null; lng?: number | null };
-const CLASS_LEVEL: Record<ClassKey, number> = { trdCategory: 1, trdBusiness: 2, trdGroup: 3 };
+type Values = Partial<Record<Key | 'trdBusiness', string | null>> & { kad?: number | null; kad1?: number | null; lat?: number | null; lng?: number | null };
 interface Loaded {
   trdr: number; sodtype: number; code: string; values: Values; editable: boolean;
   kadLabels: { kad: string | null; kad1: string | null };
@@ -61,10 +59,10 @@ export function TraderEditDialog({ trdr, mode, open, onOpenChange, canManage }: 
   const [geoNote, setGeoNote] = React.useState<string | null>(null);
   /** Ονόματα ΚΑΔ (id → «κωδικός — περιγραφή») από την καρτέλα και την ΑΑΔΕ. */
   const [kadNames, setKadNames] = React.useState<Record<number, string>>({});
-  /** Κατηγοριοποίηση (3 συσχετιζόμενα επίπεδα): η αρχική (για «άλλαξε;») και η τρέχουσα επιλογή. */
+  /** Εμπορική κατηγορία (συσχετιζόμενα επίπεδα): η αρχική (για «άλλαξε;») και η τρέχουσα διαδρομή. */
   const { rows: classRows, loading: classLoading } = useTraderClassRows(data?.sodtype);
-  const [classInit, setClassInit] = React.useState<ClassSelection>(EMPTY_SELECTION);
-  const [classSel, setClassSel] = React.useState<ClassSelection>(EMPTY_SELECTION);
+  const [classInit, setClassInit] = React.useState<ClassPath>([]);
+  const [classSel, setClassSel] = React.useState<ClassPath>([]);
   const [classProposal, setClassProposal] = React.useState<ClassProposal | null>(null);
 
   const officeName = React.useCallback((key: string | null | undefined) => {
@@ -72,9 +70,9 @@ export function TraderEditDialog({ trdr, mode, open, onOpenChange, canManage }: 
     return o ? `${o.name} (${o.code})` : s(key) || null;
   }, [data]);
   const countryName = React.useCallback((id: string | null | undefined) => data?.countries.find((c) => c.id === s(id))?.name ?? (s(id) || null), [data]);
-  const shown = (k: Key | ClassKey | 'kad' | 'kad1', v: unknown): string => {
+  const shown = (k: Key | 'trdBusiness' | 'kad' | 'kad1', v: unknown): string => {
     if (v == null || v === '') return '—';
-    if (k in CLASS_LEVEL) return classRows.find((r) => r.level === CLASS_LEVEL[k as ClassKey] && String(r.softoneId) === String(v))?.name ?? `#${v}`;
+    if (k === 'trdBusiness') return classRows.find((r) => String(r.softoneId) === String(v))?.name ?? `#${v}`;
     if (k === 'irsData') return officeName(String(v)) ?? '—';
     if (k === 'country') return countryName(String(v)) ?? '—';
     if (k === 'kad' || k === 'kad1') return kadNames[Number(v)] ?? `#${v}`;
@@ -130,19 +128,19 @@ export function TraderEditDialog({ trdr, mode, open, onOpenChange, canManage }: 
   React.useEffect(() => {
     if (!data || classRows.length === 0) return;
     let alive = true;
-    const fromSoftone = selectionFromSoftone(classRows, data.values);
+    const fromSoftone = pathFromSoftone(classRows, data.values.trdBusiness);
     fetch(`/api/admin/traders/${trdr}/class`, { cache: 'no-store' })
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => {
         if (!alive) return;
-        const chosen = d && d.status !== 'PROPOSED' && d.leafId ? selectionFromLeaf(classRows, d.leafId, fromSoftone.l1) : fromSoftone;
+        const chosen = d && d.status !== 'PROPOSED' && d.leafId ? pathTo(classRows, d.leafId) : fromSoftone;
         setClassInit(chosen); setClassSel(chosen);
         setClassProposal(d?.proposal?.leafId ? d.proposal : null);
       })
       .catch(() => { if (alive) { setClassInit(fromSoftone); setClassSel(fromSoftone); } });
     return () => { alive = false; };
   }, [data, classRows, trdr]);
-  const classDirty = !sameSelection(classInit, classSel);
+  const classDirty = !samePath(classInit, classSel);
 
   // Οι προτάσεις που διαφέρουν από τη φόρμα προεπιλέγονται.
   React.useEffect(() => {
@@ -177,26 +175,29 @@ export function TraderEditDialog({ trdr, mode, open, onOpenChange, canManage }: 
       for (const k of KEYS) values[k] = form[k] ?? null;
       values.kad = form.kad ?? null; values.kad1 = form.kad1 ?? null;
       values.lat = geoNum(geo.lat); values.lng = geoNum(geo.lng);
-      // Κατηγοριοποίηση: μόνο αν άλλαξε, και μόνο τα επίπεδα που υπάρχουν στο SoftOne.
-      const cls = softoneValues(classRows, classSel);
+      // Εμπορική κατηγορία: μόνο αν άλλαξε, και στο SoftOne ΜΟΝΟ αν το φύλλο υπάρχει ήδη εκεί (softoneId).
+      // Κατηγορίες που δεν έχουν δημιουργηθεί στο SoftOne μένουν στην εφαρμογή — η καρτέλα δεν αγγίζεται.
+      const leaf = leafOf(classRows, classSel);
+      if (classDirty && classSel.length > 0 && leaf == null) { toast.error('Διάλεξε και την υποκατηγορία.'); return; }
+      const cls = softoneValue(classRows, classSel);
       if (classDirty) Object.assign(values, cls.values);
       const r = await fetch(`/api/admin/traders/${trdr}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ values, dryRun }) });
       const d = await r.json().catch(() => null);
       if (!r.ok) { toast.error(d?.message ?? 'Η αποθήκευση απέτυχε.'); return; }
-      const localChange: Change[] = classDirty && cls.pending.length
-        ? [{ key: 'class', label: 'Κατηγοριοποίηση (στην εφαρμογή)', from: selectionLabel(classRows, classInit) || null, to: selectionLabel(classRows, classSel) || null }]
+      const localChange: Change[] = classDirty && !cls.values.trdBusiness
+        ? [{ key: 'class', label: 'Εμπορική κατηγορία (μόνο στην εφαρμογή)', from: pathLabel(classRows, classInit) || null, to: pathLabel(classRows, classSel) || null }]
         : [];
       if (dryRun) { setPreview([...(d.changes ?? []), ...localChange]); return; }
       if (classDirty && data) {
         const saved = await fetch(`/api/admin/traders/${trdr}/class`, {
           method: 'PUT', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ sodtype: data.sodtype, code: data.code, name: s(form.name), afm: s(form.afm) || null, leafId: classSel.l3, applied: classSel.l3 != null && cls.pending.length === 0 }),
+          body: JSON.stringify({ sodtype: data.sodtype, code: data.code, name: s(form.name), afm: s(form.afm) || null, leafId: leaf, applied: !!cls.values.trdBusiness }),
         }).catch(() => null);
         if (!saved?.ok) toast.error('Η κατηγοριοποίηση δεν αποθηκεύτηκε στην εφαρμογή.');
         else setClassInit(classSel);
       }
       if (!d.changes?.length) {
-        if (localChange.length) { toast.success('Η κατηγοριοποίηση αποθηκεύτηκε στην εφαρμογή.'); onOpenChange(false); router.refresh(); }
+        if (localChange.length) { toast.success('Η εμπορική κατηγορία αποθηκεύτηκε στην εφαρμογή (το SoftOne δεν άλλαξε).'); onOpenChange(false); router.refresh(); }
         else toast.info('Καμία αλλαγή.');
         return;
       }
