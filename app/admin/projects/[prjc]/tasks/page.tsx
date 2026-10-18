@@ -11,7 +11,7 @@ import { TasksWorkspace } from './tasks-workspace';
 export const dynamic = 'force-dynamic';
 
 // Εργασίες έργου: Kanban (4 φάσεις), Gantt, λίστα, templates. Δικά μας δεδομένα — όχι SoftOne.
-export default async function ProjectTasksPage({ params }: { params: Promise<{ prjc: string }> }) {
+export default async function ProjectTasksPage({ params, searchParams }: { params: Promise<{ prjc: string }>; searchParams: Promise<{ task?: string }> }) {
   await requirePermission('projects.read');
   const id = Number((await params).prjc);
   if (!Number.isInteger(id)) notFound();
@@ -26,7 +26,7 @@ export default async function ProjectTasksPage({ params }: { params: Promise<{ p
         <FiArrowLeft className="size-3.5" aria-hidden /> {p.code} · {p.name}
       </Link>
       <PageHeader icon={<FiTrello />} title="Εργασίες έργου" description={`${p.code} · ${p.name} · ${data.tasks.length} εργασίες`} helpAnchor="project-tasks" />
-      <TasksWorkspace prjc={p.prjc} tasks={data.tasks} options={options} templates={templates} canManage={canManage} canFiles={canFiles} today={zonedParts(new Date()).date} />
+      <TasksWorkspace prjc={p.prjc} tasks={data.tasks} options={options} templates={templates} canManage={canManage} canFiles={canFiles} today={zonedParts(new Date()).date} openTaskId={(await searchParams).task ?? null} />
     </div>
   );
 }

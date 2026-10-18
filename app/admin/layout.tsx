@@ -41,7 +41,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           {children}
         </main>
       </div>
-      <AdminBottomNav />
+      <AdminBottomNav user={{ name: user.name, email: user.email }} roleName={user.role.name} roleKey={user.role.key ?? null} permissionKeys={permissionKeys} badges={{ orderRequests, appointments }} />
       {canAssistant && <AirJordanLauncher canMemory={canAssistantMemory} />}
     </div>
   );

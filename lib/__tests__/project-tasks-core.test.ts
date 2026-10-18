@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  addWorkdays, applyTemplateItems, buildTemplateItems, calendarSegments, calendarWindow, durationDays, moveOnBoard, phaseOf, progressForPhase,
+  addWorkdays, applyTemplateItems, buildTemplateItems, calendarSegments, calendarWindow, filterAllTasks, groupByProject, isOverdue, durationDays, moveOnBoard, phaseOf, progressForPhase,
   projectProgress, schedule, snapProgress, toWorkday, waitingOn, workdaysBetween, wouldCreateCycle, type TemplateSource,
 } from '@/lib/project-tasks-core';
 
@@ -187,5 +187,43 @@ describe('τμήματα ημερολογίου', () => {
   it('ώρες: 8 ανά ημέρα, υπόλοιπο την τελευταία', () => {
     const s = calendarSegments('2026-10-20', 10, 'HOURS');
     expect(s.map((x) => (x.end.getTime() - x.start.getTime()) / 3_600_000)).toEqual([8, 2]);
+  });
+});
+
+describe('όλες οι εργασίες: φίλτρα & ομάδες', () => {
+  const row = (o: Partial<import('@/lib/project-tasks-core').AllTaskRow>) => ({
+    id: 'x', prjc: 1, projectCode: 'P1', projectName: 'Έργο Α', name: 'Εργασία', progress: 0, durationValue: 1, durationUnit: 'DAYS',
+    start: '2026-10-19', end: '2026-10-19', conflict: false, dependsOn: [], parties: [], ...o,
+  });
+  const rows = [
+    row({ id: 'a', name: 'Αποτύπωση', progress: 100, start: '2026-10-12', end: '2026-10-13' }),
+    row({ id: 'b', name: 'Μελέτη', progress: 50, start: '2026-10-14', end: '2026-10-16', parties: [{ kind: 'EMPLOYEE', ref: 'u1', label: 'Γιάννης' }] }),
+    row({ id: 'c', prjc: 2, projectCode: 'P2', projectName: 'Έργο Β', name: 'Παραγγελία', progress: 25, start: '2026-10-20', end: '2026-10-28', conflict: true }),
+  ];
+  const today = '2026-10-19'; // Δευτέρα
+  const ids = (f: import('@/lib/project-tasks-core').TaskFilter) => filterAllTasks(rows, f, today).map((r) => r.id);
+
+  it('κατάσταση', () => {
+    expect(ids({ status: 'open' })).toEqual(['b', 'c']);
+    expect(ids({ status: 'done' })).toEqual(['a']);
+    expect(ids({ status: 'overdue' })).toEqual(['b']);
+    expect(ids({ status: 'conflict' })).toEqual(['c']);
+    expect(ids({ status: 'week' })).toEqual(['c']);
+    expect(isOverdue({ end: '2026-10-19', progress: 0 }, today)).toBe(false);
+  });
+  it('έργο, φάση, εμπλεκόμενος, διάστημα, αναζήτηση', () => {
+    expect(ids({ prjc: 2 })).toEqual(['c']);
+    expect(ids({ phases: ['IN_PROGRESS'] })).toEqual(['b', 'c']);
+    expect(ids({ party: 'EMPLOYEE:u1' })).toEqual(['b']);
+    expect(ids({ from: '2026-10-16', to: '2026-10-20' })).toEqual(['b', 'c']);
+    expect(ids({ q: 'έργο β' })).toEqual(['c']);
+    expect(ids({ q: 'ΓΙΆΝΝΗΣ' })).toEqual(['b']);
+  });
+  it('ομάδες ανά έργο με εύρος και σταθμισμένη πρόοδο', () => {
+    const g = groupByProject(rows);
+    expect(g.map((x) => [x.prjc, x.start, x.end, x.progress, x.tasks.map((t) => t.id)])).toEqual([
+      [1, '2026-10-12', '2026-10-16', 75, ['a', 'b']],
+      [2, '2026-10-20', '2026-10-28', 25, ['c']],
+    ]);
   });
 });

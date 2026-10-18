@@ -5,8 +5,9 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   FiGrid, FiUsers, FiShield, FiKey, FiImage, FiChevronDown, FiList, FiTag, FiMaximize2, FiTrendingDown, FiShoppingCart,
-  FiActivity, FiSettings, FiFileText, FiLogOut, FiDatabase, FiBriefcase, FiLayers, FiCpu, FiBookOpen, FiBook, FiUserCheck, FiBox, FiTool, FiFolder, FiAlertCircle, FiUserPlus, FiPackage, FiPlayCircle, FiUploadCloud, FiHelpCircle, FiClipboard, FiCalendar, FiTarget,
+  FiActivity, FiSettings, FiFileText, FiLogOut, FiDatabase, FiBriefcase, FiLayers, FiCpu, FiBookOpen, FiBook, FiUserCheck, FiBox, FiTool, FiFolder, FiAlertCircle, FiUserPlus, FiPackage, FiPlayCircle, FiUploadCloud, FiHelpCircle, FiClipboard, FiCalendar, FiTarget, FiCheckSquare, FiMenu, FiX,
 } from 'react-icons/fi';
+import { Dialog as DialogPrimitive } from 'radix-ui';
 import { AirJordanIcon } from '@/components/assistant/air-jordan-icon';
 
 type IconType = React.ComponentType<{ className?: string }>;
@@ -59,6 +60,7 @@ const NAV_GROUPS: NavGroup[] = [
     label: 'Operations',
     items: [
       { href: '/admin/projects', label: 'Έργα', icon: FiBriefcase, permissions: ['projects.read'] },
+      { href: '/admin/tasks', label: 'Εργασίες & Gantt', icon: FiCheckSquare, permissions: ['projects.read'] },
       { href: '/admin/dynamic-offers', label: 'Δυναμικές προσφορές', icon: FiTrendingDown, permissions: ['dynamic_offers.read'] },
       { href: '/admin/order-requests', label: 'Αιτήματα παραγγελίας', icon: FiShoppingCart, permissions: ['order_requests.read'], badgeKey: 'orderRequests' },
       { href: '/admin/appointments', label: 'Ραντεβού atelier', icon: FiCalendar, permissions: ['appointments.read'], badgeKey: 'appointments' },
@@ -390,36 +392,110 @@ export function AdminSidebar({ user, roleName, roleKey, locale, permissionKeys, 
   );
 }
 
-// ---------------- Mobile bottom navigation ----------------
+// ---------------- Mobile: κάτω μπάρα + συρτάρι με ΟΛΟ το μενού ----------------
 
-const MOBILE_NAV: NavItem[] = [
-  { href: '/admin', label: 'Dashboard', icon: FiGrid, exact: true },
-  { href: '/admin/users', label: 'Χρήστες', icon: FiUsers },
-  { href: '/admin/roles', label: 'Ρόλοι', icon: FiShield },
-  { href: '/admin/permissions', label: 'Δικαιώματα', icon: FiKey },
-  { href: '/admin/settings', label: 'Ρυθμίσεις', icon: FiSettings },
+/**
+ * Κάτω από 1024px το πλαϊνό μενού κρύβεται. Η κάτω μπάρα έχει έως 4 συντομεύσεις (όσες επιτρέπουν
+ * τα δικαιώματα) και το «Μενού», που ανοίγει συρτάρι με όλες τις ομάδες — ίδια λίστα με το sidebar.
+ */
+const MOBILE_SHORTCUTS: NavItem[] = [
+  { href: '/admin', label: 'Αρχική', icon: FiGrid, exact: true },
+  { href: '/admin/projects', label: 'Έργα', icon: FiBriefcase, permissions: ['projects.read'] },
+  { href: '/admin/tasks', label: 'Εργασίες', icon: FiCheckSquare, permissions: ['projects.read'] },
+  { href: '/admin/appointments', label: 'Ραντεβού', icon: FiCalendar, permissions: ['appointments.read'], badgeKey: 'appointments' },
+  { href: '/admin/ocr', label: 'OCR', icon: FiCpu, permissions: ['ocr.read'], exact: true },
+  { href: '/admin/users', label: 'Χρήστες', icon: FiUsers, permissions: ['users.read'] },
+  { href: '/admin/settings', label: 'Ρυθμίσεις', icon: FiSettings, permissions: ['system.settings'] },
 ];
 
-export function AdminBottomNav() {
+export function AdminBottomNav({ permissionKeys, roleKey, roleName, user, badges = {} }: Pick<Props, 'permissionKeys' | 'roleKey' | 'roleName' | 'user' | 'badges'>) {
   const path = usePathname();
+  const [open, setOpen] = React.useState(false);
+  React.useEffect(() => { setOpen(false); }, [path]);
+  const allowed = (it: NavItem) => (!it.permissions || it.permissions.length === 0 || it.permissions.some((p) => permissionKeys.includes(p)))
+    && (!it.requireRoleKey || it.requireRoleKey === roleKey) && (!it.roleKeys || (!!roleKey && it.roleKeys.includes(roleKey)));
+  const isActive = (it: NavItem) => (it.exact ? path === it.href : path === it.href || path.startsWith(`${it.href}/`));
+  const shortcuts = MOBILE_SHORTCUTS.filter(allowed).slice(0, 4);
+  const inShortcut = shortcuts.some(isActive);
+
+  const tab = (active: boolean) => cn(
+    'relative flex min-h-11 flex-col items-center justify-center gap-0.5 px-1 text-[length:var(--fs-10)] font-medium cx-transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+    active ? 'text-primary' : 'text-muted-foreground hover:text-foreground',
+  );
+
   return (
-    <nav className="fixed bottom-0 inset-x-0 z-30 lg:hidden h-[calc(4rem+env(safe-area-inset-bottom))] pt-1 pb-[env(safe-area-inset-bottom)] border-t border-border bg-sidebar/95 backdrop-blur grid grid-cols-5">
-      {MOBILE_NAV.map((item) => {
-        const active = item.exact ? path === item.href : (path === item.href || path.startsWith(`${item.href}/`));
-        return (
-          <Link
-            key={item.href}
-            href={item.href}
-            className={cn(
-              'flex flex-col items-center justify-center gap-0.5 px-1 text-[length:var(--fs-10)] font-medium cx-transition',
-              active ? 'text-primary' : 'text-muted-foreground hover:text-foreground',
-            )}
-          >
-            <item.icon className="size-4" />
-            <span className="truncate w-full text-center">{item.label}</span>
-          </Link>
-        );
-      })}
-    </nav>
+    <>
+      <nav aria-label="Κύρια πλοήγηση" className="fixed inset-x-0 bottom-0 z-30 grid h-[calc(4rem+env(safe-area-inset-bottom))] border-t border-border bg-sidebar pb-[env(safe-area-inset-bottom)] pt-1 lg:hidden"
+        style={{ gridTemplateColumns: `repeat(${shortcuts.length + 1}, minmax(0, 1fr))` }}>
+        {shortcuts.map((item) => {
+          const badge = item.badgeKey ? badges[item.badgeKey] : undefined;
+          return (
+            <Link key={item.href} href={item.href} aria-current={isActive(item) ? 'page' : undefined} className={tab(isActive(item))}>
+              <item.icon className="size-4" />
+              <span className="w-full truncate text-center">{item.label}</span>
+              {badge !== undefined && badge > 0 && <span className="absolute right-[calc(50%-1.1rem)] top-1 size-2 rounded-full bg-[var(--cx-accent)]" aria-label={`${badge} σε αναμονή`} />}
+            </Link>
+          );
+        })}
+        <button type="button" onClick={() => setOpen(true)} aria-haspopup="dialog" aria-expanded={open} className={tab(!inShortcut && path !== '/admin')}>
+          <FiMenu className="size-4" />
+          <span>Μενού</span>
+        </button>
+      </nav>
+
+      <DialogPrimitive.Root open={open} onOpenChange={setOpen}>
+        <DialogPrimitive.Portal>
+          <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/50 lg:hidden data-[state=open]:animate-in data-[state=open]:fade-in-0" />
+          <DialogPrimitive.Content className="fixed inset-y-0 left-0 z-50 flex w-[min(20rem,88vw)] flex-col border-r border-sidebar-border bg-sidebar shadow-xl outline-none lg:hidden data-[state=open]:animate-in data-[state=open]:slide-in-from-left">
+            <div className="flex h-14 shrink-0 items-center gap-2 border-b border-sidebar-border px-4 pt-[env(safe-area-inset-top)]">
+              <img src={BRAND_LOGO_URL} alt="DGsoft" className="h-7 w-auto" />
+              <DialogPrimitive.Title className="sr-only">Μενού διαχείρισης</DialogPrimitive.Title>
+              <DialogPrimitive.Description className="sr-only">Όλες οι ενότητες της διαχείρισης</DialogPrimitive.Description>
+              <DialogPrimitive.Close className="ml-auto grid size-11 place-items-center rounded-md text-muted-foreground hover:bg-[var(--cx-hover)] hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" aria-label="Κλείσιμο μενού">
+                <FiX className="size-5" />
+              </DialogPrimitive.Close>
+            </div>
+            {/* Στο κινητό το συρτάρι ΚΥΛΑΕΙ: όλες οι ομάδες ανοιχτές, χωρίς κρυφούς προορισμούς. */}
+            <nav aria-label="Όλες οι ενότητες" className="flex-1 overflow-y-auto overscroll-contain px-2 py-3">
+              {NAV_GROUPS.map((group) => {
+                const visible = group.items.filter(allowed);
+                if (!visible.length) return null;
+                return (
+                  <div key={group.label} className="mb-3">
+                    <p className="cx-eyebrow px-2 pb-1">{group.label}</p>
+                    <ul>
+                      {visible.map((item) => {
+                        const active = isActive(item);
+                        const badge = item.badgeKey ? badges[item.badgeKey] : undefined;
+                        return (
+                          <li key={item.href}>
+                            <Link href={item.href} aria-current={active ? 'page' : undefined}
+                              className={cn('flex min-h-11 items-center gap-3 rounded-md px-2 text-[length:var(--fs-14)] font-medium cx-transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                                active ? 'bg-[var(--cx-accent-soft)] text-foreground' : 'text-muted-foreground hover:bg-[var(--cx-hover)] hover:text-foreground')}>
+                              <item.icon className={cn('size-4', active ? 'text-[var(--cx-accent)]' : '')} />
+                              <span className="flex-1 truncate">{item.label}</span>
+                              {badge !== undefined && badge > 0 && <span className="min-w-[20px] rounded-full px-1.5 text-center text-[length:var(--fs-11)] tabular-nums ring-1 ring-inset ring-border">{badge > 99 ? '99+' : badge}</span>}
+                            </Link>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </div>
+                );
+              })}
+            </nav>
+            <div className="flex shrink-0 items-center gap-2.5 border-t border-sidebar-border px-4 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-[length:var(--fs-13)] font-medium text-foreground">{user.name ?? user.email ?? 'User'}</p>
+                <p className="truncate text-[length:var(--fs-11)] uppercase tracking-wide text-muted-foreground">{roleName.toLowerCase()}</p>
+              </div>
+              <Link href="/api/auth/signout" className="inline-flex min-h-11 items-center gap-1.5 rounded-md px-3 text-[length:var(--fs-13)] font-medium text-muted-foreground hover:bg-[var(--cx-hover)] hover:text-foreground">
+                <FiLogOut className="size-4" /> Αποσύνδεση
+              </Link>
+            </div>
+          </DialogPrimitive.Content>
+        </DialogPrimitive.Portal>
+      </DialogPrimitive.Root>
+    </>
   );
 }

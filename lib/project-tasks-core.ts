@@ -305,3 +305,78 @@ export const partyKindLabel = (k: string) => PARTY_KINDS.find((p) => p.key === k
 
 /** «YYYY-MM-DD» από Date @db.Date (UTC μεσάνυχτα). */
 export const dateOnly = (d: Date | null | undefined) => (d ? d.toISOString().slice(0, 10) : null);
+
+// ── Όλες οι εργασίες (σελίδα Operations → Εργασίες): φίλτρα & ομαδοποίηση ανά έργο ──────────────
+export type AllTaskRow = {
+  id: string; prjc: number; projectCode: string; projectName: string; name: string;
+  progress: number; durationValue: number; durationUnit: string;
+  start: string; end: string; conflict: boolean; dependsOn: string[];
+  parties: { kind: string; ref: string; label: string }[];
+};
+
+export const STATUS_FILTERS = [
+  { key: 'open', label: 'Ανοιχτές' },
+  { key: 'overdue', label: 'Εκπρόθεσμες' },
+  { key: 'conflict', label: 'Με σύγκρουση' },
+  { key: 'week', label: 'Αυτή την εβδομάδα' },
+  { key: 'done', label: 'Ολοκληρωμένες' },
+  { key: 'all', label: 'Όλες' },
+] as const;
+export type StatusFilter = (typeof STATUS_FILTERS)[number]['key'];
+
+export type TaskFilter = {
+  q?: string;
+  prjc?: number | null;
+  phases?: PhaseKey[];
+  /** «KIND:ref», π.χ. «EMPLOYEE:cuid» */
+  party?: string | null;
+  status?: StatusFilter;
+  /** Διάστημα: κρατά όσες τέμνουν [from, to] */
+  from?: string | null;
+  to?: string | null;
+};
+
+/** Εκπρόθεσμη: το προγραμματισμένο τέλος πέρασε και δεν έχει ολοκληρωθεί. */
+export const isOverdue = (t: { end: string; progress: number }, today: string) => t.progress < 100 && t.end < today;
+
+export function filterAllTasks<T extends AllTaskRow>(rows: T[], f: TaskFilter, today: string): T[] {
+  const q = f.q?.trim().toLocaleLowerCase('el') ?? '';
+  const weekEnd = addDays(today, 6 - ((new Date(`${today}T00:00:00Z`).getUTCDay() + 6) % 7));
+  const weekStart = addDays(weekEnd, -6);
+  return rows.filter((t) => {
+    if (f.prjc != null && t.prjc !== f.prjc) return false;
+    if (f.phases?.length && !f.phases.includes(phaseOf(t.progress))) return false;
+    if (f.party && !t.parties.some((p) => `${p.kind}:${p.ref}` === f.party)) return false;
+    if (f.from && t.end < f.from) return false;
+    if (f.to && t.start > f.to) return false;
+    switch (f.status ?? 'all') {
+      case 'open': if (t.progress === 100) return false; break;
+      case 'done': if (t.progress !== 100) return false; break;
+      case 'overdue': if (!isOverdue(t, today)) return false; break;
+      case 'conflict': if (!t.conflict) return false; break;
+      case 'week': if (t.end < weekStart || t.start > weekEnd) return false; break;
+      default: break;
+    }
+    if (q && !`${t.name} ${t.projectCode} ${t.projectName} ${t.parties.map((p) => p.label).join(' ')}`.toLocaleLowerCase('el').includes(q)) return false;
+    return true;
+  });
+}
+
+export type ProjectGroup<T extends AllTaskRow> = {
+  prjc: number; code: string; name: string; start: string; end: string; progress: number; tasks: T[];
+};
+
+/** Ομάδες ανά έργο (σειρά: νωρίτερη έναρξη), εργασίες ανά έναρξη· πρόοδος σταθμισμένη με διάρκεια. */
+export function groupByProject<T extends AllTaskRow>(rows: T[]): ProjectGroup<T>[] {
+  const by = new Map<number, T[]>();
+  for (const r of rows) by.set(r.prjc, [...(by.get(r.prjc) ?? []), r]);
+  return [...by.values()].map((ts) => {
+    const tasks = [...ts].sort((a, b) => a.start.localeCompare(b.start) || a.name.localeCompare(b.name, 'el'));
+    return {
+      prjc: tasks[0].prjc, code: tasks[0].projectCode, name: tasks[0].projectName,
+      start: tasks.reduce((m, t) => (t.start < m ? t.start : m), tasks[0].start),
+      end: tasks.reduce((m, t) => (t.end > m ? t.end : m), tasks[0].end),
+      progress: projectProgress(tasks), tasks,
+    };
+  }).sort((a, b) => a.start.localeCompare(b.start) || a.code.localeCompare(b.code));
+}

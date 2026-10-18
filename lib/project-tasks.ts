@@ -98,8 +98,10 @@ async function partyLabels(rows: { kind: string; userId: string | null; partnerI
   };
 }
 
-async function toViews(rows: TaskRow[], start: string, scheduleOver?: TaskRow[]): Promise<TaskView[]> {
-  const label = await partyLabels(rows.flatMap((r) => r.parties));
+type LabelFn = Awaited<ReturnType<typeof partyLabels>>;
+
+async function toViews(rows: TaskRow[], start: string, scheduleOver?: TaskRow[], labels?: LabelFn): Promise<TaskView[]> {
+  const label = labels ?? await partyLabels(rows.flatMap((r) => r.parties));
   const basis = scheduleOver ?? rows;
   const sched = schedule(basis.map((r) => ({ id: r.id, startDate: dateOnly(r.startDate), durationValue: r.durationValue, durationUnit: r.durationUnit, dependsOn: r.dependsOn.map((d) => d.dependsOnId) })), start);
   return rows.map((r) => ({
@@ -117,6 +119,34 @@ export async function listTasks(prjc: number) {
   const [rows, start] = await Promise.all([loadRows({ prjc }), projectStart(prjc)]);
   const tasks = await toViews(rows, start);
   return { tasks, projectStart: start, progress: projectProgress(tasks) };
+}
+
+export type AllTaskView = TaskView & { projectCode: string; projectName: string; projectActive: boolean; start: string; end: string; conflict: boolean };
+
+/**
+ * Όλες οι εργασίες όλων των έργων (σελίδα Operations → Εργασίες). Μόνο η βάση της εφαρμογής —
+ * κανένα ζωντανό SoftOne· ένα query για εργασίες, ένα για έργα, ένα ανά είδος εμπλεκομένου.
+ */
+export async function listAllTasks(): Promise<AllTaskView[]> {
+  const rows = await loadRows({});
+  if (!rows.length) return [];
+  const prjcs = [...new Set(rows.map((r) => r.prjc))];
+  const [projects, label] = await Promise.all([
+    prisma.softoneProject.findMany({ where: { prjc: { in: prjcs } }, select: { prjc: true, code: true, name: true, fromDate: true, isActive: true } }),
+    partyLabels(rows.flatMap((r) => r.parties)),
+  ]);
+  const pm = new Map(projects.map((p) => [p.prjc, p]));
+  const today = todayAthens();
+  const out: AllTaskView[] = [];
+  for (const prjc of prjcs) {
+    const group = rows.filter((r) => r.prjc === prjc);
+    const p = pm.get(prjc);
+    const views = await toViews(group, dateOnly(p?.fromDate) ?? today, undefined, label);
+    for (const v of views) {
+      out.push({ ...v, projectCode: p?.code ?? String(prjc), projectName: p?.name ?? `Έργο ${prjc}`, projectActive: p?.isActive ?? false, start: v.sched.start, end: v.sched.end, conflict: v.sched.conflict });
+    }
+  }
+  return out;
 }
 
 async function getTaskRow(prjc: number, id: string) {

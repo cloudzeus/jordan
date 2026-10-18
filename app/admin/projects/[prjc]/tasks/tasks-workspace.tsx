@@ -27,8 +27,10 @@ async function api(url: string, init: RequestInit) {
   return body;
 }
 
-export function TasksWorkspace({ prjc, tasks: initial, options, templates, canManage, canFiles, today }: {
+export function TasksWorkspace({ prjc, tasks: initial, options, templates, canManage, canFiles, today, openTaskId = null }: {
   prjc: number; tasks: TaskView[]; options: PartyOption[]; templates: TemplateView[]; canManage: boolean; canFiles: boolean; today: string;
+  /** `?task=` από τη σελίδα «Όλες οι εργασίες»: ανοίγει κατευθείαν η φόρμα της. */
+  openTaskId?: string | null;
 }) {
   const router = useRouter();
   const refresh = () => router.refresh();
@@ -40,6 +42,10 @@ export function TasksWorkspace({ prjc, tasks: initial, options, templates, canMa
   const changeView = (v: string) => { setView(v); try { localStorage.setItem(VIEW_KEY, v); } catch { /* */ } };
 
   const [editing, setEditing] = React.useState<{ open: boolean; task: TaskView | null; progress: number }>({ open: false, task: null, progress: 0 });
+  React.useEffect(() => {
+    const t = openTaskId ? initial.find((x) => x.id === openTaskId) : null;
+    if (t && canManage) setEditing({ open: true, task: t, progress: 0 });
+  }, [openTaskId]); // eslint-disable-line react-hooks/exhaustive-deps
   const [saveTpl, setSaveTpl] = React.useState(false);
   const [applyTpl, setApplyTpl] = React.useState(false);
 

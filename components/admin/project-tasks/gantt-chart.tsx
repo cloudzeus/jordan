@@ -1,7 +1,8 @@
 'use client';
 
 import * as React from 'react';
-import { FiAlertTriangle } from 'react-icons/fi';
+import Link from 'next/link';
+import { FiAlertTriangle, FiChevronDown, FiChevronRight } from 'react-icons/fi';
 import { addDays } from '@/lib/appointments-core';
 import { isWorkday, phaseMeta, type PhaseKey } from '@/lib/project-tasks-core';
 import { cn } from '@/lib/utils';
@@ -9,6 +10,10 @@ import { cn } from '@/lib/utils';
 export type GanttRow = {
   id: string; name: string; start: string; end: string; progress: number; phase: PhaseKey;
   dependsOn?: string[]; conflict?: boolean; sub?: string | null;
+  /** Γραμμή-ομάδα (έργο): συνοπτική μπάρα, αναδίπλωση με onToggle. */
+  group?: { collapsed: boolean; href?: string; count: number };
+  /** Εργασία μέσα σε ομάδα (εσοχή στο όνομα). */
+  nested?: boolean;
 };
 
 const ROW_H = 40;
@@ -25,8 +30,8 @@ const fmtRange = (s: string, e: string) => (s === e ? fmt(s, { day: 'numeric', m
  * Μπάρα = διάρκεια (με γέμισμα = ποσοστό), βέλη = εξαρτήσεις, γραμμή = σήμερα, γκρι = Σαββατοκύριακα.
  * Για αναγνώστες οθόνης κάθε μπάρα έχει πλήρη περιγραφή· ο πίνακας «Λίστα» είναι η εναλλακτική.
  */
-export function GanttChart({ rows, today, onSelect, showArrows = true, className }: {
-  rows: GanttRow[]; today: string; onSelect?: (id: string) => void; showArrows?: boolean; className?: string;
+export function GanttChart({ rows, today, onSelect, onToggle, showArrows = true, className, label = 'Εργασία' }: {
+  rows: GanttRow[]; today: string; onSelect?: (id: string) => void; onToggle?: (id: string) => void; showArrows?: boolean; className?: string; label?: string;
 }) {
   const [zoom, setZoom] = React.useState<Zoom>('day');
   const scroller = React.useRef<HTMLDivElement>(null);
@@ -94,9 +99,20 @@ export function GanttChart({ rows, today, onSelect, showArrows = true, className
       <div className="flex">
         {/* Ονόματα — σταθερά αριστερά */}
         <div className="w-36 shrink-0 border-r border-border sm:w-56">
-          <div className="flex items-end border-b border-border px-3 pb-1.5 text-[length:var(--fs-11)] font-medium uppercase tracking-wide text-muted-foreground" style={{ height: HEAD_H }}>Εργασία</div>
-          {rows.map((r) => (
-            <div key={r.id} className="flex flex-col justify-center border-b border-border px-3" style={{ height: ROW_H }}>
+          <div className="flex items-end border-b border-border px-3 pb-1.5 text-[length:var(--fs-11)] font-medium uppercase tracking-wide text-muted-foreground" style={{ height: HEAD_H }}>{label}</div>
+          {rows.map((r) => r.group ? (
+            <div key={r.id} className="flex items-center gap-1 border-b border-border bg-muted px-1.5" style={{ height: ROW_H }}>
+              <button type="button" onClick={() => onToggle?.(r.id)} aria-expanded={!r.group.collapsed} aria-label={`${r.group.collapsed ? 'Ανάπτυξη' : 'Σύμπτυξη'} ${r.name}`}
+                className="inline-flex size-8 shrink-0 cursor-pointer items-center justify-center rounded text-muted-foreground hover:bg-background hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                {r.group.collapsed ? <FiChevronRight className="size-4" /> : <FiChevronDown className="size-4" />}
+              </button>
+              <span className="flex min-w-0 flex-col">
+                {r.group.href ? <Link href={r.group.href} className="truncate text-[length:var(--fs-12)] font-semibold hover:underline">{r.name}</Link> : <span className="truncate text-[length:var(--fs-12)] font-semibold">{r.name}</span>}
+                <span className="truncate text-[length:var(--fs-10)] tabular-nums text-muted-foreground">{r.group.count} εργασίες · {r.progress}%{r.sub ? ` · ${r.sub}` : ''}</span>
+              </span>
+            </div>
+          ) : (
+            <div key={r.id} className={cn('flex flex-col justify-center border-b border-border pr-3', r.nested ? 'pl-10' : 'pl-3')} style={{ height: ROW_H }}>
               {onSelect ? (
                 <button type="button" onClick={() => onSelect(r.id)} className="cursor-pointer truncate text-left text-[length:var(--fs-12)] font-medium hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">{r.name}</button>
               ) : <span className="truncate text-[length:var(--fs-12)] font-medium">{r.name}</span>}
@@ -155,9 +171,21 @@ export function GanttChart({ rows, today, onSelect, showArrows = true, className
             )}
 
             {/* Μπάρες */}
+            {rows.map((r, i) => r.group && (
+              <div key={`bg-${r.id}`} className="absolute inset-x-0 bg-muted opacity-60" style={{ top: HEAD_H + i * ROW_H, height: ROW_H - 1 }} aria-hidden />
+            ))}
             {rows.map((r, i) => {
               const left = xOf(r.start) + 2;
               const w = Math.max(px - 4, (daysBetween(r.start, r.end) + 1) * px - 4);
+              if (r.group) {
+                // συνοπτική μπάρα έργου: εύρος όλων των εργασιών, γέμισμα = πρόοδος
+                return (
+                  <div key={r.id} role="img" aria-label={`${r.name}: ${fmtRange(r.start, r.end)}, ${r.progress}%`} title={`${r.name}: ${fmtRange(r.start, r.end)} · ${r.progress}%`}
+                    className="absolute overflow-hidden rounded-sm bg-foreground opacity-80" style={{ left, width: w, top: HEAD_H + i * ROW_H + ROW_H / 2 - 4, height: 8 }}>
+                    <span className="absolute inset-y-0 left-0 bg-primary" style={{ width: `${r.progress}%` }} />
+                  </div>
+                );
+              }
               const color = phaseMeta(r.phase).color;
               const label = `${r.name}: ${fmtRange(r.start, r.end)}, ${phaseMeta(r.phase).label}, ${r.progress}%${r.conflict ? ', ξεκινά πριν ολοκληρωθεί προαπαιτούμενη εργασία' : ''}`;
               const Tag = onSelect ? 'button' : 'div';
