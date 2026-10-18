@@ -9,6 +9,7 @@ import {
 } from 'react-icons/fi';
 import { formatCoords, validCoords } from '@/lib/coords';
 import { TraderPointMap } from '@/components/admin/trader-point-map';
+import { ExpandableDocRow } from '@/components/admin/document-expand';
 import { cn } from '@/lib/utils';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { TraderDocsPanel } from '@/components/admin/trader-docs-panel';
@@ -204,6 +205,7 @@ function LedgerTab({ data }: { data: TraderActivity }) {
           <table className="w-full border-collapse">
             <thead className="border-b border-border bg-muted/40">
               <tr>
+                <th scope="col" className="w-7"><span className="sr-only">Στοιχεία</span></th>
                 <th scope="col" className={TH}>Ημ/νία</th>
                 <th scope="col" className={TH}>Παραστατικό</th>
                 <th scope="col" className={cn(TH, 'hidden lg:table-cell')}>Έργο</th>
@@ -214,7 +216,7 @@ function LedgerTab({ data }: { data: TraderActivity }) {
             </thead>
             <tbody>
               {rows.map((d, i) => (
-                <tr key={`${d.findoc}-${i}`} className="border-t border-border/60 transition-colors duration-150 hover:bg-muted/30">
+                <ExpandableDocRow key={`${d.findoc}-${i}`} findoc={d.findoc} fincode={d.fincode} colSpan={7} className="border-t border-border/60 transition-colors duration-150 hover:bg-muted/30">
                   <td className={cn(TD, 'tabular-nums whitespace-nowrap')} style={{ boxShadow: `inset 3px 0 0 ${DOC_TONE[d.kind] ?? '#475569'}` }}>{fmtDate(d.date)}</td>
                   <td className={TD}>
                     <span className="font-mono font-medium text-foreground">{d.fincode}</span>
@@ -229,7 +231,7 @@ function LedgerTab({ data }: { data: TraderActivity }) {
                   <td className={cn(TD, NUM)}>{d.side === 'D' ? eur.format(d.amount) : ''}</td>
                   <td className={cn(TD, NUM)}>{d.side === 'C' ? eur.format(d.amount) : ''}</td>
                   <td className={cn(TD, NUM, 'hidden font-medium sm:table-cell', (d.balance ?? 0) < 0 ? 'text-sky-700 dark:text-sky-400' : 'text-foreground')}>{d.balance != null ? eur.format(d.balance) : ''}</td>
-                </tr>
+                </ExpandableDocRow>
               ))}
             </tbody>
           </table>
@@ -306,6 +308,7 @@ function OrdersTab({ data }: { data: TraderActivity }) {
           <table className="w-full border-collapse">
             <thead className="border-b border-border bg-muted/40">
               <tr>
+                <th scope="col" className="w-7"><span className="sr-only">Στοιχεία</span></th>
                 <th scope="col" className={TH}>Ημ/νία</th>
                 <th scope="col" className={TH}>Παραστατικό</th>
                 <th scope="col" className={cn(TH, 'hidden md:table-cell')}>Έργο</th>
@@ -314,7 +317,7 @@ function OrdersTab({ data }: { data: TraderActivity }) {
             </thead>
             <tbody>
               {rows.map((d, i) => (
-                <tr key={`${d.findoc}-${i}`} className="border-t border-border/60 transition-colors duration-150 hover:bg-muted/30">
+                <ExpandableDocRow key={`${d.findoc}-${i}`} findoc={d.findoc} fincode={d.fincode} colSpan={5} className="border-t border-border/60 transition-colors duration-150 hover:bg-muted/30">
                   <td className={cn(TD, 'tabular-nums whitespace-nowrap')}>{fmtDate(d.date)}</td>
                   <td className={TD}>
                     <span className="font-mono font-medium text-foreground">{d.fincode}</span>
@@ -324,7 +327,7 @@ function OrdersTab({ data }: { data: TraderActivity }) {
                     {d.prjc ? <Link href={`/admin/projects/${d.prjc}`} className="text-primary hover:underline">{d.project}</Link> : <span className="text-muted-foreground/50">—</span>}
                   </td>
                   <td className={cn(TD, NUM, 'font-semibold text-foreground')}>{eur.format(d.amount)}</td>
-                </tr>
+                </ExpandableDocRow>
               ))}
             </tbody>
           </table>

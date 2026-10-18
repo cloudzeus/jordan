@@ -4,6 +4,7 @@ import { COST_CATEGORIES, COST_CATEGORY_LABEL, type DocRef, type ProjectProfit }
 import type { DataIssue } from '@/lib/project-profit/issues';
 import { IssueLinks } from '../financials-actions';
 import { DocRowActions } from './doc-row-actions';
+import { ExpandableDocRow } from '@/components/admin/document-expand';
 
 const eur = new Intl.NumberFormat('el-GR', { style: 'currency', currency: 'EUR' });
 const pct = (n: number | null) => (n == null ? '—' : `${n.toLocaleString('el-GR', { maximumFractionDigits: 1 })}%`);
@@ -41,6 +42,7 @@ function DocsTable({ docs, gross }: { docs: DocRef[]; gross?: boolean }) {
       <table className="w-full text-[length:var(--fs-12)]">
         <thead className="text-left text-muted-foreground">
           <tr>
+            <th className="w-7 py-1"><span className="sr-only">Στοιχεία</span></th>
             <th className="py-1 pr-3 font-medium">Παραστατικό</th>
             <th className="py-1 pr-3 font-medium">Ημ/νία</th>
             <th className="py-1 pr-3 font-medium">Σειρά</th>
@@ -52,7 +54,7 @@ function DocsTable({ docs, gross }: { docs: DocRef[]; gross?: boolean }) {
         </thead>
         <tbody>
           {docs.map((d) => (
-            <tr key={d.findoc} className="border-t border-border align-top">
+            <ExpandableDocRow key={d.findoc} findoc={d.findoc} fincode={d.fincode} colSpan={gross ? 7 : 8} className="border-t border-border align-top">
               <td className="py-1 pr-3">
                 <span className="font-mono text-foreground">{d.fincode}</span>
                 <span className="ml-1.5 font-mono text-[length:var(--fs-11)] text-muted-foreground">#{d.findoc}</span>
@@ -67,7 +69,7 @@ function DocsTable({ docs, gross }: { docs: DocRef[]; gross?: boolean }) {
               <td className="py-0.5 pl-1 text-right">
                 <DocRowActions findoc={d.findoc} fincode={d.fincode} mark={d.mark ?? null} qrUrl={d.qrUrl ?? null} providerPdf={!!d.providerPdf} />
               </td>
-            </tr>
+            </ExpandableDocRow>
           ))}
         </tbody>
       </table>

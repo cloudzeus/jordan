@@ -9,6 +9,7 @@ import { toast } from 'sonner';
 import { confirmAction } from '@/components/ui/confirm-dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
+import { ExpandableDocRow } from '@/components/admin/document-expand';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import type { ProjectActivity, ProjectDoc, ProjectMaterial } from '@/lib/project-activity';
 import type { BudgetLine } from '@/lib/project-budget';
@@ -215,6 +216,7 @@ function DocsTable({ rows }: { rows: ProjectDoc[] }) {
       <table className="w-full border-collapse">
         <thead className="border-b border-border bg-muted/40">
           <tr>
+            <th scope="col" className="w-7"><span className="sr-only">Στοιχεία</span></th>
             <th scope="col" className={TH}>Ημ/νία</th>
             <th scope="col" className={TH}>Παραστατικό</th>
             <th scope="col" className={cn(TH, 'hidden md:table-cell')}>Ενότητα</th>
@@ -228,8 +230,8 @@ function DocsTable({ rows }: { rows: ProjectDoc[] }) {
           {rows.map((d) => {
             const t = toneOf(d.sosource);
             return (
-              <tr
-                key={d.findoc}
+              <ExpandableDocRow
+                key={d.findoc} findoc={d.findoc} fincode={d.fincode} colSpan={8}
                 className={cn('border-t border-border/60 transition-colors duration-150 hover:bg-muted/30', (d.cancelled || !d.counts) && 'text-muted-foreground')}
               >
                 <td className={cn(TD, 'tabular-nums whitespace-nowrap')} style={{ boxShadow: `inset 3px 0 0 ${t.fg}` }}>{fmtDate(d.date)}</td>
@@ -259,7 +261,7 @@ function DocsTable({ rows }: { rows: ProjectDoc[] }) {
                 <td className={cn(TD, NUM, 'hidden xl:table-cell')}>{eur.format(d.net)}</td>
                 <td className={cn(TD, NUM, 'hidden text-muted-foreground xl:table-cell')}>{eur.format(d.vat)}</td>
                 <td className={cn(TD, NUM, 'font-semibold', !d.cancelled && d.counts && 'text-foreground')}>{eur.format(d.total)}</td>
-              </tr>
+              </ExpandableDocRow>
             );
           })}
         </tbody>
