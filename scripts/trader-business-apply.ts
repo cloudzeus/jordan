@@ -86,13 +86,16 @@ async function createAll() {
   console.log(`TRDBUSINESS στο SoftOne: ${before.length} → ${after.length} γραμμές`);
 }
 
-/** Η καρτέλα όπως τη δίνει το getData — για σύγκριση όλων των πεδίων πριν/μετά. */
-async function readCard(object: string, trdr: number): Promise<Record<string, Record<string, unknown>[]>> {
-  const res = await softoneCall<S1>('getData', { OBJECT: object, KEY: String(trdr) });
-  if (res.success === false || !res.data) fail(`getData ${object} ${trdr}: ${res.error ?? 'κενό'}`);
-  return res.data;
+/** Η καρτέλα όπως τη δίνει το getData — για σύγκριση όλων των πεδίων πριν/μετά. Παροδικά «No data» του
+ *  SoftOne (όταν απαντά αργά) ξαναδοκιμάζονται· `null` = δεν διαβάστηκε ούτε μετά τις επαναλήψεις. */
+async function readCard(object: string, trdr: number, tries = 3): Promise<Record<string, Record<string, unknown>[]> | null> {
+  for (let i = 0; i < tries; i++) {
+    const res = await softoneCall<S1>('getData', { OBJECT: object, KEY: String(trdr) }).catch(() => null);
+    if (res && res.success !== false && res.data?.[object]?.length) return res.data;
+    await sleep(2000 * (i + 1));
+  }
+  return null;
 }
-// LOCKID: μετρητής εκδόσεων του SoftOne — ανεβαίνει σε κάθε αποθήκευση καρτέλας (όπως και από την οθόνη).
 /** Τιμή επιλογέα από το getData: «5|Πλακίδια & πέτρα» → «5». */
 const keyOf = (v: unknown) => String(v ?? '').split('|')[0].trim();
 const IGNORE = new Set(['UPDDATE', 'UPDUSER', 'INSDATE', 'INSUSER', 'TRDBUSINESS', 'LOCKID']);
@@ -126,11 +129,14 @@ async function assignAll() {
     const target = String(a.leaf!.softoneId);
     if (!ASSIGN) { console.log(`  · ${a.code} ${a.name} → ${a.leaf!.sohCode} ${a.leaf!.name}`); done++; continue; }
     const before = await readCard(object, a.trdr);
+    // Δεν διαβάστηκε ΠΡΙΝ την εγγραφή: τίποτα δεν γράφτηκε — παραλείπεται (ξανατρέχει στην επόμενη εκτέλεση).
+    if (!before) { console.log(`  ⤳ ${a.code} η καρτέλα δεν διαβάστηκε από το SoftOne — παραλείπεται χωρίς εγγραφή`); skipped++; continue; }
     const cur = keyOf(before[object]?.[0]?.TRDBUSINESS);
     if (cur && cur !== target) { console.log(`  ⤳ ${a.code} έχει ήδη άλλη εμπορική κατηγορία (${cur}) — παραλείπεται`); skipped++; continue; }
     const res = await updateTrader(a.trdr, { trdBusiness: target });
     if (res.unapplied.length) fail(`${a.code}: το SoftOne δεν κράτησε την εμπορική κατηγορία`);
     const after = await readCard(object, a.trdr);
+    if (!after) fail(`${a.code}: η καρτέλα δεν διαβάστηκε ΜΕΤΑ την εγγραφή — έλεγξέ την στο SoftOne`);
     const changed = diffCards(before, after);
     if (changed.length) fail(`${a.code} ${a.name}: άλλαξαν και άλλα πεδία → ${changed.join(' · ')}`);
     if (keyOf(after[object]?.[0]?.TRDBUSINESS) !== target) fail(`${a.code}: η νέα ανάγνωση δεν δείχνει την κατηγορία ${target}`);
