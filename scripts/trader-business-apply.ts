@@ -143,7 +143,7 @@ async function assignAll() {
     await prisma.traderClassAssignment.update({ where: { trdr: a.trdr }, data: { status: 'APPLIED', appliedAt: new Date() } });
     done++;
     console.log(`  ✓ ${a.code} ${a.name} → ${a.leaf!.sohCode} ${a.leaf!.name}`);
-    await sleep(200);
+    await sleep(500); // παύση ανάμεσα στους συναλλασσόμενους — λιγότερο φορτίο στο SoftOne
   }
   console.log(`ανατέθηκαν: ${done}${skipped ? ` · παραλείφθηκαν: ${skipped}` : ''}`);
 }
