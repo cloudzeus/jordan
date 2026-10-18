@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { type ColumnDef } from '@tanstack/react-table';
 import {
   FiRefreshCw, FiPlus, FiMoreVertical, FiEdit3, FiSlash, FiCheck, FiCopy, FiMaximize2, FiLoader, FiAlertTriangle, FiFileText,
+  FiImage, FiUpload, FiCpu, FiTrash2,
 } from 'react-icons/fi';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -102,7 +103,7 @@ function UnitDialog({ open, onOpenChange, row, onSaved }: { open: boolean; onOpe
         <DialogBody className="space-y-3 bg-muted/20 px-4 py-3">
           <FormSection tone="blue" icon={<FiMaximize2 />} title="Μονάδα" aside={(
             <span className="inline-flex items-center gap-1.5 text-muted-foreground">
-              <UnitThumb kind={inferUnitVisual({ shortcut: f.shortcut, name: f.name, interCode: f.interCode })} size={44} />
+              <UnitThumb kind={inferUnitVisual({ shortcut: f.shortcut, name: f.name, interCode: f.interCode })} src={row?.iconUrl} size={44} />
               {UNIT_VISUAL_LABEL[inferUnitVisual({ shortcut: f.shortcut, name: f.name, interCode: f.interCode })]}
             </span>
           )}>
@@ -137,6 +138,106 @@ function UnitDialog({ open, onOpenChange, row, onSaved }: { open: boolean; onOpe
             {busy ? <FiLoader className="mr-1.5 size-3.5 animate-spin" /> : <FiCheck className="mr-1.5 size-3.5" />}
             {row ? 'Αποθήκευση' : 'Δημιουργία'}
           </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ── Εικονίδιο μονάδας: ανέβασμα ή δημιουργία με AI (μόνο στην εφαρμογή, όχι στο SoftOne) ──────────
+
+function UnitIconDialog({ row, onOpenChange, onChanged }: { row: UnitRow | null; onOpenChange: (o: boolean) => void; onChanged: () => void }) {
+  const [iconUrl, setIconUrl] = React.useState<string | null>(null);
+  const [hint, setHint] = React.useState('');
+  const [busy, setBusy] = React.useState<'upload' | 'ai' | 'remove' | null>(null);
+  const fileRef = React.useRef<HTMLInputElement>(null);
+
+  React.useEffect(() => { if (row) { setIconUrl(row.iconUrl); setHint(''); } }, [row]);
+  if (!row) return null;
+
+  const done = (url: string | null, msg: string) => { setIconUrl(url); toast.success(msg); onChanged(); };
+  const upload = async (file: File | undefined) => {
+    if (!file) return;
+    setBusy('upload');
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      const res = await fetch(`/api/admin/units/${row.code}/icon`, { method: 'POST', body: fd });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(d.message ?? 'Το ανέβασμα απέτυχε');
+      done(d.iconUrl, 'Το εικονίδιο αποθηκεύτηκε');
+    } catch (e) { toast.error((e as Error).message); } finally {
+      setBusy(null);
+      if (fileRef.current) fileRef.current.value = '';
+    }
+  };
+  const generate = async () => {
+    setBusy('ai');
+    try {
+      const d = await send(`/api/admin/units/${row.code}/icon/generate`, 'POST', { hint: hint.trim() || null });
+      done(d.iconUrl, 'Το εικονίδιο δημιουργήθηκε με AI');
+    } catch (e) { toast.error((e as Error).message); } finally { setBusy(null); }
+  };
+  const remove = async () => {
+    if (!(await confirmAction({
+      title: 'Αφαίρεση εικονιδίου;', message: 'Η μονάδα θα δείχνει ξανά την αυτόματη μικρογραφία. Το αρχείο διαγράφεται από τη βιβλιοθήκη πολυμέσων.',
+      confirmLabel: 'Αφαίρεση', destructive: true,
+    }))) return;
+    setBusy('remove');
+    try {
+      await send(`/api/admin/units/${row.code}/icon`, 'DELETE', {});
+      done(null, 'Το εικονίδιο αφαιρέθηκε');
+    } catch (e) { toast.error((e as Error).message); } finally { setBusy(null); }
+  };
+  const spin = <FiLoader className="mr-1.5 size-3.5 animate-spin" aria-hidden />;
+
+  return (
+    <Dialog open onOpenChange={(o) => !busy && onOpenChange(o)}>
+      <DialogContent className="flex max-h-[92dvh] w-[96vw] flex-col gap-0 overflow-hidden p-0 sm:max-w-lg">
+        <DialogHeader className="flex-row items-center gap-3 border-b border-border px-4 py-2.5 pr-12">
+          <span aria-hidden className="grid size-8 shrink-0 place-items-center rounded-lg [&_svg]:size-4" style={{ color: TONE, backgroundColor: soft(TONE, 12) }}><FiImage /></span>
+          <div className="min-w-0 flex-1 text-left">
+            <DialogTitle className="text-[length:var(--fs-15)]">Εικονίδιο μονάδας</DialogTitle>
+            <DialogDescription className="truncate text-[length:var(--fs-11)]">{row.shortcut} · {row.name} — αποθηκεύεται στην εφαρμογή, όχι στο SoftOne</DialogDescription>
+          </div>
+        </DialogHeader>
+        <DialogBody className="space-y-3 bg-muted/20 px-4 py-3">
+          <div className="flex items-center gap-3">
+            <UnitThumb kind={inferUnitVisual(row)} src={iconUrl} size={112} className="relative" />
+            <div className="min-w-0 flex-1 space-y-1.5">
+              <p className="text-[length:var(--fs-12)] text-muted-foreground">
+                {iconUrl ? 'Δικό της εικονίδιο.' : 'Χωρίς εικονίδιο — φαίνεται η αυτόματη μικρογραφία.'}
+              </p>
+              {iconUrl && (
+                <Button variant="ghost" size="sm" onClick={remove} disabled={!!busy} className="text-destructive hover:text-destructive">
+                  {busy === 'remove' ? spin : <FiTrash2 className="mr-1.5 size-3.5" aria-hidden />} Αφαίρεση
+                </Button>
+              )}
+            </div>
+          </div>
+          <FormSection tone="blue" icon={<FiUpload />} title="Ανέβασμα">
+            <input ref={fileRef} type="file" accept="image/*,.svg" className="sr-only" aria-label="Αρχείο εικονιδίου" onChange={(e) => upload(e.target.files?.[0])} />
+            <Button variant="secondary" size="sm" onClick={() => fileRef.current?.click()} disabled={!!busy}>
+              {busy === 'upload' ? spin : <FiUpload className="mr-1.5 size-3.5" aria-hidden />} {busy === 'upload' ? 'Ανέβασμα…' : 'Επιλογή εικόνας'}
+            </Button>
+            <RowHint>PNG, JPG, WebP ή SVG, έως 5 MB. Μπαίνει στη βιβλιοθήκη πολυμέσων (φάκελος «Εικονίδια μονάδων»).</RowHint>
+          </FormSection>
+          <FormSection tone="violet" icon={<FiCpu />} title="Δημιουργία με AI">
+            <Field label="Οδηγία (προαιρετικά)" htmlFor="unit-icon-hint">
+              <textarea
+                id="unit-icon-hint" value={hint} maxLength={300} rows={2} onChange={(e) => setHint(e.target.value)} disabled={!!busy}
+                placeholder="π.χ. ξύλινη παλέτα με πλακάκια, μπλε τόνοι"
+                className={cn(fieldCls, 'h-auto min-h-16 w-full resize-y rounded-md border border-input bg-background px-2.5 py-1.5')}
+              />
+            </Field>
+            <Button size="sm" onClick={generate} disabled={!!busy}>
+              {busy === 'ai' ? spin : <FiCpu className="mr-1.5 size-3.5" aria-hidden />} {busy === 'ai' ? 'Δημιουργία… (έως ~30″)' : iconUrl ? 'Νέο εικονίδιο με AI' : 'Δημιουργία με AI'}
+            </Button>
+            <RowHint>Το AI φτιάχνει ένα απλό εικονίδιο από την περιγραφή της μονάδας (~0,04 $ ανά εικόνα). Αν δεν σου αρέσει, πάτα ξανά.</RowHint>
+          </FormSection>
+        </DialogBody>
+        <DialogFooter className="mx-0 mb-0 items-center gap-2 border-t border-border bg-card px-4 py-2.5">
+          <Button variant="ghost" size="sm" onClick={() => onOpenChange(false)} disabled={!!busy}>Κλείσιμο</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -209,7 +310,7 @@ function MembersPanel({ row }: { row: UnitRow }) {
 
 // ── Μενού ενεργειών ─────────────────────────────────────────────────────────────────────────
 
-function RowActions({ row, canManage, onEdit, onChanged }: { row: UnitRow; canManage: boolean; onEdit: () => void; onChanged: () => void }) {
+function RowActions({ row, canManage, onEdit, onIcon, onChanged }: { row: UnitRow; canManage: boolean; onEdit: () => void; onIcon: () => void; onChanged: () => void }) {
   const used = (row.itemCount ?? 0) > 0;
   const toggle = async () => {
     const activate = !row.isActive;
@@ -240,6 +341,7 @@ function RowActions({ row, canManage, onEdit, onChanged }: { row: UnitRow; canMa
         {canManage && (
           <>
             <DropdownMenuItem className={ITEM} onSelect={onEdit}><FiEdit3 className="size-3.5" style={{ color: TONE }} aria-hidden /> Επεξεργασία</DropdownMenuItem>
+            <DropdownMenuItem className={ITEM} onSelect={onIcon}><FiImage className="size-3.5" style={{ color: '#7C3AED' }} aria-hidden /> {row.iconUrl ? 'Αλλαγή εικονιδίου' : 'Εικονίδιο (ανέβασμα / AI)'}</DropdownMenuItem>
             <DropdownMenuItem className={ITEM} onSelect={toggle} disabled={row.isActive && used}>
               {row.isActive
                 ? <><FiSlash className="size-3.5" aria-hidden /> Απενεργοποίηση{used ? ' (σε χρήση)' : ''}</>
@@ -261,6 +363,7 @@ export function UnitsTableClient({ rows, usageError, canManage, lastSync }: { ro
   const [showInactive, setShowInactive] = React.useState(false);
   const [busy, setBusy] = React.useState(false);
   const [dialog, setDialog] = React.useState<{ row: UnitRow | null } | null>(null);
+  const [iconRow, setIconRow] = React.useState<UnitRow | null>(null);
   const data = React.useMemo(() => rows.filter((r) => showInactive || r.isActive), [rows, showInactive]);
   const inactive = rows.length - rows.filter((r) => r.isActive).length;
 
@@ -282,7 +385,7 @@ export function UnitsTableClient({ rows, usageError, canManage, lastSync }: { ro
         const r = row.original;
         return (
           <div className={cn('flex min-w-0 items-center gap-2', !r.isActive && 'opacity-60')}>
-            <UnitThumb kind={inferUnitVisual(r)} size={36} />
+            <UnitThumb kind={inferUnitVisual(r)} src={r.iconUrl} size={36} />
             <span className="inline-flex h-7 min-w-11 shrink-0 items-center justify-center rounded-md px-1.5 font-mono text-[length:var(--fs-11)] font-semibold" style={{ color: TONE, backgroundColor: soft(TONE, 12) }}>{r.shortcut}</span>
             <span className="truncate text-[length:var(--fs-12)] font-medium">{r.name}</span>
           </div>
@@ -311,7 +414,7 @@ export function UnitsTableClient({ rows, usageError, canManage, lastSync }: { ro
     },
     {
       id: 'actions', header: () => <span className="sr-only">Ενέργειες</span>, size: 44, enableSorting: false, enableHiding: false, enableResizing: false,
-      cell: ({ row }) => <div className="flex justify-end"><RowActions row={row.original} canManage={canManage} onEdit={() => setDialog({ row: row.original })} onChanged={() => router.refresh()} /></div>,
+      cell: ({ row }) => <div className="flex justify-end"><RowActions row={row.original} canManage={canManage} onEdit={() => setDialog({ row: row.original })} onIcon={() => setIconRow(row.original)} onChanged={() => router.refresh()} /></div>,
     },
   ], [canManage, router]);
 
@@ -356,6 +459,7 @@ export function UnitsTableClient({ rows, usageError, canManage, lastSync }: { ro
         emptyState={<p className="py-8 text-center text-[length:var(--fs-13)] text-muted-foreground">Δεν υπάρχουν μονάδες. Πάτησε «Συγχρονισμός».</p>}
       />
       {lastSync && <p className="text-[length:var(--fs-11)] text-muted-foreground">Τελευταίος συγχρονισμός: {new Date(lastSync).toLocaleString('el-GR')}</p>}
+      {canManage && <UnitIconDialog row={iconRow} onOpenChange={(o) => { if (!o) setIconRow(null); }} onChanged={() => router.refresh()} />}
       {canManage && <UnitDialog open={dialog != null} onOpenChange={(o) => { if (!o) setDialog(null); }} row={dialog?.row ?? null} onSaved={() => router.refresh()} />}
     </div>
   );

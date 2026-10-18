@@ -182,18 +182,29 @@ function thumb(kind: UnitVisualKind): Promise<string> {
 }
 
 /** Μικρογραφία μονάδας. `hour`/`service` = εικονίδιο (δεν έχουν «σχήμα»). */
-export function UnitThumb({ kind, size = 40, className, title }: { kind: UnitVisualKind; size?: number; className?: string; title?: string }) {
+/** `src` = δικό της εικονίδιο (ανέβασμα / AI)· χωρίς αυτό, ή αν δεν φορτώσει, η αυτόματη μικρογραφία. */
+export function UnitThumb({ kind, size = 40, className, title, src }: { kind: UnitVisualKind; size?: number; className?: string; title?: string; src?: string | null }) {
   const [url, setUrl] = React.useState<string | null>(null);
   const [failed, setFailed] = React.useState(false);
+  const [srcFailed, setSrcFailed] = React.useState(false);
+  React.useEffect(() => { setSrcFailed(false); }, [src]);
+  const custom = src && !srcFailed ? src : null;
   const iconOnly = kind === 'hour' || kind === 'service';
   React.useEffect(() => {
-    if (iconOnly) return;
+    if (iconOnly || custom) return;
     let alive = true;
     thumb(kind).then((u) => { if (alive) setUrl(u); }).catch(() => { if (alive) setFailed(true); });
     return () => { alive = false; };
-  }, [kind, iconOnly]);
+  }, [kind, iconOnly, custom]);
   const label = title ?? UNIT_VISUAL_LABEL[kind];
   const box = cn('inline-grid shrink-0 place-items-center overflow-hidden rounded-md bg-gradient-to-b from-white to-slate-100 ring-1 ring-border dark:from-slate-700 dark:to-slate-800', className);
+  if (custom) {
+    return (
+      <span className={cn(box, 'bg-none bg-white')} style={{ width: size, height: size }} title={label}>
+        <img src={custom} alt={label} width={size} height={size} className="size-full object-contain" onError={() => setSrcFailed(true)} />
+      </span>
+    );
+  }
   if (iconOnly || failed) {
     const Icon = kind === 'hour' ? FiClock : FiTool;
     return <span className={box} style={{ width: size, height: size }} title={label} role="img" aria-label={label}><Icon className="size-1/2 text-muted-foreground" aria-hidden /></span>;

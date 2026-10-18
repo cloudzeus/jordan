@@ -17,6 +17,8 @@ const PRICING: Record<string, PricingEntry> = {
   'gemini-2.5-flash':         { inputPerMTokens: 0.30, outputPerMTokens: 2.50 },
   'gemini-2.5-flash-lite':    { inputPerMTokens: 0.10, outputPerMTokens: 0.40 },
   'gemini-2.5-pro':           { inputPerMTokens: 1.25, outputPerMTokens: 10.00 },
+  // Εικόνες (εικονίδια μονάδων): ~1.290 tokens εξόδου ανά εικόνα ≈ 0,039 $ (επιβεβαιωμένο στο OpenRouter).
+  'gemini-2.5-flash-image':   { inputPerMTokens: 0.30, outputPerMTokens: 30.00 },
   'gemini-2.0-flash':         { inputPerMTokens: 0.10, outputPerMTokens: 0.40 },
   'gemini-2.0-flash-lite':    { inputPerMTokens: 0.075, outputPerMTokens: 0.30 },
   'gemini-1.5-flash':         { inputPerMTokens: 0.075, outputPerMTokens: 0.30 },

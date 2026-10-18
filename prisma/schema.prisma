@@ -234,23 +234,24 @@ model MediaFolder {
 }
 
 model MediaFile {
-  id           String       @id @default(cuid())
+  id           String        @id @default(cuid())
   folderId     String?
-  folder       MediaFolder? @relation(fields: [folderId], references: [id], onDelete: SetNull)
+  folder       MediaFolder?  @relation(fields: [folderId], references: [id], onDelete: SetNull)
   name         String // user-facing filename
   originalName String // upload-time original
-  storageKey   String       @unique // path on Bunny S3 (e.g. media/2025/12/abc-photo.webp)
+  storageKey   String        @unique // path on Bunny S3 (e.g. media/2025/12/abc-photo.webp)
   originalKey  String? // for SVG: path of original .svg companion
   mimeType     String
   size         Int // bytes
   width        Int?
   height       Int?
-  isImage      Boolean      @default(false)
-  isSvg        Boolean      @default(false)
+  isImage      Boolean       @default(false)
+  isSvg        Boolean       @default(false)
   publicUrl    String // CDN URL for primary file
   originalUrl  String? // CDN URL for SVG original (when isSvg)
   uploadedById String?
-  uploadedAt   DateTime     @default(now())
+  uploadedAt   DateTime      @default(now())
+  unitIcons    SoftoneUnit[] // εικονίδιο μονάδας μέτρησης
 
   @@index([folderId])
   @@index([uploadedAt])
@@ -2629,17 +2630,23 @@ model SoftoneClassification {
 // Επιβεβαιωμένο ζωντανά (atelier, 2026-10-17): setData με ΡΗΤΟ αριθμό για νέα, μερική ενημέρωση,
 // οι υπόλοιπες μονάδες μένουν ανέπαφες. Το GetTable ΚΡΥΒΕΙ τις ανενεργές (ανάγνωση με getData).
 model SoftoneUnit {
-  id         Int      @id @default(autoincrement())
-  code       Int      @unique // MTRUNIT
-  shortcut   String // SHORTCUT («Σύντμηση», έως 5)
-  name       String // NAME («Περιγραφή»)
-  interCode  String? // INTERCODE («Διεθνής κωδικός», π.χ. m², έως 5)
-  decimals   Int      @default(2) // QDECIMALS
-  sodim      Int      @default(1) // SODIM («Διάσταση») — δεν αλλάζει από την εφαρμογή
-  sodiv      Float    @default(1) // SODIV («Διαιρέτης διάστασης»)
-  myDataCode Int? // MYDATACODE (μονάδα myDATA της ΑΑΔΕ)
-  isActive   Boolean  @default(true)
-  syncedAt   DateTime @default(now())
+  id          Int        @id @default(autoincrement())
+  code        Int        @unique // MTRUNIT
+  shortcut    String // SHORTCUT («Σύντμηση», έως 5)
+  name        String // NAME («Περιγραφή»)
+  interCode   String? // INTERCODE («Διεθνής κωδικός», π.χ. m², έως 5)
+  decimals    Int        @default(2) // QDECIMALS
+  sodim       Int        @default(1) // SODIM («Διάσταση») — δεν αλλάζει από την εφαρμογή
+  sodiv       Float      @default(1) // SODIV («Διαιρέτης διάστασης»)
+  myDataCode  Int? // MYDATACODE (μονάδα myDATA της ΑΑΔΕ)
+  isActive    Boolean    @default(true)
+  syncedAt    DateTime   @default(now())
+  // Εικονίδιο (μόνο στην εφαρμογή — το MTRUNIT δεν έχει πεδίο εικόνας): ανέβασμα ή δημιουργία με AI,
+  // αρχείο στη βιβλιοθήκη πολυμέσων (Bunny). Ο συγχρονισμός από SoftOne δεν το αγγίζει.
+  iconMediaId String?
+  iconMedia   MediaFile? @relation(fields: [iconMediaId], references: [id], onDelete: SetNull)
+
+  @@index([iconMediaId])
 }
 
 // ── Κοινό container (Operations) ────────────────────────────────────────────────────────────────

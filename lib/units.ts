@@ -117,11 +117,13 @@ export async function unitUsage(fresh = false): Promise<Map<number, Usage[]>> {
 export type UnitRow = {
   code: number; shortcut: string; name: string; interCode: string | null; decimals: number; sodim: number;
   myDataCode: number | null; myDataLabel: string | null; isActive: boolean; itemCount: number | null;
+  /** Εικονίδιο της εφαρμογής (βιβλιοθήκη πολυμέσων) — null = η αυτόματη μικρογραφία. */
+  iconUrl: string | null;
 };
 
 export async function listUnits(): Promise<{ rows: UnitRow[]; usageError: string | null }> {
   const [units, usage] = await Promise.all([
-    prisma.softoneUnit.findMany({ orderBy: { code: 'asc' } }),
+    prisma.softoneUnit.findMany({ orderBy: { code: 'asc' }, include: { iconMedia: { select: { publicUrl: true } } } }),
     unitUsage().then((u) => ({ u, err: null as string | null })).catch((e) => ({ u: null, err: (e as Error).message })),
   ]);
   return {
@@ -129,6 +131,7 @@ export async function listUnits(): Promise<{ rows: UnitRow[]; usageError: string
       code: u.code, shortcut: u.shortcut, name: u.name, interCode: u.interCode, decimals: u.decimals, sodim: u.sodim,
       myDataCode: u.myDataCode, myDataLabel: u.myDataCode != null ? MYDATA_UNITS[u.myDataCode] ?? null : null,
       isActive: u.isActive, itemCount: usage.u ? usage.u.get(u.code)?.length ?? 0 : null,
+      iconUrl: u.iconMedia?.publicUrl ?? null,
     })),
     usageError: usage.err,
   };
