@@ -8,6 +8,7 @@ export const SETTING_CATEGORIES = [
   { id: 'company', label: 'Στοιχεία εταιρίας' },
   { id: 'i18n', label: 'Γλώσσες εφαρμογής' },
   { id: 'integrations', label: 'Διασυνδέσεις' },
+  { id: 'payments', label: 'Πληρωμές / Viva' },
   { id: 'email', label: 'Email (Mailgun)' },
   { id: 'storage', label: 'BunnyCDN Storage' },
   { id: 'ai', label: 'AI / DeepSeek' },
@@ -158,6 +159,20 @@ export const SETTING_CATALOG: SettingDef[] = [
   { key: 'softone.itemCodeMask.service',  category: 'integrations', label: 'Μάσκα κωδικού υπηρεσίας',     description: 'Ο ΠΡΩΤΟΣ κωδικός υπηρεσίας (MTRL SODTYPE 52). Χρησιμοποιείται μόνο όταν δεν υπάρχει καμία υπηρεσία στο SoftOne για να συμπεραθεί το σχήμα. Κενό = καμία πρόταση.', type: 'text', defaultValue: '' },
   { key: 'softone.itemCodeMask.expense',  category: 'integrations', label: 'Μάσκα κωδικού εξόδου',        description: 'Ο ΠΡΩΤΟΣ κωδικός εξόδου (EXPN). Χρησιμοποιείται μόνο όταν δεν υπάρχει κανένα έξοδο στο SoftOne για να συμπεραθεί το σχήμα. Κενό = καμία πρόταση.', type: 'text', defaultValue: '' },
   { key: 'softone.itemCodeMask.lineitem', category: 'integrations', label: 'Μάσκα κωδικού χρεοπίστωσης',  description: 'Ο ΠΡΩΤΟΣ κωδικός χρεοπίστωσης (MTRL SODTYPE 53). Οι χρεοπιστώσεις δημιουργούνται μόνο μέσα στο SoftOne — η μάσκα υπάρχει για πληρότητα. Κενό = καμία πρόταση.', type: 'text', defaultValue: '' },
+
+  // Πληρωμές / Viva (Smart Checkout) — αίτημα πληρωμής όταν εγκρίνεται κράτηση σε κοινό container.
+  // Demo και production έχουν ΔΙΑΦΟΡΕΤΙΚΑ στοιχεία (demo.vivapayments.com vs www.vivapayments.com).
+  { key: 'viva.enabled',        category: 'payments', label: 'Αιτήματα πληρωμής Viva', description: 'Με την έγκριση κάθε κράτησης σε κοινό container, ο πελάτης/συνεργάτης λαμβάνει email με προσωπικό σύνδεσμο πληρωμής (κάρτες, Apple/Google Pay, IRIS κ.ά.). Όσο είναι κλειστό, δεν δημιουργείται κανένα αίτημα.', type: 'boolean', defaultValue: false },
+  { key: 'viva.environment',    category: 'payments', label: 'Περιβάλλον Viva', description: 'Demo για δοκιμές (καμία πραγματική χρέωση) ή Παραγωγή. Αλλάζοντάς το, βάλε και τα στοιχεία του αντίστοιχου λογαριασμού.', type: 'select', options: [{ value: 'demo', label: 'Demo (δοκιμές)' }, { value: 'production', label: 'Παραγωγή' }], defaultValue: 'demo' },
+  { key: 'viva.merchantId',     category: 'payments', label: 'Merchant ID', description: 'Viva → Settings → API Access. Μαζί με το API key: επιστροφές χρημάτων, ακύρωση order, κλειδί webhook.', type: 'text' },
+  { key: 'viva.apiKey',         category: 'payments', label: 'API key', type: 'password', isSecret: true },
+  { key: 'viva.clientId',       category: 'payments', label: 'Client ID (Smart Checkout)', description: 'Viva → Settings → API Access → Smart Checkout Credentials (OAuth2 client credentials).', type: 'text' },
+  { key: 'viva.clientSecret',   category: 'payments', label: 'Client secret (Smart Checkout)', type: 'password', isSecret: true },
+  { key: 'viva.sourceCode',     category: 'payments', label: 'Source code (πηγή πληρωμής)', description: 'Ο 4ψήφιος κωδικός της πηγής «Online» (Viva → Sales → Online Payments → Websites/Apps). Στην πηγή ορίζονται οι μέθοδοι πληρωμής και τα URL επιστροφής παρακάτω.', type: 'text' },
+  { key: 'viva.webhookKey',     category: 'payments', label: 'Κλειδί επαλήθευσης webhook', description: 'Προαιρετικό: κενό = λαμβάνεται αυτόματα από το Viva με Merchant ID + API key, όταν πατηθεί «Verify» στο webhook.', type: 'password', isSecret: true },
+  { key: 'viva.vatRate',        category: 'payments', label: 'ΦΠΑ % στο ποσό', description: 'Οι τιμές κλιμακίων (PRICEW) είναι καθαρές· το ποσό πληρωμής = καθαρό × (1 + ΦΠΑ).', type: 'number', defaultValue: 24 },
+  { key: 'viva.orderTimeoutMinutes', category: 'payments', label: 'Διάρκεια checkout (λεπτά)', description: 'Πόσο ζει κάθε payment order του Viva. Ο σύνδεσμος στο email ΔΕΝ λήγει: σε κάθε άνοιγμα φτιάχνεται νέο order αν το προηγούμενο έληξε.', type: 'number', defaultValue: 60 },
+  { key: 'viva.sendEmails',     category: 'payments', label: 'Email με τον σύνδεσμο πληρωμής', description: 'Κλειστό = το αίτημα δημιουργείται και φαίνεται στο portal/διαχείριση, αλλά δεν στέλνεται email (π.χ. σε δοκιμές).', type: 'boolean', defaultValue: true },
 
   // Backups
   { key: 'backups.enabled',       category: 'backups', label: 'Ενεργό αυτόματο backup',  description: 'Ενεργοποιεί το ημερήσιο cron backup της βάσης.', type: 'boolean', defaultValue: true },

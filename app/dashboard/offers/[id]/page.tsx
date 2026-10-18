@@ -5,6 +5,7 @@ import { portalOffer } from '@/lib/portal-data';
 import { homeFor } from '@/lib/auth-home';
 import { PortalShell } from '../../portal-shell';
 import { AuctionStage } from './auction-stage';
+import { MyPayments } from './my-payments';
 import type { AuctionItem, MediaItem } from './auction-shared';
 
 export const dynamic = 'force-dynamic';
@@ -46,6 +47,7 @@ export default async function OfferPage({ params, searchParams }: { params: Prom
 
   return (
     <PortalShell user={user} org={org}>
+      <MyPayments offerId={o.id} user={user} />
       <AuctionStage
         offerId={o.id} title={o.title} open={o.status === 'OPEN'} homeHref={homeFor(user.role.key)}
         items={items} initialItemId={initial}

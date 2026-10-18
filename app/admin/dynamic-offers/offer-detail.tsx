@@ -18,6 +18,8 @@ import { uploadOfferSnapshot } from '@/components/admin/container-snapshot';
 import { checkReservation, PALLET_STEP, tierAt } from '@/lib/container-pricing';
 import type { OfferRow } from '@/lib/container-offers';
 import { PriceLadder } from './price-ladder';
+import { PaymentBadge, paymentMenuItems, RefundDiffsButton, type PaymentCaps } from './payment-cell';
+import type { PaymentSummary } from '@/lib/viva-payments';
 
 const ContainerScene = dynamic(() => import('@/components/admin/container-scene'), {
   ssr: false, loading: () => <div className="h-72 animate-pulse rounded-md bg-muted motion-reduce:animate-none" />,
@@ -135,7 +137,7 @@ function ReservationDialog({ open, onOpenChange, offer, onSaved }: { open: boole
 
 // canReserve = δικαίωμα dynamic_offers.reservations (νέες κρατήσεις, ακύρωση, έγκριση/απόρριψη αιτημάτων).
 export function OfferDetail({ offer, canReserve, onChanged }: { offer: OfferRow; canReserve: boolean; onChanged: () => void }) {
-  const [data, setData] = React.useState<{ reservations: Reservation[]; recipients: Recipient[] } | null>(null);
+  const [data, setData] = React.useState<{ reservations: Reservation[]; recipients: Recipient[]; payments: Record<string, PaymentSummary> | null; paymentCaps: PaymentCaps } | null>(null);
   const [addOpen, setAddOpen] = React.useState(false);
   const [previewKind, setPreviewKind] = React.useState<'publish' | 'drop'>('publish');
   const [chartItem, setChartItem] = React.useState(0);
@@ -154,7 +156,7 @@ export function OfferDetail({ offer, canReserve, onChanged }: { offer: OfferRow;
           return;
         }
         setLoadError(null);
-        setData({ reservations: d.reservations ?? [], recipients: d.recipients ?? [] });
+        setData({ reservations: d.reservations ?? [], recipients: d.recipients ?? [], payments: d.payments ?? null, paymentCaps: d.paymentCaps ?? { read: false, manage: false, refund: false } });
       })
       .catch(() => setLoadError('Αποτυχία φόρτωσης — έλεγξε τη σύνδεση.'));
   }, [offer.id]);
@@ -190,7 +192,10 @@ export function OfferDetail({ offer, canReserve, onChanged }: { offer: OfferRow;
     } else if (!(await confirmAction({ title: 'Έγκριση κράτησης', message: `Έγκριση ${num(r.pallets)} παλετών «${r.product.name}» για «${r.customer}»; Θα μετρήσει στο γέμισμα και αν περάσει κλιμάκιο θα σταλεί «η τιμή έπεσε».`, confirmLabel: 'Έγκριση' }))) return;
     const res = await fetch(`/api/admin/dynamic-offers/${offer.id}/reservations/${r.id}/decision`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ decision, note }) });
     if (!res.ok) { toast.error((await res.json().catch(() => ({}))).message ?? 'Αποτυχία'); return; }
+    const out = await res.json().catch(() => ({}));
     toast.success(decision === 'approve' ? 'Η κράτηση εγκρίθηκε' : 'Το αίτημα απορρίφθηκε');
+    if (out.payment?.created) toast.success(out.payment.emailed ? 'Στάλθηκε αίτημα πληρωμής Viva' : `Αίτημα πληρωμής Viva χωρίς email${out.payment.emailError ? `: ${out.payment.emailError}` : ''}`);
+    else if (out.payment && out.payment.reason !== 'disabled') toast.error(`Πληρωμή Viva: ${out.payment.message}`);
     if (decision === 'approve') await refreshSnapshot(offer.filled + r.pallets);
     load(); onChanged();
   };
@@ -267,6 +272,9 @@ export function OfferDetail({ offer, canReserve, onChanged }: { offer: OfferRow;
         </TabsContent>
 
         <TabsContent value="res" className="space-y-2">
+          {data?.payments && data.paymentCaps.refund && offer.status === 'CLOSED' && (
+            <div className="flex justify-end"><RefundDiffsButton offerId={offer.id} payments={data.payments} onDone={load} /></div>
+          )}
           {canReserve && (
             <div className="flex items-center justify-end gap-2">
               {offer.status !== 'OPEN' && <span className="text-[length:var(--fs-11)] text-muted-foreground">Κρατήσεις γίνονται όταν η προσφορά είναι δημοσιευμένη.</span>}
@@ -278,9 +286,13 @@ export function OfferDetail({ offer, canReserve, onChanged }: { offer: OfferRow;
           ) : (
             <div className="overflow-x-auto rounded-md border border-border">
               <table className="w-full">
-                <thead className="bg-muted/40"><tr><th className={TH}>Πελάτης</th>{offer.items.length > 1 && <th className={TH}>Προϊόν</th>}<th className={cn(TH, 'text-right')}>Παλέτες</th><th className={cn(TH, 'text-right')}>Ποσότητα</th><th className={cn(TH, 'hidden sm:table-cell')}>Ημ/νία</th><th className={TH}>Κατάσταση</th>{canReserve && <th className={TH}><span className="sr-only">Ενέργειες</span></th>}</tr></thead>
+                <thead className="bg-muted/40"><tr><th className={TH}>Πελάτης</th>{offer.items.length > 1 && <th className={TH}>Προϊόν</th>}<th className={cn(TH, 'text-right')}>Παλέτες</th><th className={cn(TH, 'text-right')}>Ποσότητα</th><th className={cn(TH, 'hidden sm:table-cell')}>Ημ/νία</th><th className={TH}>Κατάσταση</th>{data.payments && <th className={TH}>Πληρωμή</th>}{(canReserve || data.paymentCaps.read) && <th className={TH}><span className="sr-only">Ενέργειες</span></th>}</tr></thead>
                 <tbody className="divide-y divide-border">
-                  {data.reservations.map((r) => (
+                  {data.reservations.map((r) => {
+                    const pay = data.payments?.[r.id];
+                    const payItems = data.payments ? paymentMenuItems({ offerId: offer.id, reservation: r, p: pay, caps: data.paymentCaps, onDone: load }) : [];
+                    const resActions = canReserve && (r.status === 'ACTIVE' || r.status === 'PENDING') && offer.status !== 'CLOSED';
+                    return (
                     <tr key={r.id} className={cn('hover:bg-muted/30', r.status === 'PENDING' && 'bg-amber-50/60 dark:bg-amber-500/5', r.status !== 'ACTIVE' && r.status !== 'PENDING' && 'opacity-55')}>
                       <td className={TD}><span className="font-medium">{r.customer}</span>{r.kind === 'PARTNER' && <span className="ml-1.5 rounded-sm bg-violet-100 px-1 text-[length:var(--fs-10)] font-semibold text-violet-800">Συνεργάτης</span>}{r.fromPortal && <span className="ml-1.5 rounded-sm bg-sky-100 px-1 text-[length:var(--fs-10)] font-semibold text-sky-800">portal</span>}{r.notes && <div className="text-[length:var(--fs-11)] text-muted-foreground">{r.notes}</div>}</td>
                       {offer.items.length > 1 && <td className={TD}><span className="block max-w-48 truncate" title={r.product.name}>{r.product.name}</span><span className="text-[length:var(--fs-11)] text-muted-foreground">{r.product.code}</span></td>}
@@ -288,13 +300,14 @@ export function OfferDetail({ offer, canReserve, onChanged }: { offer: OfferRow;
                       <td className={cn(TD, 'text-right tabular-nums')}>{num(r.sqm)} <span className="text-muted-foreground">{r.unit}</span></td>
                       <td className={cn(TD, 'hidden tabular-nums text-muted-foreground sm:table-cell')}>{new Date(r.createdAt).toLocaleDateString('el-GR')}</td>
                       <td className={TD}>{statusCell(r)}</td>
-                      {canReserve && (
+                      {data.payments && <td className={TD}><PaymentBadge p={pay} reservationStatus={r.status} /></td>}
+                      {(canReserve || data.paymentCaps.read) && (
                         <td className={cn(TD, 'w-10 text-right')}>
-                          {(r.status === 'ACTIVE' || r.status === 'PENDING') && offer.status !== 'CLOSED' && (
+                          {(resActions || payItems.length > 0) && (
                             <DropdownMenu>
                               <DropdownMenuTrigger className="inline-flex size-8 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-muted" aria-label={`Ενέργειες για ${r.customer}`}><FiMoreVertical className="size-4" aria-hidden /></DropdownMenuTrigger>
-                              <DropdownMenuContent align="end" className="w-48">
-                                {r.status === 'PENDING' ? (
+                              <DropdownMenuContent align="end" className="w-56">
+                                {!resActions ? null : r.status === 'PENDING' ? (
                                   <>
                                     <DropdownMenuItem className="cursor-pointer gap-2 text-[length:var(--fs-12)]" disabled={offer.status !== 'OPEN'} onSelect={() => decide(r, 'approve')}><FiCheckCircle className="size-3.5 text-emerald-600" aria-hidden /> Έγκριση</DropdownMenuItem>
                                     <DropdownMenuItem variant="destructive" className="cursor-pointer gap-2 text-[length:var(--fs-12)]" onSelect={() => decide(r, 'reject')}><FiXCircle className="size-3.5" aria-hidden /> Απόρριψη</DropdownMenuItem>
@@ -302,13 +315,15 @@ export function OfferDetail({ offer, canReserve, onChanged }: { offer: OfferRow;
                                 ) : (
                                   <DropdownMenuItem variant="destructive" className="cursor-pointer gap-2 text-[length:var(--fs-12)]" onSelect={() => cancel(r)}><FiXCircle className="size-3.5" aria-hidden /> Ακύρωση κράτησης</DropdownMenuItem>
                                 )}
+                                {resActions ? payItems : payItems.slice(1)}
                               </DropdownMenuContent>
                             </DropdownMenu>
                           )}
                         </td>
                       )}
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

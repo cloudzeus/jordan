@@ -69,6 +69,10 @@ export const PERMISSIONS: PermissionDef[] = [
   { key: 'dynamic_offers.read', resource: 'dynamic_offers', action: 'read', description: 'Προβολή δυναμικών προσφορών' },
   { key: 'dynamic_offers.manage', resource: 'dynamic_offers', action: 'manage', description: 'Δημιουργία/επεξεργασία, δημοσίευση, παραλήπτες, email, τιμές στο SoftOne' },
   { key: 'dynamic_offers.reservations', resource: 'dynamic_offers', action: 'reservations', description: 'Κρατήσεις: νέα, ακύρωση, έγκριση/απόρριψη αιτημάτων του portal' },
+  // Πληρωμές Viva για τις κρατήσεις (αίτημα πληρωμής, επιστροφές)
+  { key: 'payments.read', resource: 'payments', action: 'read', description: 'Προβολή κατάστασης πληρωμών Viva στις κρατήσεις' },
+  { key: 'payments.manage', resource: 'payments', action: 'manage', description: 'Αίτημα πληρωμής: αποστολή/επαναποστολή, έλεγχος στο Viva, ακύρωση' },
+  { key: 'payments.refund', resource: 'payments', action: 'refund', description: 'Επιστροφή χρημάτων μέσω Viva (διαφορά τιμής στο κλείσιμο, ακυρωμένη κράτηση)' },
   // Αιτήματα παραγγελίας από το B2B portal (αποθηκεύονται στην εφαρμογή, όχι στο SoftOne)
   { key: 'order_requests.read', resource: 'order_requests', action: 'read', description: 'Προβολή αιτημάτων παραγγελίας πελατών από το portal' },
   { key: 'order_requests.manage', resource: 'order_requests', action: 'manage', description: 'Επεξεργασία/επιβεβαίωση/απόρριψη αιτημάτων παραγγελίας' },
@@ -109,6 +113,7 @@ export const ROLE_DEFAULTS: Record<string, string[]> = {
     'ocr.read', 'ocr.create', 'ocr.delete', 'ocr.categorize', 'ocr.post',
     'projects.read', 'projects.manage', 'projects.financials',
     'dynamic_offers.read', 'dynamic_offers.manage', 'dynamic_offers.reservations',
+    'payments.read', 'payments.manage', 'payments.refund',
     'order_requests.read', 'order_requests.manage',
     'appointments.read', 'appointments.manage', 'leads.read', 'leads.manage',
     'partners.read', 'partners.manage', 'partners.access',
@@ -126,7 +131,7 @@ export const ROLE_DEFAULTS: Record<string, string[]> = {
 export const RESOURCE_LABELS: Record<string, string> = {
   users: 'Χρήστες', roles: 'Ρόλοι', permissions: 'Δικαιώματα', media: 'Media', companies: 'Εταιρείες',
   kad: 'ΚΑΔ', metadata: 'Μητρώα αναφοράς', ocr: 'OCR / Έγγραφα', system: 'Σύστημα',
-  projects: 'Έργα', dynamic_offers: 'Δυναμικές προσφορές', order_requests: 'Αιτήματα παραγγελίας', appointments: 'Ραντεβού', leads: 'Leads & newsletter', partners: 'Συνεργάτες',
+  projects: 'Έργα', dynamic_offers: 'Δυναμικές προσφορές', payments: 'Πληρωμές (Viva)', order_requests: 'Αιτήματα παραγγελίας', appointments: 'Ραντεβού', leads: 'Leads & newsletter', partners: 'Συνεργάτες',
   classifications: 'Κατηγορίες & ομάδες', units: 'Μονάδες μέτρησης', items: 'Είδη',
 };
 

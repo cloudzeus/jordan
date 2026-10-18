@@ -4,6 +4,7 @@ import { requirePermission } from '@/lib/rbac';
 import { logAudit } from '@/lib/audit';
 import { approveReservation, rejectReservation } from '@/lib/container-offers';
 import { notifyReservation } from '@/lib/reservation-mail';
+import { createPaymentRequest } from '@/lib/viva-payments';
 import { invalid, offerErrorResponse } from '../../../../_shared';
 
 export const runtime = 'nodejs';
@@ -24,6 +25,10 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string; ri
       : await rejectReservation(id, rid, u.id, parsed.data.note ?? null);
     await logAudit({ userId: u.id, userEmail: u.email, action: `offer.reservation.${parsed.data.decision}`, resource: 'dynamic_offer', resourceId: id, metadata: { reservationId: rid, pallets: r.pallets } }).catch(() => null);
     await notifyReservation(id, rid, parsed.data.decision === 'approve' ? 'approved' : 'rejected');
-    return NextResponse.json({ reservation: { id: r.id, status: r.status, pallets: r.pallets } });
+    // Με την έγκριση: αίτημα πληρωμής Viva (αν είναι ενεργό στις Ρυθμίσεις). Best-effort — η έγκριση ισχύει ούτως ή άλλως.
+    const payment = parsed.data.decision === 'approve'
+      ? await createPaymentRequest(rid, u.id).catch((e) => ({ created: false as const, reason: 'error', message: (e as Error).message }))
+      : null;
+    return NextResponse.json({ reservation: { id: r.id, status: r.status, pallets: r.pallets }, payment });
   } catch (e) { return offerErrorResponse(e); }
 }

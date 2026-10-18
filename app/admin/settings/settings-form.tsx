@@ -16,6 +16,7 @@ import { LocaleBadge } from '@/components/i18n/locale-badge';
 import { LOCALES } from '@/i18n/locales';
 import { MediaPicker, type PickedMediaFile } from '@/components/media/media-picker';
 import { SoftoneResyncPanel } from '@/components/admin/softone-resync';
+import { VivaPanel, type VivaUrls } from './viva-panel';
 
 type ItemType = 'text'|'password'|'url'|'email'|'number'|'boolean'|'textarea'|'locale'|'locales-multi'|'media'|'select';
 type Item = {
@@ -45,7 +46,7 @@ type SoftoneTestResult = {
   error?: string;
 };
 
-export function SettingsForm({ items, categories }: { items: Item[]; categories: Category[] }) {
+export function SettingsForm({ items, categories, vivaUrls, vivaHelp }: { items: Item[]; categories: Category[]; vivaUrls?: VivaUrls; vivaHelp?: React.ReactNode }) {
   const router = useRouter();
   const [values, setValues] = React.useState<Record<string, unknown>>(
     Object.fromEntries(items.map((i) => [i.key, i.value])),
@@ -278,6 +279,8 @@ export function SettingsForm({ items, categories }: { items: Item[]; categories:
                 />
               </div>
             )}
+
+            {cat.id === 'payments' && vivaUrls && <VivaPanel urls={vivaUrls} help={vivaHelp} />}
 
             {cat.id === 'integrations' && (
               <div className="mt-5 border-t border-border pt-4">

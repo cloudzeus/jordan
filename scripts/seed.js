@@ -32,6 +32,10 @@ const PERMISSIONS = [
   { key: 'dynamic_offers.read', resource: 'dynamic_offers', action: 'read', description: 'Προβολή δυναμικών προσφορών' },
   { key: 'dynamic_offers.manage', resource: 'dynamic_offers', action: 'manage', description: 'Δημιουργία/επεξεργασία, δημοσίευση, παραλήπτες, email, τιμές στο SoftOne' },
   { key: 'dynamic_offers.reservations', resource: 'dynamic_offers', action: 'reservations', description: 'Κρατήσεις: νέα, ακύρωση, έγκριση/απόρριψη αιτημάτων του portal' },
+  // Πληρωμές Viva για τις κρατήσεις (αίτημα πληρωμής, επιστροφές)
+  { key: 'payments.read', resource: 'payments', action: 'read', description: 'Προβολή κατάστασης πληρωμών Viva στις κρατήσεις' },
+  { key: 'payments.manage', resource: 'payments', action: 'manage', description: 'Αίτημα πληρωμής: αποστολή/επαναποστολή, έλεγχος στο Viva, ακύρωση' },
+  { key: 'payments.refund', resource: 'payments', action: 'refund', description: 'Επιστροφή χρημάτων μέσω Viva (διαφορά τιμής στο κλείσιμο, ακυρωμένη κράτηση)' },
   { key: 'order_requests.read', resource: 'order_requests', action: 'read', description: 'Προβολή αιτημάτων παραγγελίας πελατών από το portal' },
   { key: 'order_requests.manage', resource: 'order_requests', action: 'manage', description: 'Επεξεργασία/επιβεβαίωση/απόρριψη αιτημάτων παραγγελίας' },
   { key: 'appointments.read', resource: 'appointments', action: 'read', description: 'Προβολή ημερολογίου ραντεβού στο atelier' },
@@ -111,7 +115,7 @@ const SYSTEM_ROLES = [
 
 const ROLE_DEFAULTS = {
   SUPER_ADMIN: PERMISSIONS.map((p) => p.key),
-  ADMIN: ['users.read', 'users.create', 'users.update', 'users.assign_role', 'roles.read', 'permissions.read', 'companies.read', 'companies.create', 'companies.update', 'companies.delete', 'companies.manage_types', 'kad.read', 'kad.manage', 'metadata.read', 'metadata.manage', 'ocr.read', 'ocr.create', 'ocr.delete', 'ocr.categorize', 'ocr.post', 'projects.read', 'projects.manage', 'projects.financials', 'dynamic_offers.read', 'dynamic_offers.manage', 'dynamic_offers.reservations', 'order_requests.read', 'order_requests.manage', 'appointments.read', 'appointments.manage', 'leads.read', 'leads.manage', 'partners.read', 'partners.manage', 'partners.access', 'classifications.read', 'classifications.manage', 'units.read', 'units.manage', 'items.unit2_override'],
+  ADMIN: ['users.read', 'users.create', 'users.update', 'users.assign_role', 'roles.read', 'permissions.read', 'companies.read', 'companies.create', 'companies.update', 'companies.delete', 'companies.manage_types', 'kad.read', 'kad.manage', 'metadata.read', 'metadata.manage', 'ocr.read', 'ocr.create', 'ocr.delete', 'ocr.categorize', 'ocr.post', 'projects.read', 'projects.manage', 'projects.financials', 'dynamic_offers.read', 'dynamic_offers.manage', 'dynamic_offers.reservations', 'payments.read', 'payments.manage', 'payments.refund', 'order_requests.read', 'order_requests.manage', 'appointments.read', 'appointments.manage', 'leads.read', 'leads.manage', 'partners.read', 'partners.manage', 'partners.access', 'classifications.read', 'classifications.manage', 'units.read', 'units.manage', 'items.unit2_override'],
   EMPLOYEE: ['users.read', 'appointments.read', 'appointments.manage', 'leads.read'],
   COLLABORATOR: ['users.read'],
   SUPPLIER: [],

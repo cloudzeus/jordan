@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
-import { requirePermission } from '@/lib/rbac';
+import { hasPermission, requirePermission } from '@/lib/rbac';
 import { logAudit } from '@/lib/audit';
 import { deleteOffer, getRecipients, getReservations, listOffers, offerInput, updateOffer } from '@/lib/container-offers';
+import { paymentsForOffer } from '@/lib/viva-payments';
 import { invalid, offerErrorResponse, type Ctx } from '../_shared';
 
 export const runtime = 'nodejs';
@@ -12,8 +13,9 @@ export async function GET(_req: Request, ctx: Ctx) {
   const { id } = await ctx.params;
   const offer = (await listOffers()).find((o) => o.id === id);
   if (!offer) return NextResponse.json({ error: 'not_found' }, { status: 404 });
-  const [reservations, recipients] = await Promise.all([getReservations(id), getRecipients(id)]);
-  return NextResponse.json({ offer, reservations, recipients });
+  const [canRead, canManage, canRefund] = await Promise.all([hasPermission('payments.read'), hasPermission('payments.manage'), hasPermission('payments.refund')]);
+  const [reservations, recipients, payments] = await Promise.all([getReservations(id), getRecipients(id), canRead ? paymentsForOffer(id) : null]);
+  return NextResponse.json({ offer, reservations, recipients, payments, paymentCaps: { read: canRead, manage: canRead && canManage, refund: canRead && canRefund } });
 }
 
 export async function PUT(req: Request, ctx: Ctx) {

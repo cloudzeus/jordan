@@ -2728,11 +2728,107 @@ model ContainerReservation {
   decisionNote String? // π.χ. λόγος απόρριψης
   createdAt    DateTime           @default(now())
   updatedAt    DateTime           @updatedAt
+  payments     VivaPayment[] // αιτήματα πληρωμής Viva (το ενεργό = το πιο πρόσφατο μη ακυρωμένο)
 
   @@index([offerId])
   @@index([offerItemId])
   @@index([trdr])
   @@index([partnerId])
+}
+
+// ── Πληρωμές Viva (Smart Checkout) ────────────────────────────────────────────────────────────
+// Ένα ΑΙΤΗΜΑ ΠΛΗΡΩΜΗΣ ανά εγκεκριμένη κράτηση: προσωπικός σύνδεσμος /pay/viva/<token> που δεν λήγει·
+// κάθε άνοιγμα φτιάχνει (ή ξαναχρησιμοποιεί) ένα payment order του Viva (VivaOrder, λήγει σε λίγη ώρα).
+// Ποσό = παλέτες × μονάδες/παλέτα × τιμή κλιμακίου (καθαρή) + ΦΠΑ — στιγμιότυπο τη στιγμή της έγκρισης.
+model VivaPayment {
+  id            String               @id @default(cuid())
+  reservationId String
+  reservation   ContainerReservation @relation(fields: [reservationId], references: [id], onDelete: Cascade)
+  token         String               @unique // ο προσωπικός σύνδεσμος (μη μαντέψιμος)
+  env           String // demo | production — σε ποιο περιβάλλον Viva ανήκει
+  // PENDING (στάλθηκε, αναμένεται) → PAID · PENDING → CANCELLED · PAID → REFUNDED (όλο το ποσό επιστράφηκε)
+  status        String               @default("PENDING")
+  pallets       Float
+  quantity      Float // βασικές μονάδες (π.χ. τ.μ.)
+  unit          String?
+  level         Int // κλιμάκιο (PRICEW0x) της τιμής
+  unitPrice     Float // καθαρή τιμή μονάδας
+  vatRate       Float // %
+  netCents      Int
+  vatCents      Int
+  amountCents   Int // μικτό ποσό που ζητείται
+  paidCents     Int?
+  refundedCents Int                  @default(0)
+  transactionId String? // η συναλλαγή Viva που την εξόφλησε
+  paidAt        DateTime?
+  email         String? // πού στάλθηκε
+  emailSentAt   DateTime?
+  emailError    String?
+  lastError     String?
+  createdById   String?
+  cancelledAt   DateTime?
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
+
+  orders  VivaOrder[]
+  refunds VivaRefund[]
+
+  @@index([reservationId])
+  @@index([status])
+}
+
+// Payment order του Viva (orderCode → checkout). OPEN → PAID | FAILED | EXPIRED | CANCELLED.
+model VivaOrder {
+  id            String      @id @default(cuid())
+  paymentId     String
+  payment       VivaPayment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  orderCode     String      @unique
+  amountCents   Int
+  status        String      @default("OPEN")
+  transactionId String?
+  expiresAt     DateTime
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@index([paymentId])
+}
+
+// Επιστροφή χρημάτων (Viva Cancel Transaction με ποσό). `key` = ιδεμποτέντ: μία επιστροφή διαφοράς ανά πληρωμή.
+model VivaRefund {
+  id            String      @id @default(cuid())
+  paymentId     String
+  payment       VivaPayment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  key           String      @unique // <paymentId>-<kind>
+  kind          String // PRICE_DIFF (πτώση τιμής στο κλείσιμο) | FULL (ακύρωση κράτησης)
+  amountCents   Int
+  status        String      @default("PENDING") // PENDING | DONE | FAILED
+  transactionId String?
+  error         String?
+  createdById   String?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@index([paymentId])
+}
+
+// Inbox των webhooks του Viva — ιδεμποτέντ ανά (τύπος, συναλλαγή): οι επαναλήψεις δεν ξαναεφαρμόζονται.
+model VivaWebhookEvent {
+  id            String    @id @default(cuid())
+  dedupeKey     String    @unique // <EventTypeId>:<TransactionId>
+  eventTypeId   Int
+  messageId     String?
+  orderCode     String?
+  transactionId String?
+  payload       Json
+  status        String    @default("RECEIVED") // RECEIVED | PROCESSED | IGNORED | ERROR
+  result        String?
+  error         String?
+  attempts      Int       @default(1)
+  processedAt   DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([orderCode])
 }
 
 // Παραλήπτες της δυναμικής προσφοράς: πελάτες (SoftOne) και συνεργάτες (τοπικό μητρώο).
