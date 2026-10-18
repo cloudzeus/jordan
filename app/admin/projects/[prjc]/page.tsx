@@ -9,6 +9,8 @@ import { ProjectActivityPanel } from '../project-activity-panel';
 import { ProjectRowActions } from '../project-row-actions';
 import { ensureFreshFinancials, getProjectFinancials } from '@/lib/project-profit';
 import { ProjectFinancials } from './project-financials';
+import { getProjectSite } from '@/lib/project-site';
+import { siteLine } from '@/lib/project-site-core';
 
 export const dynamic = 'force-dynamic';
 
@@ -49,6 +51,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ prjc: 
   // Οικονομικά: στιγμιότυπο όλων των έργων — ξαναϋπολογίζεται μόνο αν έχει παλιώσει.
   const fresh = canFinancials ? await ensureFreshFinancials() : null;
   const fin = canFinancials ? await getProjectFinancials(p.prjc) : null;
+  const site = await getProjectSite(p.prjc);
 
   return (
     <div className="w-full max-w-5xl">
@@ -73,6 +76,17 @@ export default async function ProjectPage({ params }: { params: Promise<{ prjc: 
           {p.fromDate && <Field label="Έναρξη">{fmtDate(p.fromDate)}</Field>}
           {p.finalDate && <Field label="Λήξη">{fmtDate(p.finalDate)}</Field>}
           {p.closeDate && <Field label="Κλείσιμο">{fmtDate(p.closeDate)}</Field>}
+          <Field label="Τοποθεσία">
+            {site ? (
+              <>
+                {siteLine(site)}
+                <span className="text-[length:var(--fs-12)] text-muted-foreground">
+                  {' · '}<a href={`https://www.openstreetmap.org/?mlat=${site.lat}&mlon=${site.lng}#map=18/${site.lat}/${site.lng}`} target="_blank" rel="noopener noreferrer" className="underline-offset-2 hover:text-foreground hover:underline">χάρτης</a>
+                  {' · '}<a href={`https://www.google.com/maps/dir/?api=1&destination=${site.lat},${site.lng}`} target="_blank" rel="noopener noreferrer" className="underline-offset-2 hover:text-foreground hover:underline">οδηγίες</a>
+                </span>
+              </>
+            ) : <span className="text-muted-foreground">— {canManage ? '(⋮ → Τοποθεσία έργου)' : ''}</span>}
+          </Field>
           <Field label="Πελάτης"><TraderBlock t={p.customer} /></Field>
           {p.supplier && <Field label="Προμηθευτής"><TraderBlock t={p.supplier} /></Field>}
         </dl>

@@ -3202,3 +3202,24 @@ model AssistantMessage {
 
   @@index([conversationId, createdAt])
 }
+
+// Τοποθεσία ΕΡΓΟΥ (εργοτάξιο). Το SoftOne δεν έχει πεδίο συντεταγμένων στο PRJC (μόνο διεύθυνση οικοδομής
+// στο PRJCBLD, αχρησιμοποίητο, και ελεύθερα πεδία PRJEXTRA) — η ακριβής θέση ζει εδώ.
+model ProjectSite {
+  id          String   @id @default(cuid())
+  prjc        Int      @unique // SoftOne PRJC
+  address     String? // οδός & αριθμός
+  zip         String?
+  district    String? // περιοχή
+  city        String?
+  formatted   String? // πλήρης διεύθυνση όπως τη δίνει ο geocoder
+  lat         Float
+  lng         Float
+  /// geocode (από τη διεύθυνση) · marker (μετακίνηση στον χάρτη) · manual
+  source      String   @default("geocode")
+  /// exact (αριθμός οδού) · street · area — η ακρίβεια του geocoder πριν από τυχόν μετακίνηση
+  precision   String?
+  updatedById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}

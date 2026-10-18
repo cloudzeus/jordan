@@ -4,7 +4,7 @@ import * as React from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { type ColumnDef } from '@tanstack/react-table';
-import { FiRefreshCw, FiCheck, FiSlash, FiAlertTriangle } from 'react-icons/fi';
+import { FiRefreshCw, FiCheck, FiSlash, FiAlertTriangle, FiMapPin } from 'react-icons/fi';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -166,6 +166,12 @@ export function ProjectsTableClient({
         : DASH),
     },
     {
+      id: 'site', accessorFn: (r) => r.site?.line ?? '', header: 'Τοποθεσία', size: 170,
+      cell: ({ row }) => (row.original.site
+        ? <span className="inline-flex items-center gap-1 text-[length:var(--fs-12)] text-foreground"><FiMapPin className="size-3 shrink-0" style={{ color: '#0F766E' }} aria-hidden /><span className="truncate">{row.original.site.line || 'Ορίστηκε'}</span></span>
+        : DASH),
+    },
+    {
       accessorKey: 'statusLabel', header: 'Status', size: 120,
       cell: ({ row }) => (row.original.actStatus != null
         ? <span className="inline-flex rounded-sm bg-muted px-1.5 py-0.5 text-[length:var(--fs-11)] font-medium text-foreground">{row.original.statusLabel}</span>
@@ -237,12 +243,12 @@ export function ProjectsTableClient({
         searchKey="name"
         filterAllColumns
         searchPlaceholder="Αναζήτηση (κωδικός, έργο, πελάτης…)"
-        persistKey="admin.projects.table.v2"
+        persistKey="admin.projects.table.v3"
         toolbar={toolbar}
         pageSize={50}
         growColumnId="name"
         // Σειρά θυσίας σε στενή οθόνη — κωδικός και όνομα μένουν πάντα.
-        responsiveHide={['closeDate', 'isActive', 'finalDate', 'fromDate', 'statusLabel', 'costs', 'collected', 'customer', 'marginPct', 'revenue']}
+        responsiveHide={['closeDate', 'isActive', 'finalDate', 'fromDate', 'site', 'statusLabel', 'costs', 'collected', 'customer', 'marginPct', 'revenue']}
         expandable={(r) => <ProjectActivityPanel prjc={r.prjc} canManage={canManage} projectLabel={`${r.code} · ${r.name}`} />}
         emptyState={<p className="py-8 text-center text-[length:var(--fs-13)] text-muted-foreground">Δεν υπάρχουν έργα. Πάτησε «Συγχρονισμός από SoftOne».</p>}
       />

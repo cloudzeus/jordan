@@ -2,12 +2,13 @@
 
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
-import { FiMoreVertical, FiPackage, FiTool, FiExternalLink, FiRefreshCw, FiCopy } from 'react-icons/fi';
+import { FiMoreVertical, FiPackage, FiTool, FiExternalLink, FiRefreshCw, FiCopy, FiMapPin } from 'react-icons/fi';
 import { toast } from 'sonner';
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { AddBudgetLineDialog } from './add-budget-line-dialog';
+import { ProjectSiteDialog } from './project-site-dialog';
 import { emitProjectRefresh } from './project-events';
 import { ExportItem, useFinancialsActions } from './financials-actions';
 
@@ -29,6 +30,7 @@ export function ProjectRowActions({
   const router = useRouter();
   const fin = useFinancialsActions(canManage, prjc);
   const [dialog, setDialog] = React.useState<'product' | 'service' | null>(null);
+  const [siteOpen, setSiteOpen] = React.useState(false);
 
   const copy = async () => {
     try {
@@ -60,6 +62,9 @@ export function ProjectRowActions({
               </DropdownMenuItem>
               <DropdownMenuItem className={ITEM} onSelect={() => setDialog('service')}>
                 <FiTool className="size-3.5" style={{ color: '#7C3AED' }} aria-hidden /> Προσθήκη υπηρεσίας
+              </DropdownMenuItem>
+              <DropdownMenuItem className={ITEM} onSelect={() => setSiteOpen(true)}>
+                <FiMapPin className="size-3.5" style={{ color: '#0F766E' }} aria-hidden /> Τοποθεσία έργου…
               </DropdownMenuItem>
               <DropdownMenuSeparator />
             </>
@@ -95,6 +100,9 @@ export function ProjectRowActions({
           projectLabel={`${code} · ${name}`}
           defaultKind={dialog ?? 'product'}
         />
+      )}
+      {canManage && siteOpen && (
+        <ProjectSiteDialog open={siteOpen} onOpenChange={setSiteOpen} prjc={prjc} projectLabel={`${code} · ${name}`} />
       )}
     </>
   );

@@ -27,6 +27,8 @@ export type ProjectListRow = {
   finalDate: string | null;
   closeDate: string | null;
   isActive: boolean;
+  /** Τοποθεσία εργοταξίου (ProjectSite) — πόλη/περιοχή για τη λίστα. */
+  site: { line: string; lat: number; lng: number } | null;
 };
 
 /** Επωνυμίες συναλλασσομένων για τα TRDR των έργων — ένα query, όχι ένα ανά έργο. */
@@ -40,7 +42,11 @@ async function traderNames(ids: (number | null)[]): Promise<Map<number, string>>
 const iso = (d: Date | null) => (d ? d.toISOString() : null);
 
 export async function listProjects(): Promise<ProjectListRow[]> {
-  const rows = await prisma.softoneProject.findMany({ orderBy: [{ isActive: 'desc' }, { code: 'desc' }] });
+  const [rows, sites] = await Promise.all([
+    prisma.softoneProject.findMany({ orderBy: [{ isActive: 'desc' }, { code: 'desc' }] }),
+    prisma.projectSite.findMany({ select: { prjc: true, address: true, zip: true, city: true, district: true, formatted: true, lat: true, lng: true } }),
+  ]);
+  const siteBy = new Map(sites.map((s) => [s.prjc, s]));
   const names = await traderNames(rows.flatMap((r) => [r.trdr, r.trdrSu]));
   return rows.map((r) => ({
     prjc: r.prjc,
@@ -54,6 +60,10 @@ export async function listProjects(): Promise<ProjectListRow[]> {
     finalDate: iso(r.finalDate),
     closeDate: iso(r.closeDate),
     isActive: r.isActive,
+    site: (() => {
+      const s = siteBy.get(r.prjc);
+      return s ? { line: [s.district, s.city].filter(Boolean).join(', ') || s.formatted || '', lat: s.lat, lng: s.lng } : null;
+    })(),
   }));
 }
 
