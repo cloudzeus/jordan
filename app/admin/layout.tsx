@@ -23,7 +23,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   ]);
 
   return (
-    <div className="flex min-h-screen bg-background">
+    <div className="flex min-h-dvh bg-background">
       <AdminSidebar
         user={{ name: user.name, email: user.email }}
         roleName={user.role.name}

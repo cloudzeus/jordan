@@ -127,10 +127,10 @@ export function ScheduleDialog({ open, prefill, defaultMinutes, staff, meId, sof
     } catch (err) { setError((err as Error).message); } finally { setBusy(false); }
   }
 
-  const tab = (on: boolean) => cn('inline-flex h-8 flex-1 cursor-pointer items-center justify-center gap-1.5 rounded px-3 text-[length:var(--fs-12)] font-medium', on ? 'bg-background shadow-xs text-foreground' : 'text-muted-foreground hover:text-foreground');
+  const tab = (on: boolean) => cn('inline-flex h-10 min-w-0 flex-1 cursor-pointer items-center justify-center gap-1.5 whitespace-nowrap rounded px-1.5 text-[length:var(--fs-12)] font-medium sm:h-8 sm:px-3', on ? 'bg-background shadow-xs text-foreground' : 'text-muted-foreground hover:text-foreground');
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
-      <DialogContent className="max-h-[92dvh] grid-rows-[minmax(0,1fr)] sm:max-w-xl">
+      <DialogContent className="sm:max-w-xl">
         <form onSubmit={submit} className="flex min-h-0 min-w-0 flex-col">
           <DialogHeader>
             <DialogTitle>Νέο ραντεβού</DialogTitle>

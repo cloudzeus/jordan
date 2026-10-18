@@ -96,7 +96,7 @@ function PickerDialogBody({
   acceptImagesOnly, onPick,
 }: { acceptImagesOnly: boolean; onPick: (file: PickedMediaFile) => void }) {
   return (
-    <DialogContent className="flex max-h-[92vh] w-[95vw] flex-col gap-0 overflow-hidden p-0 sm:max-w-5xl">
+    <DialogContent className="flex max-h-[92dvh] w-[95vw] flex-col gap-0 overflow-hidden p-0 sm:max-w-5xl">
       <DialogHeader className="flex-row items-center gap-3 border-b border-border px-4 py-2.5 pr-12">
         <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-sisyphus-50 text-sisyphus-600 dark:bg-sisyphus-500/15" aria-hidden>
           <FiImage className="size-4" />

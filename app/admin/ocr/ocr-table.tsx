@@ -1001,7 +1001,7 @@ export function OcrTable({
       />
       <Dialog open={fullRow !== null} onOpenChange={(v) => { if (!v) setFullRow(null); }}>
         <DialogContent
-          className="flex h-[92vh] w-[97vw] max-w-[1600px] flex-col gap-0 overflow-hidden p-0 sm:max-w-[1600px]"
+          className="flex h-[92dvh] w-[97vw] max-w-[1600px] flex-col gap-0 overflow-hidden p-0 sm:max-w-[1600px]"
           // Ο επεξεργαστής έχει δικά του πεδία· το αυτόματο focus της Radix στο πρώτο input θα
           // κυλούσε αμέσως τη σελίδα στα «Πεδία» αντί να δείξει το πρωτότυπο.
           onOpenAutoFocus={(e) => e.preventDefault()}

@@ -55,14 +55,32 @@ function DialogContent({
 }: React.ComponentProps<typeof DialogPrimitive.Content> & {
   showCloseButton?: boolean
 }) {
+  // Χωρίς δικό του padding από τον καλούντα + DialogBody μέσα → αυτόματη διάταξη «άκρη-άκρη»:
+  // το σώμα κυλά, κεφαλίδα/υποσέλιδο σταθερά. Πριν: p-6 του παραθύρου ΣΥΝ px-5 του σώματος
+  // έτρωγαν ~90px σε κινητό 375px και τα πεδία έβγαιναν δεξιά εκτός παραθύρου.
+  const autoBody = !/(^|\s)(p|px|py|pt|pb)-/.test(typeof className === "string" ? className : "")
   return (
     <DialogPortal>
       <DialogOverlay />
       <DialogPrimitive.Content
         data-slot="dialog-content"
         className={cn(
-          "fixed top-1/2 left-1/2 z-50 grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl bg-card p-6 text-sm text-foreground border border-border shadow-pop duration-100 outline-none sm:max-w-md data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
-          className
+          // ΠΑΝΤΑ ΧΩΡΑΕΙ ΣΤΗΝ ΟΘΟΝΗ: στήλη flex με όριο ύψους σε dvh (σωστό και με τη μπάρα του
+          // Safari). Κεφαλίδα/υποσέλιδο δεν συρρικνώνονται· ένα σώμα με overflow (DialogBody ή
+          // div με overflow-auto) παίρνει τον χώρο που μένει και κυλά μόνο αυτό.
+          "fixed top-1/2 left-1/2 z-50 flex max-h-[calc(100dvh-1rem)] w-full max-w-[calc(100%-1rem)] -translate-x-1/2 -translate-y-1/2 flex-col gap-4 rounded-xl bg-card p-6 text-sm text-foreground border border-border shadow-pop duration-100 outline-none sm:max-h-[calc(100dvh-2rem)] sm:max-w-md data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
+          "*:data-[slot=dialog-footer]:shrink-0 *:data-[slot=dialog-header]:shrink-0",
+          autoBody && [
+            "has-data-[slot=dialog-body]:gap-0 has-data-[slot=dialog-body]:p-0",
+            "[&:has([data-slot=dialog-body])>form]:flex [&:has([data-slot=dialog-body])>form]:min-h-0 [&:has([data-slot=dialog-body])>form]:flex-col",
+            "[&:has([data-slot=dialog-body])_[data-slot=dialog-header]]:shrink-0 [&:has([data-slot=dialog-body])_[data-slot=dialog-header]]:px-5 [&:has([data-slot=dialog-body])_[data-slot=dialog-header]]:pt-4 [&:has([data-slot=dialog-body])_[data-slot=dialog-header]]:pb-3 [&:has([data-slot=dialog-body])_[data-slot=dialog-header]]:pr-12",
+            "[&:has([data-slot=dialog-body])_[data-slot=dialog-footer]]:m-0 [&:has([data-slot=dialog-body])_[data-slot=dialog-footer]]:shrink-0",
+          ],
+          className,
+          // Εφεδρεία: αν το περιεχόμενο δεν έχει δικό του σώμα που κυλά (π.χ. ένα <form> τυλίγει
+          // τα πάντα), κυλά ολόκληρο το παράθυρο αντί να κόβεται. Υπερισχύει του `overflow-hidden`
+          // των καλούντων — εκείνο έκοβε το κάτω μέρος (και τα κουμπιά) χωρίς τρόπο πρόσβασης.
+          "overflow-x-hidden overflow-y-auto overscroll-contain"
         )}
         {...props}
       >
@@ -123,7 +141,7 @@ function DialogFooter({
     <div
       data-slot="dialog-footer"
       className={cn(
-        "-mx-4 -mb-4 flex flex-col-reverse gap-2 rounded-b-xl border-t bg-muted/50 p-4 sm:flex-row sm:justify-end",
+        "-mx-6 -mb-6 flex flex-col-reverse gap-2 rounded-b-xl border-t bg-muted/50 p-4 sm:flex-row sm:justify-end",
         className
       )}
       {...props}

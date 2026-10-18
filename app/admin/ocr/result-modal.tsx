@@ -247,7 +247,7 @@ export function OcrResultModal({ open, documentId, onClose }: ResultModalProps) 
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="relative my-auto flex max-h-[calc(100vh-2rem)] w-full max-w-6xl flex-col overflow-hidden rounded-xl bg-card shadow-fluent-16 ring-1 ring-border/60 animate-slide-up"
+        className="relative my-auto flex max-h-[calc(100dvh-2rem)] w-full max-w-6xl flex-col overflow-hidden rounded-xl bg-card shadow-fluent-16 ring-1 ring-border/60 animate-slide-up"
       >
         {/* HEADER — hero band */}
         <header className="relative shrink-0 border-b border-border bg-gradient-to-br from-sisyphus-50 via-card to-card px-6 py-4">

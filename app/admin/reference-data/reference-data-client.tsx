@@ -283,7 +283,7 @@ export function ReferenceDataClient({ stats, canManage }: { stats: Stat[]; canMa
       <Dialog open={modalKey != null} onOpenChange={(o) => { if (!o) { setModalKey(null); setModalData(null); setModalSearch(''); } }}>
         <DialogContent
           className={cn(
-            'w-[95vw] max-h-[88vh] flex flex-col gap-0 overflow-hidden rounded-xl p-0',
+            'w-[95vw] max-h-[88dvh] flex flex-col gap-0 overflow-hidden rounded-xl p-0',
             modalWidthClass(modalData?.columns.length ?? 4),
           )}
         >

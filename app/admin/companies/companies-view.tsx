@@ -679,7 +679,7 @@ function CompanyDialog({
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="w-[95vw] sm:max-w-4xl p-0 gap-0 max-h-[92vh] flex flex-col overflow-hidden">
+      <DialogContent className="w-[95vw] sm:max-w-4xl p-0 gap-0 max-h-[92dvh] flex flex-col overflow-hidden">
         {/* Κεφαλίδα: ταυτότητα + ενέργειες ΑΑΔΕ/ΓΕΜΗ δεξιά. pr-12 αφήνει χώρο για το X. */}
         <DialogHeader className="flex-row items-center gap-3 space-y-0 border-b border-border px-4 py-2.5 pr-12">
           <LogoBlock

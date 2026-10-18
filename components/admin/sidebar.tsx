@@ -245,11 +245,11 @@ export function AdminSidebar({ user, roleName, roleKey, locale, permissionKeys, 
     <aside
       data-collapsed={collapsed ? '' : undefined}
       className={cn(
-        'sticky top-0 hidden h-screen shrink-0 flex-col self-start border-r border-sidebar-border bg-sidebar lg:flex cx-transition',
+        'sticky top-0 hidden h-dvh max-h-dvh shrink-0 flex-col self-start overflow-hidden border-r border-sidebar-border bg-sidebar lg:flex cx-transition',
         collapsed ? 'w-[60px]' : 'w-[244px]',
       )}
     >
-      <div className="flex h-14 items-center gap-2 border-b border-sidebar-border px-4">
+      <div className="flex h-14 shrink-0 items-center gap-2 border-b border-sidebar-border px-4">
         <Link href="/admin" className="-m-1.5 flex items-center rounded-md p-1.5" aria-label="DGsoft">
           <img src={BRAND_LOGO_URL} alt="DGsoft" className="h-7 w-auto" />
         </Link>
@@ -272,13 +272,14 @@ export function AdminSidebar({ user, roleName, roleKey, locale, permissionKeys, 
         </button>
       </div>
 
-      <div className={cn('border-b border-sidebar-border px-4 py-2.5', collapsed && 'hidden')}>
+      <div className={cn('shrink-0 border-b border-sidebar-border px-4 py-2.5', collapsed && 'hidden')}>
         <p className="cx-eyebrow">Ρόλος</p>
         <p className="mt-0.5 truncate text-[length:var(--fs-13)] font-medium text-foreground">{roleName}</p>
       </div>
 
-      {/* ΧΩΡΙΣ `overflow-y-auto`: κανόνας του design system — το πλαϊνό μενού δεν κυλάει ποτέ. */}
-      <nav className="flex flex-1 flex-col gap-3 px-2 py-3">
+      {/* Κλειστές ομάδες = το μενού χωράει. Όταν ο χρήστης ανοίξει πολλές, κυλάει ΜΟΝΟ η λίστα
+          (κεφαλίδα/υποσέλιδο μένουν ορατά) — αλλιώς τα κάτω links έβγαιναν εκτός οθόνης χωρίς τρόπο πρόσβασης. */}
+      <nav className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overscroll-contain px-2 py-3 [scrollbar-width:thin]">
         {NAV_GROUPS.map((group) => {
           const visible = group.items.filter(allowedItem);
           if (visible.length === 0) return null;
@@ -365,7 +366,7 @@ export function AdminSidebar({ user, roleName, roleKey, locale, permissionKeys, 
         })}
       </nav>
 
-      <div className="border-t border-sidebar-border p-2 space-y-2">
+      <div className="shrink-0 border-t border-sidebar-border p-2 space-y-2">
         {!collapsed && (
           <div className="px-1">
             <LocaleSwitcher currentLocale={locale} />
@@ -448,8 +449,8 @@ export function AdminBottomNav({ permissionKeys, roleKey, roleName, user, badges
       <DialogPrimitive.Root open={open} onOpenChange={setOpen}>
         <DialogPrimitive.Portal>
           <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/50 lg:hidden data-[state=open]:animate-in data-[state=open]:fade-in-0" />
-          <DialogPrimitive.Content className="fixed inset-y-0 left-0 z-50 flex w-[min(20rem,88vw)] flex-col border-r border-sidebar-border bg-sidebar shadow-xl outline-none lg:hidden data-[state=open]:animate-in data-[state=open]:slide-in-from-left">
-            <div className="flex h-14 shrink-0 items-center gap-2 border-b border-sidebar-border px-4 pt-[env(safe-area-inset-top)]">
+          <DialogPrimitive.Content className="fixed inset-y-0 left-0 z-50 flex h-dvh max-h-dvh w-[min(20rem,88vw)] flex-col border-r border-sidebar-border bg-sidebar shadow-xl outline-none lg:hidden data-[state=open]:animate-in data-[state=open]:slide-in-from-left">
+            <div className="flex h-[calc(3.5rem+env(safe-area-inset-top))] shrink-0 items-center gap-2 border-b border-sidebar-border px-4 pt-[env(safe-area-inset-top)]">
               <img src={BRAND_LOGO_URL} alt="DGsoft" className="h-7 w-auto" />
               <DialogPrimitive.Title className="sr-only">Μενού διαχείρισης</DialogPrimitive.Title>
               <DialogPrimitive.Description className="sr-only">Όλες οι ενότητες της διαχείρισης</DialogPrimitive.Description>
@@ -458,7 +459,7 @@ export function AdminBottomNav({ permissionKeys, roleKey, roleName, user, badges
               </DialogPrimitive.Close>
             </div>
             {/* Στο κινητό το συρτάρι ΚΥΛΑΕΙ: όλες οι ομάδες ανοιχτές, χωρίς κρυφούς προορισμούς. */}
-            <nav aria-label="Όλες οι ενότητες" className="flex-1 overflow-y-auto overscroll-contain px-2 py-3">
+            <nav aria-label="Όλες οι ενότητες" className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 py-3">
               {NAV_GROUPS.map((group) => {
                 const visible = group.items.filter(allowed);
                 if (!visible.length) return null;
