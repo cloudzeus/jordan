@@ -3359,3 +3359,54 @@ model SupplierProduct {
   @@index([trdr, invoiceValue(sort: Desc)])
   @@index([mtrl])
 }
+
+// ── Ομάδες ειδών / υπηρεσιών (SoftOne MTRGROUP) σε ιεραρχία με SOHCODE — ΠΡΟΤΑΣΗ ─────────────────────
+// Ορισμός και κανόνες ονόματος: `lib/item-groups.ts`. Οι ομάδες ΔΕΝ γράφονται από την εφαρμογή στο
+// SoftOne (το setData σε ITEGROUP/SRVGROUP έσβησε γραμμή — atelier 2026-10-17): δημιουργούνται από το
+// SoftOne και εδώ μόνο συνδέονται (`softoneId`). Η εμπορική κατηγορία (MTRCATEGORY) δεν αγγίζεται.
+model ItemGroup {
+  id          Int         @id @default(autoincrement())
+  key         String // π.χ. «G_TILES», «V_APPLY»
+  sodtype     Int // 51 είδη · 52 υπηρεσίες
+  level       Int // βάθος (1 = κορυφή)
+  sohCode     String // «Κωδικός ιεραρχίας», π.χ. «1.01»
+  code        String // σύντμηση (CODE ≤ 10)
+  name        String
+  description String?
+  parentId    Int?
+  parent      ItemGroup?  @relation("ItemGroupTree", fields: [parentId], references: [id], onDelete: SetNull)
+  children    ItemGroup[] @relation("ItemGroupTree")
+  softoneId   Int? // MTRGROUP στο SoftOne (null = δεν υπάρχει ακόμα)
+  order       Int         @default(0)
+  isActive    Boolean     @default(true)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  assignments ItemGroupAssignment[]
+
+  @@unique([key, sodtype])
+  @@index([sodtype, isActive, level, order])
+  @@index([parentId])
+}
+
+// Πρόταση ομάδας ανά είδος/υπηρεσία (από το όνομα και τους προμηθευτές). PROPOSED → APPROVED → APPLIED.
+model ItemGroupAssignment {
+  id               Int        @id @default(autoincrement())
+  mtrl             Int        @unique
+  sodtype          Int
+  code             String
+  name             String
+  groupId          Int?
+  group            ItemGroup? @relation(fields: [groupId], references: [id], onDelete: SetNull)
+  basis            String // name | supplier | none
+  rule             String?
+  needsReview      Boolean    @default(false)
+  looksLikeService Boolean    @default(false)
+  status           String     @default("PROPOSED")
+  appliedAt        DateTime?
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+
+  @@index([groupId])
+  @@index([sodtype, status])
+}

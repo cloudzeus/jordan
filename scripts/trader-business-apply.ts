@@ -61,11 +61,14 @@ async function createAll() {
     const taken = used.get(n.sodtype) ?? new Set<number>();
     let key = 1;
     while (taken.has(key)) key++;
-    const row = { TRDBUSINESS: key, SODTYPE: n.sodtype, CODE: n.code, NAME: n.name, SOHCODE: n.sohCode, ISACTIVE: 1 };
+    // Το TRDBUSINESS είναι αντικείμενο με «Domain Info» (SODTYPE): ανοίγει ως `TRDBUSINESS.<SODTYPE>` όπως οι
+    // εργασίες μενού (BlackBook 3.5, σ.207 — «AREAS.13»). Τότε το SODTYPE μπαίνει μόνο του· χωρίς αυτό το
+    // SoftOne απαντά «Δεν έχετε συμπληρώσει το πεδίο Οντότητα». Επιβεβαιωμένο με `calculate` (χωρίς αποθήκευση).
+    const row = { TRDBUSINESS: key, CODE: n.code, NAME: n.name, SOHCODE: n.sohCode, ISACTIVE: 1 };
     console.log(`  ${CREATE ? '→' : '·'} ${n.sodtype} ${n.sohCode?.padEnd(8)} ${n.code.padEnd(9)} ${n.name} (κλειδί ${key})`);
     if (!CREATE) { taken.add(key); used.set(n.sodtype, taken); done++; continue; }
 
-    const res = await softoneCall<S1>('setData', { OBJECT: 'TRDBUSINESS', KEY: '', data: { TRDBUSINESS: [row] } });
+    const res = await softoneCall<S1>('setData', { OBJECT: `TRDBUSINESS.${n.sodtype}`, KEY: '', data: { TRDBUSINESS: [row] } });
     if (res.success === false) fail(`setData TRDBUSINESS ${n.code}: ${res.error ?? res.errorcode}`);
     const saved = await readBusiness(n.sodtype, key);
     if (!saved) fail(`η κατηγορία ${n.code} δεν βρέθηκε μετά την εγγραφή (SODTYPE ${n.sodtype}, κλειδί ${key})`);
@@ -89,7 +92,10 @@ async function readCard(object: string, trdr: number): Promise<Record<string, Re
   if (res.success === false || !res.data) fail(`getData ${object} ${trdr}: ${res.error ?? 'κενό'}`);
   return res.data;
 }
-const IGNORE = new Set(['UPDDATE', 'UPDUSER', 'INSDATE', 'INSUSER', 'TRDBUSINESS']);
+// LOCKID: μετρητής εκδόσεων του SoftOne — ανεβαίνει σε κάθε αποθήκευση καρτέλας (όπως και από την οθόνη).
+/** Τιμή επιλογέα από το getData: «5|Πλακίδια & πέτρα» → «5». */
+const keyOf = (v: unknown) => String(v ?? '').split('|')[0].trim();
+const IGNORE = new Set(['UPDDATE', 'UPDUSER', 'INSDATE', 'INSUSER', 'TRDBUSINESS', 'LOCKID']);
 function diffCards(a: Record<string, Record<string, unknown>[]>, b: Record<string, Record<string, unknown>[]>): string[] {
   const out: string[] = [];
   for (const table of new Set([...Object.keys(a), ...Object.keys(b)])) {
@@ -120,14 +126,14 @@ async function assignAll() {
     const target = String(a.leaf!.softoneId);
     if (!ASSIGN) { console.log(`  · ${a.code} ${a.name} → ${a.leaf!.sohCode} ${a.leaf!.name}`); done++; continue; }
     const before = await readCard(object, a.trdr);
-    const cur = String(before[object]?.[0]?.TRDBUSINESS ?? '');
+    const cur = keyOf(before[object]?.[0]?.TRDBUSINESS);
     if (cur && cur !== target) { console.log(`  ⤳ ${a.code} έχει ήδη άλλη εμπορική κατηγορία (${cur}) — παραλείπεται`); skipped++; continue; }
     const res = await updateTrader(a.trdr, { trdBusiness: target });
     if (res.unapplied.length) fail(`${a.code}: το SoftOne δεν κράτησε την εμπορική κατηγορία`);
     const after = await readCard(object, a.trdr);
     const changed = diffCards(before, after);
     if (changed.length) fail(`${a.code} ${a.name}: άλλαξαν και άλλα πεδία → ${changed.join(' · ')}`);
-    if (String(after[object]?.[0]?.TRDBUSINESS ?? '') !== target) fail(`${a.code}: η νέα ανάγνωση δεν δείχνει την κατηγορία ${target}`);
+    if (keyOf(after[object]?.[0]?.TRDBUSINESS) !== target) fail(`${a.code}: η νέα ανάγνωση δεν δείχνει την κατηγορία ${target}`);
     await prisma.traderClassAssignment.update({ where: { trdr: a.trdr }, data: { status: 'APPLIED', appliedAt: new Date() } });
     done++;
     console.log(`  ✓ ${a.code} ${a.name} → ${a.leaf!.sohCode} ${a.leaf!.name}`);

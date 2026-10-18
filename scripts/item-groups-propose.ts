@@ -3,13 +3,34 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { prisma } from '@/lib/db';
 import { softoneGetTable, loadSoftoneConfig } from '@/lib/softone';
-import { ITEM_GROUPS, ITEM_GROUP_BY_KEY, proposeItemGroup } from '@/lib/item-groups';
+import { ITEM_GROUPS, ITEM_GROUP_BY_KEY, itemGroupParent, proposeItemGroup } from '@/lib/item-groups';
 
-// ΠΡΟΤΑΣΗ ομάδων (MTRGROUP) για είδη & υπηρεσίες — ΜΟΝΟ ΑΝΑΓΝΩΣΗ (SoftOne + βάση). Δεν γράφει πουθενά
-// εκτός από το JSON της αναφοράς.
-//   npx tsx --import ./scripts/templates/register.mjs scripts/item-groups-propose.ts [out.json]
+// ΠΡΟΤΑΣΗ ομάδων (MTRGROUP) για είδη & υπηρεσίες — ΜΟΝΟ ΑΝΑΓΝΩΣΗ στο SoftOne. Με `--write-db` αποθηκεύει
+// δέντρο (ItemGroup) και προτάσεις (ItemGroupAssignment) στη βάση της εφαρμογής· στο SoftOne ΠΟΤΕ.
+//   npx tsx --import ./scripts/templates/register.mjs scripts/item-groups-propose.ts [--write-db] [out.json]
 
-const OUT = process.argv[2] ?? path.join(process.cwd(), '.next', 'cache', 'item-groups-proposal.json');
+const WRITE_DB = process.argv.includes('--write-db');
+const OUT = process.argv.slice(2).find((a) => !a.startsWith('--')) ?? path.join(process.cwd(), '.next', 'cache', 'item-groups-proposal.json');
+const SODTYPE = { item: 51, service: 52 } as const;
+
+/** Δέντρο → βάση. Το `softoneId` μπαίνει μόνο για υπάρχουσες ομάδες του SoftOne (π.χ. Πλακάκια 2, Πέτρες 3). */
+async function seedGroups(existing: Array<Record<string, string>>): Promise<Map<string, number>> {
+  const ids = new Map<string, number>();
+  const nodes = [...ITEM_GROUPS].sort((a, b) => a.soh.split('.').length - b.soh.split('.').length);
+  for (const [i, n] of nodes.entries()) {
+    const sodtype = SODTYPE[n.kind];
+    const parent = itemGroupParent(n);
+    const reuse = n.reuse != null && existing.some((g) => Number(g.SODTYPE) === sodtype && Number(g.MTRGROUP) === n.reuse) ? n.reuse : null;
+    const data = {
+      level: n.soh.split('.').length, sohCode: n.soh, code: n.code, name: n.name, description: n.description ?? null,
+      parentId: parent ? ids.get(`${parent.key}|${sodtype}`) ?? null : null, order: i, isActive: true,
+      ...(reuse != null ? { softoneId: reuse } : {}),
+    };
+    const row = await prisma.itemGroup.upsert({ where: { key_sodtype: { key: n.key, sodtype } }, update: data, create: { key: n.key, sodtype, ...data } });
+    ids.set(`${n.key}|${sodtype}`, row.id);
+  }
+  return ids;
+}
 const clean = (s: string) => (String(s ?? '').match(/el=([^|}]+)/)?.[1] ?? String(s ?? '')).trim();
 
 (async () => {
@@ -50,6 +71,23 @@ const clean = (s: string) => (String(s ?? '').match(/el=([^|}]+)/)?.[1] ?? Strin
       group: p.group, soh: node.soh, basis: p.basis, rule: p.rule, review: p.review, looksLikeService: p.looksLikeService,
     };
   });
+
+  if (WRITE_DB) {
+    const ids = await seedGroups(groups);
+    let written = 0;
+    for (const r of rows) {
+      const sodtype = SODTYPE[r.kind];
+      const existing = await prisma.itemGroupAssignment.findUnique({ where: { mtrl: r.mtrl }, select: { status: true } });
+      if (existing && existing.status !== 'PROPOSED') continue; // εγκεκριμένη/εφαρμοσμένη δεν ξαναγράφεται
+      const data = {
+        sodtype, code: r.code, name: r.name, groupId: ids.get(`${r.group}|${sodtype}`) ?? null,
+        basis: r.basis, rule: r.rule, needsReview: r.review, looksLikeService: r.looksLikeService,
+      };
+      await prisma.itemGroupAssignment.upsert({ where: { mtrl: r.mtrl }, update: data, create: { mtrl: r.mtrl, ...data } });
+      written++;
+    }
+    console.log(`βάση: ${ids.size} ομάδες · ${written} προτάσεις`);
+  }
 
   const report = {
     generatedAt: new Date().toISOString(),
