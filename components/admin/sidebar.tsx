@@ -3,7 +3,7 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import {
+import { FiMail,
   FiGrid, FiUsers, FiShield, FiKey, FiImage, FiChevronDown, FiList, FiTag, FiMaximize2, FiTrendingDown, FiShoppingCart,
   FiActivity, FiSettings, FiFileText, FiLogOut, FiDatabase, FiBriefcase, FiLayers, FiCpu, FiBookOpen, FiBook, FiUserCheck, FiBox, FiTool, FiFolder, FiAlertCircle, FiUserPlus, FiPackage, FiPlayCircle, FiUploadCloud, FiHelpCircle, FiClipboard, FiCalendar, FiTarget, FiCheckSquare, FiMenu, FiX,
 } from 'react-icons/fi';
@@ -65,6 +65,7 @@ const NAV_GROUPS: NavGroup[] = [
       { href: '/admin/order-requests', label: 'Αιτήματα παραγγελίας', icon: FiShoppingCart, permissions: ['order_requests.read'], badgeKey: 'orderRequests' },
       { href: '/admin/appointments', label: 'Ραντεβού atelier', icon: FiCalendar, permissions: ['appointments.read'], badgeKey: 'appointments' },
       { href: '/admin/leads', label: 'Leads & newsletter', icon: FiTarget, permissions: ['leads.read'] },
+      { href: '/admin/emails', label: 'Πρότυπα email', icon: FiMail, permissions: ['metadata.read'] },
       { href: '/admin/partners', label: 'Συνεργάτες', icon: FiUsers, permissions: ['partners.read'] },
       { href: '/admin/classifications', label: 'Κατηγορίες & ομάδες', icon: FiTag, permissions: ['classifications.read'] },
       { href: '/admin/units', label: 'Μονάδες μέτρησης', icon: FiMaximize2, permissions: ['units.read'] },

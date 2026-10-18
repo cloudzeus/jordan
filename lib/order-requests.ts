@@ -3,7 +3,8 @@ import type { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/db';
 import { getSetting } from '@/lib/settings';
 import { mailgunConfig, sendTransactionalEmail } from '@/lib/mailgun';
-import { escapeHtml, siteEmailHtml } from '@/lib/site-email';
+import { emailBrand } from '@/lib/email/brand';
+import { orderRequestStaffEmail } from '@/lib/email/templates';
 import {
   customerCanCancel, deliveryDateProblem, mergeLines, ORDER_REQUEST_LABEL, requestCode, staffCanMove,
   type OrderRequestInput, type OrderRequestStatus,
@@ -152,27 +153,20 @@ async function notifyStaff(id: string) {
     const r = await prisma.orderRequest.findUnique({ where: { id }, include: { lines: { orderBy: { sortOrder: 'asc' } } } });
     if (!r) return;
     const [brand, inbox, override, trader, user] = await Promise.all([
-      getSetting<string>('company.name'), getSetting<string>('company.email'), getSetting<string>('orders.notifyEmail'),
+      emailBrand(), getSetting<string>('company.email'), getSetting<string>('orders.notifyEmail'),
       prisma.softoneTrader.findUnique({ where: { trdr: r.trdr }, select: { name: true } }),
       prisma.user.findUnique({ where: { id: r.createdById }, select: { name: true, email: true } }),
     ]);
     if (override?.trim().toLowerCase() === 'off') return;
     const to = override?.trim() || inbox?.trim() || mailgunConfig().address;
-    const name = (brand ?? 'ATELIER').trim();
-    const who = trader?.name ?? `Πελάτης #${r.trdr}`;
-    const rows = r.lines.map((l) => `<tr><td style="padding:6px 12px 6px 0;color:#8A847C">${escapeHtml(l.code ?? '')}</td><td style="padding:6px 12px 6px 0">${escapeHtml(l.name)}${l.note ? `<br><span style="color:#8A847C">${escapeHtml(l.note)}</span>` : ''}</td><td style="padding:6px 0;text-align:right;white-space:nowrap">${num(l.qty)} ${escapeHtml(l.unit ?? '')}</td></tr>`).join('');
-    const meta = [
-      ['Από', `${user?.name ?? ''} ${user?.email ? `(${user.email})` : ''}`.trim()],
-      ['Αναφορά πελάτη', r.customerRef ?? ''], ['Παράδοση', r.deliveryDate ? r.deliveryDate.toISOString().slice(0, 10) : ''],
-      ['Διεύθυνση', r.deliveryAddress ?? ''],
-    ].filter(([, v]) => v).map(([k, v]) => `<tr><td style="padding:4px 16px 4px 0;color:#8A847C;white-space:nowrap">${k}</td><td style="padding:4px 0">${escapeHtml(v)}</td></tr>`).join('');
-    const link = appUrl() ? `<p style="margin:16px 0 0"><a href="${appUrl()}/admin/order-requests" style="color:#1C3241">Άνοιγμα στα αιτήματα παραγγελίας</a></p>` : '';
-    const body = `<table role="presentation" cellpadding="0" cellspacing="0" style="font:400 14px/1.5 Helvetica,Arial,sans-serif">${meta}</table>
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:16px;border-top:1px solid #E7E3DD;font:400 14px/1.5 Helvetica,Arial,sans-serif">${rows}</table>
-${r.notes ? `<p style="margin:16px 0 0;white-space:pre-wrap">${escapeHtml(r.notes)}</p>` : ''}${link}`;
-    await sendTransactionalEmail(to, `Αίτημα παραγγελίας ${requestCode(r.number)} — ${who}`,
-      siteEmailHtml({ brand: name, title: `Νέο αίτημα παραγγελίας ${requestCode(r.number)}`, intro: `${who} · ${r.lines.length} γραμμές`, body, footer: 'Το αίτημα δεν έχει καταχωριστεί στο SoftOne. Επιβεβαιώστε το από τη διαχείριση.' }),
-      { fromName: name, replyTo: user?.email ?? null });
+    const m = orderRequestStaffEmail(brand, {
+      code: requestCode(r.number), who: trader?.name ?? `Πελάτης #${r.trdr}`,
+      from: `${user?.name ?? ''} ${user?.email ? `(${user.email})` : ''}`.trim() || null,
+      customerRef: r.customerRef, delivery: r.deliveryDate ? r.deliveryDate.toISOString().slice(0, 10) : null, address: r.deliveryAddress,
+      lines: r.lines.map((l) => ({ code: l.code, name: l.name, note: l.note, qty: `${num(l.qty)} ${l.unit ?? ''}`.trim() })),
+      notes: r.notes, link: appUrl() ? `${appUrl()}/admin/order-requests` : null,
+    });
+    await sendTransactionalEmail(to, m.subject, m.html, { fromName: brand.name, replyTo: user?.email ?? null, text: m.text });
   } catch (e) {
     console.error('[order-request-mail]', e instanceof Error ? e.message : e);
   }

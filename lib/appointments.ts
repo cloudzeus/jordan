@@ -2,7 +2,9 @@ import 'server-only';
 import { after } from 'next/server';
 import { prisma } from '@/lib/db';
 import { getSetting, setSetting } from '@/lib/settings';
-import { escapeHtml, siteEmailHtml } from '@/lib/site-email';
+import { emailBrand } from '@/lib/email/brand';
+import type { EmailBrand } from '@/lib/email/layout';
+import { staffNewAppointmentEmail, visitorAppointmentEmail } from '@/lib/email/templates';
 import { ATELIER_PROFILE } from '@/lib/site-company';
 import { appUrl, sendLeadMail, staffRecipient } from '@/lib/lead-mail';
 import { syncLeadToSoftone, upsertLead } from '@/lib/leads';
@@ -321,9 +323,6 @@ export const deleteBlock = (id: string) => prisma.appointmentBlock.delete({ wher
 
 // ── email ────────────────────────────────────────────────────────────────────────────────────
 
-const row = (k: string, v: string | null | undefined) => (v ? `<tr><td style="padding:6px 16px 6px 0;color:#8A847C;white-space:nowrap;vertical-align:top">${k}</td><td style="padding:6px 0;color:#1C1B19">${escapeHtml(v)}</td></tr>` : '');
-const table = (rows: string) => `<table role="presentation" cellpadding="0" cellspacing="0" style="font:400 14px/1.5 Helvetica,Arial,sans-serif">${rows}</table>`;
-
 /** Σύνδεσμος «Προσθήκη στο Google Calendar» (χωρίς συνημμένο). */
 export function googleCalendarUrl(a: { start: string; end: string; title: string; details?: string; location?: string }) {
   const f = (iso: string) => iso.replace(/[-:]/g, '').replace(/\.\d{3}/, '');
@@ -332,35 +331,29 @@ export function googleCalendarUrl(a: { start: string; end: string; title: string
 }
 
 type VisitorMail = 'received' | 'confirmed' | 'cancelled' | 'rescheduled';
-const VISITOR_COPY: Record<VisitorMail, { subject: string; title: string; intro: string }> = {
-  received: { subject: 'Λάβαμε το αίτημα ραντεβού', title: 'Λάβαμε το αίτημά σας', intro: 'Ευχαριστούμε. Θα επιβεβαιώσουμε το ραντεβού σας σύντομα — συνήθως την ίδια εργάσιμη.' },
-  confirmed: { subject: 'Το ραντεβού σας επιβεβαιώθηκε', title: 'Σας περιμένουμε στο atelier', intro: 'Το ραντεβού σας επιβεβαιώθηκε.' },
-  cancelled: { subject: 'Το ραντεβού σας ακυρώθηκε', title: 'Το ραντεβού ακυρώθηκε', intro: 'Δυστυχώς το ραντεβού σας ακυρώθηκε. Μπορείτε να κλείσετε νέα ώρα από το website ή να μας τηλεφωνήσετε.' },
-  rescheduled: { subject: 'Νέα ώρα για το ραντεβού σας', title: 'Το ραντεβού σας μεταφέρθηκε', intro: 'Η ώρα του ραντεβού σας άλλαξε. Δείτε παρακάτω τη νέα ώρα.' },
-};
 
-export function visitorEmailHtml(kind: VisitorMail, a: { code: string; start: string; end: string; staffNote?: string | null; topic?: string | null }, brand: string) {
-  const c = VISITOR_COPY[kind];
-  const cal = kind === 'cancelled' ? '' : `<p style="margin:20px 0 0"><a href="${googleCalendarUrl({ start: a.start, end: a.end, title: `Ραντεβού στο ${brand}`, location: ATELIER_PROFILE.address, details: a.code })}" style="color:#1C3241">Προσθήκη στο ημερολόγιο →</a></p>`;
-  const note = a.staffNote ? `<p style="margin:16px 0 0;white-space:pre-wrap">${escapeHtml(a.staffNote)}</p>` : '';
-  const body = table(row('Ραντεβού', a.code) + row('Πότε', formatSlotEl(a.start, a.end)) + row('Θέμα', a.topic) + row('Πού', ATELIER_PROFILE.address)) + note + cal
-    + `<p style="margin:20px 0 0">Για αλλαγή ή ακύρωση απαντήστε σε αυτό το email ή καλέστε στο ${escapeHtml(ATELIER_PROFILE.phones[0])}.</p>`;
-  return { subject: `${c.subject} · ${a.code}`, html: siteEmailHtml({ brand, title: c.title, intro: c.intro, body, footer: `${brand} · ${ATELIER_PROFILE.address} · ${ATELIER_PROFILE.hours}` }) };
+/** Email προς τον επισκέπτη (κοινό πρότυπο). `brand` = πλήρης ταυτότητα ή σκέτη επωνυμία. */
+export function visitorEmailHtml(kind: VisitorMail, a: { code: string; start: string; end: string; staffNote?: string | null; topic?: string | null }, brand: EmailBrand | string) {
+  const b: EmailBrand = typeof brand === 'string' ? { name: brand, address: ATELIER_PROFILE.address, phones: [...ATELIER_PROFILE.phones] } : brand;
+  const where = ATELIER_PROFILE.address;
+  return visitorAppointmentEmail(b, kind, {
+    code: a.code, when: formatSlotEl(a.start, a.end), topic: a.topic, where, hours: ATELIER_PROFILE.hours, staffNote: a.staffNote,
+    calendarUrl: googleCalendarUrl({ start: a.start, end: a.end, title: `Ραντεβού στο ${b.name}`, location: where, details: a.code }),
+  });
 }
 
 async function mailVisitor(id: string, kind: VisitorMail) {
   const r = await prisma.appointment.findUnique({ where: { id } });
   if (!r?.email) return;
-  const brand = (await getSetting<string>('company.name'))?.trim() || ATELIER_PROFILE.brand;
-  const staff = await staffRecipient();
+  const [brand, staff] = await Promise.all([emailBrand(), staffRecipient()]);
   const m = visitorEmailHtml(kind, { code: appointmentCode(r.number), start: r.startsAt.toISOString(), end: r.endsAt.toISOString(), staffNote: r.staffNote, topic: r.topic }, brand);
   // .ics μόνο για επιβεβαιωμένη ώρα (όχι για το «λάβαμε το αίτημα»): ίδιο UID, SEQUENCE από τη βάση.
   const ics = kind === 'received' ? null : buildIcs({
-    uid: `appointment-${r.id}@atelierdamask.gr`, start: r.startsAt, end: r.endsAt, summary: `${r.topic ?? 'Ραντεβού'} · ${brand}`,
+    uid: `appointment-${r.id}@atelierdamask.gr`, start: r.startsAt, end: r.endsAt, summary: `${r.topic ?? 'Ραντεβού'} · ${brand.name}`,
     description: appointmentCode(r.number), location: ATELIER_PROFILE.address, sequence: r.icsSequence, cancelled: kind === 'cancelled',
   });
   await sendLeadMail(r.email, m.subject, m.html, {
-    replyTo: staff ?? ATELIER_PROFILE.salesEmail,
+    replyTo: staff ?? ATELIER_PROFILE.salesEmail, text: m.text,
     attachments: ics ? [{ filename: kind === 'cancelled' ? 'akyrosi-rantevou.ics' : 'rantevou.ics', content: ics, contentType: `text/calendar; charset=utf-8; method=${kind === 'cancelled' ? 'CANCEL' : 'PUBLISH'}` }] : undefined,
   });
 }
@@ -370,15 +363,12 @@ async function mailStaffNew(id: string) {
   if (!to) return;
   const r = await prisma.appointment.findUnique({ where: { id } });
   if (!r) return;
-  const brand = (await getSetting<string>('company.name'))?.trim() || ATELIER_PROFILE.brand;
-  const code = appointmentCode(r.number);
-  const body = table(row('Πότε', formatSlotEl(r.startsAt.toISOString(), r.endsAt.toISOString())) + row('Ονοματεπώνυμο', r.name) + row('Εταιρεία', r.company) + row('Email', r.email ?? '') + row('Τηλέφωνο', r.phone) + row('Θέμα', r.topic))
-    + (r.message ? `<p style="margin:16px 0 0;white-space:pre-wrap">${escapeHtml(r.message)}</p>` : '')
-    + `<p style="margin:20px 0 0"><a href="${appUrl()}/admin/appointments" style="color:#1C3241">Άνοιγμα στο ημερολόγιο →</a></p>`;
-  await sendLeadMail(to, `Νέο ραντεβού ${code} — ${r.company ?? r.name}`, siteEmailHtml({
-    brand, title: r.status === 'CONFIRMED' ? 'Νέο ραντεβού (επιβεβαιώθηκε αυτόματα)' : 'Νέο αίτημα ραντεβού', intro: 'Από τη φόρμα του website.', body,
-    footer: 'Απαντήστε σε αυτό το email για να επικοινωνήσετε απευθείας με τον επισκέπτη.',
-  }), { replyTo: r.email });
+  const brand = await emailBrand();
+  const m = staffNewAppointmentEmail(brand, {
+    code: appointmentCode(r.number), autoConfirmed: r.status === 'CONFIRMED', when: formatSlotEl(r.startsAt.toISOString(), r.endsAt.toISOString()),
+    name: r.name, company: r.company, email: r.email, phone: r.phone, topic: r.topic, message: r.message, link: `${appUrl()}/admin/appointments`,
+  });
+  await sendLeadMail(to, m.subject, m.html, { replyTo: r.email, text: m.text });
 }
 
 export { isActiveStatus };

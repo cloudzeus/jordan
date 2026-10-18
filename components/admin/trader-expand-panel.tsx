@@ -126,7 +126,7 @@ function DetailsTab({ t, canManage, onAction }: { t: TraderRecord; canManage: bo
 
 type LedgerFilter = 'all' | 'invoice' | 'payment' | 'credit';
 
-function LedgerTab({ data }: { data: TraderActivity }) {
+function LedgerTab({ data, trdr }: { data: TraderActivity; trdr: number }) {
   const [f, setF] = React.useState<LedgerFilter>('all');
   const customer = data.side === 'customer';
   const bal = data.softone.balance;
@@ -177,6 +177,11 @@ function LedgerTab({ data }: { data: TraderActivity }) {
       </div>
 
       <div className="flex flex-wrap items-center gap-2 text-[length:var(--fs-11)]">
+        {customer && (
+          <Link href={`/admin/emails?tab=statement&trdr=${trdr}`} className="inline-flex min-h-7 cursor-pointer items-center gap-1 rounded-md border border-border bg-background px-2.5 font-medium text-foreground hover:bg-muted">
+            <FiFileText className="size-3.5" aria-hidden /> Κατάσταση λογαριασμού (email / PDF)
+          </Link>
+        )}
         {data.softone.matches ? (
           <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-medium" style={{ color: '#047857', backgroundColor: soft('#047857', 12) }}>
             <FiCheckCircle className="size-3.5" aria-hidden /> Συμφωνεί με την καρτέλα του SoftOne
@@ -484,7 +489,7 @@ export function TraderExpandPanel({ trader, canManage, canFiles = false, onActio
         </TabsContent>
       )}
       <TabsContent value="map"><MapTab t={trader} canManage={canManage} onAction={onAction} /></TabsContent>
-      <TabsContent value="ledger">{remote((d) => <LedgerTab data={d} />)}</TabsContent>
+      <TabsContent value="ledger">{remote((d) => <LedgerTab data={d} trdr={trader.trdr} />)}</TabsContent>
       <TabsContent value="projects">{remote((d) => <ProjectsTab data={d} />)}</TabsContent>
       <TabsContent value="orders">{remote((d) => <OrdersTab data={d} />)}</TabsContent>
       <TabsContent value="scans"><TraderDocsPanel trdr={trader.trdr} count={trader.docCount ?? 0} /></TabsContent>

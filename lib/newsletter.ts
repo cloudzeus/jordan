@@ -1,9 +1,8 @@
 import 'server-only';
 import { randomBytes } from 'node:crypto';
 import { prisma } from '@/lib/db';
-import { getSetting } from '@/lib/settings';
-import { escapeHtml, siteEmailHtml } from '@/lib/site-email';
-import { ATELIER_PROFILE } from '@/lib/site-company';
+import { emailBrand } from '@/lib/email/brand';
+import { newsletterConfirmEmail, newsletterStaffEmail } from '@/lib/email/templates';
 import { appUrl, sendLeadMail, staffRecipient } from '@/lib/lead-mail';
 import { syncLeadToSoftone, upsertLead } from '@/lib/leads';
 
@@ -28,14 +27,9 @@ export async function subscribeNewsletter(input: { email: string; name?: string 
     ? await prisma.newsletterSubscriber.update({ where: { id: existing.id }, data: { status: 'PENDING', name: name ?? existing.name, source: input.source ?? existing.source, consentAt: new Date(), unsubscribedAt: null, token: newToken() } })
     : await prisma.newsletterSubscriber.create({ data: { email, name, source: input.source ?? null, token: newToken() } });
 
-  const brand = await brandName();
   const link = `${appUrl()}/newsletter/confirm?token=${encodeURIComponent(sub.token)}`;
-  const body = `<p style="margin:24px 0"><a href="${link}" style="display:inline-block;background:#1C3241;color:#FFFFFF;text-decoration:none;padding:14px 28px;font:500 15px/1 Helvetica,Arial,sans-serif">Επιβεβαίωση εγγραφής</a></p>
-  <p style="margin:0;color:#8A847C;font-size:13px">Ή αντιγράψτε τον σύνδεσμο: <span style="word-break:break-all">${escapeHtml(link)}</span></p>`;
-  await sendLeadMail(email, `Επιβεβαιώστε την εγγραφή σας · ${brand}`, siteEmailHtml({
-    brand, title: 'Ένα βήμα ακόμη', intro: 'Πατήστε το κουμπί για να επιβεβαιώσετε ότι θέλετε να λαμβάνετε τα νέα του atelier: νέα υλικά, δυναμικές προσφορές container και εκδηλώσεις.',
-    body, footer: 'Αν δεν κάνατε εσείς την εγγραφή, αγνοήστε αυτό το μήνυμα — δεν θα σας στείλουμε τίποτα.',
-  }));
+  const m = newsletterConfirmEmail(await emailBrand(), { link });
+  await sendLeadMail(email, m.subject, m.html, { text: m.text });
   await prisma.newsletterSubscriber.update({ where: { id: sub.id }, data: { confirmSentAt: new Date() } });
   return 'pending';
 }
@@ -73,16 +67,9 @@ export type SubscriberView = Awaited<ReturnType<typeof listSubscribers>>[number]
 /** Το προσωπικό αφαιρεί συνδρομητή (π.χ. αίτημα μέσω τηλεφώνου) — η εγγραφή μένει ως UNSUBSCRIBED. */
 export const staffUnsubscribe = (id: string) => prisma.newsletterSubscriber.update({ where: { id }, data: { status: 'UNSUBSCRIBED', unsubscribedAt: new Date() } });
 
-async function brandName() {
-  return (await getSetting<string>('company.name'))?.trim() || ATELIER_PROFILE.brand;
-}
-
 async function notifyStaff(email: string, name: string | null, source: string | null) {
   const to = await staffRecipient();
   if (!to) return;
-  const brand = await brandName();
-  await sendLeadMail(to, `Νέος συνδρομητής newsletter — ${email}`, siteEmailHtml({
-    brand, title: 'Νέα εγγραφή στο newsletter', intro: `${name ? `${name} · ` : ''}${email} επιβεβαίωσε την εγγραφή${source ? ` (από: ${source})` : ''}.`,
-    body: `<p style="margin:16px 0 0"><a href="${appUrl()}/admin/leads" style="color:#1C3241">Leads & newsletter →</a></p>`, footer: 'Αυτόματη ειδοποίηση από το website.',
-  }), { replyTo: email });
+  const m = newsletterStaffEmail(await emailBrand(), { email, name, source, link: `${appUrl()}/admin/leads` });
+  await sendLeadMail(to, m.subject, m.html, { replyTo: email, text: m.text });
 }

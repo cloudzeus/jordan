@@ -4,6 +4,8 @@ import { z } from 'zod';
 import { prisma } from '@/lib/db';
 import type { RoleKey } from '@prisma/client';
 import { appUrl } from '@/lib/app-url';
+import { welcomeEmail } from '@/lib/email/templates';
+import type { EmailBrand } from '@/lib/email/layout';
 
 /**
  * Πρόσβαση πελατών & συνεργατών στο portal.
@@ -219,42 +221,16 @@ export async function partnerAccess(partnerId: string) {
   };
 }
 
-// ── Email καλωσορίσματος ───────────────────────────────────────────────────────────────────
+// ── Email καλωσορίσματος (κοινό πρότυπο: lib/email/templates.ts → welcomeEmail) ───────────────
 
-const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
-
-export function welcomeEmailHtml(d: { name: string; email: string; orgName: string; company: string; loginUrl: string; lostUrl: string; contact?: string | null }) {
-  const F = "font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;";
-  return `<!doctype html><html lang="el"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
-<body style="margin:0;padding:0;background:#f1f5f9;">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="#f1f5f9"><tr><td align="center" style="padding:24px 12px;">
-<table role="presentation" width="560" cellpadding="0" cellspacing="0" style="width:100%;max-width:560px;background:#ffffff;border:1px solid #e2e8f0;border-radius:14px;overflow:hidden;">
-  <tr><td bgcolor="#0f172a" style="padding:18px 24px;${F}font-size:18px;font-weight:800;color:#ffffff;">${esc(d.company)}</td></tr>
-  <tr><td style="padding:28px;${F}color:#0f172a;">
-    <h1 style="margin:0 0 12px;font-size:22px;">Καλώς ήρθατε${d.name ? `, ${esc(d.name)}` : ''}</h1>
-    <p style="margin:0 0 14px;font-size:15px;line-height:1.6;">Σας δημιουργήσαμε πρόσβαση στην πλατφόρμα μας${d.orgName ? ` για λογαριασμό της <strong>${esc(d.orgName)}</strong>` : ''}. Εκεί θα βλέπετε τις προσφορές μας — όπως τα κοινά container με τιμή που πέφτει όσο γεμίζουν.</p>
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;"><tr><td style="padding:14px 16px;${F}font-size:14px;">
-      <div style="color:#64748b;font-size:12px;text-transform:uppercase;letter-spacing:.5px;font-weight:700;">Όνομα χρήστη</div>
-      <div style="font-size:16px;font-weight:700;margin-top:2px;">${esc(d.email)}</div>
-      <div style="color:#64748b;font-size:13px;margin-top:8px;">Τον κωδικό θα σας τον δώσει ο συνεργάτης μας. Μπορείτε επίσης να ορίσετε δικό σας από το «Ξέχασα τον κωδικό».</div>
-    </td></tr></table>
-    <table role="presentation" cellpadding="0" cellspacing="0" style="margin:22px 0 6px;"><tr><td bgcolor="#0369a1" style="border-radius:10px;">
-      <a href="${esc(d.loginUrl)}" style="${F}display:inline-block;padding:14px 26px;font-size:15px;font-weight:700;color:#ffffff;text-decoration:none;">Σύνδεση</a>
-    </td></tr></table>
-    <p style="margin:10px 0 0;font-size:12px;color:#64748b;">Ξεχάσατε τον κωδικό; <a href="${esc(d.lostUrl)}" style="color:#0369a1;">Ορίστε νέο</a></p>
-  </td></tr>
-  <tr><td bgcolor="#f1f5f9" style="padding:14px 28px;${F}font-size:12px;color:#64748b;">${esc(d.company)}${d.contact ? ` · ${esc(d.contact)}` : ''}<br>Αν δεν περιμένατε αυτό το μήνυμα, απλώς αγνοήστε το.</td></tr>
-</table></td></tr></table></body></html>`;
+export function welcomeEmailHtml(d: { name: string; email: string; orgName: string; company: string; loginUrl: string; lostUrl: string; brand?: EmailBrand }) {
+  return welcomeEmail(d.brand ?? { name: d.company }, d).html;
 }
 
 async function sendWelcome(to: string, name: string, orgName: string) {
-  const { getSetting } = await import('@/lib/settings');
-  const { sendTransactionalEmail } = await import('@/lib/mailgun');
-  const [company, phone, contactEmail] = await Promise.all([getSetting<string>('company.name'), getSetting<string>('company.phone'), getSetting<string>('company.email')]);
+  const [{ emailBrand }, { sendTransactionalEmail }, { getSetting }] = await Promise.all([import('@/lib/email/brand'), import('@/lib/mailgun'), import('@/lib/settings')]);
+  const [brand, contactEmail] = await Promise.all([emailBrand(), getSetting<string>('company.email')]);
   const base = appUrl();
-  const html = welcomeEmailHtml({
-    name, email: to, orgName, company: (company ?? 'ATELIER').trim(), loginUrl: `${base}/auth/signin`, lostUrl: `${base}/auth/lost-password`,
-    contact: [phone, contactEmail].filter(Boolean).join(' · ') || null,
-  });
-  await sendTransactionalEmail(to, `Η πρόσβασή σας στο ${(company ?? 'ATELIER').trim()}`, html, { replyTo: contactEmail, fromName: (company ?? 'ATELIER').trim() });
+  const m = welcomeEmail(brand, { name, email: to, orgName, loginUrl: `${base}/auth/signin`, lostUrl: `${base}/auth/lost-password` });
+  await sendTransactionalEmail(to, m.subject, m.html, { replyTo: contactEmail, fromName: brand.name, text: m.text });
 }

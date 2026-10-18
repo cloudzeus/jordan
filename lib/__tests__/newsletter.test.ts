@@ -22,7 +22,7 @@ describe('newsletter double opt-in', () => {
     db.newsletterSubscriber.findUnique.mockResolvedValue(null);
     expect(await subscribeNewsletter({ email: 'New@Studio.gr', source: 'footer' })).toBe('pending');
     expect(db.newsletterSubscriber.create).toHaveBeenCalledWith({ data: expect.objectContaining({ email: 'new@studio.gr', source: 'footer', token: expect.any(String) }) });
-    expect(mail.sendLeadMail).toHaveBeenCalledWith('new@studio.gr', expect.stringContaining('Επιβεβαιώστε'), expect.stringContaining('/newsletter/confirm?token='));
+    expect(mail.sendLeadMail).toHaveBeenCalledWith('new@studio.gr', expect.stringContaining('Επιβεβαιώστε'), expect.stringContaining('/newsletter/confirm?token='), { text: expect.stringContaining('/newsletter/confirm?token=') });
     expect(leads.upsertLead).not.toHaveBeenCalled();
   });
   it('ήδη επιβεβαιωμένος → «already», κανένα email', async () => {
@@ -42,7 +42,7 @@ describe('newsletter double opt-in', () => {
     expect(leads.upsertLead).toHaveBeenCalledWith({ email: 'x@y.gr', name: 'Νίκος' }, 'newsletter');
     expect(db.newsletterSubscriber.update).toHaveBeenCalledWith({ where: { id: 's1' }, data: expect.objectContaining({ status: 'CONFIRMED', leadId: 'lead1' }) });
     expect(leads.syncLeadToSoftone).toHaveBeenCalledWith('lead1');
-    expect(mail.sendLeadMail).toHaveBeenCalledWith('staff@atelier.test', expect.stringContaining('Νέος συνδρομητής'), expect.any(String), { replyTo: 'x@y.gr' });
+    expect(mail.sendLeadMail).toHaveBeenCalledWith('staff@atelier.test', expect.stringContaining('Νέος συνδρομητής'), expect.any(String), { replyTo: 'x@y.gr', text: expect.any(String) });
   });
   it('άκυρο token → ok:false', async () => {
     db.newsletterSubscriber.findUnique.mockResolvedValue(null);

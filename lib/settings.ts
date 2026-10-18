@@ -91,6 +91,8 @@ export const SETTING_CATALOG: SettingDef[] = [
   { key: 'company.phone',        category: 'company', label: 'Τηλέφωνο',           type: 'text' },
   { key: 'company.email',        category: 'company', label: 'Email επικοινωνίας', type: 'email' },
   { key: 'company.logoUrl',      category: 'company', label: 'Logo',               type: 'media' },
+  { key: 'company.taxOffice',    category: 'company', label: 'ΔΟΥ',                type: 'text', description: 'Εμφανίζεται στο υποσέλιδο των email και στην κατάσταση λογαριασμού (PDF).' },
+  { key: 'company.bankAccounts', category: 'company', label: 'Τραπεζικοί λογαριασμοί (πληρωμές πελατών)', type: 'text', description: 'Για την κατάσταση λογαριασμού πελάτη (email + PDF). Ένας ανά «;», μορφή «Τράπεζα: IBAN», π.χ. «Alpha Bank: GR12 0140 …; Eurobank: GR34 0260 …». Κενό = χωρίς στοιχεία πληρωμής.' },
   { key: 'orders.notifyEmail',   category: 'company', label: 'Email για αιτήματα παραγγελίας (B2B)', type: 'text', description: 'Πού πηγαίνει το email για κάθε νέο αίτημα παραγγελίας από την πύλη. Κενό = το email επικοινωνίας· «off» = καμία αποστολή.' },
   { key: 'leads.notifyEmail',    category: 'company', label: 'Email για ραντεβού & newsletter (website)', type: 'text', description: 'Πού πηγαίνει η ειδοποίηση για κάθε νέο ραντεβού στο atelier και κάθε επιβεβαιωμένη εγγραφή στο newsletter. Κενό = το email επικοινωνίας· «off» = καμία ειδοποίηση προσωπικού (τα email προς τον επισκέπτη στέλνονται κανονικά).' },
 

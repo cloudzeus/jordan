@@ -123,26 +123,16 @@ export async function sendPaymentEmail(paymentId: string): Promise<{ sent: boole
     return { sent: false, error: 'Δεν βρέθηκε email παραλήπτη' };
   }
   try {
-    const { sendTransactionalEmail } = await import('@/lib/mailgun');
-    const { escapeHtml, siteEmailHtml } = await import('@/lib/site-email');
-    const [brand, inbox] = await Promise.all([getSetting<string>('company.name'), getSetting<string>('company.email')]);
-    const name = (brand ?? 'ATELIER').trim();
-    const product = p.reservation.offerItem.name;
-    const offerTitle = p.reservation.offer.title;
-    const row = (k: string, v: string, strong = false) => `<tr><td style="padding:6px 0;color:#8A847C">${escapeHtml(k)}</td><td style="padding:6px 0;text-align:right;color:#1C1B19${strong ? ';font-weight:600' : ''}">${escapeHtml(v)}</td></tr>`;
-    const link = payUrl(p.token);
-    const body = `<p style="margin:0 0 12px">${escapeHtml(payer.contactName)}, η κράτησή σας στο «${escapeHtml(product)}»${offerTitle && !offerTitle.startsWith(product) ? ` (${escapeHtml(offerTitle)})` : ''} εγκρίθηκε. Για να ολοκληρωθεί, πληρώστε με τον προσωπικό σας σύνδεσμο.</p>
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:16px 0;border-top:1px solid #E7E3DD;border-bottom:1px solid #E7E3DD;font:400 14px/1.4 Helvetica,Arial,sans-serif">
-${row('Ποσότητα', `${num(p.pallets)} παλέτες · ${num(p.quantity)} ${p.unit ?? 'τ.μ.'}`)}
-${row(`Τιμή κλιμακίου W0${p.level}`, `${p.unitPrice.toLocaleString('el-GR', { style: 'currency', currency: 'EUR' })} / ${p.unit ?? 'τ.μ.'}`)}
-${row('Καθαρό', formatEur(p.netCents))}
-${row(`ΦΠΑ ${num(p.vatRate)}%`, formatEur(p.vatCents))}
-${row('Σύνολο', formatEur(p.amountCents), true)}
-</table>
-<p style="margin:24px 0"><a href="${link}" style="display:inline-block;background:#1C1B19;color:#FFFFFF;text-decoration:none;padding:14px 28px;font:600 14px/1 Helvetica,Arial,sans-serif;letter-spacing:1px">Πληρωμή ${escapeHtml(formatEur(p.amountCents))}</a></p>
-<p style="margin:0 0 8px;font-size:13px">Κάρτα, Apple Pay, Google Pay, IRIS και άλλοι τρόποι, με ασφάλεια μέσω Viva.</p>
-<p style="margin:0;font-size:13px">Η τιμή πέφτει όσο γεμίζει το container: αν μέχρι το κλείσιμο ισχύσει χαμηλότερο κλιμάκιο, η διαφορά σας επιστρέφεται στο ίδιο μέσο πληρωμής. Αν πληρώσετε αφού έχει ήδη πέσει, χρεώνεστε απευθείας τη χαμηλότερη τιμή.</p>`;
-    await sendTransactionalEmail(to, `Πληρωμή κράτησης — ${product}`, siteEmailHtml({ brand: name, title: 'Πληρωμή της κράτησής σας', body, footer: 'Ο σύνδεσμος είναι προσωπικός — μην τον προωθείτε. Για απορίες απαντήστε σε αυτό το email.' }), { fromName: name, replyTo: inbox ?? null });
+    const [{ sendTransactionalEmail }, { emailBrand }, { paymentRequestEmail }] = await Promise.all([import('@/lib/mailgun'), import('@/lib/email/brand'), import('@/lib/email/templates')]);
+    const [brand, inbox] = await Promise.all([emailBrand(), getSetting<string>('company.email')]);
+    const unit = p.unit ?? 'τ.μ.';
+    const m = paymentRequestEmail(brand, {
+      contactName: payer.contactName, product: p.reservation.offerItem.name, offer: p.reservation.offer.title,
+      quantity: `${num(p.pallets)} παλέτες · ${num(p.quantity)} ${unit}`,
+      unitPriceLabel: `Τιμή κλιμακίου W0${p.level}`, unitPrice: `${p.unitPrice.toLocaleString('el-GR', { style: 'currency', currency: 'EUR' })} / ${unit}`,
+      net: formatEur(p.netCents), vatLabel: `ΦΠΑ ${num(p.vatRate)}%`, vat: formatEur(p.vatCents), total: formatEur(p.amountCents), link: payUrl(p.token),
+    });
+    await sendTransactionalEmail(to, m.subject, m.html, { fromName: brand.name, replyTo: inbox ?? null, text: m.text });
     await prisma.vivaPayment.update({ where: { id: p.id }, data: { email: to, emailSentAt: new Date(), emailError: null } });
     return { sent: true, error: null };
   } catch (e) {

@@ -1,7 +1,8 @@
 import 'server-only';
 import { prisma } from '@/lib/db';
-import { getSetting } from '@/lib/settings';
-import { escapeHtml, siteEmailHtml } from '@/lib/site-email';
+import { emailBrand } from '@/lib/email/brand';
+import type { EmailBrand } from '@/lib/email/layout';
+import { appointmentInviteEmail } from '@/lib/email/templates';
 import { ATELIER_PROFILE } from '@/lib/site-company';
 import { sendLeadMail, type MailResult } from '@/lib/lead-mail';
 import { appointmentCode, formatSlotEl } from '@/lib/appointments-core';
@@ -17,40 +18,29 @@ import { buildIcs } from '@/lib/ics';
 export type InviteKind = 'created' | 'rescheduled' | 'cancelled';
 export type InviteResult = { invitee: MailResult | 'no-email' | 'off'; users: { email: string; result: MailResult }[] };
 
-const COPY: Record<InviteKind, { subject: string; title: string; intro: string }> = {
-  created: { subject: 'Ραντεβού', title: 'Νέο ραντεβού', intro: 'Κλείσαμε το παρακάτω ραντεβού. Το συνημμένο αρχείο το προσθέτει στο ημερολόγιό σας.' },
-  rescheduled: { subject: 'Νέα ώρα για το ραντεβού', title: 'Το ραντεβού μεταφέρθηκε', intro: 'Η ώρα του ραντεβού άλλαξε. Το συνημμένο αρχείο ενημερώνει το ημερολόγιό σας.' },
-  cancelled: { subject: 'Ακύρωση ραντεβού', title: 'Το ραντεβού ακυρώθηκε', intro: 'Το παρακάτω ραντεβού ακυρώθηκε. Το συνημμένο αρχείο το αφαιρεί από το ημερολόγιό σας.' },
-};
-
-const row = (k: string, v: string | null | undefined) => (v ? `<tr><td style="padding:6px 16px 6px 0;color:#8A847C;white-space:nowrap;vertical-align:top">${k}</td><td style="padding:6px 0;color:#1C1B19">${escapeHtml(v)}</td></tr>` : '');
-
 export type InviteData = {
   id: string; number: number; start: Date; end: Date; topic: string | null; name: string; company: string | null;
   place: string; location: string | null; message: string | null; staffNote: string | null; sequence: number;
 };
 
 /** Το .ics και το HTML ενός ραντεβού — καθαρή συνάρτηση (για tests). */
-export function inviteContent(kind: InviteKind, a: InviteData, brand: string, audience: 'invitee' | 'user', who?: { name: string; email: string } | null) {
-  const c = COPY[kind];
+export function inviteContent(kind: InviteKind, a: InviteData, brand: EmailBrand | string, audience: 'invitee' | 'user', who?: { name: string; email: string } | null) {
   const code = appointmentCode(a.number);
   const where = a.place === 'customer' ? (a.location || 'Στον χώρο του πελάτη') : ATELIER_PROFILE.address;
   const party = a.company && a.company !== a.name ? `${a.company} (${a.name})` : a.name;
-  const summary = audience === 'invitee' ? `${a.topic ?? 'Ραντεβού'} · ${brand}` : `${a.topic ?? 'Ραντεβού'} · ${party}`;
+  const brandName = typeof brand === 'string' ? brand : brand.name;
+  const summary = audience === 'invitee' ? `${a.topic ?? 'Ραντεβού'} · ${brandName}` : `${a.topic ?? 'Ραντεβού'} · ${party}`;
   const ics = buildIcs({
     uid: `appointment-${a.id}@atelierdamask.gr`, start: a.start, end: a.end, summary,
     description: [code, a.topic, audience === 'user' ? `Με: ${party}` : null, audience === 'user' ? a.message : null].filter(Boolean).join('\n'),
     location: where, sequence: a.sequence, cancelled: kind === 'cancelled',
     organizer: who ? { name: who.name, email: who.email } : null,
   });
-  const body = `<table role="presentation" cellpadding="0" cellspacing="0" style="font:400 14px/1.5 Helvetica,Arial,sans-serif">${
-    row('Ραντεβού', code) + row('Πότε', formatSlotEl(a.start.toISOString(), a.end.toISOString())) + row('Θέμα', a.topic)
-    + row(audience === 'user' ? 'Με' : 'Πού', audience === 'user' ? party : where) + (audience === 'user' ? row('Πού', where) : '')
-    + (who && audience === 'invitee' ? row('Από', who.name) : '')
-  }</table>${a.staffNote && audience === 'invitee' ? `<p style="margin:16px 0 0;white-space:pre-wrap">${escapeHtml(a.staffNote)}</p>` : ''}${
-    audience === 'user' && a.message ? `<p style="margin:16px 0 0;white-space:pre-wrap;color:#57534E">${escapeHtml(a.message)}</p>` : ''}`;
-  const html = siteEmailHtml({ brand, title: c.title, intro: c.intro, body, footer: `${brand} · ${ATELIER_PROFILE.address} · ${ATELIER_PROFILE.phones[0]}` });
-  return { subject: `${c.subject} ${code} · ${formatSlotEl(a.start.toISOString())}`, html, ics };
+  const m = appointmentInviteEmail(typeof brand === 'string' ? { name: brand, address: ATELIER_PROFILE.address, phones: [...ATELIER_PROFILE.phones] } : brand, kind, audience, {
+    code, when: formatSlotEl(a.start.toISOString(), a.end.toISOString()), whenShort: formatSlotEl(a.start.toISOString()), topic: a.topic, party, where,
+    staffNote: a.staffNote, message: a.message, organizer: who?.name ?? null,
+  });
+  return { ...m, ics };
 }
 
 /**
@@ -60,7 +50,7 @@ export function inviteContent(kind: InviteKind, a: InviteData, brand: string, au
 export async function sendAppointmentInvites(id: string, kind: InviteKind, opts: { invitee?: boolean } = {}): Promise<InviteResult> {
   const a = await prisma.appointment.findUnique({ where: { id } });
   if (!a) return { invitee: 'failed', users: [] };
-  const brand = (await getSetting<string>('company.name'))?.trim() || ATELIER_PROFILE.brand;
+  const brand = await emailBrand();
   const ids = [...new Set([a.createdById, a.assignedToId].filter((x): x is string => !!x))];
   const users = ids.length ? await prisma.user.findMany({ where: { id: { in: ids }, isActive: true }, select: { id: true, name: true, email: true } }) : [];
   const owner = users.find((u) => u.id === (a.assignedToId ?? a.createdById)) ?? users[0] ?? null;
@@ -73,13 +63,13 @@ export async function sendAppointmentInvites(id: string, kind: InviteKind, opts:
     if (!a.email) invitee = 'no-email';
     else {
       const m = inviteContent(kind, data, brand, 'invitee', who);
-      invitee = await sendLeadMail(a.email, m.subject, m.html, { replyTo: who?.email ?? ATELIER_PROFILE.salesEmail, attachments: attach(m.ics) });
+      invitee = await sendLeadMail(a.email, m.subject, m.html, { replyTo: who?.email ?? ATELIER_PROFILE.salesEmail, attachments: attach(m.ics), text: m.text });
     }
   }
   const sent: InviteResult['users'] = [];
   for (const u of users) {
     const m = inviteContent(kind, data, brand, 'user', who);
-    sent.push({ email: u.email, result: await sendLeadMail(u.email, m.subject, m.html, { replyTo: a.email, attachments: attach(m.ics) }) });
+    sent.push({ email: u.email, result: await sendLeadMail(u.email, m.subject, m.html, { replyTo: a.email, attachments: attach(m.ics), text: m.text }) });
   }
   return { invitee, users: sent };
 }

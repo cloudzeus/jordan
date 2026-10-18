@@ -2,8 +2,8 @@ import bcrypt from 'bcryptjs';
 import { randomInt } from 'node:crypto';
 import { prisma } from '@/lib/db';
 import { sendTransactionalEmail } from '@/lib/mailgun';
-import { getSetting } from '@/lib/settings';
-import { siteEmailHtml } from '@/lib/site-email';
+import { emailBrand } from '@/lib/email/brand';
+import { otpEmail } from '@/lib/email/templates';
 
 export type OtpType = 'register' | 'reset' | 'login';
 
@@ -33,17 +33,9 @@ export async function createOtpToken(email: string, type: OtpType, userId?: stri
     }),
   ]);
 
-  const brand = (await getSetting<string>('company.name').catch(() => null)) ?? 'ATELIER';
-  const title = type === 'reset' ? 'Νέος κωδικός πρόσβασης' : type === 'login' ? 'Κωδικός σύνδεσης' : 'Επιβεβαίωση email';
-  const intro = type === 'reset'
-    ? 'Χρησιμοποιήστε τον παρακάτω κωδικό για να ορίσετε νέο κωδικό πρόσβασης.'
-    : 'Χρησιμοποιήστε τον παρακάτω κωδικό για να συνεχίσετε.';
-  await sendTransactionalEmail(
-    email,
-    `${title} · ${brand.trim()}`,
-    siteEmailHtml({ brand, title, intro, code, body: `<p style="margin:0">Ισχύει για ${TTL_MIN} λεπτά.</p>` }),
-    { fromName: brand },
-  );
+  const brand = await emailBrand();
+  const m = otpEmail(brand, { kind: type, code, minutes: TTL_MIN });
+  await sendTransactionalEmail(email, m.subject, m.html, { fromName: brand.name, text: m.text });
   return true;
 }
 

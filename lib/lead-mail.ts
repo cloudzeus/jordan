@@ -17,14 +17,14 @@ export const isReservedRecipient = (to: string) => RESERVED.test(to.trim());
 
 export type MailResult = 'sent' | 'skipped' | 'failed';
 
-export async function sendLeadMail(to: string, subject: string, html: string, opts: { replyTo?: string | null; attachments?: MailAttachment[] } = {}): Promise<MailResult> {
+export async function sendLeadMail(to: string, subject: string, html: string, opts: { replyTo?: string | null; attachments?: MailAttachment[]; text?: string | null } = {}): Promise<MailResult> {
   if (process.env.MAIL_DRY_RUN === '1' || isReservedRecipient(to)) {
     console.info(`[lead-mail] δεν στάλθηκε (δοκιμή) → ${to}: ${subject}`);
     return 'skipped';
   }
   try {
     const brand = (await getSetting<string>('company.name'))?.trim() || 'Atelier by Damask';
-    await sendTransactionalEmail(to, subject, html, { replyTo: opts.replyTo, fromName: brand, attachments: opts.attachments });
+    await sendTransactionalEmail(to, subject, html, { replyTo: opts.replyTo, fromName: brand, attachments: opts.attachments, text: opts.text });
     return 'sent';
   } catch (e) {
     console.error('[lead-mail] αποτυχία αποστολής', e instanceof Error ? e.message : e);

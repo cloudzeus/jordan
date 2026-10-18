@@ -7,6 +7,7 @@
  * Καθαρές συναρτήσεις: ίδια είσοδος → ίδιο HTML (testable, προεπισκόπηση στο wizard).
  */
 import { itemTiers, sortTiers, type Level, type Tier } from '@/lib/container-pricing';
+import { EMAIL_COLORS, htmlToText, SANS, SERIF } from '@/lib/email/layout';
 
 export type OfferEmailProduct = { name: string; code: string; baseUnit: string; sqmPerPallet: number; prices: number[] };
 export type OfferEmailData = {
@@ -41,11 +42,13 @@ export function pallets(n: number): string {
 }
 const date = (iso: string) => new Date(iso).toLocaleDateString('el-GR', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Europe/Athens' });
 
+// Κοινή ταυτότητα με όλα τα email της εφαρμογής (lib/email/layout.ts).
 const C = {
-  ink: '#0f172a', muted: '#64748b', line: '#e2e8f0', bg: '#f1f5f9', card: '#ffffff',
-  brand: '#0f172a', accent: '#0369a1', good: '#047857', goodBg: '#ecfdf5', warn: '#b45309', warnBg: '#fffbeb',
+  ink: EMAIL_COLORS.ink, muted: EMAIL_COLORS.muted, line: EMAIL_COLORS.line, bg: EMAIL_COLORS.page, card: EMAIL_COLORS.card,
+  brand: EMAIL_COLORS.ink, accent: EMAIL_COLORS.accent, good: EMAIL_COLORS.good, goodBg: EMAIL_COLORS.goodSoft, warn: EMAIL_COLORS.warn, warnBg: EMAIL_COLORS.warnSoft,
 };
-const FONT = "font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;";
+const FONT = `font-family:${SANS};`;
+const SERIF_FONT = `font-family:${SERIF};`;
 
 const tiersOf = (d: OfferEmailData, p: OfferEmailProduct): Tier[] => itemTiers(d.levels, p.prices);
 const priceAt = (p: OfferEmailProduct, level: number | null | undefined) => (level ? p.prices[level - 1] ?? null : null);
@@ -75,7 +78,7 @@ function progress(d: OfferEmailData) {
   const full = pct >= 100;
   const left = Math.max(pct, 2);
   return `
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:separate;border-radius:8px;overflow:hidden;background:${C.line};">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:separate;border-radius:2px;overflow:hidden;background:${C.line};">
     <tr>
       <td width="${left}%" bgcolor="${C.good}" style="height:18px;background:${C.good};font-size:0;line-height:0;">&nbsp;</td>
       ${full ? '' : `<td width="${100 - left}%" style="height:18px;font-size:0;line-height:0;">&nbsp;</td>`}
@@ -114,7 +117,7 @@ function ladder(d: OfferEmailData, p: OfferEmailProduct) {
     </tr>`;
   }).join('');
   return `
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid ${C.line};border-radius:10px;border-collapse:separate;overflow:hidden;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid ${C.line};border-radius:2px;border-collapse:separate;overflow:hidden;">
     <tr>
       <td style="${FONT}padding:10px 14px;font-size:11px;font-weight:700;letter-spacing:.6px;color:${C.muted};text-transform:uppercase;">Γέμισμα container</td>
       <td align="right" style="${FONT}padding:10px 14px;font-size:11px;font-weight:700;letter-spacing:.6px;color:${C.muted};text-transform:uppercase;">Τιμή για όλους</td>
@@ -149,8 +152,8 @@ function productsTable(d: OfferEmailData) {
     </tr>`;
   }).join('');
   return `
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:separate;border-radius:8px;overflow:hidden;margin-bottom:12px;"><tr>${steps}</tr></table>
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid ${C.line};border-radius:10px;border-collapse:separate;overflow:hidden;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:separate;border-radius:2px;overflow:hidden;margin-bottom:12px;"><tr>${steps}</tr></table>
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid ${C.line};border-radius:2px;border-collapse:separate;overflow:hidden;">
     <tr>
       <td style="${FONT}padding:10px 14px;font-size:11px;font-weight:700;letter-spacing:.6px;color:${C.muted};text-transform:uppercase;">Προϊόν</td>
       <td align="right" style="${FONT}padding:10px 14px;font-size:11px;font-weight:700;letter-spacing:.6px;color:${C.muted};text-transform:uppercase;">Τιμή τώρα</td>
@@ -186,11 +189,11 @@ export function offerEmailHtml(d: OfferEmailData): string {
       ? `Οργανώνουμε κοινή παραγγελία container για ${names}. Κάθε πελάτης κλείνει όσες παλέτες χρειάζεται (από ${pallets(d.minOrder)}) και, όσο γεμίζει το container, η τιμή πέφτει <strong>για όλους</strong> — έως <strong>${eur(best!.price)}/${esc(one.baseUnit)}</strong>.`
       : `Οργανώνουμε κοινή παραγγελία container με ${d.products.length} προϊόντα: ${names}. Κάθε πελάτης κλείνει όσες παλέτες χρειάζεται από όποιο προϊόν θέλει (από ${pallets(d.minOrder)}) και, όσο γεμίζει το container, <strong>πέφτουν οι τιμές όλων</strong> — έως −${maxDrop(d)}%.`;
   const nextBox = nextLv
-    ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="${C.warnBg}" style="background:${C.warnBg};border-radius:10px;">
+    ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="${C.warnBg}" style="background:${C.warnBg};border-radius:2px;">
         <tr><td style="${FONT}padding:14px 16px;font-size:14px;color:${C.ink};">
           Λείπουν <strong>${pallets(Math.max(0, nextLv.fromPallets - d.filled))}</strong> για να πέσει η τιμή${one ? ` στα <strong style="color:${C.warn};">${eur(priceAt(one, nextLv.level) ?? 0)}/${esc(one.baseUnit)}</strong>` : ' όλων των προϊόντων στο επόμενο κλιμάκιο'}. Μοιραστείτε το με συνεργάτες σας — κερδίζουν όλοι.
         </td></tr></table>`
-    : `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="${C.goodBg}" style="background:${C.goodBg};border-radius:10px;">
+    : `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="${C.goodBg}" style="background:${C.goodBg};border-radius:2px;">
         <tr><td style="${FONT}padding:14px 16px;font-size:14px;color:${C.good};"><strong>Πιάσαμε την καλύτερη τιμή.</strong> Ισχύει για όλους τους συμμετέχοντες.</td></tr></table>`;
   const prices = one ? ladder(d, one) : productsTable(d);
   const facts = [
@@ -208,17 +211,19 @@ export function offerEmailHtml(d: OfferEmailData): string {
 <div style="display:none;max-height:0;overflow:hidden;opacity:0;">${esc(offerEmailSubject(d))}</div>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="${C.bg}" style="background:${C.bg};">
 <tr><td align="center" style="padding:24px 12px;">
-  <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="width:100%;max-width:600px;background:${C.card};border-radius:14px;overflow:hidden;border:1px solid ${C.line};">
-    <tr><td bgcolor="${C.brand}" style="background:${C.brand};padding:18px 24px;">
+  <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="width:100%;max-width:600px;background:${C.card};border-top:3px solid ${C.accent};">
+    <tr><td style="padding:26px 28px 20px;border-bottom:1px solid ${C.line};">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td>
       ${d.company.logoUrl
         ? `<img src="${esc(d.company.logoUrl)}" alt="${esc(d.company.name)}" height="32" style="display:block;height:32px;border:0;">`
-        : `<span style="${FONT}font-size:18px;font-weight:800;letter-spacing:.5px;color:#ffffff;">${esc(d.company.name.trim())}</span>`}
+        : `<span style="${SERIF_FONT}font-size:17px;letter-spacing:3.5px;text-transform:uppercase;color:${C.ink};">${esc(d.company.name.trim())}</span>`}
+      </td><td align="right" style="${FONT}font-size:10px;font-weight:700;letter-spacing:1.4px;text-transform:uppercase;color:${C.accent};">Κοινό container</td></tr></table>
     </td></tr>
     ${isDrop ? `<tr><td bgcolor="${C.good}" style="${FONT}background:${C.good};padding:10px 24px;font-size:13px;font-weight:700;color:#ffffff;letter-spacing:.4px;">↓ ΠΤΩΣΗ ΤΙΜΗΣ — ΚΟΙΝΟ CONTAINER</td></tr>` : ''}
     ${hero ? `<tr><td style="padding:0;"><img src="${esc(hero)}" width="600" alt="3D προβολή: παλέτες μέσα στο κοινό container" style="display:block;width:100%;height:auto;border:0;"></td></tr>` : ''}
     <tr><td style="padding:28px 28px 8px;">
       <p style="${FONT}margin:0 0 6px;font-size:12px;font-weight:700;letter-spacing:.8px;color:${C.accent};text-transform:uppercase;">${esc(d.title)}</p>
-      <h1 style="${FONT}margin:0 0 14px;font-size:26px;line-height:1.25;color:${C.ink};">${headline}</h1>
+      <h1 style="${SERIF_FONT}margin:0 0 14px;font-size:27px;font-weight:400;line-height:1.25;color:${C.ink};">${headline}</h1>
       <p style="${FONT}margin:0 0 6px;font-size:15px;line-height:1.6;color:${C.ink};">${hello}</p>
       <p style="${FONT}margin:0;font-size:15px;line-height:1.6;color:${C.ink};">${intro}</p>
     </td></tr>
@@ -226,17 +231,20 @@ export function offerEmailHtml(d: OfferEmailData): string {
     <tr><td style="padding:14px 28px;">${nextBox}</td></tr>
     <tr><td style="padding:6px 28px 6px;">${prices}</td></tr>
     <tr><td align="center" style="padding:24px 28px 8px;">
-      <table role="presentation" cellpadding="0" cellspacing="0"><tr><td bgcolor="${C.accent}" style="border-radius:10px;background:${C.accent};">
-        <a href="${esc(d.ctaUrl)}" style="${FONT}display:inline-block;padding:15px 30px;font-size:16px;font-weight:700;color:#ffffff;text-decoration:none;border-radius:10px;">${isDrop ? 'Αυξήστε την κράτησή σας' : 'Κλείστε παλέτες τώρα'}</a>
+      <table role="presentation" cellpadding="0" cellspacing="0"><tr><td bgcolor="${C.accent}" style="border-radius:2px;background:${C.accent};">
+        <a href="${esc(d.ctaUrl)}" style="${FONT}display:inline-block;padding:15px 30px;font-size:16px;font-weight:700;color:#ffffff;text-decoration:none;border-radius:2px;">${isDrop ? 'Αυξήστε την κράτησή σας' : 'Κλείστε παλέτες τώρα'}</a>
       </td></tr></table>
       <p style="${FONT}margin:10px 0 0;font-size:12px;color:${C.muted};">Απαντήστε σε αυτό το email ή καλέστε μας — κρατάμε τη θέση σας στο container.</p>
     </td></tr>
     <tr><td style="padding:18px 28px 26px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-top:1px solid ${C.line};">${facts}</table></td></tr>
     <tr><td bgcolor="${C.bg}" style="${FONT}background:${C.bg};padding:16px 28px;font-size:12px;line-height:1.6;color:${C.muted};">
-      <strong style="color:${C.ink};">${esc(d.company.name.trim())}</strong>${contact ? `<br>${contact}` : ''}<br>
+      <span style="${SERIF_FONT}font-size:13px;letter-spacing:2px;text-transform:uppercase;color:${C.ink};">${esc(d.company.name.trim())}</span>${contact ? `<br>${contact}` : ''}<br>
       Λαμβάνετε αυτό το μήνυμα ως πελάτης ή συνεργάτης μας. Οι τιμές ισχύουν για τη συγκεκριμένη κοινή παραγγελία και διαμορφώνονται με το τελικό γέμισμα του container.
     </td></tr>
   </table>
 </td></tr></table>
 </body></html>`;
 }
+
+/** Απλό κείμενο του ίδιου email (multipart/alternative). */
+export const offerEmailText = (d: OfferEmailData) => htmlToText(offerEmailHtml(d));

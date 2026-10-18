@@ -2,9 +2,8 @@ import 'server-only';
 import { after } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/lib/db';
-import { getSetting } from '@/lib/settings';
-import { escapeHtml, siteEmailHtml } from '@/lib/site-email';
-import { ATELIER_PROFILE } from '@/lib/site-company';
+import { emailBrand } from '@/lib/email/brand';
+import { taskInviteEmail } from '@/lib/email/templates';
 import { sendLeadMail } from '@/lib/lead-mail';
 import { buildIcs } from '@/lib/ics';
 import { formatSlotEl, zonedParts } from '@/lib/appointments-core';
@@ -421,11 +420,6 @@ export async function calendarTasks(from: Date, to: Date): Promise<CalendarTask[
 }
 
 type InviteKind = 'created' | 'updated' | 'cancelled';
-const COPY: Record<InviteKind, { subject: string; intro: string }> = {
-  created: { subject: 'Νέα εργασία', intro: 'Σας ορίστηκε η παρακάτω εργασία έργου. Το συνημμένο αρχείο την προσθέτει στο ημερολόγιό σας.' },
-  updated: { subject: 'Αλλαγή εργασίας', intro: 'Η εργασία άλλαξε. Το συνημμένο αρχείο ενημερώνει το ημερολόγιό σας.' },
-  cancelled: { subject: 'Αφαίρεση εργασίας', intro: 'Η εργασία αφαιρέθηκε από το ημερολόγιο. Το συνημμένο αρχείο τη σβήνει από το δικό σας.' },
-};
 
 /** .ics στους υπαλλήλους-εμπλεκόμενους (και σε όποιον τη δημιούργησε). Δεν πετάει ποτέ. */
 export async function sendTaskInvites(id: string, kind: InviteKind) {
@@ -440,24 +434,23 @@ export async function sendTaskInvites(id: string, kind: InviteKind) {
   ]);
   const view = tasks.find((x) => x.id === id);
   const w = calendarWindow(view?.sched.start ?? dateOnly(t.startDate) ?? todayAthens(), t.durationValue, t.durationUnit);
-  const brand = (await getSetting<string>('company.name'))?.trim() || ATELIER_PROFILE.brand;
+  const brand = await emailBrand();
   const projectLabel = project ? `${project.code} · ${project.name}` : `Έργο ${t.prjc}`;
   const ics = buildIcs({
     uid: `task-${t.id}@atelierdamask.gr`, start: w.start, end: w.end, summary: `${t.name} · ${projectLabel}`,
     description: [projectLabel, durationLabel(t.durationValue, t.durationUnit), t.description].filter(Boolean).join('\n'),
     sequence: t.icsSequence, cancelled: kind === 'cancelled',
   });
-  const c = COPY[kind];
-  const body = `<table role="presentation" cellpadding="0" cellspacing="0" style="font:400 14px/1.5 Helvetica,Arial,sans-serif">${
-    [['Εργασία', t.name], ['Έργο', projectLabel], ['Πότε', formatSlotEl(w.start.toISOString(), w.end.toISOString())], ['Χρόνος', durationLabel(t.durationValue, t.durationUnit)]]
-      .map(([k, v]) => `<tr><td style="padding:6px 16px 6px 0;color:#8A847C;white-space:nowrap">${k}</td><td style="padding:6px 0;color:#1C1B19">${escapeHtml(v)}</td></tr>`).join('')
-  }</table>${t.description ? `<p style="margin:16px 0 0;white-space:pre-wrap;color:#57534E">${escapeHtml(t.description)}</p>` : ''}`;
-  const html = siteEmailHtml({ brand, title: c.subject, intro: c.intro, body, footer: `${brand} · ${ATELIER_PROFILE.address}` });
+  const m = taskInviteEmail(brand, kind, {
+    name: t.name, project: projectLabel, when: formatSlotEl(w.start.toISOString(), w.end.toISOString()),
+    duration: durationLabel(t.durationValue, t.durationUnit), description: t.description,
+  });
   const out: { email: string; result: string }[] = [];
   for (const u of users) {
     out.push({
       email: u.email,
-      result: await sendLeadMail(u.email, `${c.subject}: ${t.name} · ${projectLabel}`, html, {
+      result: await sendLeadMail(u.email, m.subject, m.html, {
+        text: m.text,
         attachments: [{ filename: kind === 'cancelled' ? 'akyrosi-ergasias.ics' : 'ergasia.ics', content: ics, contentType: `text/calendar; charset=utf-8; method=${kind === 'cancelled' ? 'CANCEL' : 'PUBLISH'}` }],
       }),
     });
