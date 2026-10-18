@@ -4,7 +4,7 @@ import * as React from 'react';
 import dynamic from 'next/dynamic';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
-import { FiArrowDown, FiCheck, FiMail, FiMousePointer, FiTrendingDown, FiUsers } from 'react-icons/fi';
+import { FiArrowDown, FiArrowRight, FiCheck, FiMail, FiMousePointer, FiTrendingDown, FiUsers } from 'react-icons/fi';
 import { tierColor } from '@/components/site/tier-colors';
 import { cn } from '@/lib/utils';
 
@@ -44,7 +44,7 @@ const Scene = React.memo(function Scene({ capacity, perPallet, unit, filled, pic
     <ContainerScene
       pallets={capacity} perPallet={perPallet} filled={filled} load="stones"
       labels={{ container: 'Container', pallet: 'ΠΑΛ', base: unit }}
-      heightClass="h-full" expandable={false} fitScale={0.8}
+      heightClass="h-full" expandable={false} fitScale={0.92}
       selectedSlots={picked} maxSelectable={MY_PALLETS}
       className="h-full [&>div>.pointer-events-none]:hidden [&>div]:rounded-none [&>div]:border-0 [&>div]:![background:transparent] [&_figcaption]:hidden"
     />
@@ -144,11 +144,11 @@ export function AuctionStory({ capacity = 20, tiers, product, unit = 'τ.μ.', p
           ))}
         </ol>
 
-        <button type="button" onClick={skip} className="absolute bottom-4 right-5 z-10 inline-flex min-h-11 cursor-pointer items-center gap-2 border border-[var(--s-line)] bg-white/90 px-4 text-[length:var(--fs-13)] text-[var(--s-ink-2)] transition-colors hover:border-[var(--s-ink)] hover:text-[var(--s-ink)] sm:right-8 lg:right-12">
+        <button type="button" onClick={skip} className={cn('absolute bottom-4 right-5 z-10 inline-flex min-h-11 cursor-pointer items-center gap-2 border border-[var(--s-line)] bg-white/90 px-4 text-[length:var(--fs-13)] text-[var(--s-ink-2)] transition-colors hover:border-[var(--s-ink)] hover:text-[var(--s-ink)] sm:right-8 lg:right-12', chapter === 4 && 'pointer-events-none opacity-0')}>
           Παράλειψη <FiArrowDown className="size-3.5" aria-hidden />
         </button>
 
-        <div className="relative mx-auto grid w-full max-w-[1280px] items-center gap-4 px-5 sm:px-8 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)] lg:gap-12 lg:px-12">
+        <div className="relative mx-auto grid w-full max-w-[1360px] items-center gap-4 px-5 sm:px-8 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)] lg:gap-10 lg:px-12">
           <div className="min-w-0">
             <p className="s-kicker text-[var(--s-accent)]">Δυναμική προσφορά · {String(chapter + 1).padStart(2, '0')} / 05</p>
             <div className="relative mt-3 min-h-[7.5rem] lg:min-h-[10rem]" aria-live="polite">
@@ -179,9 +179,9 @@ export function AuctionStory({ capacity = 20, tiers, product, unit = 'τ.μ.', p
           </div>
 
           <div className="min-w-0 border border-[var(--s-line)] bg-white p-4 shadow-[0_24px_60px_-28px_rgba(28,50,65,0.35)] sm:p-6 lg:p-8">
-            <div className="flex items-center justify-between gap-3">
-              <p className="truncate text-[length:var(--fs-12)] uppercase tracking-[0.18em] text-[var(--s-mute)]">Τιμή για όλους · {product}</p>
-              <span className="inline-flex shrink-0 items-center gap-2 border border-[#FCA5A5] px-2 py-0.5 text-[length:var(--fs-11)] font-medium uppercase tracking-[0.16em] text-[#B42318]">
+            <div className="flex items-start justify-between gap-3">
+              <p className="text-[length:var(--fs-12)] uppercase tracking-[0.18em] text-[var(--s-mute)]">Τιμή για όλους<span className="mt-1 block normal-case tracking-normal text-[length:var(--fs-14)] text-[var(--s-ink)]">{product}</span></p>
+              <span className="inline-flex shrink-0 items-center gap-2 border border-[#FCA5A5] px-2 py-0.5 text-[length:var(--fs-12)] font-medium uppercase tracking-[0.16em] text-[#B42318]">
                 <span className="relative flex size-2"><span className="absolute inline-flex size-full animate-ping rounded-full bg-[#F87171] opacity-75 motion-reduce:hidden" /><span className="relative inline-flex size-2 rounded-full bg-[#EF4444]" /></span>{chapter === 4 ? 'Έκλεισε' : 'Ζωντανά'}
               </span>
             </div>
@@ -224,6 +224,14 @@ export function AuctionStory({ capacity = 20, tiers, product, unit = 'τ.μ.', p
             <div className={cn('mt-4 border-t border-[var(--s-line)] pt-4 transition-opacity duration-500 lg:mt-5', chapter >= 3 ? 'opacity-100' : 'opacity-40')}>
               <p className="text-[length:var(--fs-12)] uppercase tracking-[0.18em] text-[var(--s-mute)]">Για τις {MY_PALLETS} παλέτες σας ({MY_PALLETS * perPallet} {unit})</p>
               <p className="mt-1 flex items-baseline gap-2"><span className="font-num text-[length:var(--fs-32)] tabular-nums" style={{ color: saving > 0 ? '#15803D' : undefined }}>{eur(saving, 0)}</span><span className="text-[length:var(--fs-14)] text-[var(--s-ink-2)]">εξοικονόμηση</span></p>
+            </div>
+            <div className={cn('grid transition-[grid-template-rows,opacity] duration-500', chapter === 4 ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0')}>
+              <div className="overflow-hidden">
+                <div className="mt-5 flex flex-wrap gap-3">
+                  <a href="/auth/register" tabIndex={chapter === 4 ? 0 : -1} className="inline-flex min-h-12 flex-1 items-center justify-center gap-2 bg-[var(--s-ink)] px-5 text-[length:var(--fs-15)] font-medium text-white hover:bg-[#2C4556]">Αίτημα πρόσβασης <FiArrowRight className="size-4" aria-hidden /></a>
+                  <a href="/auth/signin" tabIndex={chapter === 4 ? 0 : -1} className="inline-flex min-h-12 items-center justify-center border border-[var(--s-ink)] px-5 text-[length:var(--fs-15)] font-medium hover:bg-[var(--s-ink)] hover:text-white">Είσοδος</a>
+                </div>
+              </div>
             </div>
           </div>
         </div>

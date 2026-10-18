@@ -41,7 +41,7 @@ export function SiteHeader({ nav, account, signedIn }: { nav: NavItem[]; account
           <Image src="/site/brand/logo-white.png" alt="" fill sizes="94px" priority className={cn('object-contain transition-opacity duration-300', clear ? 'opacity-100' : 'opacity-0')} />
           <Image src="/site/brand/logo-black.png" alt="" fill sizes="94px" priority className={cn('object-contain transition-opacity duration-300', clear ? 'opacity-0' : 'opacity-100')} />
         </Link>
-        <span className={cn('hidden border-l pl-4 text-[length:var(--fs-11)] uppercase leading-tight tracking-[0.22em] xl:block', clear ? 'border-white/30 text-white/80' : 'border-[var(--s-line)] text-[var(--s-mute)]')}>B2B πύλη<br />επαγγελματιών</span>
+        <span className={cn('hidden border-l pl-4 text-[length:var(--fs-12)] uppercase leading-tight tracking-[0.22em] xl:block', clear ? 'border-white/30 text-white/80' : 'border-[var(--s-line)] text-[var(--s-mute)]')}>B2B πύλη<br />επαγγελματιών</span>
 
         <nav aria-label="Κύρια" className="ml-auto hidden items-center gap-8 lg:flex">
           {nav.map((n) => (
@@ -53,6 +53,9 @@ export function SiteHeader({ nav, account, signedIn }: { nav: NavItem[]; account
         </nav>
 
         <div className="ml-auto flex items-center gap-3 lg:ml-6">
+          {!signedIn && (
+            <Link href="/auth/register" className={cn('hidden min-h-11 items-center px-2 text-[length:var(--fs-14)] font-medium underline-offset-4 hover:underline xl:inline-flex', clear ? 'text-white' : 'text-[var(--s-ink)]')}>Αίτημα πρόσβασης</Link>
+          )}
           <Link href={account.href} className={cn('hidden min-h-11 items-center gap-2 border px-4 text-[length:var(--fs-14)] font-medium transition-colors sm:inline-flex',
             clear ? 'border-white/60 hover:bg-white hover:text-[var(--s-ink)]' : 'border-[var(--s-ink)] hover:bg-[var(--s-ink)] hover:text-white')}>
             <FiUser className="size-4" aria-hidden />{account.label}{signedIn && <FiArrowUpRight className="size-3.5" aria-hidden />}

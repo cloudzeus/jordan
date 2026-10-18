@@ -6,6 +6,7 @@ import { siteCompany } from '@/lib/site-company';
 import { homeFor } from '@/lib/auth-home';
 import { SiteHeader } from '@/components/site/site-header';
 import { SiteMotion } from '@/components/site/motion';
+import { AccessModalHost } from '@/components/site/access-modal';
 import { DimLine, Grid } from '@/components/site/blueprint';
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -46,6 +47,7 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
       <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:bg-white focus:px-4 focus:py-2">Μετάβαση στο περιεχόμενο</a>
       <SiteHeader nav={NAV} account={account} signedIn={!!user} />
       <SiteMotion />
+      <AccessModalHost />
 
       <main id="main" className="flex-1 pt-16 md:pt-20">{children}</main>
 
@@ -56,7 +58,6 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
             <div className="max-w-sm">
               <Image src="/site/brand/logo-white.png" alt={c.brand} width={180} height={94} className="h-auto w-[150px]" />
               <p className="mt-6 text-[length:var(--fs-15)] leading-relaxed text-white/70">{c.tagline}</p>
-              <p className="mt-4 text-[length:var(--fs-13)] text-white/50">Η πύλη απευθύνεται αποκλειστικά σε επαγγελματίες. Δεν πραγματοποιούνται πωλήσεις σε καταναλωτές.</p>
             </div>
             <div>
               <p className="s-kicker text-[#D6B796]">Πλοήγηση</p>
@@ -85,7 +86,7 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
           <p aria-hidden className="font-display pointer-events-none mt-6 select-none whitespace-nowrap text-center text-[length:var(--fs-120)] leading-[0.8] text-white/[0.06]">Atelier</p>
           <div className="flex flex-wrap justify-between gap-2 border-t border-white/10 py-6 text-[length:var(--fs-13)] text-white/50">
             <span>© {year} {c.legal}</span>
-            <span>Φωτογραφίες & βίντεο: Atelier by Damask · Adobe Stock</span>
+            <span>Φωτογραφίες & βίντεο: Atelier by Damask</span>
           </div>
         </div>
       </footer>

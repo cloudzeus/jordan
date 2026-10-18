@@ -8,7 +8,7 @@ import { cn } from '@/lib/utils';
 /** Οριζόντια γραμμή διάστασης με βελάκια/τικ και ετικέτα στη μέση: |←— 6.00 —→| */
 export function DimLine({ label, className, tone = 'currentColor' }: { label: string; className?: string; tone?: string }) {
   return (
-    <div aria-hidden className={cn('pointer-events-none flex items-center gap-2 text-[length:var(--fs-11)] tracking-[0.2em]', className)} style={{ color: tone }}>
+    <div aria-hidden className={cn('pointer-events-none flex items-center gap-2 text-[length:var(--fs-12)] tracking-[0.2em]', className)} style={{ color: tone }}>
       <span className="h-3 w-px bg-current" />
       <span className="relative h-px flex-1 bg-current opacity-60"><span className="absolute -left-px -top-[3px] size-[7px] rotate-45 border-b border-l border-current" /></span>
       <span className="font-num shrink-0 tabular-nums">{label}</span>
@@ -21,7 +21,7 @@ export function DimLine({ label, className, tone = 'currentColor' }: { label: st
 /** Κάθετη γραμμή διάστασης. */
 export function DimLineV({ label, className, tone = 'currentColor' }: { label: string; className?: string; tone?: string }) {
   return (
-    <div aria-hidden className={cn('pointer-events-none flex flex-col items-center gap-2 text-[length:var(--fs-11)] tracking-[0.2em]', className)} style={{ color: tone }}>
+    <div aria-hidden className={cn('pointer-events-none flex flex-col items-center gap-2 text-[length:var(--fs-12)] tracking-[0.2em]', className)} style={{ color: tone }}>
       <span className="h-px w-3 bg-current" />
       <span className="w-px flex-1 bg-current opacity-60" />
       <span className="font-num shrink-0 tabular-nums [writing-mode:vertical-rl] rotate-180">{label}</span>

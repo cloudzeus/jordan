@@ -36,7 +36,7 @@ function OffersUI() {
   const rows = [{ n: 'Τραβερτίνης Classic', p: 42.7, f: 0.62, i: 2 }, { n: 'Limestone Moca', p: 61.2, f: 0.34, i: 1 }, { n: 'Τσιμεντοκονία Base', p: 18.9, f: 0.88, i: 3 }];
   return (
     <Frame title="Δυναμικές προσφορές">
-      <p className="text-[length:var(--fs-11)] uppercase tracking-[0.18em] text-[var(--s-mute)]">3 ανοιχτά container</p>
+      <p className="text-[length:var(--fs-12)] uppercase tracking-[0.18em] text-[var(--s-mute)]">3 ανοιχτά container</p>
       <ul className="mt-3 space-y-3">
         {rows.map((r) => (
           <li key={r.n} className="border border-[var(--s-line)] p-3">
@@ -59,10 +59,10 @@ function ProjectsUI() {
         <span className="inline-flex items-center gap-1.5 bg-[#1C3241]/10 px-2 py-1 text-[length:var(--fs-12)] font-medium text-[#1C3241]"><span className="size-1.5 rounded-full bg-[#1C3241]" />Σε εξέλιξη</span>
       </div>
       <ol className="mt-5 grid grid-cols-5 gap-1.5">
-        {ms.map((m, i) => <li key={m}><span className="block h-1" style={{ background: i < 3 ? '#15803D' : i === 3 ? '#1C3241' : '#E7E3DD' }} /><span className={cn('mt-1.5 block truncate text-[length:var(--fs-11)]', i <= 3 ? 'text-[var(--s-ink)]' : 'text-[var(--s-mute)]')}>{m}</span></li>)}
+        {ms.map((m, i) => <li key={m}><span className="block h-1" style={{ background: i < 3 ? '#15803D' : i === 3 ? '#1C3241' : '#E7E3DD' }} /><span className={cn('mt-1.5 block truncate text-[length:var(--fs-12)]', i <= 3 ? 'text-[var(--s-ink)]' : 'text-[var(--s-mute)]')}>{m}</span></li>)}
       </ol>
       <div className="mt-5 grid grid-cols-3 gap-3 border-t border-[var(--s-line)] pt-4">
-        {[['Αξία', '48.260 €'], ['Πληρωμένα', '36.000 €'], ['Ανοιχτά', '2']].map(([k, v]) => <div key={k}><p className="text-[length:var(--fs-11)] uppercase tracking-[0.14em] text-[var(--s-mute)]">{k}</p><p className="font-num mt-1 text-[length:var(--fs-20)]">{v}</p></div>)}
+        {[['Αξία', '48.260 €'], ['Πληρωμένα', '36.000 €'], ['Ανοιχτά', '2']].map(([k, v]) => <div key={k}><p className="text-[length:var(--fs-12)] uppercase tracking-[0.14em] text-[var(--s-mute)]">{k}</p><p className="font-num mt-1 text-[length:var(--fs-20)]">{v}</p></div>)}
       </div>
     </Frame>
   );
@@ -98,7 +98,7 @@ function NewOrderUI() {
         {[['Τραβερτίνης Classic 60×40', 96, 'τ.μ.'], ['Τραβερτίνης Silver 40×40', 24, 'τ.μ.']].map(([n, q, u]) => (
           <li key={n as string} className="flex items-center justify-between gap-3 py-3">
             <span className="flex min-w-0 items-center gap-3"><span className="size-9 shrink-0 bg-[url(/site/stones/stone-3.jpg)] bg-cover" /><span className="truncate text-[length:var(--fs-13)]">{n}</span></span>
-            <span className="flex shrink-0 items-center gap-1.5"><span className="grid size-7 place-items-center border border-[var(--s-line)]"><FiMinus className="size-3" /></span><span className="w-8 text-center text-[length:var(--fs-13)] tabular-nums">{q}</span><span className="grid size-7 place-items-center border border-[var(--s-line)]"><FiPlus className="size-3" /></span><span className="w-7 text-[length:var(--fs-11)] text-[var(--s-mute)]">{u}</span></span>
+            <span className="flex shrink-0 items-center gap-1.5"><span className="grid size-7 place-items-center border border-[var(--s-line)]"><FiMinus className="size-3" /></span><span className="w-8 text-center text-[length:var(--fs-13)] tabular-nums">{q}</span><span className="grid size-7 place-items-center border border-[var(--s-line)]"><FiPlus className="size-3" /></span><span className="w-7 text-[length:var(--fs-12)] text-[var(--s-mute)]">{u}</span></span>
           </li>
         ))}
       </ul>
@@ -127,7 +127,7 @@ export function PortalShowcase() {
   }, []);
 
   return (
-    <div ref={root} className="relative overflow-x-clip bg-[#0E1A23] text-white">
+    <div ref={root} className="relative overflow-x-clip bg-[#0B1620] text-white">
       <div aria-hidden className="pointer-events-none absolute inset-0 opacity-[0.07] [background-image:linear-gradient(#fff_1px,transparent_1px),linear-gradient(90deg,#fff_1px,transparent_1px)] [background-size:48px_48px]" />
       <div aria-hidden className="pointer-events-none absolute -right-40 top-1/2 size-[60rem] -translate-y-1/2 rounded-full bg-[radial-gradient(circle,rgba(122,92,67,0.35),transparent_60%)]" />
 

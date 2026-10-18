@@ -42,6 +42,7 @@ export default async function HomePage() {
           <video className="size-full object-cover" src="/site/brand/showroom.mp4" poster="/site/brand/showroom.jpg" autoPlay muted loop playsInline preload="metadata" aria-hidden />
           <div className="absolute inset-0 bg-[linear-gradient(100deg,rgba(11,22,32,0.92)_0%,rgba(11,22,32,0.72)_45%,rgba(11,22,32,0.25)_100%)]" />
           <div className="absolute inset-x-0 bottom-0 h-48 bg-gradient-to-t from-[#0B1620] to-transparent" />
+          <div className="absolute inset-x-0 top-0 h-40 bg-gradient-to-b from-[#0B1620]/80 to-transparent" />
         </div>
         <Grid color="#ffffff" opacity={0.05} />
 
@@ -61,6 +62,9 @@ export default async function HomePage() {
               </Link>
               <Link href="/auth/register" className="inline-flex min-h-14 items-center border border-white/50 px-7 text-[length:var(--fs-16)] font-medium transition-colors hover:border-white hover:bg-white/10">Αίτημα πρόσβασης</Link>
             </div>
+            <ul style={{ ["--d" as string]: "0.5s" }} className="s-rise mt-10 flex flex-wrap gap-x-8 gap-y-2 text-[length:var(--fs-13)] text-white/70">
+              {['27+ χρόνια εμπειρίας', 'Showroom 1 : 1 στην Αθήνα', 'Τεχνική υποστήριξη & κοστολόγια'].map((t) => <li key={t} className="flex items-center gap-2"><span className="size-1 rounded-full bg-[#D6B796]" aria-hidden />{t}</li>)}
+            </ul>
           </div>
           <div style={{ ["--d" as string]: "0.25s" }} className="s-rise min-w-0">
             <HeroLive />
@@ -108,16 +112,41 @@ export default async function HomePage() {
         </div>
       </section>
 
+      {/* ═══ Η ΙΔΕΑ ΣΕ ΒΙΝΤΕΟ (Remotion) ═══ */}
+      <section className="relative overflow-hidden bg-[#0B1620] text-white" aria-labelledby="film-title">
+        <Grid color="#ffffff" opacity={0.05} />
+        <div className="relative mx-auto grid w-full max-w-[1440px] items-center gap-12 px-5 py-20 sm:px-8 md:py-28 lg:grid-cols-[minmax(0,0.75fr)_minmax(0,1.25fr)] lg:px-12">
+          <div>
+            <p className="s-kicker text-[#D6B796]">Δυναμικές προσφορές</p>
+            <h2 id="film-title" data-split className="font-display mt-5 text-[length:var(--fs-48)] lg:text-[length:var(--fs-64)]">Η ιδέα, σε <em className="text-[#E8D5BF]">δώδεκα</em> δευτερόλεπτα.</h2>
+            <p data-reveal className="mt-6 max-w-md text-[length:var(--fs-18)] leading-relaxed text-white/75">Ένα κοινό container, πολλοί επαγγελματίες, μία τιμή που πέφτει για όλους με κάθε νέα κράτηση. Παρακάτω, βήμα-βήμα, καθώς κυλάτε.</p>
+            <ul data-reveal data-stagger className="mt-8 grid grid-cols-3 gap-px bg-white/15 text-center">
+              {[['20', 'παλέτες'], ['4', 'κλιμάκια'], ['−15%', 'για όλους']].map(([n, l]) => (
+                <li key={l} className="bg-[#0B1620] px-2 py-4"><span className="font-display block text-[length:var(--fs-32)]">{n}</span><span className="text-[length:var(--fs-12)] uppercase tracking-[0.16em] text-white/60">{l}</span></li>
+              ))}
+            </ul>
+          </div>
+          <figure data-reveal="40" className="relative">
+            <div className="relative overflow-hidden bg-black shadow-[0_50px_120px_-40px_rgba(0,0,0,0.8)]">
+              <video className="hidden aspect-video w-full md:block" poster="/site/brand/offer-16x9.jpg" autoPlay muted loop playsInline preload="none" aria-label="Βίντεο: πώς λειτουργεί μια δυναμική προσφορά">
+                <source src="/site/brand/offer-16x9.webm" type="video/webm" />
+                <source src="/site/brand/offer-16x9.mp4" type="video/mp4" />
+              </video>
+              <video className="mx-auto aspect-[9/16] w-full max-w-sm md:hidden" poster="/site/brand/offer-9x16.jpg" autoPlay muted loop playsInline preload="none" aria-label="Βίντεο: πώς λειτουργεί μια δυναμική προσφορά">
+                <source src="/site/brand/offer-9x16.webm" type="video/webm" />
+                <source src="/site/brand/offer-9x16.mp4" type="video/mp4" />
+              </video>
+            </div>
+            <CropMarks className="text-white/40" size={22} />
+            <DimLine label="ΚΟΙΝΟ CONTAINER · 20 ΠΑΛΕΤΕΣ · ΕΝΔΕΙΚΤΙΚΑ" className="mt-5 text-white/45" />
+          </figure>
+        </div>
+      </section>
+
       {/* ═══ ΔΥΝΑΜΙΚΕΣ ΠΡΟΣΦΟΡΕΣ: η δημοπρασία σε μία κύλιση ═══ */}
       <section id="auctions" className="scroll-mt-20" aria-label="Δυναμικές προσφορές">
         <AuctionStory product="Τραβερτίνης Classic" capacity={20} tiers={[{ from: 0, price: 48 }, { from: 6, price: 45.1 }, { from: 11, price: 42.7 }, { from: 16, price: 40.8 }]} />
       </section>
-      <section className="bg-[var(--s-paper)] pb-24 pt-4 md:pb-32">
-        <div className="flex flex-wrap justify-center gap-4 px-5">
-          <Link href="/auth/signin" className="group inline-flex min-h-14 items-center gap-3 bg-[var(--s-ink)] px-7 text-[length:var(--fs-16)] font-medium text-white hover:bg-[#2C4556]">Δείτε τις ανοιχτές προσφορές <FiArrowRight className="size-4 transition-transform group-hover:translate-x-1" aria-hidden /></Link>
-        </div>
-      </section>
-
       {/* ═══ Η ΠΥΛΗ: οθόνες προϊόντος σε προοπτική ═══ */}
       <section id="b2b" className="scroll-mt-20" aria-label="Λειτουργίες της πύλης">
         <PortalShowcase />
@@ -136,7 +165,7 @@ export default async function HomePage() {
               <figure key={g.t} className="group relative w-[78vw] shrink-0 snap-start sm:w-[52vw] lg:w-[calc(54vh*0.8)]">
                 <div data-velocity className="relative aspect-[4/5] origin-center overflow-hidden bg-[var(--s-paper)]">
                   <Image src={g.img} alt={g.t} fill sizes="(min-width: 1024px) 30rem, 78vw" className="s-img object-cover" />
-                  <span className="absolute left-4 top-4 bg-white/90 px-2 py-1 text-[length:var(--fs-11)] uppercase tracking-[0.18em] text-[var(--s-ink)]">Φ. 0{i + 1}</span>
+                  <span className="absolute left-4 top-4 bg-white/90 px-2 py-1 text-[length:var(--fs-12)] uppercase tracking-[0.18em] text-[var(--s-ink)]">Φ. 0{i + 1}</span>
                 </div>
                 <CropMarks className="text-[var(--s-mute)]" />
                 <DimLine label={g.dim} className="mt-4 text-[var(--s-mute)]" />

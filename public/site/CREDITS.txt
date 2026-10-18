@@ -1,23 +1,3 @@
-Adobe Stock (standard license via Adobe MCP, free tier, 2026-10-17)
-still-life.jpg=341287201
-travertine.jpg=1179427629
-stone-tiles.jpg=460001355
-bathroom.jpg=530535166
-installation.jpg=218110352
-plaster.jpg=1872558327
-studies.jpg=451144751
-hero.jpg=416021569
-stone-1.jpg=311465571
-stone-2.jpg=557352794
-stone-3.jpg=330922936
-stone-4.jpg=461014171
-stone-5.jpg=268868551
-stone-6.jpg=208632699
-stone-7.jpg=471667178
-stone-8.jpg=από travertine.jpg
-stone-9.jpg=από stone-tiles.jpg
-apps/stone-house.jpg=521516504
-apps/patio.jpg=477807349
-apps/terrace.jpg=452997859
-apps/apartment.jpg=362972937
-apps/kitchen.jpg=442597966
+Όλες οι φωτογραφίες και τα βίντεο: Atelier by Damask (atelierdamask.gr) — υλικό της εταιρείας, 2026-10-18.
+Αρχεία που προέκυψαν από κολάζ/βίντεο του atelierdamask.gr (YLIKA3.jpg, YLIKA_2.jpg, βίντεο PANORAMA/TouchFeel):
+hero.jpg, travertine.jpg, still-life.jpg, stone-tiles.jpg, bathroom.jpg, plaster.jpg, apps/*, stones/*.
