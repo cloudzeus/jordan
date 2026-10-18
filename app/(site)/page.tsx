@@ -118,7 +118,7 @@ export default async function HomePage() {
         <div className="relative mx-auto grid w-full max-w-[1440px] items-center gap-12 px-5 py-20 sm:px-8 md:py-28 lg:grid-cols-[minmax(0,0.75fr)_minmax(0,1.25fr)] lg:px-12">
           <div>
             <p className="s-kicker text-[#D6B796]">Δυναμικές προσφορές</p>
-            <h2 id="film-title" data-split className="font-display mt-5 text-[length:var(--fs-48)] lg:text-[length:var(--fs-64)]">Η ιδέα, σε <em className="text-[#E8D5BF]">δώδεκα</em> δευτερόλεπτα.</h2>
+            <h2 id="film-title" data-split className="font-display mt-5 text-[length:var(--fs-48)] lg:text-[length:var(--fs-64)]">Η ιδέα, σε <em className="text-[#E8D5BF]">36</em> δευτερόλεπτα.</h2>
             <p data-reveal className="mt-6 max-w-md text-[length:var(--fs-18)] leading-relaxed text-white/75">Ένα κοινό container, πολλοί επαγγελματίες, μία τιμή που πέφτει για όλους με κάθε νέα κράτηση. Παρακάτω, βήμα-βήμα, καθώς κυλάτε.</p>
             <ul data-reveal data-stagger className="mt-8 grid grid-cols-3 gap-px bg-white/15 text-center">
               {[['20', 'παλέτες'], ['4', 'κλιμάκια'], ['−15%', 'για όλους']].map(([n, l]) => (
@@ -128,13 +128,13 @@ export default async function HomePage() {
           </div>
           <figure data-reveal="40" className="relative">
             <div className="relative overflow-hidden bg-black shadow-[0_50px_120px_-40px_rgba(0,0,0,0.8)]">
-              <video className="hidden aspect-video w-full md:block" poster="/site/brand/offer-16x9.jpg" autoPlay muted loop playsInline preload="none" aria-label="Βίντεο: πώς λειτουργεί μια δυναμική προσφορά">
-                <source src="/site/brand/offer-16x9.webm" type="video/webm" />
-                <source src="/site/brand/offer-16x9.mp4" type="video/mp4" />
+              <video className="hidden aspect-video w-full md:block" poster="/site/brand/offer-film-16x9.jpg" autoPlay muted loop playsInline preload="none" aria-label="Βίντεο: πώς λειτουργεί μια δυναμική προσφορά">
+                <source src="/site/brand/offer-film-16x9.webm" type="video/webm" />
+                <source src="/site/brand/offer-film-16x9.mp4" type="video/mp4" />
               </video>
-              <video className="mx-auto aspect-[9/16] w-full max-w-sm md:hidden" poster="/site/brand/offer-9x16.jpg" autoPlay muted loop playsInline preload="none" aria-label="Βίντεο: πώς λειτουργεί μια δυναμική προσφορά">
-                <source src="/site/brand/offer-9x16.webm" type="video/webm" />
-                <source src="/site/brand/offer-9x16.mp4" type="video/mp4" />
+              <video className="mx-auto aspect-[9/16] w-full max-w-sm md:hidden" poster="/site/brand/offer-film-9x16.jpg" autoPlay muted loop playsInline preload="none" aria-label="Βίντεο: πώς λειτουργεί μια δυναμική προσφορά">
+                <source src="/site/brand/offer-film-9x16.webm" type="video/webm" />
+                <source src="/site/brand/offer-film-9x16.mp4" type="video/mp4" />
               </video>
             </div>
             <CropMarks className="text-white/40" size={22} />
