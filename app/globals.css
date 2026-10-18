@@ -73,6 +73,10 @@
     --cx-accent-soft: var(--color-brand-blue-light);
     --cx-hover: color-mix(in oklab, var(--foreground) 5%, transparent);
     --cx-divider: color-mix(in oklab, var(--border) 70%, transparent);
+    /* Ανοιχτό (expanded) περιεχόμενο: απαλή απόχρωση του accent + λωρίδα αριστερά, ώστε να
+       ξεχωρίζει τι «άνοιξε» από τα υπόλοιπα — όχι μόνο με χρώμα (κανόνας color-not-only). */
+    --cx-expanded-bg: color-mix(in oklab, var(--cx-accent) 6%, var(--card));
+    --cx-expanded-edge: color-mix(in oklab, var(--cx-accent) 55%, transparent);
     --cx-shadow-card: var(--shadow-card);
   }
 }
@@ -126,6 +130,22 @@ body {
 }
 
 @layer components {
+  /* Expanded / accordion — ενιαία οπτική σε όλη την εφαρμογή.
+     1) <details open>: η κεφαλίδα (summary) παίρνει την απόχρωση και το πλαίσιο τη λωρίδα.
+     2) Κουμπιά αποκάλυψης (aria-expanded χωρίς aria-haspopup — όχι μενού/combobox/popover):
+        απόχρωση όσο είναι ανοιχτά. Σε layer components: ένα ρητό bg-* του καλούντα κερδίζει.
+     Εξαίρεση με data-tint="off" (π.χ. προειδοποιητικά πλαίσια με δικό τους χρώμα). */
+  details[open]:not([data-tint="off"]) {
+    box-shadow: inset 3px 0 0 var(--cx-expanded-edge);
+  }
+  details[open]:not([data-tint="off"]) > summary {
+    background-color: var(--cx-expanded-bg);
+  }
+  button[aria-expanded="true"]:not([aria-haspopup]):not([role="combobox"]):not([data-tint="off"]) {
+    background-color: var(--cx-expanded-bg);
+    color: var(--foreground);
+  }
+
   .cx-transition {
     transition-property: background-color, color, border-color, box-shadow, opacity, transform;
     transition-duration: var(--cx-duration);

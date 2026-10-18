@@ -168,7 +168,7 @@ export function ItemUnitSetupPanel({
         </Button>
       )}
     >
-      <details className="group rounded-md bg-amber-50/60 px-3 py-2 text-[length:var(--fs-12)] dark:bg-amber-500/10">
+      <details data-tint="off" className="group rounded-md bg-amber-50/60 px-3 py-2 text-[length:var(--fs-12)] dark:bg-amber-500/10">
         <summary className="flex cursor-pointer list-none items-center gap-1.5 font-medium text-amber-900 dark:text-amber-200">
           <FiHelpCircle className="size-3.5" aria-hidden /> Πώς δουλεύουν οι μονάδες — διάβασέ το πριν αλλάξεις κάτι
         </summary>

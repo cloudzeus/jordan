@@ -637,7 +637,8 @@ export function DataTable<TData, TValue>({
                     {groupHeader}
                     <tr
                       data-state={row.getIsSelected() ? 'selected' : undefined}
-                      className="border-b border-border dark:border-border last:border-0 hover:bg-muted/40 dark:hover:bg-muted/50 data-[state=selected]:bg-[var(--cx-accent-soft)]/50 dark:data-[state=selected]:bg-[var(--cx-accent-soft)]/30 transition-colors duration-200"
+                      data-expanded={row.getIsExpanded() || undefined}
+                      className="data-expanded:bg-[var(--cx-expanded-bg)] data-expanded:shadow-[inset_3px_0_0_var(--cx-expanded-edge)] data-expanded:border-b-transparent border-b border-border dark:border-border last:border-0 hover:bg-muted/40 dark:hover:bg-muted/50 data-[state=selected]:bg-[var(--cx-accent-soft)]/50 dark:data-[state=selected]:bg-[var(--cx-accent-soft)]/30 transition-colors duration-200"
                     >
                       {row.getVisibleCells().map((cell) => {
                         const isActions = cell.column.id === 'actions' || cell.column.id === '__expand' || cell.column.id === '__select';
@@ -656,7 +657,7 @@ export function DataTable<TData, TValue>({
                       })}
                     </tr>
                     {row.getIsExpanded() && expandable && (
-                      <tr className="bg-muted/30 dark:bg-muted/30 border-b border-border dark:border-border animate-fade-in">
+                      <tr className="bg-[var(--cx-expanded-bg)] shadow-[inset_3px_0_0_var(--cx-expanded-edge)] border-b border-border dark:border-border animate-fade-in">
                         {/*
                           Η ανοιγμένη γραμμή ΔΕΝ ακολουθεί το πλάτος του πίνακα.
 

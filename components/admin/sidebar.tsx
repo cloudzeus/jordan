@@ -293,7 +293,7 @@ export function AdminSidebar({ user, roleName, roleKey, locale, permissionKeys, 
           const expanded = open[group.label] ?? group.items.some(isActive);
           const groupId = `nav-group-${group.label.replace(/\s+/g, '-')}`;
           return (
-            <div key={group.label}>
+            <div key={group.label} className={cn('rounded-md cx-transition', expanded && !collapsed && 'bg-[var(--cx-expanded-bg)] pb-1 shadow-[inset_3px_0_0_var(--cx-expanded-edge)]')}>
               <button
                 type="button"
                 onClick={() => toggleGroup(group.label)}

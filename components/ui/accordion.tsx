@@ -26,7 +26,7 @@ function AccordionItem({
   return (
     <AccordionPrimitive.Item
       data-slot="accordion-item"
-      className={cn("not-last:border-b", className)}
+      className={cn("not-last:border-b transition-colors data-[state=open]:bg-[var(--cx-expanded-bg)] data-[state=open]:shadow-[inset_3px_0_0_var(--cx-expanded-edge)]", className)}
       {...props}
     />
   )

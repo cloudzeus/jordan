@@ -137,7 +137,7 @@ export function ExpandableDocRow({ findoc, fincode, colSpan, className, style, c
   const panelId = `doc-${findoc}-detail`;
   return (
     <>
-      <tr className={cn(className, open && 'bg-muted/30')} style={style}>
+      <tr className={cn(className, open && 'bg-[var(--cx-expanded-bg)] shadow-[inset_3px_0_0_var(--cx-expanded-edge)]')} style={style}>
         <td className="w-7 px-0.5 py-1 align-top">
           <button
             type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} aria-controls={panelId}
@@ -150,8 +150,8 @@ export function ExpandableDocRow({ findoc, fincode, colSpan, className, style, c
         {children}
       </tr>
       {open && (
-        <tr id={panelId} className="border-t border-border/60">
-          <td colSpan={colSpan} className="bg-muted/20 px-2 py-2.5 sm:px-3">
+        <tr id={panelId} className="border-t border-border/60 shadow-[inset_3px_0_0_var(--cx-expanded-edge)]">
+          <td colSpan={colSpan} className="bg-[var(--cx-expanded-bg)] px-2 py-2.5 sm:px-3">
             {/* w-0 + min-w-full: το panel παίρνει το πλάτος του κελιού χωρίς να φουσκώνει τον πίνακα —
                 σε στενή οθόνη κυλά μόνο ο πίνακας γραμμών του, όχι όλη η καρτέλα. */}
             <div className="w-0 min-w-full">
