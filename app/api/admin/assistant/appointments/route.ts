@@ -36,13 +36,16 @@ export async function POST(req: Request) {
       who: p.party, when: p.start, minutes: p.minutes, place: p.place, location: p.location,
       topic: p.topic ?? undefined, notes: p.notes, createdBy: u.id, allowOverlap: b.allowOverlap === true,
     });
-    await logAudit({ userId: u.id, userEmail: u.email, action: 'appointment.schedule', resource: 'appointment', resourceId: r.id, metadata: { via: 'assistant', party: p.party.kind, softone: r.softone } }).catch(() => null);
+    // Το email προς τους χρήστες (εσάς) δεν το αναφέρει η περίληψη της κοινής λειτουργίας — προστίθεται εδώ.
+    const usersMail = r.mail.users.map((m) => `${m.email}: ${m.result === 'sent' ? 'στάλθηκε' : m.result}`).join(', ');
+    const summary = usersMail ? `${r.summary} Email σε εσάς (${usersMail}).` : r.summary;
+    await logAudit({ userId: u.id, userEmail: u.email, action: 'appointment.schedule', resource: 'appointment', resourceId: r.id, metadata: { via: 'assistant', party: p.party.kind, softone: r.softone, mail: r.mail } }).catch(() => null);
     const convId = typeof b.conversationId === 'string' ? b.conversationId : null;
     if (convId && (await prisma.assistantConversation.count({ where: { id: convId, userId: u.id } }))) {
-      await prisma.assistantMessage.create({ data: { conversationId: convId, role: 'assistant', content: `✅ ${r.summary}`, citations: [{ refKey: `appointment:${r.id}`, label: `Ραντεβού ${r.code}`, url: '/admin/appointments' }] as never } });
+      await prisma.assistantMessage.create({ data: { conversationId: convId, role: 'assistant', content: `✅ ${summary}`, citations: [{ refKey: `appointment:${r.id}`, label: `Ραντεβού ${r.code}`, url: '/admin/appointments' }] as never } });
       await prisma.assistantConversation.update({ where: { id: convId }, data: { updatedAt: new Date() } });
     }
-    return NextResponse.json(r);
+    return NextResponse.json({ ...r, summary });
   } catch (e) {
     if (e instanceof AppointmentError || e instanceof PartyError) return NextResponse.json({ error: 'appointment', message: e.message, overlap: e.status === 409 }, { status: e.status });
     if (e instanceof SoftoneError) return NextResponse.json({ error: 'softone', message: `SoftOne: ${e.message}` }, { status: 502 });
