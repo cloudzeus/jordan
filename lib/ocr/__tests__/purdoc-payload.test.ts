@@ -742,6 +742,55 @@ describe('επιμερισμός → γραμμές LINLINES', () => {
   });
 });
 
+describe('επιμερισμός → έργο ανά κομμάτι', () => {
+  /** Ένα αεροπορικό «Έξοδα Ταξιδίων» 50/50 σε δύο έργα: ΙΔΙΟΣ λογαριασμός, διαφορετικό PRJC. */
+  const ticketCtx = (line: Partial<PurdocContext['lines'][number]> = {}): PurdocContext => splitCtx({
+    lines: [{
+      rowIndex: 0,
+      costCntr: 7,
+      ...line,
+      allocations: [
+        { registryMtrl: 57, mtrType: 1, amount: 527.5, percent: 50, prjc: 101 },
+        { registryMtrl: 57, mtrType: 1, amount: 527.5, percent: 50, prjc: 202, prjcStage: 9 },
+      ],
+    }],
+  });
+  const linesOf = (c: PurdocContext) => (buildPurdocPayload(oneLineDoc(), c).DATA as any).LINLINES as any[];
+
+  it('2 κομμάτια, ίδιος λογαριασμός, διαφορετικό έργο → 2 γραμμές με το δικό τους PRJC', () => {
+    const lin = linesOf(ticketCtx());
+    expect(lin).toHaveLength(2);
+    expect(lin.map((r) => r.MTRL)).toEqual([57, 57]);
+    expect(lin.map((r) => r.PRJC)).toEqual([101, 202]);
+    expect(lin.map((r) => r.NETLINEVAL)).toEqual([527.5, 527.5]);
+    expect(lin[1].PRJCSTAGE).toBe(9);
+  });
+
+  it('το κέντρο κόστους της γραμμής περνά σε κάθε κομμάτι', () => {
+    expect(linesOf(ticketCtx()).every((r) => r.COSTCNTR === 7)).toBe(true);
+  });
+
+  it('το έργο του κομματιού υπερισχύει του έργου της γραμμής', () => {
+    const lin = linesOf(ticketCtx({ prjc: 999, prjcStage: 5 }));
+    expect(lin.map((r) => r.PRJC)).toEqual([101, 202]);
+    // Η φάση 5 ανήκει στο έργο 999 — δεν «ταξιδεύει» σε κομμάτι άλλου έργου.
+    expect(lin[0].PRJCSTAGE).toBeUndefined();
+  });
+
+  it('κομμάτι χωρίς έργο κληρονομεί έργο και φάση της γραμμής', () => {
+    const c = ticketCtx({ prjc: 999, prjcStage: 5 });
+    c.lines[0].allocations![0].prjc = null;
+    const lin = linesOf(c);
+    expect(lin[0]).toMatchObject({ PRJC: 999, PRJCSTAGE: 5 });
+    expect(lin[1].PRJC).toBe(202);
+  });
+
+  it('κομμάτι στο ΙΔΙΟ έργο με τη γραμμή κρατά τη φάση της γραμμής', () => {
+    const c = ticketCtx({ prjc: 101, prjcStage: 5 });
+    expect(linesOf(c)[0]).toMatchObject({ PRJC: 101, PRJCSTAGE: 5 });
+  });
+});
+
 describe('επιμερισμός → έλεγχοι πριν την καταχώριση', () => {
   const creditorDoc = () => postingDoc({ softoneSeries: '1001', seriesSource: 1653, traderSodtype: 16, softoneTrdr: 45 });
 

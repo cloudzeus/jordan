@@ -15,7 +15,8 @@ export const dynamic = 'force-dynamic';
 /**
  * ΕΠΙΜΕΡΙΣΜΟΣ μιας γραμμής παραστατικού σε πολλούς λογαριασμούς γενικής.
  *
- * `POST { lineId, allocations: [{ registryMtrl, percent }, …] }` — **αντικαθιστά** ό,τι υπήρχε.
+ * `POST { lineId, allocations: [{ registryMtrl, percent, prjc?, prjcStage? }, …] }` — **αντικαθιστά** ό,τι υπήρχε.
+ * `prjc` = ΕΡΓΟ του κομματιού (κενό ⇒ το έργο της γραμμής): ο ίδιος λογαριασμός σπάει σε δύο έργα.
  * Κενή λίστα ⇒ σβήνει τον επιμερισμό και η γραμμή ξαναγίνεται απλή (μονή αντιστοίχιση).
  *
  * ΓΙΑΤΙ ΑΝΤΙΚΑΤΑΣΤΑΣΗ ΚΑΙ ΟΧΙ ΣΥΓΧΩΝΕΥΣΗ: ο επιμερισμός είναι ΣΥΝΟΛΟ που πρέπει να κάνει 100 %.
@@ -32,6 +33,8 @@ const Body = z.object({
     /** Ποιο μητρώο: χρεοπίστωση (διπλογραφικά) ή λογαριασμός εσόδων/εξόδων (απλογραφικά). */
     kind: z.enum(ALLOCATION_KINDS as unknown as [AllocationKind, ...AllocationKind[]]).default('LINEITEM'),
     percent: z.number().finite(),
+    prjc: z.number().int().positive().nullish(),
+    prjcStage: z.number().int().positive().nullish(),
   })).max(50),
 });
 
@@ -91,6 +94,23 @@ export async function POST(req: Request) {
     LINEITEM: new Map(linRows.map((k) => [k.mtrl, k])),
     SXACCOUNT: new Map(sxRows.map((k) => [k.mtrl, { code: k.code }])),
   };
+  // Το ΕΡΓΟ κάθε κομματιού πρέπει να υπάρχει στον καθρέφτη — αλλιώς το SoftOne θα απέρριπτε τη
+  // γραμμή μόνο την ώρα της καταχώρισης, μακριά από εδώ που διορθώνεται.
+  const prjcIds = [...new Set(allocations.map((a) => a.prjc).filter((x): x is number => x != null))];
+  const stageIds = [...new Set(allocations.map((a) => a.prjcStage).filter((x): x is number => x != null))];
+  const [prjcRows, stageRows] = await Promise.all([
+    prjcIds.length ? prisma.softoneProject.findMany({ where: { prjc: { in: prjcIds } }, select: { prjc: true } }) : Promise.resolve([]),
+    stageIds.length ? prisma.softoneProjectStage.findMany({ where: { prjcStage: { in: stageIds } }, select: { prjcStage: true } }) : Promise.resolve([]),
+  ]);
+  const unknownPrjc = prjcIds.filter((id) => !prjcRows.some((r) => r.prjc === id));
+  const unknownStage = stageIds.filter((id) => !stageRows.some((r) => r.prjcStage === id));
+  if (unknownPrjc.length || unknownStage.length) {
+    return NextResponse.json(
+      { message: `Άγνωστο έργο/φάση: ${[...unknownPrjc.map((i) => `έργο ${i}`), ...unknownStage.map((i) => `φάση ${i}`)].join(', ')}. Συγχρόνισε τα έργα και δοκίμασε ξανά.` },
+      { status: 422 },
+    );
+  }
+
   const missing = allocations.filter((a) => !byKind[a.kind].has(a.registryMtrl));
   if (missing.length > 0) {
     const label = (k: AllocationKind) => (k === 'SXACCOUNT' ? 'λογαριασμός εσόδων/εξόδων' : 'χρεοπίστωση');
@@ -120,6 +140,8 @@ export async function POST(req: Request) {
           ?? byKind[c.kind ?? 'LINEITEM'].get(c.registryMtrl)?.code ?? null,
         percent: c.percent,
         amount: c.amount,
+        prjc: c.prjc ?? null,
+        prjcStage: c.prjcStage ?? null,
       })),
     }),
   ]);
@@ -176,7 +198,7 @@ export async function POST(req: Request) {
     action: 'ocr.line.allocations.set', resource: 'ocr_line', resourceId: lineId,
     metadata: {
       docId: line.documentId, rowIndex: line.rowIndex, total,
-      allocations: computed.map((c) => ({ registryMtrl: c.registryMtrl, kind: c.kind ?? 'LINEITEM', percent: c.percent, amount: c.amount })),
+      allocations: computed.map((c) => ({ registryMtrl: c.registryMtrl, kind: c.kind ?? 'LINEITEM', percent: c.percent, amount: c.amount, prjc: c.prjc ?? null })),
     },
   });
 
@@ -186,13 +208,13 @@ export async function POST(req: Request) {
 
   const saved = await prisma.ocrInvoiceItemAllocation.findMany({
     where: { itemId: lineId }, orderBy: { order: 'asc' },
-    select: { order: true, registryMtrl: true, kind: true, accountCode: true, percent: true, amount: true },
+    select: { order: true, registryMtrl: true, kind: true, accountCode: true, percent: true, amount: true, prjc: true, prjcStage: true },
   });
   return NextResponse.json({
     ok: true,
     allocations: saved.map((s) => ({
       order: s.order, registryMtrl: s.registryMtrl, kind: s.kind, accountCode: s.accountCode,
-      percent: Number(s.percent), amount: Number(s.amount),
+      percent: Number(s.percent), amount: Number(s.amount), prjc: s.prjc, prjcStage: s.prjcStage,
     })),
   });
 }

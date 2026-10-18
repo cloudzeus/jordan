@@ -239,7 +239,7 @@ async function gather(id: string, conv?: ConversionSpec): Promise<Gathered> {
         rowIndex: true, softoneMtrl: true, softoneExpn: true, softoneLinMtrl: true, softoneAsset: true, softoneIsService: true,
         softoneCostCntr: true, softonePrjc: true, softonePrjcStage: true, softoneMatchedBy: true, total: true,
         // Ο επιμερισμός σε πολλούς λογαριασμούς — όταν υπάρχει, ΥΠΕΡΙΣΧΥΕΙ της μονής αντιστοίχισης.
-        allocations: { orderBy: { order: 'asc' }, select: { registryMtrl: true, amount: true, percent: true, kind: true } },
+        allocations: { orderBy: { order: 'asc' }, select: { registryMtrl: true, amount: true, percent: true, kind: true, prjc: true, prjcStage: true } },
       },
     }),
     // Η σειρά ΔΕΝ είναι διακοσμητική: δύο ενεργές εγγραφές με τον ίδιο συντελεστή (π.χ. κανονικό /
@@ -359,6 +359,8 @@ async function gather(id: string, conv?: ConversionSpec): Promise<Gathered> {
               amount: Number(a.amount),
               percent: Number(a.percent),
               label: reg ? `${reg.code} — ${reg.name}` : null,
+              prjc: a.prjc,
+              prjcStage: a.prjcStage,
             };
           }),
         }

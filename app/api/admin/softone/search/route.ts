@@ -70,6 +70,14 @@ export async function GET(req: Request) {
   }
 
   if (type === 'projects') {
+    // `ids=1,2`: ΕΤΙΚΕΤΕΣ για έργα που ήδη έχουν επιλεγεί (π.χ. τα κομμάτια ενός επιμερισμού).
+    const ids = (sp.get('ids') ?? '').split(',').map(Number).filter((n) => Number.isInteger(n) && n > 0);
+    if (ids.length) {
+      const rows = await prisma.softoneProject.findMany({
+        where: { prjc: { in: ids.slice(0, 50) } }, select: { prjc: true, code: true, name: true },
+      });
+      return NextResponse.json({ results: rows.map((r) => ({ id: r.prjc, code: r.code, name: r.name })) });
+    }
     // `trdr`: τα έργα ΤΟΥ εκδότη πρώτα — μια σύντομη σωστή λίστα είναι όλο το νόημα.
     const trdr = Number(sp.get('trdr'));
     const onlyTrader = sp.get('scope') !== 'all' && Number.isFinite(trdr) && trdr > 0;

@@ -110,6 +110,16 @@ describe('validateAllocations', () => {
     expect(p.map((x) => x.code)).toContain('duplicate_account');
   });
 
+  it('ο ίδιος λογαριασμός σε ΔΙΑΦΟΡΕΤΙΚΑ έργα δεν είναι διπλός', () => {
+    const p = validateAllocations([{ ...alloc(5, 50), prjc: 1 }, { ...alloc(5, 50), prjc: 2 }], 100);
+    expect(p).toEqual([]);
+  });
+
+  it('ο ίδιος λογαριασμός στο ΙΔΙΟ έργο είναι διπλός', () => {
+    const p = validateAllocations([{ ...alloc(5, 50), prjc: 1 }, { ...alloc(5, 50), prjc: 1 }], 100);
+    expect(p.map((x) => x.code)).toContain('duplicate_account');
+  });
+
   it('γραμμή χωρίς σύνολο', () => {
     for (const t of [null, undefined, NaN]) {
       expect(validateAllocations([alloc(1, 100)], t).map((x) => x.code)).toContain('no_total');

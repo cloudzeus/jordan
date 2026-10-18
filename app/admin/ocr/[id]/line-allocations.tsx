@@ -15,7 +15,7 @@ import * as React from 'react';
 import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
-import { FiPlus, FiTrash2, FiSave, FiSearch, FiAlertCircle, FiCheck, FiZap } from 'react-icons/fi';
+import { FiPlus, FiTrash2, FiSave, FiSearch, FiAlertCircle, FiCheck, FiZap, FiX } from 'react-icons/fi';
 import { cn } from '@/lib/utils';
 import { emitDocLinesChanged, useStartSplit } from '@/components/admin/doc-lines-events';
 import { CreateRegistryEntryModal } from '@/components/admin/create-registry-entry-modal';
@@ -32,6 +32,11 @@ export interface AllocationRow {
   accountName?: string | null;
   percent: number;
   amount: number;
+  /** ΕΡΓΟ του κομματιού· κενό ⇒ το έργο της γραμμής. */
+  prjc?: number | null;
+  prjcStage?: number | null;
+  /** «κωδικός · περιγραφή» του έργου — μόνο για την οθόνη. */
+  prjcLabel?: string | null;
 }
 
 interface Hit { id: number; code: string; name: string; sub?: string }
@@ -45,16 +50,30 @@ const CELL =
   'h-8 w-full rounded-md border border-input bg-background px-2 text-[length:var(--fs-12)] text-foreground ' +
   'transition focus:border-sisyphus-500 focus:outline-none focus:ring-2 focus:ring-sisyphus-500/25 disabled:opacity-60';
 
-/** Αναζήτηση χρεοπίστωσης — ο κωδικός της ΕΙΝΑΙ ο λογαριασμός γενικής. */
+/**
+ * Αναζήτηση χρεοπίστωσης (ο κωδικός της ΕΙΝΑΙ ο λογαριασμός γενικής) — ή, με `projects`, του ΕΡΓΟΥ
+ * ενός κομματιού. Το ίδιο portal και για τα δύο: η λίστα δεν κόβεται από την κάρτα του πίνακα.
+ */
 function AccountPicker({
-  value, label, disabled, searchType, onPick, onCreate,
+  value, label, disabled, searchType, extraQuery = '', fallbackQuery, placeholder, emptyText, onPick, onCreate, onClear,
 }: {
   value: number | null; label: string | null; disabled?: boolean;
   /** Ποιο μητρώο ψάχνουμε — το ορίζει ο ΠΡΟΟΡΙΣΜΟΣ του παραστατικού, όχι ο χρήστης. */
-  searchType: 'lineitems' | 'sxaccounts';
+  searchType: 'lineitems' | 'sxaccounts' | 'projects';
+  /** Επιπλέον παράμετροι αναζήτησης (π.χ. `&trdr=…` — πρώτα τα έργα του εκδότη). */
+  extraQuery?: string;
+  /**
+   * Αν η στενή αναζήτηση (`extraQuery`) δεν βρει τίποτα, ξαναψάχνει με αυτό. Ο εκδότης ενός
+   * αεροπορικού σπάνια ΕΙΝΑΙ ο πελάτης του έργου — τότε δείχνουμε όλα τα έργα αντί για άδεια λίστα.
+   */
+  fallbackQuery?: string;
+  placeholder?: string;
+  emptyText?: string;
   onPick: (hit: Hit) => void;
   /** Δημιουργία νέας κατηγορίας εξόδου ΕΠΙ ΤΟΠΟΥ, όταν δεν υπάρχει αυτή που ψάχνει ο χρήστης. */
   onCreate?: () => void;
+  /** Καθαρισμός της επιλογής (το έργο είναι προαιρετικό). */
+  onClear?: () => void;
 }) {
   const [q, setQ] = React.useState('');
   const [hits, setHits] = React.useState<Hit[]>([]);
@@ -107,14 +126,18 @@ function AccountPicker({
     let ignore = false;
     setLoading(true);
     const t = setTimeout(() => {
-      fetch(`/api/admin/softone/search?type=${searchType}&q=${encodeURIComponent(q.trim())}`, { cache: 'no-store' })
-        .then((r) => (r.ok ? r.json() : { results: [] }))
-        .then((d) => { if (!ignore) setHits((d.results ?? []) as Hit[]); })
+      const get = (extra: string) =>
+        fetch(`/api/admin/softone/search?type=${searchType}&q=${encodeURIComponent(q.trim())}${extra}`, { cache: 'no-store' })
+          .then((r) => (r.ok ? r.json() : { results: [] }))
+          .then((d) => (d.results ?? []) as Hit[]);
+      get(extraQuery)
+        .then((h) => (h.length === 0 && fallbackQuery != null && fallbackQuery !== extraQuery ? get(fallbackQuery) : h))
+        .then((h) => { if (!ignore) setHits(h); })
         .catch(() => { if (!ignore) setHits([]); })
         .finally(() => { if (!ignore) setLoading(false); });
     }, q.trim().length < 2 ? 0 : 220);
     return () => { ignore = true; clearTimeout(t); };
-  }, [q, open, searchType]);
+  }, [q, open, searchType, extraQuery, fallbackQuery]);
 
   React.useEffect(() => {
     if (!open) return;
@@ -147,7 +170,7 @@ function AccountPicker({
         {loading ? (
           <p className="px-2 py-3 text-[length:var(--fs-11)] text-muted-foreground">Αναζήτηση…</p>
         ) : hits.length === 0 ? (
-          <p className="px-2 py-3 text-[length:var(--fs-11)] text-muted-foreground">Καμία κατηγορία εξόδου.</p>
+          <p className="px-2 py-3 text-[length:var(--fs-11)] text-muted-foreground">{emptyText ?? 'Καμία κατηγορία εξόδου.'}</p>
         ) : hits.map((h) => (
           <button
             key={h.id} type="button"
@@ -188,10 +211,21 @@ function AccountPicker({
               )}
             </>
           ) : (
-            <span className="truncate">{searchType === 'sxaccounts' ? 'Επίλεξε λογαριασμό εξόδων…' : 'Επίλεξε κατηγορία εξόδου…'}</span>
+            <span className="truncate">{placeholder ?? (searchType === 'sxaccounts' ? 'Επίλεξε λογαριασμό εξόδων…' : 'Επίλεξε κατηγορία εξόδου…')}</span>
           )}
         </span>
-        <FiSearch className="size-3.5 shrink-0 opacity-60" />
+        {value && onClear && !disabled ? (
+          <span
+            role="button" tabIndex={0} aria-label="Καθαρισμός"
+            onClick={(e) => { e.stopPropagation(); onClear(); }}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); onClear(); } }}
+            className="shrink-0 rounded-sm p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+          >
+            <FiX className="size-3.5" aria-hidden />
+          </span>
+        ) : (
+          <FiSearch className="size-3.5 shrink-0 opacity-60" />
+        )}
       </button>
       {panel}
     </div>
@@ -199,8 +233,10 @@ function AccountPicker({
 }
 
 export function LineAllocations({
-  lineId, lineTotal, canManage, initial, colSpan, kind, layout = 'row', hideIdle = false,
+  lineId, lineTotal, canManage, initial, colSpan, kind, layout = 'row', hideIdle = false, trdr = null,
 }: {
+  /** Ο TRDR του εκδότη: στο έργο κάθε κομματιού προτείνονται πρώτα τα δικά του έργα (PRJC.TRDR). */
+  trdr?: number | null;
   /** Χωρίς επιμερισμό και χωρίς πρόταση: τίποτα (ο καλών δείχνει δικό του «Μοίρασμα»). */
   hideIdle?: boolean;
   /** `row` = γραμμή πίνακα (κάτω από τη γραμμή του παραστατικού)· `block` = μέσα σε κάρτα (στενή οθόνη). */
@@ -224,6 +260,25 @@ export function LineAllocations({
   const [dirty, setDirty] = React.useState(false);
 
   React.useEffect(() => { setRows(initial); setDirty(false); }, [initial]);
+
+  /**
+   * ΕΤΙΚΕΤΕΣ ΕΡΓΩΝ. Η βάση κρατά μόνο τον αριθμό `PRJC`· τον κωδικό/τίτλο τον φέρνουμε με ΜΙΑ
+   * ανάγνωση για όσα κομμάτια δεν τον έχουν ήδη (π.χ. μόλις φορτώθηκε η σελίδα).
+   */
+  const missingPrjc = [...new Set(rows.filter((r) => r.prjc && !r.prjcLabel).map((r) => r.prjc as number))].join(',');
+  React.useEffect(() => {
+    if (!missingPrjc) return;
+    let ignore = false;
+    fetch(`/api/admin/softone/search?type=projects&ids=${missingPrjc}`, { cache: 'no-store' })
+      .then((r) => (r.ok ? r.json() : { results: [] }))
+      .then((d) => {
+        if (ignore) return;
+        const by = new Map<number, string>((d.results ?? []).map((h: Hit) => [h.id, `${h.code} · ${h.name}`]));
+        setRows((rs) => rs.map((r) => (r.prjc && !r.prjcLabel ? { ...r, prjcLabel: by.get(r.prjc) ?? `#${r.prjc}` } : r)));
+      })
+      .catch(() => null);
+    return () => { ignore = true; };
+  }, [missingPrjc]);
   /** Η γραμμή επιμερισμού για την οποία δημιουργείται νέα κατηγορία εξόδου. */
   const [creatingFor, setCreatingFor] = React.useState<number | null>(null);
   const rootRef = React.useRef<HTMLElement>(null);
@@ -323,6 +378,8 @@ export function LineAllocations({
   const sumPct = round2(rows.reduce((t, r) => t + (Number.isFinite(r.percent) ? r.percent : 0), 0));
   const sumAmt = round2(rows.reduce((t, r) => t + (Number.isFinite(r.amount) ? r.amount : 0), 0));
   const problems = validateAllocations(rows, lineTotal);
+  // Το έργο ανά κομμάτι υπάρχει μόνο στις γραμμές `LINLINES` (χρεοπιστώσεις)· τα απλογραφικά δεν το στέλνουν.
+  const withProjects = kind === 'LINEITEM';
   const balanced = rows.length > 0 && problems.length === 0;
 
   function update(i: number, patch: Partial<AllocationRow>) {
@@ -389,7 +446,10 @@ export function LineAllocations({
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           lineId,
-          allocations: rows.map((r) => ({ registryMtrl: r.registryMtrl, kind: r.kind ?? kind, percent: r.percent })),
+          allocations: rows.map((r) => ({
+            registryMtrl: r.registryMtrl, kind: r.kind ?? kind, percent: r.percent,
+            prjc: r.prjc ?? null, prjcStage: r.prjcStage ?? null,
+          })),
         }),
       });
       const d = await res.json().catch(() => ({}));
@@ -555,7 +615,8 @@ export function LineAllocations({
           )}
 
           {rows.map((r, i) => (
-            <div key={i} className="grid grid-cols-1 gap-1.5 sm:grid-cols-[minmax(0,1fr)_84px_108px_28px] sm:items-center">
+            <div key={i} className={cn('grid grid-cols-1 gap-1.5 sm:items-center',
+              withProjects ? 'sm:grid-cols-[minmax(0,1fr)_minmax(0,0.8fr)_84px_108px_28px]' : 'sm:grid-cols-[minmax(0,1fr)_84px_108px_28px]')}>
               <AccountPicker
                 value={r.registryMtrl || null}
                 label={r.registryMtrl ? [r.accountCode, r.accountName].filter(Boolean).join(' · ') || `#${r.registryMtrl}` : null}
@@ -564,6 +625,21 @@ export function LineAllocations({
                 onPick={(h) => update(i, { registryMtrl: h.id, kind, accountCode: h.code, accountName: h.name })}
                 onCreate={kind === 'LINEITEM' && canManage ? () => setCreatingFor(i) : undefined}
               />
+              {withProjects && (
+                /* ΕΡΓΟ ΑΝΑ ΚΟΜΜΑΤΙ: ένα αεροπορικό 50/50 σε δύο έργα. Κενό = το έργο της γραμμής. */
+                <AccountPicker
+                  value={r.prjc ?? null}
+                  label={r.prjc ? (r.prjcLabel ?? `#${r.prjc}`) : null}
+                  disabled={!canManage || busy}
+                  searchType="projects"
+                  extraQuery={trdr ? `&trdr=${trdr}` : ''}
+                  fallbackQuery="&scope=all"
+                  placeholder="Έργο: της γραμμής"
+                  emptyText="Κανένα έργο."
+                  onPick={(h) => update(i, { prjc: h.id, prjcStage: null, prjcLabel: `${h.code} · ${h.name}` })}
+                  onClear={() => update(i, { prjc: null, prjcStage: null, prjcLabel: null })}
+                />
+              )}
               <div className="relative">
                 <input
                   inputMode="decimal" disabled={!canManage || busy}

@@ -96,6 +96,9 @@ export type PurdocLineCtx = {
     percent: number;
     /** «κωδικός — περιγραφή», για τα μηνύματα των ελέγχων. */
     label?: string | null;
+    /** Έργο / φάση του κομματιού· κενό ⇒ της γραμμής (βλ. {@link allocationAnalytics}). */
+    prjc?: number | null;
+    prjcStage?: number | null;
   }[];
 };
 
@@ -478,6 +481,25 @@ const analyticsOf = (m: PurdocLineCtx): { COSTCNTR?: number; PRJC?: number; PRJC
   ...(m.prjcStage ? { PRJCSTAGE: m.prjcStage } : {}),
 });
 
+/**
+ * Αναλυτική ΕΝΟΣ κομματιού επιμερισμού. Το κέντρο κόστους είναι πάντα της γραμμής· το έργο είναι
+ * του κομματιού όταν έχει δηλωθεί, αλλιώς της γραμμής. Η φάση της γραμμής ΔΕΝ κληρονομείται σε
+ * κομμάτι με ΑΛΛΟ έργο: ανήκει σε άλλο έργο και το SoftOne θα την απέρριπτε (ή χειρότερα, θα τη
+ * δεχόταν σε λάθος έργο).
+ */
+const allocationAnalytics = (
+  m: PurdocLineCtx,
+  a: { prjc?: number | null; prjcStage?: number | null },
+): { COSTCNTR?: number; PRJC?: number; PRJCSTAGE?: number } => {
+  if (!a.prjc) return analyticsOf(m);
+  const stage = a.prjcStage ?? (a.prjc === m.prjc ? m.prjcStage : null);
+  return {
+    ...(m.costCntr ? { COSTCNTR: m.costCntr } : {}),
+    PRJC: a.prjc,
+    ...(stage ? { PRJCSTAGE: stage } : {}),
+  };
+};
+
 const vatIdFor = (rate: number | null, map: Record<number, number>): number | undefined => {
   if (rate == null || !Number.isFinite(rate)) return undefined;
   const id = map[rate];
@@ -601,7 +623,7 @@ export function buildPurdocPayload(document: DocumentJson, ctx: PurdocContext): 
             PRICE: a.amount,
             DISC1PRC: 0,
             NETLINEVAL: a.amount,
-            ...analyticsOf(match),
+            ...allocationAnalytics(match, a),
           };
           if (vat != null) row.VAT = vat;
           // Το σχόλιο κουβαλά και το ποσοστό: στο ERP η γραμμή θα φαίνεται μόνη της, και χωρίς

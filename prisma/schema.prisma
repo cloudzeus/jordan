@@ -1473,6 +1473,13 @@ model OcrInvoiceItemAllocation {
    */
   amount  Decimal @db.Decimal(18, 4)
 
+  /**
+   * ΕΡΓΟ του κομματιού (SoftOne `PRJC`) — π.χ. ένα αεροπορικό «Έξοδα Ταξιδίων» 50/50 σε δύο έργα.
+   * Κενό ⇒ κληρονομεί το έργο της γραμμής. Το ίδιο για τη φάση έργου (`PRJCSTAGE`).
+   */
+  prjc      Int?
+  prjcStage Int?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

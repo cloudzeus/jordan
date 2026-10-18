@@ -207,7 +207,9 @@ function LinesTable({ doc, data, match }: { doc: DocWithItems; data: any; match:
                     order: a.order, registryMtrl: a.registryMtrl,
                     kind: a.kind === 'SXACCOUNT' ? 'SXACCOUNT' : 'LINEITEM', accountCode: a.accountCode,
                     percent: Number(a.percent), amount: Number(a.amount),
+                    prjc: a.prjc, prjcStage: a.prjcStage,
                   }))}
+                  trdr={match.trdr}
                 />
                 {hasLineCustomFields(lineCf) && (
                   <tr key={`${it.id}-cf`} className="bg-muted/20">

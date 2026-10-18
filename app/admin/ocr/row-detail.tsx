@@ -392,6 +392,8 @@ export function OcrRowDetail({
    * επιμερισμούς που κανείς δεν ζήτησε.
    */
   const [saved, setSaved] = React.useState<Map<number, { id: string; allocations: AllocationRow[] }>>(new Map());
+  /** Ο TRDR του εκδότη — για να προτείνει πρώτα τα δικά του έργα στο έργο ανά κομμάτι. */
+  const [allocTrdr, setAllocTrdr] = React.useState<number | null>(null);
   React.useEffect(() => {
     let alive = true;
     (async () => {
@@ -400,12 +402,14 @@ export function OcrRowDetail({
         if (!r.ok) return;
         const d = await r.json();
         if (!alive || !Array.isArray(d?.items)) return;
+        setAllocTrdr(typeof d.softoneTrdr === 'number' ? d.softoneTrdr : null);
         setSaved(new Map(d.items.map((it: any) => [it.rowIndex, {
           id: it.id,
           allocations: (it.allocations ?? []).map((a: any): AllocationRow => ({
             order: a.order, registryMtrl: a.registryMtrl,
             kind: a.kind === 'SXACCOUNT' ? 'SXACCOUNT' : 'LINEITEM',
             accountCode: a.accountCode, percent: Number(a.percent), amount: Number(a.amount),
+            prjc: a.prjc ?? null, prjcStage: a.prjcStage ?? null,
           })),
         }])));
       } catch { /* η λωρίδα απλώς δεν εμφανίζεται */ }
@@ -962,6 +966,7 @@ export function OcrRowDetail({
                                       kind={allocKind}
                                       layout="block"
                                       hideIdle
+                                      trdr={allocTrdr}
                                       initial={saved.get(i)!.allocations}
                                     />
                                   </div>

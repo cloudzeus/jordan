@@ -27,6 +27,13 @@ export interface AllocationInput {
   accountCode?: string | null;
   /** Ποσοστό 0–100. */
   percent: number;
+  /**
+   * ΕΡΓΟ του κομματιού (`PRJC`). Κενό ⇒ το έργο της γραμμής. Έτσι ο ΙΔΙΟΣ λογαριασμός μπορεί να
+   * σπάσει σε δύο έργα (π.χ. ένα αεροπορικό «Έξοδα Ταξιδίων» 50/50).
+   */
+  prjc?: number | null;
+  /** Φάση έργου (`PRJCSTAGE`) του κομματιού. */
+  prjcStage?: number | null;
 }
 
 /** Ένας επιμερισμός έτοιμος για αποθήκευση/αποστολή. */
@@ -87,18 +94,20 @@ export function validateAllocations(
     }
   });
 
-  // Ο ίδιος λογαριασμός δύο φορές δεν είναι επιμερισμός — είναι μία γραμμή γραμμένη δύο φορές,
-  // και στο ERP θα κατέληγε σε δύο πανομοιότυπες γραμμές που κανείς δεν μπορεί να ξεχωρίσει.
-  const seen = new Set<number>();
+  // Ο ίδιος λογαριασμός ΣΤΟ ΙΔΙΟ ΕΡΓΟ δύο φορές δεν είναι επιμερισμός — είναι μία γραμμή γραμμένη
+  // δύο φορές, και στο ERP θα κατέληγε σε δύο πανομοιότυπες γραμμές που κανείς δεν ξεχωρίζει.
+  // Ίδιος λογαριασμός σε ΔΙΑΦΟΡΕΤΙΚΑ έργα είναι ακριβώς ο λόγος ύπαρξης του έργου ανά κομμάτι.
+  const seen = new Set<string>();
   for (const a of allocations) {
     if (!Number.isFinite(a.registryMtrl) || a.registryMtrl <= 0) continue; // το λέει ήδη το `no_account`
-    if (seen.has(a.registryMtrl)) {
+    const key = `${a.kind ?? 'LINEITEM'}:${a.registryMtrl}:${a.prjc ?? ''}:${a.prjcStage ?? ''}`;
+    if (seen.has(key)) {
       problems.push({
         code: 'duplicate_account', registryMtrl: a.registryMtrl,
-        message: 'Ο ίδιος λογαριασμός εμφανίζεται πάνω από μία φορά — ένωσέ τους σε έναν επιμερισμό.',
+        message: 'Ο ίδιος λογαριασμός στο ίδιο έργο εμφανίζεται πάνω από μία φορά — ένωσέ τους σε έναν επιμερισμό ή διάλεξε άλλο έργο.',
       });
     }
-    seen.add(a.registryMtrl);
+    seen.add(key);
   }
 
   const sum = allocations.reduce((t, a) => t + (Number.isFinite(a.percent) ? a.percent : 0), 0);
