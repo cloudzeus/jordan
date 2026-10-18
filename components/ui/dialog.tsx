@@ -69,9 +69,9 @@ function DialogContent({
           // Safari). Κεφαλίδα/υποσέλιδο δεν συρρικνώνονται· ένα σώμα με overflow (DialogBody ή
           // div με overflow-auto) παίρνει τον χώρο που μένει και κυλά μόνο αυτό.
           "fixed top-1/2 left-1/2 z-50 flex max-h-[calc(100dvh-1rem)] w-full max-w-[calc(100%-1rem)] -translate-x-1/2 -translate-y-1/2 flex-col gap-4 rounded-xl bg-card p-6 text-sm text-foreground border border-border shadow-pop duration-100 outline-none sm:max-h-[calc(100dvh-2rem)] sm:max-w-md data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
-          "*:data-[slot=dialog-footer]:shrink-0 *:data-[slot=dialog-header]:shrink-0",
+          "[&>[data-slot=dialog-footer]]:shrink-0 [&>[data-slot=dialog-header]]:shrink-0",
           autoBody && [
-            "has-data-[slot=dialog-body]:gap-0 has-data-[slot=dialog-body]:p-0",
+            "[&:has([data-slot=dialog-body])]:gap-0 [&:has([data-slot=dialog-body])]:p-0",
             "[&:has([data-slot=dialog-body])>form]:flex [&:has([data-slot=dialog-body])>form]:min-h-0 [&:has([data-slot=dialog-body])>form]:flex-col",
             "[&:has([data-slot=dialog-body])_[data-slot=dialog-header]]:shrink-0 [&:has([data-slot=dialog-body])_[data-slot=dialog-header]]:px-5 [&:has([data-slot=dialog-body])_[data-slot=dialog-header]]:pt-4 [&:has([data-slot=dialog-body])_[data-slot=dialog-header]]:pb-3 [&:has([data-slot=dialog-body])_[data-slot=dialog-header]]:pr-12",
             "[&:has([data-slot=dialog-body])_[data-slot=dialog-footer]]:m-0 [&:has([data-slot=dialog-body])_[data-slot=dialog-footer]]:shrink-0",
