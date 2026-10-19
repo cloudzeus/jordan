@@ -1,0 +1,20 @@
+import Link from 'next/link';
+import { FiArrowLeft, FiPlusCircle } from 'react-icons/fi';
+import { requirePermission } from '@/lib/rbac';
+import { staffOptions } from '@/lib/contracts/service';
+import { PageHeader } from '@/components/admin/page-header';
+import { ContractEditor } from '../contract-editor';
+
+export const dynamic = 'force-dynamic';
+
+export default async function NewContractPage() {
+  await requirePermission('projects.manage');
+  const staff = await staffOptions();
+  return (
+    <div className="mx-auto w-full max-w-5xl">
+      <Link href="/admin/projects/contracts" className="mb-2 inline-flex items-center gap-1 text-[length:var(--fs-12)] text-muted-foreground hover:text-foreground"><FiArrowLeft className="size-3.5" /> Συμβάσεις & Προσφορές</Link>
+      <PageHeader icon={<FiPlusCircle />} title="Νέο έργο" description="Περίληψη, τύπος, υλικά & υπηρεσίες, συνεργεία, τοποθεσία και milestones — ξεκινά ως προσφορά" helpAnchor="contracts" />
+      <ContractEditor initial={null} staff={staff} />
+    </div>
+  );
+}

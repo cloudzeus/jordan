@@ -15,6 +15,7 @@ import { Label } from '@/components/ui/label';
 import { formatCoords } from '@/lib/coords';
 import { PRECISION_LABEL, siteLine, type SiteCandidate, type SitePrecision } from '@/lib/project-site-core';
 
+export type ProjectSiteValue = Site;
 type Site = {
   address: string | null; zip: string | null; district: string | null; city: string | null; formatted: string | null;
   lat: number; lng: number; source: 'geocode' | 'marker' | 'manual'; precision: SitePrecision | null;
@@ -27,8 +28,10 @@ const GREECE: [number, number] = [38.3, 23.8];
  * Τοποθεσία έργου: διεύθυνση → συντεταγμένες (geocoder). Αν το αποτέλεσμα δεν είναι ακριβές, ο χρήστης
  * μετακινεί την πινέζα (σύρσιμο ή κλικ στον χάρτη) και η διεύθυνση ξαναβγαίνει από το σημείο (reverse).
  */
-export function ProjectSiteDialog({ prjc, projectLabel, open, onOpenChange }: {
-  prjc: number; projectLabel: string; open: boolean; onOpenChange: (o: boolean) => void;
+export function ProjectSiteDialog({ prjc, projectLabel, open, onOpenChange, value, onSave }: {
+  prjc?: number | null; projectLabel: string; open: boolean; onOpenChange: (o: boolean) => void;
+  /** Ελεγχόμενη χρήση (π.χ. σύμβαση χωρίς PRJC): αρχική θέση + callback αντί για αποθήκευση στο έργο. */
+  value?: Site | null; onSave?: (site: Site | null) => void;
 }) {
   const router = useRouter();
   const [loaded, setLoaded] = React.useState(false);
@@ -49,6 +52,11 @@ export function ProjectSiteDialog({ prjc, projectLabel, open, onOpenChange }: {
   React.useEffect(() => {
     if (!open) return;
     setLoaded(false); setCandidates(null); setError(null);
+    if (onSave) {
+      const s = value ?? null;
+      setExisting(!!s); setSite(s); setQ(s ? siteLine(s) : ''); setLoaded(true);
+      return;
+    }
     void (async () => {
       const r = await fetch(`/api/admin/projects/${prjc}/site`, { cache: 'no-store' }).catch(() => null);
       const d = r?.ok ? await r.json().catch(() => null) : null;
@@ -58,6 +66,7 @@ export function ProjectSiteDialog({ prjc, projectLabel, open, onOpenChange }: {
       setQ(s ? siteLine(s) : '');
       setLoaded(true);
     })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, prjc]);
 
   const reverse = React.useCallback(async (lat: number, lng: number) => {
@@ -128,6 +137,7 @@ export function ProjectSiteDialog({ prjc, projectLabel, open, onOpenChange }: {
 
   const save = async () => {
     if (!site) return;
+    if (onSave) { onSave(site); onOpenChange(false); return; }
     setBusy('save'); setError(null);
     try {
       const r = await fetch(`/api/admin/projects/${prjc}/site`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(site) });
@@ -143,6 +153,7 @@ export function ProjectSiteDialog({ prjc, projectLabel, open, onOpenChange }: {
 
   const remove = async () => {
     if (!window.confirm('Να αφαιρεθεί η τοποθεσία του έργου;')) return;
+    if (onSave) { onSave(null); onOpenChange(false); return; }
     setBusy('delete');
     const r = await fetch(`/api/admin/projects/${prjc}/site`, { method: 'DELETE' }).catch(() => null);
     setBusy(null);

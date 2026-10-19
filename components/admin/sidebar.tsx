@@ -60,6 +60,7 @@ const NAV_GROUPS: NavGroup[] = [
     label: 'Operations',
     items: [
       { href: '/admin/projects', label: 'Έργα', icon: FiBriefcase, permissions: ['projects.read'] },
+      { href: '/admin/projects/contracts', label: 'Συμβάσεις & Προσφορές', icon: FiFileText, permissions: ['projects.read'] },
       { href: '/admin/tasks', label: 'Εργασίες & Gantt', icon: FiCheckSquare, permissions: ['projects.read'] },
       { href: '/admin/dynamic-offers', label: 'Δυναμικές προσφορές', icon: FiTrendingDown, permissions: ['dynamic_offers.read'] },
       { href: '/admin/order-requests', label: 'Αιτήματα παραγγελίας', icon: FiShoppingCart, permissions: ['order_requests.read'], badgeKey: 'orderRequests' },
@@ -150,7 +151,9 @@ export function AdminSidebar({ user, roleName, roleKey, locale, permissionKeys, 
 
   const allowed = (perms?: string[]) => !perms || perms.length === 0 || perms.some((p) => permissionKeys.includes(p));
   const allowedItem = (it: NavItem) => allowed(it.permissions) && (!it.requireRoleKey || it.requireRoleKey === roleKey) && (!it.roleKeys || (!!roleKey && it.roleKeys.includes(roleKey)));
-  const isActive = (item: NavItem) => item.exact ? path === item.href : (path === item.href || path.startsWith(`${item.href}/`));
+  const matches = (item: NavItem) => item.exact ? path === item.href : (path === item.href || path.startsWith(`${item.href}/`));
+  // Ένθετες διαδρομές (π.χ. /admin/projects/contracts μέσα στα Έργα): ενεργό μόνο το πιο συγκεκριμένο.
+  const isActive = (item: NavItem) => matches(item) && !NAV_GROUPS.some((g) => g.items.some((o) => o.href.length > item.href.length && o.href.startsWith(`${item.href}/`) && matches(o)));
 
   // Collapsible groups: all open by default, remembered per browser, and the
   // group holding the current route is always forced open on navigation.

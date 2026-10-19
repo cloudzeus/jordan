@@ -34,7 +34,7 @@ function pickMime(): string | undefined {
   return undefined;
 }
 
-export function useVoiceInput(opts: { onText: (text: string) => void; onError: (message: string) => void }) {
+export function useVoiceInput(opts: { onText: (text: string) => void; onError: (message: string) => void; /** Endpoint μεταγραφής (προεπιλογή: Air Jordan). */ endpoint?: string }) {
   const [state, setState] = React.useState<VoiceState>('idle');
   const [seconds, setSeconds] = React.useState(0);
   const [mode, setMode] = React.useState<'server' | 'browser'>('server');
@@ -113,7 +113,7 @@ export function useVoiceInput(opts: { onText: (text: string) => void; onError: (
         try {
           const fd = new FormData();
           fd.append('audio', blob, `voice.${mime.includes('mp4') ? 'mp4' : mime.includes('ogg') ? 'ogg' : 'webm'}`);
-          const res = await fetch('/api/admin/assistant/transcribe', { method: 'POST', body: fd });
+          const res = await fetch(cb.current.endpoint ?? '/api/admin/assistant/transcribe', { method: 'POST', body: fd });
           const j = await res.json().catch(() => ({}));
           if (!res.ok) throw new Error(j.message ?? 'Η μεταγραφή απέτυχε');
           if (j.text) cb.current.onText(j.text);

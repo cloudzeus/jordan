@@ -3666,3 +3666,156 @@ model DashboardLayout {
   layout    Json // { order: string[], hidden: string[], sizes: Record<string, 'sm'|'md'|'lg'> }
   updatedAt DateTime @updatedAt
 }
+
+// ============================================================
+// Συμβάσεις & Προσφορές έργων — ΔΙΚΑ ΜΑΣ δεδομένα. Ένα έγγραφο σε δύο στάδια: OFFER (προσφορά προς
+// τον πελάτη) → CONTRACT (με την αποδοχή). Το έργο ζει εδώ μέχρι να συνδεθεί με PRJC του SoftOne
+// (υπάρχον ή νέο — η δημιουργία στο SoftOne γίνεται ΜΟΝΟ με ρητή επιβεβαίωση του χρήστη).
+// Τύποι: PRODUCT (μόνο προϊόν) · PRODUCT_INSTALL (προϊόν + τοποθέτηση) · SUBCONTRACT (τοποθέτηση
+// από τεχνικές εταιρίες/συνεργεία για λογαριασμό μας).
+// ============================================================
+model Contract {
+  id            String    @id @default(cuid())
+  number        Int       @unique @default(autoincrement()) // «ΣΥΜ-000123»
+  title         String
+  summary       String    @default("")
+  kind          String // PRODUCT · PRODUCT_INSTALL · SUBCONTRACT
+  stage         String    @default("OFFER") // OFFER · CONTRACT
+  /// DRAFT → SENT → ACCEPTED (γίνεται CONTRACT) → ACTIVE → COMPLETED · CANCELLED
+  status        String    @default("DRAFT")
+  trdr          Int? // πελάτης SoftOne
+  customerName  String? // στιγμιότυπο (ή πελάτης εκτός SoftOne)
+  customerEmail String?
+  customerPhone String?
+  prjc          Int? // συνδεδεμένο έργο SoftOne
+  // Τοποθεσία (ίδια μορφή με ProjectSite — αντιγράφεται εκεί όταν συνδεθεί PRJC)
+  siteAddress   String?
+  siteZip       String?
+  siteDistrict  String?
+  siteCity      String?
+  siteFormatted String?
+  siteLat       Float?
+  siteLng       Float?
+  siteSource    String?
+  sitePrecision String?
+  startDate     DateTime? @db.Date
+  endDate       DateTime? @db.Date
+  validUntil    DateTime? @db.Date // ισχύς προσφοράς
+  vatRate       Float     @default(24)
+  terms         String? // ειδικοί όροι που θέλει ο χρήστης να μπουν στη σύμβαση
+  acceptedAt    DateTime?
+  activatedAt   DateTime?
+  completedAt   DateTime?
+  createdById   String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  lines      ContractLine[]
+  parties    ContractParty[]
+  members    ContractMember[]
+  milestones ContractMilestone[]
+  documents  ContractDocument[]
+
+  @@index([prjc])
+  @@index([trdr])
+  @@index([status])
+}
+
+// Υλικά & υπηρεσίες. Όνομα/μονάδα ως στιγμιότυπο. `partyId` = το συνεργείο που εκτελεί τη γραμμή,
+// `crewFee` = η αμοιβή του για αυτή (μπαίνει στη δική του σύμβαση, ΠΟΤΕ στου πελάτη).
+model ContractLine {
+  id         String         @id @default(cuid())
+  contractId String
+  contract   Contract       @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  kind       String // MATERIAL · SERVICE
+  mtrl       Int?
+  code       String?
+  name       String
+  unit       String?
+  qty        Float          @default(1)
+  unitPrice  Float          @default(0)
+  discount   Float          @default(0) // %
+  notes      String?
+  partyId    String?
+  party      ContractParty? @relation(fields: [partyId], references: [id], onDelete: SetNull)
+  crewFee    Float?
+  sortOrder  Int            @default(0)
+
+  @@index([contractId, sortOrder])
+}
+
+// Συνεργεία / τεχνικές εταιρίες / μάστοροι: προμηθευτής SoftOne (TRDR) ή Συνεργάτης (Partner).
+model ContractParty {
+  id         String              @id @default(cuid())
+  contractId String
+  contract   Contract            @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  kind       String // SUPPLIER · PARTNER
+  trdr       Int?
+  partnerId  String?
+  name       String
+  email      String?
+  phone      String?
+  afm        String?
+  specialty  String?
+  scope      String? // τι αναλαμβάνει (ελεύθερο κείμενο, πέρα από τις γραμμές)
+  sortOrder  Int                 @default(0)
+  lines      ContractLine[]
+  milestones ContractMilestone[]
+  documents  ContractDocument[]
+
+  @@index([contractId])
+}
+
+// Προσωπικό του έργου: παίρνει τα tasks και τις εγγραφές ημερολογίου των milestones.
+model ContractMember {
+  contractId String
+  contract   Contract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  userId     String
+
+  @@id([contractId, userId])
+  @@index([userId])
+}
+
+// Milestones: παραδοτέο + πληρωμή. `partyId` κενό = πληρωμή του πελάτη προς εμάς· αλλιώς πληρωμή
+// δική μας προς το συνεργείο. Με την ενεργοποίηση της σύμβασης γίνονται ProjectTask (στο ημερολόγιο).
+model ContractMilestone {
+  id           String         @id @default(cuid())
+  contractId   String
+  contract     Contract       @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  partyId      String?
+  party        ContractParty? @relation(fields: [partyId], references: [id], onDelete: Cascade)
+  title        String
+  deliverables String?
+  dueDate      DateTime?      @db.Date
+  amount       Float          @default(0)
+  status       String         @default("PENDING") // PENDING · DONE · PAID
+  taskId       String? // ProjectTask που δημιουργήθηκε
+  doneAt       DateTime?
+  paidAt       DateTime?
+  sortOrder    Int            @default(0)
+
+  @@index([contractId, sortOrder])
+}
+
+// Έγγραφα που συνέταξε το AI: CUSTOMER (προσφορά/σύμβαση πελάτη) ή PARTY (σύμβαση συνεργείου).
+// Το περιεχόμενο είναι δομημένο JSON (lib/contracts/doc.ts)· τα ποσά/γραμμές έρχονται ΠΑΝΤΑ από τη
+// βάση στο PDF, όχι από το AI. Το PDF ζει στα αρχεία του έργου (ή του πελάτη, πριν από το PRJC).
+model ContractDocument {
+  id          String         @id @default(cuid())
+  contractId  String
+  contract    Contract       @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  audience    String // CUSTOMER · PARTY
+  partyId     String?
+  party       ContractParty? @relation(fields: [partyId], references: [id], onDelete: Cascade)
+  stage       String // OFFER · CONTRACT (το στάδιο τη στιγμή της σύνταξης)
+  version     Int            @default(1)
+  content     Json
+  model       String?
+  fileId      String? // EntityFile (PDF)
+  fileName    String?
+  sends       Json           @default("[]") // [{ to, at, by, result }]
+  createdById String?
+  createdAt   DateTime       @default(now())
+
+  @@index([contractId, audience, partyId])
+}
