@@ -201,6 +201,30 @@ export function moveOnBoard(tasks: BoardTask[], id: string, to: PhaseKey, before
   return changes;
 }
 
+/**
+ * Στήλες του Kanban: ids ανά φάση. Με `scopeOf` (Kanban πολλών έργων) οι κάρτες ομαδοποιούνται ανά
+ * έργο — το sortOrder ισχύει μόνο μέσα στο ίδιο έργο.
+ */
+export function boardColumns<T extends BoardTask>(tasks: T[], scopeOf?: (t: T) => string): Record<PhaseKey, string[]> {
+  const out = Object.fromEntries(PHASE_KEYS.map((k) => [k, [] as string[]])) as Record<PhaseKey, string[]>;
+  [...tasks]
+    .sort((a, b) => (scopeOf ? scopeOf(a).localeCompare(scopeOf(b), 'el') : 0) || a.sortOrder - b.sortOrder)
+    .forEach((t) => out[phaseOf(t.progress)].push(t.id));
+  return out;
+}
+
+/** Η διπλανή φάση (−1 προηγούμενη, +1 επόμενη)· null στις άκρες. */
+export function adjacentPhase(from: PhaseKey, dir: -1 | 1): PhaseKey | null {
+  return PHASE_KEYS[PHASE_KEYS.indexOf(from) + dir] ?? null;
+}
+
+/** Η επόμενη κάρτα του ΙΔΙΟΥ έργου μετά το `id` στη στήλη (για το «πριν από» του moveOnBoard). */
+export function beforeInScope(column: string[], id: string, sameScope: (other: string) => boolean = () => true): string | null {
+  const i = column.indexOf(id);
+  if (i < 0) return null;
+  return column.slice(i + 1).find(sameScope) ?? null;
+}
+
 // ── Templates ───────────────────────────────────────────────────────────────────────────────────
 export type TemplateSource = SchedInput & { name: string; description: string | null; customerVisible: boolean; inCalendar: boolean };
 export type TemplateItemDraft = {

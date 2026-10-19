@@ -19,6 +19,7 @@ import {
 } from '@/lib/project-tasks-core';
 import type { AllTaskView } from '@/lib/project-tasks';
 import { cn } from '@/lib/utils';
+import { AllTasksBoard } from './all-tasks-board';
 
 export type AllTasksQuery = { q?: string; prjc?: string; phase?: string; party?: string; status?: string; from?: string; to?: string; view?: string };
 
@@ -58,7 +59,7 @@ async function api(url: string, init: RequestInit) {
 export function AllTasksClient({ tasks, canManage, today, query }: { tasks: AllTaskView[]; canManage: boolean; today: string; query: AllTasksQuery }) {
   const router = useRouter();
   const [f, setF] = React.useState<TaskFilter>(() => fromQuery(query));
-  const [view, setView] = React.useState(query.view === 'list' ? 'list' : 'gantt');
+  const [view, setView] = React.useState(query.view === 'list' || query.view === 'board' ? query.view : 'gantt');
   const [collapsed, setCollapsed] = React.useState<Set<string>>(new Set());
   React.useEffect(() => writeQuery(f, view), [f, view]);
   const set = (patch: Partial<TaskFilter>) => setF((x) => ({ ...x, ...patch }));
@@ -71,6 +72,8 @@ export function AllTasksClient({ tasks, canManage, today, query }: { tasks: AllT
   }, [tasks]);
 
   const rows = React.useMemo(() => filterAllTasks(tasks, f, today), [tasks, f, today]);
+  // Kanban: η προεπιλογή «Ανοιχτές» θα άδειαζε τη στήλη «Ολοκληρώθηκε» — εκεί δείχνουμε και τις ολοκληρωμένες.
+  const boardRows = React.useMemo(() => (f.status === 'open' ? filterAllTasks(tasks, { ...f, status: 'all' }, today) : rows), [tasks, f, today, rows]);
   const groups = React.useMemo(() => groupByProject(rows), [rows]);
   const overdue = rows.filter((t) => isOverdue(t, today)).length;
   const conflicts = rows.filter((t) => t.conflict).length;
@@ -162,11 +165,12 @@ export function AllTasksClient({ tasks, canManage, today, query }: { tasks: AllT
       <Tabs value={view} onValueChange={setView}>
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
           <TabsList>
+            <TabsTrigger value="board"><FiTrello className="size-3.5" aria-hidden /> Kanban</TabsTrigger>
             <TabsTrigger value="gantt"><FiColumns className="size-3.5" aria-hidden /> Gantt έργων</TabsTrigger>
             <TabsTrigger value="list"><FiList className="size-3.5" aria-hidden /> Λίστα</TabsTrigger>
           </TabsList>
           <p className="flex flex-wrap items-center gap-x-3 text-[length:var(--fs-12)] text-muted-foreground" role="status">
-            <span><span className="font-semibold tabular-nums text-foreground">{rows.length}</span> εργασίες · {groups.length} έργα</span>
+            <span><span className="font-semibold tabular-nums text-foreground">{view === 'board' ? boardRows.length : rows.length}</span> εργασίες · {groups.length} έργα{view === 'board' && f.status === 'open' ? ' · μαζί με τις ολοκληρωμένες' : ''}</span>
             {overdue > 0 && <span className="text-red-600 dark:text-red-400">{overdue} εκπρόθεσμες</span>}
             {conflicts > 0 && <span className="inline-flex items-center gap-1 text-red-600 dark:text-red-400"><FiAlertTriangle className="size-3" aria-hidden />{conflicts} με σύγκρουση</span>}
             {view === 'gantt' && groups.length > 1 && (
@@ -177,14 +181,17 @@ export function AllTasksClient({ tasks, canManage, today, query }: { tasks: AllT
           </p>
         </div>
 
-        {rows.length === 0 ? (
+        {(view === 'board' ? boardRows : rows).length === 0 ? (
           <div className="rounded-xl border border-dashed border-border px-6 py-14 text-center">
             <FiTrello className="mx-auto size-8 text-muted-foreground opacity-50" aria-hidden />
             <p className="mt-3 text-[length:var(--fs-14)] font-medium">{tasks.length ? 'Καμία εργασία με αυτά τα φίλτρα' : 'Δεν υπάρχουν ακόμη εργασίες'}</p>
-            <p className="mt-1 text-[length:var(--fs-12)] text-muted-foreground">{tasks.length ? 'Αλλάξτε ή καθαρίστε τα φίλτρα.' : <>Προσθέστε εργασίες από την καρτέλα ενός <Link href="/admin/projects" className="underline">έργου</Link> → «Kanban & Gantt».</>}</p>
+            <p className="mt-1 text-[length:var(--fs-12)] text-muted-foreground">{tasks.length ? 'Αλλάξτε ή καθαρίστε τα φίλτρα.' : <>Προσθέστε εργασίες από την καρτέλα ενός <Link href="/admin/projects" className="underline">έργου</Link> → καρτέλα «Εργασίες».</>}</p>
           </div>
         ) : (
           <>
+            <TabsContent value="board">
+              <AllTasksBoard tasks={boardRows} canManage={canManage} />
+            </TabsContent>
             <TabsContent value="gantt">
               <GanttChart rows={gantt} today={today} onSelect={openTask} onToggle={toggle} label="Έργο / εργασία" />
             </TabsContent>

@@ -12,7 +12,10 @@ import { ProjectFinancials } from './project-financials';
 import { getProjectSite } from '@/lib/project-site';
 import { siteLine } from '@/lib/project-site-core';
 import { EntityFilesPanel } from '@/components/admin/entity-files/entity-files-panel';
-import { listTasks } from '@/lib/project-tasks';
+import { listTasks, listTemplates, partyOptions } from '@/lib/project-tasks';
+import { zonedParts } from '@/lib/appointments-core';
+import { TasksWorkspace } from './tasks/tasks-workspace';
+import { ProjectTabs } from './project-tabs';
 import { PHASES, phaseCounts } from '@/lib/project-tasks-core';
 
 export const dynamic = 'force-dynamic';
@@ -43,19 +46,20 @@ function TraderBlock({ t }: { t: Trader }) {
 }
 
 // Καρτέλα έργου — ό,τι κρατά ο καθρέφτης SoftoneProject για ένα PRJC.
-export default async function ProjectPage({ params }: { params: Promise<{ prjc: string }> }) {
+export default async function ProjectPage({ params, searchParams }: { params: Promise<{ prjc: string }>; searchParams: Promise<{ task?: string }> }) {
   await requirePermission('projects.read');
   const { prjc } = await params;
   const id = Number(prjc);
   if (!Number.isInteger(id)) notFound();
   const p = await getProject(id);
   if (!p) notFound();
-  const [canManage, canFinancials, canFiles] = await Promise.all([hasPermission('projects.manage'), hasPermission('projects.financials'), hasPermission('files.read')]);
+  const [canManage, canFinancials, canFiles, canManageFiles] = await Promise.all([hasPermission('projects.manage'), hasPermission('projects.financials'), hasPermission('files.read'), hasPermission('files.manage')]);
   // Οικονομικά: στιγμιότυπο όλων των έργων — ξαναϋπολογίζεται μόνο αν έχει παλιώσει.
   const fresh = canFinancials ? await ensureFreshFinancials() : null;
   const fin = canFinancials ? await getProjectFinancials(p.prjc) : null;
   const site = await getProjectSite(p.prjc);
-  const work = await listTasks(p.prjc);
+  // Εργασίες: μόνο βάση εφαρμογής (όχι SoftOne) — το Kanban της καρτέλας «Εργασίες».
+  const [work, options, templates, query] = await Promise.all([listTasks(p.prjc), partyOptions(p.prjc), listTemplates(), searchParams]);
   const counts = phaseCounts(work.tasks);
 
   return (
@@ -98,8 +102,11 @@ export default async function ProjectPage({ params }: { params: Promise<{ prjc: 
         {p.remarks && <p className="mt-2 whitespace-pre-wrap border-t border-border pt-2 text-[length:var(--fs-12)] text-muted-foreground">{p.remarks}</p>}
       </section>
 
-      {/* Εργασίες: σύνοψη προόδου + είσοδος στο Kanban/Gantt */}
-      <section aria-label="Εργασίες έργου" className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-3 rounded-xl border border-border bg-card px-3 py-3 shadow-sm sm:px-4">
+      <ProjectTabs openTasks={work.tasks.length - counts.DONE} tasks={(
+        <TasksWorkspace prjc={p.prjc} tasks={work.tasks} options={options} templates={templates} canManage={canManage} canFiles={canManageFiles} today={zonedParts(new Date()).date} openTaskId={query.task ?? null} />
+      )} overview={(<>
+      {/* Εργασίες: σύνοψη προόδου + είσοδος στην καρτέλα «Εργασίες» */}
+      <section aria-label="Εργασίες έργου" className="flex flex-wrap items-center gap-x-6 gap-y-3 rounded-xl border border-border bg-card px-3 py-3 shadow-sm sm:px-4">
         <div className="min-w-40 flex-1">
           <div className="flex items-baseline justify-between gap-2">
             <span className="text-[length:var(--fs-13)] font-semibold">Εργασίες</span>
@@ -112,8 +119,8 @@ export default async function ProjectPage({ params }: { params: Promise<{ prjc: 
             {work.tasks.length === 0 ? 'Καμία εργασία ακόμη' : PHASES.map((ph) => <span key={ph.key}>{ph.label} <span className="tabular-nums font-medium text-foreground">{counts[ph.key]}</span></span>)}
           </p>
         </div>
-        <Link href={`/admin/projects/${p.prjc}/tasks`} className="inline-flex min-h-9 items-center gap-1.5 rounded-md border border-border px-3 text-[length:var(--fs-12)] font-medium hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-          <FiTrello className="size-3.5" aria-hidden /> Kanban & Gantt
+        <Link href={`/admin/projects/${p.prjc}?tab=tasks`} scroll={false} className="inline-flex min-h-9 items-center gap-1.5 rounded-md border border-border px-3 text-[length:var(--fs-12)] font-medium hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+          <FiTrello className="size-3.5" aria-hidden /> Kanban εργασιών
         </Link>
       </section>
 
@@ -136,6 +143,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ prjc: 
         {/* Στο κινητό λιγότερο padding: οι πίνακες χρειάζονται κάθε pixel πλάτους. */}
         <CardContent className="px-3 sm:px-6"><ProjectActivityPanel prjc={p.prjc} canManage={canManage} projectLabel={`${p.code} · ${p.name}`} /></CardContent>
       </Card>
+      </>)} />
 
       <p className="mt-4 text-[length:var(--fs-11)] text-muted-foreground">
         Από SoftOne (PRJC {p.prjc}) · τελευταίος συγχρονισμός {p.syncedAt.toLocaleString('el-GR')}

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  addWorkdays, applyTemplateItems, buildTemplateItems, calendarSegments, calendarWindow, filterAllTasks, groupByProject, isOverdue, durationDays, moveOnBoard, phaseOf, progressForPhase,
+  addWorkdays, adjacentPhase, applyTemplateItems, beforeInScope, boardColumns, buildTemplateItems, calendarSegments, calendarWindow, filterAllTasks, groupByProject, isOverdue, durationDays, moveOnBoard, phaseOf, progressForPhase,
   projectProgress, schedule, snapProgress, toWorkday, waitingOn, workdaysBetween, wouldCreateCycle, type TemplateSource,
 } from '@/lib/project-tasks-core';
 
@@ -114,6 +114,32 @@ describe('Kanban', () => {
   });
   it('άγνωστο id → καμία αλλαγή', () => {
     expect(moveOnBoard(tasks, 'x', 'DONE', null)).toEqual([]);
+  });
+  it('στήλες ενός έργου κατά sortOrder', () => {
+    expect(boardColumns([...tasks].reverse())).toEqual({ TODO: ['a', 'b'], IN_PROGRESS: ['c'], REVIEW: [], DONE: [] });
+  });
+  it('στήλες πολλών έργων: ομάδα ανά έργο, sortOrder μέσα στο έργο', () => {
+    const many = [
+      { id: 'p2a', progress: 0, sortOrder: 0, prjc: 'Β' },
+      { id: 'p1b', progress: 0, sortOrder: 1, prjc: 'Α' },
+      { id: 'p1a', progress: 0, sortOrder: 0, prjc: 'Α' },
+      { id: 'p1d', progress: 100, sortOrder: 0, prjc: 'Α' },
+    ];
+    expect(boardColumns(many, (t) => t.prjc)).toEqual({ TODO: ['p1a', 'p1b', 'p2a'], IN_PROGRESS: [], REVIEW: [], DONE: ['p1d'] });
+  });
+  it('διπλανή φάση για ←/→ στο πληκτρολόγιο', () => {
+    expect(adjacentPhase('IN_PROGRESS', -1)).toBe('TODO');
+    expect(adjacentPhase('IN_PROGRESS', 1)).toBe('REVIEW');
+    expect(adjacentPhase('TODO', -1)).toBeNull();
+    expect(adjacentPhase('DONE', 1)).toBeNull();
+  });
+  it('«πριν από» μόνο κάρτα του ίδιου έργου', () => {
+    const prj: Record<string, number> = { a: 1, x: 2, b: 1 };
+    const same = (o: string) => prj[o] === 1;
+    expect(beforeInScope(['a', 'x', 'b'], 'a', same)).toBe('b');
+    expect(beforeInScope(['x', 'a'], 'a', same)).toBeNull();
+    expect(beforeInScope(['a', 'b'], 'a')).toBe('b');
+    expect(beforeInScope(['b'], 'zz')).toBeNull();
   });
 });
 

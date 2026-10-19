@@ -3,15 +3,15 @@
 import * as React from 'react';
 import {
   DndContext, DragOverlay, KeyboardSensor, PointerSensor, TouchSensor, closestCorners, useDroppable, useSensor, useSensors,
-  type DragEndEvent, type DragOverEvent, type DragStartEvent,
+  type DragEndEvent, type DragOverEvent, type DragStartEvent, type KeyboardCoordinateGetter,
 } from '@dnd-kit/core';
 import { SortableContext, arrayMove, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { FiAlertTriangle, FiCalendar, FiClock, FiEdit2, FiEye, FiMoreVertical, FiPaperclip, FiPlus, FiTrash2 } from 'react-icons/fi';
+import { FiAlertTriangle, FiBriefcase, FiCalendar, FiClock, FiEdit2, FiExternalLink, FiEye, FiMoreVertical, FiPaperclip, FiPlus, FiTrash2 } from 'react-icons/fi';
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { PHASES, durationLabel, phaseMeta, phaseOf, type PhaseKey } from '@/lib/project-tasks-core';
+import { PHASES, PHASE_KEYS, adjacentPhase, beforeInScope, boardColumns, durationLabel, phaseMeta, phaseOf, type PhaseKey } from '@/lib/project-tasks-core';
 import type { TaskView } from '@/lib/project-tasks';
 import { cn } from '@/lib/utils';
 
@@ -24,8 +24,14 @@ export type BoardActions = {
   onMove: (id: string, to: PhaseKey, beforeId: string | null) => void;
   onProgress: (id: string, progress: number) => void;
   onDelete: (id: string) => void;
-  onNew: (phase: PhaseKey) => void;
+  /** Χωρίς onNew (π.χ. Kanban όλων των έργων) δεν εμφανίζεται το «+» στις στήλες. */
+  onNew?: (phase: PhaseKey) => void;
+  /** Μετάβαση στην καρτέλα του έργου της κάρτας (Kanban πολλών έργων). */
+  onProject?: (id: string) => void;
 };
+
+/** Ετικέτα έργου πάνω στην κάρτα — μόνο στο Kanban πολλών έργων. */
+export type CardProject = { code: string; name: string };
 
 /**
  * Kanban 4 στηλών (= φάσεις ποσοστού). Σύρσιμο με ποντίκι/αφή (κατώφλι 6px ώστε το κλικ να ανοίγει
@@ -33,20 +39,40 @@ export type BoardActions = {
  */
 export type TaskRef = { name: string; done: boolean };
 
-export function KanbanBoard({ tasks, canManage, names, actions }: { tasks: TaskView[]; canManage: boolean; names: Map<string, TaskRef>; actions: BoardActions }) {
+export function KanbanBoard({ tasks, canManage, names, actions, boardId = 'project-tasks-kanban', scopeOf, projectOf }: {
+  tasks: TaskView[]; canManage: boolean; names: Map<string, TaskRef>; actions: BoardActions;
+  /** Σταθερό id του DndContext (ίδια aria ids σε SSR και client). */
+  boardId?: string;
+  /** Kanban πολλών έργων: σε ποιο έργο ανήκει η κάρτα — η σειρά μέσα στη στήλη μετρά ανά έργο. */
+  scopeOf?: (t: TaskView) => string;
+  projectOf?: (t: TaskView) => CardProject | null;
+}) {
+  // Πληκτρολόγιο: ←/→ = προηγούμενη/επόμενη φάση. Το sortableKeyboardCoordinates ξαναδιάλεγε την
+  // ίδια στήλη (το πλαίσιό της περικλείει την κάρτα), οπότε η κάρτα δεν άλλαζε ποτέ στήλη.
+  const colsRef = React.useRef<Record<PhaseKey, string[]> | null>(null);
+  const keyboardCoordinates = React.useCallback<KeyboardCoordinateGetter>((event, args) => {
+    const dir = event.code === 'ArrowLeft' ? -1 : event.code === 'ArrowRight' ? 1 : 0;
+    const { active, droppableRects } = args.context;
+    const c = colsRef.current;
+    if (dir && active && c) {
+      event.preventDefault();
+      const from = PHASE_KEYS.find((k) => c[k].includes(String(active.id)));
+      const to = from ? adjacentPhase(from, dir) : null;
+      const rect = to ? droppableRects.get(to) : null;
+      return rect ? { x: rect.left + 8, y: rect.top + 8 } : args.currentCoordinates;
+    }
+    return sortableKeyboardCoordinates(event, args);
+  }, []);
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
     useSensor(TouchSensor, { activationConstraint: { delay: 180, tolerance: 6 } }),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+    useSensor(KeyboardSensor, { coordinateGetter: keyboardCoordinates }),
   );
   // Τοπική διάταξη κατά το σύρσιμο (για να «ανοίγει χώρος» και σε άλλη στήλη).
-  const columnsOf = React.useCallback((list: TaskView[]) => {
-    const out = Object.fromEntries(PHASES.map((p) => [p.key, [] as string[]])) as Record<PhaseKey, string[]>;
-    [...list].sort((a, b) => a.sortOrder - b.sortOrder).forEach((t) => out[phaseOf(t.progress)].push(t.id));
-    return out;
-  }, []);
+  const columnsOf = React.useCallback((list: TaskView[]) => boardColumns(list, scopeOf), [scopeOf]);
   const [cols, setCols] = React.useState(() => columnsOf(tasks));
   const [active, setActive] = React.useState<string | null>(null);
+  colsRef.current = cols;
   React.useEffect(() => { if (!active) setCols(columnsOf(tasks)); }, [tasks, active, columnsOf]);
   const byId = React.useMemo(() => new Map(tasks.map((t) => [t.id, t])), [tasks]);
 
@@ -77,8 +103,9 @@ export function KanbanBoard({ tasks, canManage, names, actions }: { tasks: TaskV
     let list = cols[to].includes(id) ? cols[to] : [...cols[to], id];
     if (over && over !== to && over !== id && list.includes(over)) list = arrayMove(list, list.indexOf(id), list.indexOf(over));
     setCols((c) => ({ ...c, [to]: list }));
-    const before = list[list.indexOf(id) + 1] ?? null;
     const t = byId.get(id);
+    const scope = t && scopeOf ? scopeOf(t) : null;
+    const before = beforeInScope(list, id, (o) => !scopeOf || (byId.has(o) && scopeOf(byId.get(o)!) === scope));
     const was = t ? phaseOf(t.progress) : null;
     const prevList = columnsOf(tasks)[to];
     const unchanged = was === to && prevList.join() === list.join();
@@ -88,10 +115,10 @@ export function KanbanBoard({ tasks, canManage, names, actions }: { tasks: TaskV
   const board = (
     <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
       {PHASES.map((p) => (
-        <Column key={p.key} phase={p.key} count={cols[p.key].length} canManage={canManage} onNew={() => actions.onNew(p.key)}>
+        <Column key={p.key} phase={p.key} count={cols[p.key].length} canManage={canManage} onNew={actions.onNew ? () => actions.onNew!(p.key) : undefined}>
           <SortableContext items={cols[p.key]} strategy={verticalListSortingStrategy}>
             {cols[p.key].map((id) => byId.get(id) && (
-              <SortableCard key={id} task={byId.get(id)!} disabled={!canManage} names={names} actions={actions} canManage={canManage} dimmed={active === id} />
+              <SortableCard key={id} task={byId.get(id)!} disabled={!canManage} names={names} actions={actions} canManage={canManage} dimmed={active === id} project={projectOf?.(byId.get(id)!) ?? null} />
             ))}
           </SortableContext>
         </Column>
@@ -101,7 +128,7 @@ export function KanbanBoard({ tasks, canManage, names, actions }: { tasks: TaskV
 
   return (
     // σταθερό id → ίδια aria ids σε SSR και client (χωρίς hydration mismatch)
-    <DndContext id="project-tasks-kanban" sensors={sensors} collisionDetection={closestCorners} onDragStart={onDragStart} onDragOver={onDragOver} onDragEnd={onDragEnd} onDragCancel={() => { setActive(null); setCols(columnsOf(tasks)); }}
+    <DndContext id={boardId} sensors={sensors} collisionDetection={closestCorners} onDragStart={onDragStart} onDragOver={onDragOver} onDragEnd={onDragEnd} onDragCancel={() => { setActive(null); setCols(columnsOf(tasks)); }}
       accessibility={{
         screenReaderInstructions: { draggable: 'Πατήστε Space για να σηκώσετε την κάρτα, βέλη για μετακίνηση, Space για απόθεση, Escape για ακύρωση.' },
         announcements: {
@@ -113,13 +140,13 @@ export function KanbanBoard({ tasks, canManage, names, actions }: { tasks: TaskV
       }}>
       {board}
       <DragOverlay dropAnimation={{ duration: 180, easing: 'cubic-bezier(0.2, 0, 0, 1)' }}>
-        {active && byId.get(active) ? <CardBody task={byId.get(active)!} names={names} overlay /> : null}
+        {active && byId.get(active) ? <CardBody task={byId.get(active)!} names={names} project={projectOf?.(byId.get(active)!) ?? null} overlay /> : null}
       </DragOverlay>
     </DndContext>
   );
 }
 
-function Column({ phase, count, canManage, onNew, children }: { phase: PhaseKey; count: number; canManage: boolean; onNew: () => void; children: React.ReactNode }) {
+function Column({ phase, count, canManage, onNew, children }: { phase: PhaseKey; count: number; canManage: boolean; onNew?: () => void; children: React.ReactNode }) {
   const { setNodeRef, isOver } = useDroppable({ id: phase });
   const m = phaseMeta(phase);
   return (
@@ -129,7 +156,7 @@ function Column({ phase, count, canManage, onNew, children }: { phase: PhaseKey;
         <h3 className="text-[length:var(--fs-13)] font-semibold">{m.label}</h3>
         <span className="text-[length:var(--fs-11)] tabular-nums text-muted-foreground">{m.steps.map((s) => `${s}%`).join('–')}</span>
         <span className="ml-auto rounded-full bg-background px-2 text-[length:var(--fs-11)] font-medium tabular-nums text-muted-foreground">{count}</span>
-        {canManage && (
+        {canManage && onNew && (
           <button type="button" onClick={onNew} className="inline-flex size-8 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-background hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" aria-label={`Νέα εργασία στο «${m.label}»`}>
             <FiPlus className="size-4" />
           </button>
@@ -143,30 +170,37 @@ function Column({ phase, count, canManage, onNew, children }: { phase: PhaseKey;
   );
 }
 
-function SortableCard({ task, disabled, names, actions, canManage, dimmed }: { task: TaskView; disabled: boolean; names: Map<string, TaskRef>; actions: BoardActions; canManage: boolean; dimmed: boolean }) {
+function SortableCard({ task, disabled, names, actions, canManage, dimmed, project }: { task: TaskView; disabled: boolean; names: Map<string, TaskRef>; actions: BoardActions; canManage: boolean; dimmed: boolean; project: CardProject | null }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: task.id, disabled });
   return (
     <div ref={setNodeRef} style={{ transform: CSS.Translate.toString(transform), transition }} className={cn('group relative', (isDragging || dimmed) && 'opacity-40')}>
-      <div {...attributes} {...listeners} role="button" tabIndex={0} aria-roledescription="κάρτα εργασίας" aria-label={`${task.name}, ${task.progress}%`}
+      <div {...attributes} {...listeners} role="button" tabIndex={0} aria-roledescription="κάρτα εργασίας" aria-label={`${task.name}${project ? ` (${project.code})` : ''}, ${task.progress}%`}
         onClick={() => actions.onOpen(task.id)} onKeyDown={(e) => { if (e.key === 'Enter') actions.onOpen(task.id); listeners?.onKeyDown?.(e); }}
         className={cn('cursor-pointer rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring', !disabled && 'touch-manipulation')}>
-        <CardBody task={task} names={names} />
+        <CardBody task={task} names={names} project={project} />
       </div>
-      {canManage && (
+      {(canManage || actions.onProject) && (
         <div className="absolute right-1.5 top-1.5">
-          <CardMenu task={task} actions={actions} />
+          <CardMenu task={task} actions={actions} canManage={canManage} />
         </div>
       )}
     </div>
   );
 }
 
-function CardBody({ task, names, overlay = false }: { task: TaskView; names: Map<string, TaskRef>; overlay?: boolean }) {
+function CardBody({ task, names, project = null, overlay = false }: { task: TaskView; names: Map<string, TaskRef>; project?: CardProject | null; overlay?: boolean }) {
   const m = phaseMeta(task.phase);
   const waiting = task.dependsOn.filter((d) => names.has(d) && !names.get(d)!.done);
   const people = task.parties.slice(0, 3);
   return (
     <article className={cn('rounded-lg border border-border bg-card p-3 pr-10 shadow-sm transition-shadow duration-150 hover:shadow-md', overlay && 'rotate-1 shadow-lg ring-2 ring-primary')}>
+      {project && (
+        <p className="mb-1 flex min-w-0 items-center gap-1 text-[length:var(--fs-11)] text-muted-foreground" title={`${project.code} · ${project.name}`}>
+          <FiBriefcase className="size-3 shrink-0" aria-hidden />
+          <span className="font-mono tabular-nums">{project.code}</span>
+          <span className="truncate">{project.name}</span>
+        </p>
+      )}
       <h4 className="text-[length:var(--fs-13)] font-medium leading-snug">{task.name}</h4>
       <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[length:var(--fs-11)] tabular-nums text-muted-foreground">
         <span>{fmt(task.sched.start)}{task.sched.end !== task.sched.start ? ` – ${fmt(task.sched.end)}` : ''}</span>
@@ -204,7 +238,7 @@ function Chip({ children, icon, tone }: { children: React.ReactNode; icon?: Reac
   );
 }
 
-function CardMenu({ task, actions }: { task: TaskView; actions: BoardActions }) {
+function CardMenu({ task, actions, canManage }: { task: TaskView; actions: BoardActions; canManage: boolean }) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger className="inline-flex size-8 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors duration-150 hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring data-[state=open]:bg-muted" aria-label={`Ενέργειες για «${task.name}»`}>
@@ -212,6 +246,7 @@ function CardMenu({ task, actions }: { task: TaskView; actions: BoardActions }) 
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">
         <DropdownMenuLabel className="truncate text-[length:var(--fs-11)] font-semibold text-muted-foreground">{task.name}</DropdownMenuLabel>
+        {canManage && (<>
         <DropdownMenuItem className={ITEM} onSelect={() => actions.onOpen(task.id)}><FiEdit2 className="size-3.5" aria-hidden /> Επεξεργασία</DropdownMenuItem>
         <DropdownMenuSub>
           <DropdownMenuSubTrigger className={ITEM}>Μετακίνηση σε</DropdownMenuSubTrigger>
@@ -231,8 +266,15 @@ function CardMenu({ task, actions }: { task: TaskView; actions: BoardActions }) 
             ))}
           </DropdownMenuSubContent>
         </DropdownMenuSub>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem className={cn(ITEM, 'text-destructive focus:text-destructive')} onSelect={() => actions.onDelete(task.id)}><FiTrash2 className="size-3.5" aria-hidden /> Διαγραφή…</DropdownMenuItem>
+        </>)}
+        {actions.onProject && (<>
+          {canManage && <DropdownMenuSeparator />}
+          <DropdownMenuItem className={ITEM} onSelect={() => actions.onProject!(task.id)}><FiExternalLink className="size-3.5" aria-hidden /> Καρτέλα έργου</DropdownMenuItem>
+        </>)}
+        {canManage && (<>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem className={cn(ITEM, 'text-destructive focus:text-destructive')} onSelect={() => actions.onDelete(task.id)}><FiTrash2 className="size-3.5" aria-hidden /> Διαγραφή…</DropdownMenuItem>
+        </>)}
       </DropdownMenuContent>
     </DropdownMenu>
   );

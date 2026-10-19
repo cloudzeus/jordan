@@ -7,18 +7,23 @@ import { PageHeader } from '@/components/admin/page-header';
 import { ProjectsTableClient, type ProjectFinRow } from './projects-table-client';
 import { ensureFreshFinancials, listProjectFinancials } from '@/lib/project-profit';
 import { FinancialsMenu } from './financials-actions';
+import { listAllTasks } from '@/lib/project-tasks';
+import { ProjectsViews } from './projects-views';
 
 export const dynamic = 'force-dynamic';
 
 // Έργα της εταιρίας — καθρέφτης του SoftOne PRJC (SoftoneProject), ομάδα μενού «Operations».
-export default async function ProjectsPage() {
+export default async function ProjectsPage({ searchParams }: { searchParams: Promise<{ view?: string; prjc?: string }> }) {
   await requirePermission('projects.read');
-  const [rows, canManage, canFinancials, lastSync] = await Promise.all([
+  const [rows, canManage, canFinancials, lastSync, tasks, query] = await Promise.all([
     listProjects(),
     hasPermission('projects.manage'),
     hasPermission('projects.financials'),
     getSetting<string>('integrations.softoneProjectsLastSync'),
+    listAllTasks(), // μόνο βάση εφαρμογής — όχι SoftOne
+    searchParams,
   ]);
+  const qPrjc = Number(query.prjc);
   // Κερδοφορία: στιγμιότυπο όλων των έργων (ξαναϋπολογίζεται μόνο όταν παλιώσει) — μόνο με projects.financials.
   const fresh = canFinancials ? await ensureFreshFinancials() : null;
   const fin = canFinancials ? await listProjectFinancials() : null;
@@ -41,6 +46,7 @@ export default async function ProjectsPage() {
           </div>
         )}
       />
+      <ProjectsViews tasks={tasks} canManage={canManage} initialView={query.view ?? 'list'} initialPrjc={query.prjc && Number.isInteger(qPrjc) ? qPrjc : null}>
       <ProjectsTableClient
         rows={finRows ?? rows.map((r) => ({ ...r, fin: null }))}
         showFinancials={canFinancials}
@@ -50,6 +56,7 @@ export default async function ProjectsPage() {
         canFiles={await hasPermission('files.read')}
         lastSync={lastSync ?? null}
       />
+      </ProjectsViews>
     </div>
   );
 }
