@@ -257,7 +257,7 @@ export async function extractDigitalPdfText(buffer: Buffer): Promise<string> {
         .join(' ');
       pages.push(text);
     }
-    await doc.destroy();
+    await loadingTask.destroy();
     return pages.join('\n').replace(/[ \t]+/g, ' ').trim();
   } catch (err: any) {
     throw new Error(`PDF text extraction failed: ${err?.message ?? err}`);
