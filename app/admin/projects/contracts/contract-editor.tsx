@@ -4,7 +4,7 @@ import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import {
-  FiArrowDown, FiArrowUp, FiCalendar, FiEdit3, FiFlag, FiLoader, FiMapPin, FiMic, FiMoreVertical, FiPackage, FiPlus, FiSave,
+  FiArrowDown, FiArrowUp, FiCalendar, FiEdit3, FiFlag, FiLayers, FiLoader, FiMapPin, FiMic, FiMoreVertical, FiPackage, FiPlus, FiSave,
   FiSearch, FiSquare, FiTool, FiTrash2, FiUser, FiUsers, FiX,
 } from 'react-icons/fi';
 import { Button } from '@/components/ui/button';
@@ -22,6 +22,8 @@ import {
 import { siteLine } from '@/lib/project-site-core';
 import type { ContractView } from '@/lib/contracts/service';
 import { ProjectSiteDialog, type ProjectSiteValue } from '../project-site-dialog';
+import type { OfferLine } from '@/lib/install-recipes-core';
+import { RecipeLinesDialog } from './recipe-lines-dialog';
 
 // ── Τύποι κατάστασης φόρμας (ίδιο σχήμα με το contractInput του server) ─────────────────────────
 type Line = { uid: string; kind: 'MATERIAL' | 'SERVICE'; mtrl: number | null; code: string | null; name: string; unit: string | null; qty: number; unitPrice: number; discount: number; notes: string | null; partyKey: string | null; crewFee: number | null };
@@ -230,6 +232,7 @@ export function ContractEditor({ initial, staff, readOnly = false }: { initial: 
   const [saving, setSaving] = React.useState(false);
   const [siteOpen, setSiteOpen] = React.useState(false);
   const [adding, setAdding] = React.useState<'product' | 'service' | null>(null);
+  const [fromRecipe, setFromRecipe] = React.useState(false);
 
   // Μετά από ενέργεια (π.χ. σύνδεση με έργο) ο server στέλνει νέα δεδομένα· τα παίρνουμε μόνο αν δεν
   // υπάρχουν μη αποθηκευμένες αλλαγές του χρήστη.
@@ -265,6 +268,10 @@ export function ContractEditor({ initial, staff, readOnly = false }: { initial: 
     setAdding(null);
     const r = await fetch(`/api/admin/contracts/options?kind=item&mtrl=${pick.id}`).then((x) => x.json()).catch(() => null);
     if (r?.item) setLine(line.uid, { unit: r.item.unit, unitPrice: r.item.price ?? 0 });
+  };
+  const addFromRecipe = (lines: OfferLine[], recipeName: string) => {
+    up((p) => ({ lines: [...p.lines, ...lines.map((l) => ({ ...l, uid: uid(), discount: 0, partyKey: null, crewFee: null }))] }));
+    toast.success(`Προστέθηκαν ${lines.length} γραμμές από «${recipeName}» — πατήστε «Αποθήκευση»`);
   };
   const addFree = (kind: 'MATERIAL' | 'SERVICE') => up((p) => ({ lines: [...p.lines, { uid: uid(), kind, mtrl: null, code: null, name: '', unit: kind === 'SERVICE' ? 'm²' : 'τεμ.', qty: 1, unitPrice: 0, discount: 0, notes: null, partyKey: null, crewFee: null }] }));
   const addParty = (o: CrewOpt) => up((p) => ({
@@ -382,6 +389,8 @@ export function ContractEditor({ initial, staff, readOnly = false }: { initial: 
               <DropdownMenuSeparator />
               <DropdownMenuItem className={ITEM} onSelect={() => addFree('MATERIAL')}><FiPlus className="size-3.5" />Ελεύθερη γραμμή υλικού</DropdownMenuItem>
               <DropdownMenuItem className={ITEM} onSelect={() => addFree('SERVICE')}><FiPlus className="size-3.5" />Ελεύθερη γραμμή εργασίας</DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem className={ITEM} onSelect={() => setFromRecipe(true)}><FiLayers className="size-3.5" />Από συνταγή τοποθέτησης…</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         ) : undefined}>
@@ -567,6 +576,8 @@ export function ContractEditor({ initial, staff, readOnly = false }: { initial: 
           placeholder="π.χ. Η μεταφορά υλικών μέχρι τον 2ο όροφο γίνεται από εμάς. Εγγύηση τοποθέτησης 2 έτη."
           className="w-full resize-y rounded-md border border-input bg-transparent px-3 py-2 text-[length:var(--fs-12)] outline-none focus-visible:ring-2 focus-visible:ring-ring" />
       </Section>
+
+      {!ro && <RecipeLinesDialog open={fromRecipe} onOpenChange={setFromRecipe} onAdd={addFromRecipe} />}
 
       {!ro && (
         <div className="sticky bottom-0 z-30 -mx-1 rounded-t-lg border border-b-0 border-border bg-background/95 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 shadow-[0_-6px_16px_-10px_rgb(0_0_0/0.25)] backdrop-blur">
