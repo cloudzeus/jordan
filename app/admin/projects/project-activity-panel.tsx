@@ -136,7 +136,7 @@ function FamilyBadge({ sosource, label }: { sosource: number; label: string }) {
 }
 
 function LastPurchaseCell({ lp }: { lp: { unitCost: number; date: string; fincode: string } | null }) {
-  if (!lp) return <span className="text-[length:var(--fs-11)] text-muted-foreground/60">καμία αγορά</span>;
+  if (!lp) return <span className="text-[length:var(--fs-11)] text-muted-foreground">καμία αγορά</span>;
   return (
     <span title={`Από ${lp.fincode}`}>
       <span className="whitespace-nowrap text-foreground">{eur.format(lp.unitCost)}</span>
@@ -389,7 +389,7 @@ function BudgetSection({
                       <span className="whitespace-nowrap text-foreground">{eur.format(l.qty * l.lastPurchase.unitCost)}</span>
                       <span className="block text-[length:var(--fs-10)] text-muted-foreground">{eur.format(l.lastPurchase.unitCost)} · {fmtDate(l.lastPurchase.date)}</span>
                     </span>
-                  ) : <span className="text-[length:var(--fs-11)] text-muted-foreground/60">καμία αγορά</span>}
+                  ) : <span className="text-[length:var(--fs-11)] text-muted-foreground">καμία αγορά</span>}
                 </td>
                 <td className={cn(TD, NUM, 'font-semibold text-foreground')}>{eur.format(l.value)}</td>
                 {canManage && (

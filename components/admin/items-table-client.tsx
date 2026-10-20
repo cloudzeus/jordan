@@ -62,7 +62,7 @@ function GroupBadge({ g }: { g: ItemGroupTag }) {
 const qtyFmt = new Intl.NumberFormat('el-GR', { maximumFractionDigits: 3 });
 /** Ποσότητα: 0 αχνό, αρνητικό κόκκινο με σύμβολο (όχι μόνο χρώμα). */
 function Qty({ v, strong }: { v: number; strong?: boolean }) {
-  if (v === 0) return <span className="block text-right tabular-nums text-muted-foreground/50">0</span>;
+  if (v === 0) return <span className="block text-right tabular-nums text-muted-foreground">0</span>;
   return (
     <span className={cn('block text-right tabular-nums', v < 0 ? 'font-semibold text-destructive' : strong ? 'font-semibold text-foreground' : 'text-foreground')}>
       {qtyFmt.format(v)}

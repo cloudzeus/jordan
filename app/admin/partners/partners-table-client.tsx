@@ -19,7 +19,7 @@ const TYPE_TONE = { COMPANY: '#0369A1', PERSON: '#7C3AED' } as const;
 function Count({ n, tone }: { n: number; tone: string }) {
   return n
     ? <span className="inline-flex min-w-6 justify-center rounded-full px-1.5 text-[length:var(--fs-11)] font-semibold tabular-nums" style={{ color: tone, backgroundColor: soft(tone, 12) }}>{n}</span>
-    : <span className="tabular-nums text-[length:var(--fs-12)] text-muted-foreground/50">0</span>;
+    : <span className="tabular-nums text-[length:var(--fs-12)] text-muted-foreground">0</span>;
 }
 
 type Filter = 'all' | 'COMPANY' | 'PERSON' | 'inactive';
