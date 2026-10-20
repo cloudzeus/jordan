@@ -14,6 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import type { ProjectActivity, ProjectDoc, ProjectMaterial } from '@/lib/project-activity';
 import type { BudgetLine } from '@/lib/project-budget';
 import { AddBudgetLineDialog } from './add-budget-line-dialog';
+import { ApplyRecipeDialog } from './apply-recipe-dialog';
 import { useProjectRefresh } from './project-events';
 
 // Μνήμη ανά έργο για τη διάρκεια της σελίδας: κλείσιμο/άνοιγμα της ίδιας γραμμής δεν ξαναρωτά
@@ -271,7 +272,7 @@ function DocsTable({ rows }: { rows: ProjectDoc[] }) {
 }
 
 function BudgetSection({
-  prjc, lines, kind, purchased, canManage, onAdd, onDeleted,
+  prjc, lines, kind, purchased, canManage, onAdd, onRecipe, onDeleted,
 }: {
   prjc: number;
   lines: BudgetLine[];
@@ -280,6 +281,8 @@ function BudgetSection({
   purchased: Map<number, number>;
   canManage: boolean;
   onAdd: () => void;
+  /** «Από συνταγή»: γραμμές από συνταγή τοποθέτησης (υλικά + εργατικά). */
+  onRecipe: () => void;
   onDeleted: () => void;
 }) {
   const [busyId, setBusyId] = React.useState<string | null>(null);
@@ -320,6 +323,9 @@ function BudgetSection({
         <button type="button" onClick={onAdd} className="inline-flex h-8 cursor-pointer items-center gap-1 rounded-md px-2.5 text-[length:var(--fs-12)] font-medium text-white transition-opacity duration-150 hover:opacity-90" style={{ backgroundColor: BUDGET_TONE }}>
           <FiPlus className="size-3.5" aria-hidden /> Προσθήκη {noun === 'υλικό' ? 'υλικού' : 'υπηρεσίας'}
         </button>
+        <button type="button" onClick={onRecipe} className="inline-flex h-8 cursor-pointer items-center gap-1 rounded-md border px-2.5 text-[length:var(--fs-12)] font-medium transition-colors duration-150 hover:bg-muted" style={{ color: BUDGET_TONE, borderColor: `color-mix(in srgb, ${BUDGET_TONE} 35%, var(--border))` }}>
+          <FiLayers className="size-3.5" aria-hidden /> Από συνταγή
+        </button>
       </div>
     );
   }
@@ -333,9 +339,14 @@ function BudgetSection({
           {lines.length} · {eur.format(total)}{costKnown && <> · κόστος {eur.format(cost)}</>}
         </span>
         {canManage && (
-          <button type="button" onClick={onAdd} className="ml-auto inline-flex h-7 cursor-pointer items-center gap-1 rounded-md px-2 text-[length:var(--fs-11)] font-medium transition-colors duration-150 hover:bg-background" style={{ color: BUDGET_TONE }}>
-            <FiPlus className="size-3.5" aria-hidden /> Προσθήκη
-          </button>
+          <>
+            <button type="button" onClick={onRecipe} className="ml-auto inline-flex h-7 cursor-pointer items-center gap-1 rounded-md px-2 text-[length:var(--fs-11)] font-medium transition-colors duration-150 hover:bg-background" style={{ color: BUDGET_TONE }}>
+              <FiLayers className="size-3.5" aria-hidden /> Από συνταγή
+            </button>
+            <button type="button" onClick={onAdd} className="inline-flex h-7 cursor-pointer items-center gap-1 rounded-md px-2 text-[length:var(--fs-11)] font-medium transition-colors duration-150 hover:bg-background" style={{ color: BUDGET_TONE }}>
+              <FiPlus className="size-3.5" aria-hidden /> Προσθήκη
+            </button>
+          </>
         )}
       </div>
       <table className="w-full border-collapse">
@@ -439,6 +450,7 @@ export function ProjectActivityPanel({ prjc, canManage = false, projectLabel }: 
   const { data, error, loading, reload } = useProjectActivity(prjc);
   const budget = useBudget(prjc);
   const [adding, setAdding] = React.useState<'product' | 'service' | null>(null);
+  const [fromRecipe, setFromRecipe] = React.useState(false);
 
   if (loading && !data) return <Skeleton />;
 
@@ -514,11 +526,11 @@ export function ProjectActivityPanel({ prjc, canManage = false, projectLabel }: 
           </TabsTrigger>
         </TabsList>
         <TabsContent value="materials" className="space-y-2">
-          <BudgetSection prjc={prjc} lines={budgetMaterials} kind="materials" purchased={purchased} canManage={canManage} onAdd={() => setAdding('product')} onDeleted={budget.reload} />
+          <BudgetSection prjc={prjc} lines={budgetMaterials} kind="materials" purchased={purchased} canManage={canManage} onAdd={() => setAdding('product')} onRecipe={() => setFromRecipe(true)} onDeleted={budget.reload} />
           <MaterialsTable rows={materials} kind="materials" />
         </TabsContent>
         <TabsContent value="services" className="space-y-2">
-          <BudgetSection prjc={prjc} lines={budgetServices} kind="services" purchased={purchased} canManage={canManage} onAdd={() => setAdding('service')} onDeleted={budget.reload} />
+          <BudgetSection prjc={prjc} lines={budgetServices} kind="services" purchased={purchased} canManage={canManage} onAdd={() => setAdding('service')} onRecipe={() => setFromRecipe(true)} onDeleted={budget.reload} />
           <MaterialsTable rows={services} kind="services" />
         </TabsContent>
         <TabsContent value="docs"><DocsTable rows={data.docs} /></TabsContent>
@@ -533,6 +545,7 @@ export function ProjectActivityPanel({ prjc, canManage = false, projectLabel }: 
           defaultKind={adding ?? 'product'}
         />
       )}
+      {canManage && <ApplyRecipeDialog open={fromRecipe} onOpenChange={setFromRecipe} prjc={prjc} projectLabel={projectLabel} />}
     </div>
   );
 }
