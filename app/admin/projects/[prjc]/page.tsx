@@ -72,7 +72,7 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
         title={p.name}
         description={`Έργο ${p.code}${p.isActive ? '' : ' · ανενεργό'}`}
         helpAnchor="projects"
-        actions={<ProjectRowActions prjc={p.prjc} code={p.code} name={p.name} canManage={canManage} financials={canFinancials} files={canFiles} />}
+        actions={<ProjectRowActions prjc={p.prjc} code={p.code} name={p.name} canManage={canManage} financials={canFinancials} files={canFiles} manageFiles={canManageFiles} />}
       />
 
       {/* Στοιχεία έργου — μία πυκνή λωρίδα: μόνο τα πεδία με τιμή, συναλλασσόμενοι σε μία γραμμή. */}
