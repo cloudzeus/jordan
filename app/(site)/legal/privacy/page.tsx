@@ -12,7 +12,7 @@ export default async function PrivacyPage() {
     <LegalPage title="Πολιτική απορρήτου" current="/legal/privacy" intro={<p>Η B2B πύλη απευθύνεται σε επιχειρήσεις, όμως επεξεργάζεται και στοιχεία φυσικών προσώπων — των ανθρώπων που συνεργάζονται μαζί μας. Εδώ εξηγούμε ποια στοιχεία, για ποιο λόγο και ποια δικαιώματα έχετε, σύμφωνα με τον Γενικό Κανονισμό Προστασίας Δεδομένων (ΕΕ) 2016/679 και τον ν. 4624/2019.</p>}>
       <Section n={1} title="Υπεύθυνος επεξεργασίας">
         <CompanyBlock c={c} />
-        <p>Για θέματα προσωπικών δεδομένων γράψτε μας στο <a className="s-link text-[var(--s-ink)]" href={`mailto:${c.privacyEmail}`}>{c.privacyEmail}</a>.</p>
+        <p>Για θέματα προσωπικών δεδομένων γράψτε μας στο <a className="s-link text-(--s-ink)" href={`mailto:${c.privacyEmail}`}>{c.privacyEmail}</a>.</p>
       </Section>
 
       <Section n={2} title="Ποια δεδομένα συλλέγουμε">
@@ -56,7 +56,7 @@ export default async function PrivacyPage() {
       </Section>
 
       <Section n={6} title="Τα δικαιώματά σας">
-        <p>Έχετε δικαίωμα πρόσβασης, διόρθωσης, διαγραφής, περιορισμού, φορητότητας και εναντίωσης στην επεξεργασία, όπου ισχύουν. Γράψτε μας στο <a className="s-link text-[var(--s-ink)]" href={`mailto:${c.privacyEmail}`}>{c.privacyEmail}</a>· απαντάμε μέσα σε έναν μήνα. Μπορείτε επίσης να υποβάλετε καταγγελία στην Αρχή Προστασίας Δεδομένων Προσωπικού Χαρακτήρα (<a className="s-link text-[var(--s-ink)]" href="https://www.dpa.gr" rel="noopener noreferrer" target="_blank">www.dpa.gr</a>).</p>
+        <p>Έχετε δικαίωμα πρόσβασης, διόρθωσης, διαγραφής, περιορισμού, φορητότητας και εναντίωσης στην επεξεργασία, όπου ισχύουν. Γράψτε μας στο <a className="s-link text-(--s-ink)" href={`mailto:${c.privacyEmail}`}>{c.privacyEmail}</a>· απαντάμε μέσα σε έναν μήνα. Μπορείτε επίσης να υποβάλετε καταγγελία στην Αρχή Προστασίας Δεδομένων Προσωπικού Χαρακτήρα (<a className="s-link text-(--s-ink)" href="https://www.dpa.gr" rel="noopener noreferrer" target="_blank">www.dpa.gr</a>).</p>
       </Section>
 
       <Section n={7} title="Ασφάλεια">
@@ -64,7 +64,7 @@ export default async function PrivacyPage() {
       </Section>
 
       <Section n={8} title="Cookies και αλλαγές">
-        <p>Για τα cookies δείτε τη σελίδα <Link href="/legal/cookies" className="s-link text-[var(--s-ink)]">Cookies</Link>. Η πολιτική μπορεί να ενημερώνεται· η ημερομηνία στην κορυφή δείχνει την τελευταία αλλαγή.</p>
+        <p>Για τα cookies δείτε τη σελίδα <Link href="/legal/cookies" className="s-link text-(--s-ink)">Cookies</Link>. Η πολιτική μπορεί να ενημερώνεται· η ημερομηνία στην κορυφή δείχνει την τελευταία αλλαγή.</p>
       </Section>
     </LegalPage>
   );

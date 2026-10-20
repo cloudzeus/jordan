@@ -10,7 +10,7 @@ import { RegistrySearch, type RegistryPick } from '@/components/admin/registry-s
 import type { AccountingQuestion, AnswerStatus, QuestionGroup } from '@/lib/accounting/questions';
 
 const SECTION = 'rounded-xl border border-border bg-card shadow-fluent-2';
-const MUTED = 'text-[length:var(--fs-12)] text-muted-foreground';
+const MUTED = 'text-(length:--fs-12) text-muted-foreground';
 const GROUP_ORDER: QuestionGroup[] = ['family', 'utility', 'registry', 'account', 'project'];
 
 const STATUS_CHIP: Record<AnswerStatus, { text: string; cls: string }> = {
@@ -60,18 +60,18 @@ function QuestionCard({ q, canAnswer }: { q: AccountingQuestion; canAnswer: bool
     <li className={`${SECTION} p-4`}>
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
-          <p className="text-[length:var(--fs-14)] font-semibold text-foreground">{q.title}</p>
-          <p className="mt-1 text-[length:var(--fs-13)] text-foreground/90">{q.question}</p>
+          <p className="text-(length:--fs-14) font-semibold text-foreground">{q.title}</p>
+          <p className="mt-1 text-(length:--fs-13) text-foreground/90">{q.question}</p>
         </div>
         <div className="flex shrink-0 flex-wrap items-center gap-1.5">
           {q.lines > 0 && <span className={`rounded-full border border-border px-2 py-0.5 ${MUTED}`}>{q.lines} {q.lines === 1 ? 'γραμμή' : 'γραμμές'}</span>}
-          {chip && !q.answer?.stale && <span className={`rounded-full border px-2 py-0.5 text-[length:var(--fs-12)] ${chip.cls}`}>{chip.text}</span>}
+          {chip && !q.answer?.stale && <span className={`rounded-full border px-2 py-0.5 text-(length:--fs-12) ${chip.cls}`}>{chip.text}</span>}
           {q.answer?.stale && (
-            <span className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[length:var(--fs-12)] text-amber-800">
+            <span className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-(length:--fs-12) text-amber-800">
               <FiClock className="size-3" aria-hidden />Άλλαξε από την απάντηση
             </span>
           )}
-          {!q.answer && <span className="rounded-full border border-rose-200 bg-rose-50 px-2 py-0.5 text-[length:var(--fs-12)] text-rose-700">Αναπάντητο</span>}
+          {!q.answer && <span className="rounded-full border border-rose-200 bg-rose-50 px-2 py-0.5 text-(length:--fs-12) text-rose-700">Αναπάντητο</span>}
         </div>
       </div>
       {q.answer && (
@@ -105,7 +105,7 @@ function QuestionCard({ q, canAnswer }: { q: AccountingQuestion; canAnswer: bool
           <RegistrySearch kind={q.changeKind} onPick={pick} disabled={busy} id={`q-${q.key}`} label={q.changeKind === 'expense' ? 'Αναζήτηση εξόδου…' : 'Αναζήτηση χρεοπίστωσης…'} />
           <textarea
             value={comment} onChange={(e) => setComment(e.target.value)} rows={2} placeholder="Σχόλιο (προαιρετικό)"
-            className="w-full rounded-md border border-border bg-background px-3 py-2 text-[length:var(--fs-13)]"
+            className="w-full rounded-md border border-border bg-background px-3 py-2 text-(length:--fs-13)"
           />
         </div>
       )}
@@ -118,7 +118,7 @@ function QuestionCard({ q, canAnswer }: { q: AccountingQuestion; canAnswer: bool
           </label>
           <textarea
             id={`c-${q.key}`} value={comment} onChange={(e) => setComment(e.target.value)} rows={3}
-            className="w-full rounded-md border border-border bg-background px-3 py-2 text-[length:var(--fs-13)]"
+            className="w-full rounded-md border border-border bg-background px-3 py-2 text-(length:--fs-13)"
           />
           <div className="flex gap-2">
             <button type="button" className={BTN_PRIMARY} disabled={busy || !comment.trim()} onClick={() => void send(mode === 'erp' ? 'NEEDS_ERP' : 'CHANGED')}>
@@ -156,15 +156,15 @@ export function QuestionsClient({ questions, groupLabels, canAnswer }: {
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <div className={`${SECTION} p-4`}>
           <p className={MUTED}>Περιμένουν απάντηση</p>
-          <p className="text-[length:var(--fs-20)] font-semibold text-foreground">{open.length}</p>
+          <p className="text-(length:--fs-20) font-semibold text-foreground">{open.length}</p>
         </div>
         <div className={`${SECTION} p-4`}>
           <p className={MUTED}>Απαντήθηκαν</p>
-          <p className="text-[length:var(--fs-20)] font-semibold text-foreground">{questions.length - open.length}</p>
+          <p className="text-(length:--fs-20) font-semibold text-foreground">{questions.length - open.length}</p>
         </div>
         <Link href="/admin/accounting/integrator" className={`${SECTION} p-4 hover:border-sisyphus-300`}>
           <p className={MUTED}>Έγιναν θέμα για τον integrator</p>
-          <p className="text-[length:var(--fs-20)] font-semibold text-foreground">{needErp}</p>
+          <p className="text-(length:--fs-20) font-semibold text-foreground">{needErp}</p>
         </Link>
       </div>
 
@@ -173,7 +173,7 @@ export function QuestionsClient({ questions, groupLabels, canAnswer }: {
           {[{ v: false, t: `Ανοιχτά (${open.length})` }, { v: true, t: `Όλα (${questions.length})` }].map((o) => (
             <button
               key={String(o.v)} type="button" role="tab" aria-selected={showAll === o.v} onClick={() => setShowAll(o.v)}
-              className={`min-h-9 rounded-md px-3 text-[length:var(--fs-13)] ${showAll === o.v ? 'bg-sisyphus-600 text-white' : 'text-muted-foreground hover:text-foreground'}`}
+              className={`min-h-9 rounded-md px-3 text-(length:--fs-13) ${showAll === o.v ? 'bg-sisyphus-600 text-white' : 'text-muted-foreground hover:text-foreground'}`}
             >{o.t}</button>
           ))}
         </div>
@@ -193,7 +193,7 @@ export function QuestionsClient({ questions, groupLabels, canAnswer }: {
         if (!qs.length) return null;
         return (
           <section key={g} className="space-y-2">
-            <h2 className="text-[length:var(--fs-14)] font-semibold text-foreground">{groupLabels[g]} <span className={MUTED}>({qs.length})</span></h2>
+            <h2 className="text-(length:--fs-14) font-semibold text-foreground">{groupLabels[g]} <span className={MUTED}>({qs.length})</span></h2>
             <ul className="space-y-2">{qs.map((q) => <QuestionCard key={q.key} q={q} canAnswer={canAnswer} />)}</ul>
           </section>
         );

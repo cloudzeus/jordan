@@ -23,7 +23,7 @@ import { AllTasksBoard } from './all-tasks-board';
 
 export type AllTasksQuery = { q?: string; prjc?: string; phase?: string; party?: string; status?: string; from?: string; to?: string; view?: string };
 
-const ITEM = 'cursor-pointer gap-2 text-[length:var(--fs-12)]';
+const ITEM = 'cursor-pointer gap-2 text-(length:--fs-12)';
 const ALL = '__all';
 const fmt = (d: string) => new Date(`${d}T00:00:00Z`).toLocaleDateString('el-GR', { timeZone: 'UTC', day: 'numeric', month: 'short' });
 const isDate = (s?: string) => !!s && /^\d{4}-\d{2}-\d{2}$/.test(s);
@@ -103,13 +103,13 @@ export function AllTasksClient({ tasks, canManage, today, query }: { tasks: AllT
     } catch (e) { toast.error((e as Error).message); }
   };
 
-  const chip = (on: boolean) => cn('inline-flex min-h-8 cursor-pointer items-center gap-1.5 rounded-md border px-2.5 text-[length:var(--fs-12)] font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+  const chip = (on: boolean) => cn('inline-flex min-h-8 cursor-pointer items-center gap-1.5 rounded-md border px-2.5 text-(length:--fs-12) font-medium transition-colors duration-150 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring',
     on ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-background text-muted-foreground hover:text-foreground');
 
   return (
     <>
       {/* Φίλτρα */}
-      <section aria-label="Φίλτρα" className="mb-4 space-y-3 rounded-xl border border-border bg-card p-3 shadow-sm sm:p-4">
+      <section aria-label="Φίλτρα" className="mb-4 space-y-3 rounded-xl border border-border bg-card p-3 shadow-xs sm:p-4">
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <div className="relative sm:col-span-2 lg:col-span-1">
             <Label htmlFor="at-q" className="sr-only">Αναζήτηση</Label>
@@ -137,7 +137,7 @@ export function AllTasksClient({ tasks, canManage, today, query }: { tasks: AllT
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-1.5">
-          <span className="mr-1 text-[length:var(--fs-11)] font-medium uppercase tracking-wide text-muted-foreground">Κατάσταση</span>
+          <span className="mr-1 text-(length:--fs-11) font-medium uppercase tracking-wide text-muted-foreground">Κατάσταση</span>
           {STATUS_FILTERS.map((s) => (
             <button key={s.key} type="button" aria-pressed={f.status === s.key} className={chip(f.status === s.key)} onClick={() => set({ status: s.key })}>
               {s.label} <span className="tabular-nums opacity-70">{filterAllTasks(tasks, { ...f, status: s.key }, today).length}</span>
@@ -145,7 +145,7 @@ export function AllTasksClient({ tasks, canManage, today, query }: { tasks: AllT
           ))}
         </div>
         <div className="flex flex-wrap items-center gap-1.5">
-          <span className="mr-1 text-[length:var(--fs-11)] font-medium uppercase tracking-wide text-muted-foreground">Φάση</span>
+          <span className="mr-1 text-(length:--fs-11) font-medium uppercase tracking-wide text-muted-foreground">Φάση</span>
           {PHASES.map((p) => {
             const on = !!f.phases?.includes(p.key);
             return (
@@ -155,7 +155,7 @@ export function AllTasksClient({ tasks, canManage, today, query }: { tasks: AllT
             );
           })}
           {active > 0 && (
-            <button type="button" className="ml-auto inline-flex min-h-8 cursor-pointer items-center gap-1 rounded-md px-2 text-[length:var(--fs-12)] font-medium text-muted-foreground hover:text-foreground" onClick={() => setF({ q: '', prjc: null, phases: [], party: null, status: 'open', from: null, to: null })}>
+            <button type="button" className="ml-auto inline-flex min-h-8 cursor-pointer items-center gap-1 rounded-md px-2 text-(length:--fs-12) font-medium text-muted-foreground hover:text-foreground" onClick={() => setF({ q: '', prjc: null, phases: [], party: null, status: 'open', from: null, to: null })}>
               <FiX className="size-3.5" aria-hidden /> Καθαρισμός φίλτρων
             </button>
           )}
@@ -169,7 +169,7 @@ export function AllTasksClient({ tasks, canManage, today, query }: { tasks: AllT
             <TabsTrigger value="gantt"><FiColumns className="size-3.5" aria-hidden /> Gantt έργων</TabsTrigger>
             <TabsTrigger value="list"><FiList className="size-3.5" aria-hidden /> Λίστα</TabsTrigger>
           </TabsList>
-          <p className="flex flex-wrap items-center gap-x-3 text-[length:var(--fs-12)] text-muted-foreground" role="status">
+          <p className="flex flex-wrap items-center gap-x-3 text-(length:--fs-12) text-muted-foreground" role="status">
             <span><span className="font-semibold tabular-nums text-foreground">{view === 'board' ? boardRows.length : rows.length}</span> εργασίες · {groups.length} έργα{view === 'board' && f.status === 'open' ? ' · μαζί με τις ολοκληρωμένες' : ''}</span>
             {overdue > 0 && <span className="text-red-600 dark:text-red-400">{overdue} εκπρόθεσμες</span>}
             {conflicts > 0 && <span className="inline-flex items-center gap-1 text-red-600 dark:text-red-400"><FiAlertTriangle className="size-3" aria-hidden />{conflicts} με σύγκρουση</span>}
@@ -184,8 +184,8 @@ export function AllTasksClient({ tasks, canManage, today, query }: { tasks: AllT
         {(view === 'board' ? boardRows : rows).length === 0 ? (
           <div className="rounded-xl border border-dashed border-border px-6 py-14 text-center">
             <FiTrello className="mx-auto size-8 text-muted-foreground opacity-50" aria-hidden />
-            <p className="mt-3 text-[length:var(--fs-14)] font-medium">{tasks.length ? 'Καμία εργασία με αυτά τα φίλτρα' : 'Δεν υπάρχουν ακόμη εργασίες'}</p>
-            <p className="mt-1 text-[length:var(--fs-12)] text-muted-foreground">{tasks.length ? 'Αλλάξτε ή καθαρίστε τα φίλτρα.' : <>Προσθέστε εργασίες από την καρτέλα ενός <Link href="/admin/projects" className="underline">έργου</Link> → καρτέλα «Εργασίες».</>}</p>
+            <p className="mt-3 text-(length:--fs-14) font-medium">{tasks.length ? 'Καμία εργασία με αυτά τα φίλτρα' : 'Δεν υπάρχουν ακόμη εργασίες'}</p>
+            <p className="mt-1 text-(length:--fs-12) text-muted-foreground">{tasks.length ? 'Αλλάξτε ή καθαρίστε τα φίλτρα.' : <>Προσθέστε εργασίες από την καρτέλα ενός <Link href="/admin/projects" className="underline">έργου</Link> → καρτέλα «Εργασίες».</>}</p>
           </div>
         ) : (
           <>
@@ -197,9 +197,9 @@ export function AllTasksClient({ tasks, canManage, today, query }: { tasks: AllT
             </TabsContent>
             <TabsContent value="list">
               <div className="overflow-x-auto rounded-xl border border-border bg-card">
-                <table className="w-full min-w-[820px] text-[length:var(--fs-12)]">
+                <table className="w-full min-w-[820px] text-(length:--fs-12)">
                   <caption className="sr-only">Όλες οι εργασίες με έργο, ημερομηνίες, εμπλεκόμενους και ποσοστό</caption>
-                  <thead className="border-b border-border text-left text-[length:var(--fs-11)] uppercase tracking-wide text-muted-foreground">
+                  <thead className="border-b border-border text-left text-(length:--fs-11) uppercase tracking-wide text-muted-foreground">
                     <tr>
                       <th scope="col" className="px-3 py-2 font-medium">Εργασία</th>
                       <th scope="col" className="px-3 py-2 font-medium">Έργο</th>
@@ -217,7 +217,7 @@ export function AllTasksClient({ tasks, canManage, today, query }: { tasks: AllT
                       return (
                         <tr key={t.id} className="border-b border-border last:border-0 hover:bg-muted">
                           <td className="px-3 py-2">
-                            <button type="button" onClick={() => openTask(t.id)} className="cursor-pointer text-left font-medium hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">{t.name}</button>
+                            <button type="button" onClick={() => openTask(t.id)} className="cursor-pointer text-left font-medium hover:underline focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring">{t.name}</button>
                             {t.conflict && <FiAlertTriangle className="ml-1.5 inline size-3 text-red-600" aria-label="Ξεκινά πριν τις εξαρτήσεις" />}
                           </td>
                           <td className="px-3 py-2"><Link href={`/admin/projects/${t.prjc}/tasks`} className="hover:underline"><span className="tabular-nums text-muted-foreground">{t.projectCode}</span> {t.projectName}</Link></td>
@@ -245,11 +245,11 @@ function RowMenu({ t, canManage, onOpen, onMove, onProgress }: { t: AllTaskView;
   const router = useRouter();
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger className="inline-flex size-8 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors duration-150 hover:bg-background hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring data-[state=open]:bg-background" aria-label={`Ενέργειες για «${t.name}»`}>
+      <DropdownMenuTrigger className="inline-flex size-8 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors duration-150 hover:bg-background hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring data-[state=open]:bg-background" aria-label={`Ενέργειες για «${t.name}»`}>
         <FiMoreVertical className="size-4" aria-hidden />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">
-        <DropdownMenuLabel className="truncate text-[length:var(--fs-11)] font-semibold text-muted-foreground">{t.name}</DropdownMenuLabel>
+        <DropdownMenuLabel className="truncate text-(length:--fs-11) font-semibold text-muted-foreground">{t.name}</DropdownMenuLabel>
         {canManage && <DropdownMenuItem className={ITEM} onSelect={onOpen}><FiEdit2 className="size-3.5" aria-hidden /> Επεξεργασία</DropdownMenuItem>}
         {canManage && (
           <>

@@ -14,7 +14,7 @@ export function PriceLadder({ tiers, capacity, filled = 0, unit = 'τ.μ.', heig
   const t = sortTiers(tiers).filter((x) => x.price > 0);
   const W = 640; const H = height; const pad = { l: 64, r: 16, t: 18, b: 34 };
   if (!t.length || !(capacity > 0)) {
-    return <div className="grid h-40 place-items-center rounded-md border border-dashed border-border text-[length:var(--fs-12)] text-muted-foreground">Συμπλήρωσε χωρητικότητα και τιμές για να φανεί η κλίμακα.</div>;
+    return <div className="grid h-40 place-items-center rounded-md border border-dashed border-border text-(length:--fs-12) text-muted-foreground">Συμπλήρωσε χωρητικότητα και τιμές για να φανεί η κλίμακα.</div>;
   }
   const maxP = Math.max(...t.map((x) => x.price));
   const minP = Math.min(...t.map((x) => x.price));
@@ -59,7 +59,7 @@ export function PriceLadder({ tiers, capacity, filled = 0, unit = 'τ.μ.', heig
           </g>
         )}
       </svg>
-      <figcaption className="text-[length:var(--fs-11)] text-muted-foreground">Τιμή ανά {unit} για όλους τους συμμετέχοντες, ανάλογα με τις παλέτες που έχουν κλειστεί.</figcaption>
+      <figcaption className="text-(length:--fs-11) text-muted-foreground">Τιμή ανά {unit} για όλους τους συμμετέχοντες, ανάλογα με τις παλέτες που έχουν κλειστεί.</figcaption>
     </figure>
   );
 }

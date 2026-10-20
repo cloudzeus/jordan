@@ -19,7 +19,7 @@ export default async function RecipesPage() {
         description={`${recipes.length.toLocaleString('el-GR')} συνταγές · υλικά ανά m², φύρα και εργατικό κόστος για πλακάκια, πέτρες και τσιμεντοκονίες`}
         helpAnchor="recipes"
         actions={canManage ? (
-          <Link href="/admin/recipes/new" className="inline-flex min-h-9 items-center gap-1.5 rounded-md bg-primary px-3 text-[length:var(--fs-13)] font-medium text-primary-foreground hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+          <Link href="/admin/recipes/new" className="inline-flex min-h-9 items-center gap-1.5 rounded-md bg-primary px-3 text-(length:--fs-13) font-medium text-primary-foreground hover:bg-primary/90 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring">
             <FiPlus className="size-4" aria-hidden /> Νέα συνταγή
           </Link>
         ) : null}

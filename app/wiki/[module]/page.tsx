@@ -22,7 +22,7 @@ export default async function ModulePage({ params }: { params: Promise<{ module:
 
   return (
     <div>
-      <nav className="mb-4 text-[length:var(--fs-12)] text-muted-foreground">
+      <nav className="mb-4 text-(length:--fs-12) text-muted-foreground">
         <Link href="/wiki" className="hover:text-foreground">Οδηγός</Link>
         <span className="mx-1">/</span>
         <span className="text-foreground">{meta.label}</span>
@@ -34,13 +34,13 @@ export default async function ModulePage({ params }: { params: Promise<{ module:
       >
         <div className="absolute -right-8 -top-8 size-32 rounded-full bg-white/15 blur-2xl" />
         <div className="relative flex items-start gap-4">
-          <div className="inline-flex size-14 shrink-0 items-center justify-center rounded-xl bg-white/25 backdrop-blur">
+          <div className="inline-flex size-14 shrink-0 items-center justify-center rounded-xl bg-white/25 backdrop-blur-sm">
             <Icon className="size-7 text-white" />
           </div>
           <div>
             <h1 className="text-2xl font-bold tracking-tight text-white lg:text-3xl">{meta.label}</h1>
-            <p className="mt-1 text-[length:var(--fs-14)] text-white/90">{meta.description}</p>
-            <p className="mt-3 text-[length:var(--fs-12)] text-white/80">{pages.length} {pages.length === 1 ? 'άρθρο' : 'άρθρα'} σε αυτή την κατηγορία</p>
+            <p className="mt-1 text-(length:--fs-14) text-white/90">{meta.description}</p>
+            <p className="mt-3 text-(length:--fs-12) text-white/80">{pages.length} {pages.length === 1 ? 'άρθρο' : 'άρθρα'} σε αυτή την κατηγορία</p>
           </div>
         </div>
       </header>
@@ -53,18 +53,18 @@ export default async function ModulePage({ params }: { params: Promise<{ module:
               className="group flex items-start gap-4 rounded-xl border border-border bg-card p-4 transition hover:-translate-y-0.5 hover:shadow-md"
             >
               <span
-                className="inline-flex size-9 shrink-0 items-center justify-center rounded-lg text-[length:var(--fs-14)] font-semibold"
+                className="inline-flex size-9 shrink-0 items-center justify-center rounded-lg text-(length:--fs-14) font-semibold"
                 style={{ background: meta.accentSoft, color: meta.accent }}
               >
                 {i + 1}
               </span>
               <div className="min-w-0 flex-1">
-                <h3 className="text-[length:var(--fs-15)] font-semibold tracking-tight text-foreground">{p.frontmatter.title}</h3>
+                <h3 className="text-(length:--fs-15) font-semibold tracking-tight text-foreground">{p.frontmatter.title}</h3>
                 {p.frontmatter.description && (
-                  <p className="mt-1 text-[length:var(--fs-13)] text-muted-foreground">{p.frontmatter.description}</p>
+                  <p className="mt-1 text-(length:--fs-13) text-muted-foreground">{p.frontmatter.description}</p>
                 )}
                 {p.frontmatter.updatedAt && (
-                  <p className="mt-2 inline-flex items-center gap-1 text-[length:var(--fs-11)] text-muted-foreground">
+                  <p className="mt-2 inline-flex items-center gap-1 text-(length:--fs-11) text-muted-foreground">
                     <FiClock className="size-3" />
                     Ενημερώθηκε {p.frontmatter.updatedAt}
                   </p>

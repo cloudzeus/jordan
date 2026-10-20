@@ -116,11 +116,11 @@ export function MediaBrowser({ pickerMode, onPick, acceptImagesOnly }: Props) {
     <div className={embedded ? 'flex min-h-0 flex-col' : 'overflow-hidden rounded-xl border border-border bg-card'}>
       {/* Toolbar: διαδρομή φακέλων · αναζήτηση · νέος φάκελος · μεταφόρτωση */}
       <div className="flex flex-wrap items-center gap-2 border-b border-border bg-muted/30 px-4 py-2">
-        <nav aria-label="Διαδρομή φακέλων" className="flex min-w-0 flex-1 items-center gap-1 overflow-hidden text-[length:var(--fs-12)] text-muted-foreground">
+        <nav aria-label="Διαδρομή φακέλων" className="flex min-w-0 flex-1 items-center gap-1 overflow-hidden text-(length:--fs-12) text-muted-foreground">
           <button
             type="button"
             onClick={() => setFolderId(null)}
-            className={`inline-flex h-7 shrink-0 items-center gap-1 rounded-md px-1.5 hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sisyphus-500 ${
+            className={`inline-flex h-7 shrink-0 items-center gap-1 rounded-md px-1.5 hover:bg-muted hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-sisyphus-500 ${
               breadcrumbs.length === 0 ? 'font-semibold text-foreground' : ''
             }`}
           >
@@ -132,7 +132,7 @@ export function MediaBrowser({ pickerMode, onPick, acceptImagesOnly }: Props) {
               <button
                 type="button"
                 onClick={() => setFolderId(b.id)}
-                className="h-7 min-w-0 truncate rounded-md px-1.5 font-medium text-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sisyphus-500"
+                className="h-7 min-w-0 truncate rounded-md px-1.5 font-medium text-foreground hover:bg-muted focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-sisyphus-500"
               >
                 {b.name}
               </button>
@@ -153,7 +153,7 @@ export function MediaBrowser({ pickerMode, onPick, acceptImagesOnly }: Props) {
 
         <Dialog open={newFolderOpen} onOpenChange={setNewFolderOpen}>
           <DialogTrigger asChild>
-            <Button variant="outline" className="text-[length:var(--fs-12)]"><FiFolderPlus /> Νέος φάκελος</Button>
+            <Button variant="outline" className="text-(length:--fs-12)"><FiFolderPlus /> Νέος φάκελος</Button>
           </DialogTrigger>
           <DialogContent className="w-[95vw] gap-0 overflow-hidden p-0 sm:max-w-sm">
             <DialogHeader className="flex-row items-center gap-3 border-b border-border px-4 py-2.5 pr-12">
@@ -161,8 +161,8 @@ export function MediaBrowser({ pickerMode, onPick, acceptImagesOnly }: Props) {
                 <FiFolderPlus className="size-4" />
               </span>
               <div className="min-w-0 text-left">
-                <DialogTitle className="text-[length:var(--fs-15)]">Νέος φάκελος</DialogTitle>
-                <DialogDescription className="truncate text-[length:var(--fs-11)]">Δώσε όνομα στο νέο φάκελο.</DialogDescription>
+                <DialogTitle className="text-(length:--fs-15)">Νέος φάκελος</DialogTitle>
+                <DialogDescription className="truncate text-(length:--fs-11)">Δώσε όνομα στο νέο φάκελο.</DialogDescription>
               </div>
             </DialogHeader>
             <div className="bg-muted/20 px-4 py-3">
@@ -177,7 +177,7 @@ export function MediaBrowser({ pickerMode, onPick, acceptImagesOnly }: Props) {
           </DialogContent>
         </Dialog>
 
-        <Button onClick={() => fileInputRef.current?.click()} className="text-[length:var(--fs-12)]">
+        <Button onClick={() => fileInputRef.current?.click()} className="text-(length:--fs-12)">
           <FiUpload /> Μεταφόρτωση
         </Button>
         <input
@@ -196,7 +196,7 @@ export function MediaBrowser({ pickerMode, onPick, acceptImagesOnly }: Props) {
           onDragLeave={() => setDragOver(false)}
           onDrop={onDrop}
           className={`relative rounded-lg border-2 border-dashed transition-colors ${
-            embedded ? 'min-h-[18rem]' : 'min-h-[25rem]'
+            embedded ? 'min-h-72' : 'min-h-100'
           } ${
             dragOver
               ? 'border-sisyphus-500 bg-sisyphus-50/60 dark:bg-sisyphus-500/10'
@@ -205,23 +205,23 @@ export function MediaBrowser({ pickerMode, onPick, acceptImagesOnly }: Props) {
         >
           {dragOver && (
             <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
-              <div className="inline-flex items-center gap-2 rounded-lg bg-sisyphus-600 px-3 py-1.5 text-[length:var(--fs-13)] font-semibold text-white shadow-pop">
+              <div className="inline-flex items-center gap-2 rounded-lg bg-sisyphus-600 px-3 py-1.5 text-(length:--fs-13) font-semibold text-white shadow-pop">
                 <FiUpload className="size-4" aria-hidden /> Άφησε τα αρχεία για ανέβασμα…
               </div>
             </div>
           )}
 
           {loading ? (
-            <div className="p-8 text-center text-[length:var(--fs-12)] text-muted-foreground" role="status">Φόρτωση…</div>
+            <div className="p-8 text-center text-(length:--fs-12) text-muted-foreground" role="status">Φόρτωση…</div>
           ) : folders.length === 0 && files.length === 0 ? (
             <div className="flex flex-col items-center px-4 py-10 text-center">
               <span className="mb-2 grid size-10 place-items-center rounded-xl bg-sisyphus-50 text-sisyphus-600 dark:bg-sisyphus-500/15" aria-hidden>
                 <FiUpload className="size-5" />
               </span>
-              <p className="text-[length:var(--fs-13)] text-muted-foreground">
+              <p className="text-(length:--fs-13) text-muted-foreground">
                 Σύρε αρχεία εδώ ή πάτα <span className="font-semibold text-foreground">Μεταφόρτωση</span>.
               </p>
-              <p className="mt-1 text-[length:var(--fs-11)] text-muted-foreground">Max 500 MB ανά αρχείο.</p>
+              <p className="mt-1 text-(length:--fs-11) text-muted-foreground">Max 500 MB ανά αρχείο.</p>
             </div>
           ) : (
             <div className="grid grid-cols-2 gap-2 p-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8">
@@ -242,7 +242,7 @@ export function MediaBrowser({ pickerMode, onPick, acceptImagesOnly }: Props) {
       </div>
 
       {/* Γραμμή κατάστασης */}
-      <div className="flex items-center justify-between gap-2 border-t border-border bg-card px-4 py-2.5 text-[length:var(--fs-11)] text-muted-foreground">
+      <div className="flex items-center justify-between gap-2 border-t border-border bg-card px-4 py-2.5 text-(length:--fs-11) text-muted-foreground">
         <span className="tabular-nums">
           {folders.length} φάκελοι · {files.length} αρχεία
         </span>
@@ -262,7 +262,7 @@ export function MediaBrowser({ pickerMode, onPick, acceptImagesOnly }: Props) {
 }
 
 const tileActionCls =
-  'inline-flex size-6 items-center justify-center rounded-md border border-border bg-card/95 text-muted-foreground shadow-sm backdrop-blur-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sisyphus-500';
+  'inline-flex size-6 items-center justify-center rounded-md border border-border bg-card/95 text-muted-foreground shadow-xs backdrop-blur-xs focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-sisyphus-500';
 
 function FolderTile({ folder, onOpen, onDelete }: { folder: Folder; onOpen: () => void; onDelete: () => void }) {
   return (
@@ -270,10 +270,10 @@ function FolderTile({ folder, onOpen, onDelete }: { folder: Folder; onOpen: () =
       <button
         type="button"
         onClick={onOpen}
-        className="flex w-full flex-col items-center gap-1 rounded-lg border border-sisyphus-500/20 bg-sisyphus-50/50 px-2 pb-2 pt-3 transition-colors hover:border-sisyphus-500 hover:bg-sisyphus-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sisyphus-500 dark:bg-sisyphus-500/10 dark:hover:bg-sisyphus-500/15"
+        className="flex w-full flex-col items-center gap-1 rounded-lg border border-sisyphus-500/20 bg-sisyphus-50/50 px-2 pb-2 pt-3 transition-colors hover:border-sisyphus-500 hover:bg-sisyphus-50 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-sisyphus-500 dark:bg-sisyphus-500/10 dark:hover:bg-sisyphus-500/15"
       >
         <FiFolder className="size-9 text-sisyphus-600 dark:text-sisyphus-300" aria-hidden />
-        <span className="w-full truncate text-center text-[length:var(--fs-11)] font-medium text-foreground" title={folder.name}>{folder.name}</span>
+        <span className="w-full truncate text-center text-(length:--fs-11) font-medium text-foreground" title={folder.name}>{folder.name}</span>
       </button>
       <button
         type="button"
@@ -300,7 +300,7 @@ function FileTile({ file, onDelete, onPick }: { file: MediaFile; onDelete: () =>
         type="button"
         onClick={onPick ?? copyUrl}
         title={onPick ? 'Επιλογή' : 'Click: copy URL'}
-        className={`flex w-full flex-col items-stretch overflow-hidden rounded-lg border border-border bg-card transition-[border-color,box-shadow] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sisyphus-500 focus-visible:ring-offset-1 focus-visible:ring-offset-background ${
+        className={`flex w-full flex-col items-stretch overflow-hidden rounded-lg border border-border bg-card transition-[border-color,box-shadow] focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-sisyphus-500 focus-visible:ring-offset-1 focus-visible:ring-offset-background ${
           onPick ? 'hover:border-sisyphus-500 hover:ring-2 hover:ring-sisyphus-500' : 'hover:border-sisyphus-500'
         }`}
       >
@@ -312,14 +312,14 @@ function FileTile({ file, onDelete, onPick }: { file: MediaFile; onDelete: () =>
             <FiFile className="size-9 text-muted-foreground" aria-hidden />
           )}
           {file.isSvg && (
-            <span className="absolute left-1 top-1 rounded-sm bg-violet-600/90 px-1 py-0.5 text-[length:var(--fs-9)] font-bold tracking-wide text-white">
+            <span className="absolute left-1 top-1 rounded-sm bg-violet-600/90 px-1 py-0.5 text-(length:--fs-9) font-bold tracking-wide text-white">
               SVG
             </span>
           )}
         </div>
         <div className="border-t border-border px-1.5 py-1 text-left">
-          <div className="truncate text-[length:var(--fs-11)] font-medium text-foreground" title={file.name}>{file.name}</div>
-          <div className="truncate text-[length:var(--fs-10)] tabular-nums text-muted-foreground">
+          <div className="truncate text-(length:--fs-11) font-medium text-foreground" title={file.name}>{file.name}</div>
+          <div className="truncate text-(length:--fs-10) tabular-nums text-muted-foreground">
             {fmt(file.size)}
             {file.width && file.height && ` · ${file.width}×${file.height}`}
           </div>

@@ -16,12 +16,12 @@ export default function CookiesPage() {
   return (
     <LegalPage title="Cookies" current="/legal/cookies" intro={<p>Η πύλη χρησιμοποιεί μόνο τα cookies που χρειάζονται για να λειτουργεί: τη σύνδεση και τη γλώσσα. Δεν χρησιμοποιούμε cookies διαφήμισης, στατιστικών ή κοινωνικών δικτύων τρίτων — γι&apos; αυτό δεν σας ζητάμε συγκατάθεση με banner.</p>}>
       <Section n={1} title="Ποια cookies ορίζουμε">
-        <div className="border-t border-[var(--s-line)]">
+        <div className="border-t border-(--s-line)">
           {COOKIES.map((k) => (
-            <div key={k.name} className="grid gap-1 border-b border-[var(--s-line)] py-4 sm:grid-cols-[10rem_1fr_9rem] sm:gap-4">
-              <p className="font-mono text-[length:var(--fs-14)] text-[var(--s-ink)]">{k.name}</p>
-              <p>{k.purpose}<span className="block text-[length:var(--fs-13)] text-[var(--s-mute)]">{k.kind}</span></p>
-              <p className="text-[length:var(--fs-14)] sm:text-right">{k.duration}</p>
+            <div key={k.name} className="grid gap-1 border-b border-(--s-line) py-4 sm:grid-cols-[10rem_1fr_9rem] sm:gap-4">
+              <p className="font-mono text-(length:--fs-14) text-(--s-ink)">{k.name}</p>
+              <p>{k.purpose}<span className="block text-(length:--fs-13) text-(--s-mute)">{k.kind}</span></p>
+              <p className="text-(length:--fs-14) sm:text-right">{k.duration}</p>
             </div>
           ))}
         </div>
@@ -31,7 +31,7 @@ export default function CookiesPage() {
       </Section>
       <Section n={3} title="Πώς τα ελέγχετε">
         <p>Μπορείτε να διαγράψετε ή να μπλοκάρετε cookies από τις ρυθμίσεις του browser σας. Χωρίς τα απαραίτητα cookies δεν είναι δυνατή η είσοδος στην περιοχή πελατών.</p>
-        <p>Για περισσότερα δείτε την <Link href="/legal/privacy" className="s-link text-[var(--s-ink)]">Πολιτική απορρήτου</Link>.</p>
+        <p>Για περισσότερα δείτε την <Link href="/legal/privacy" className="s-link text-(--s-ink)">Πολιτική απορρήτου</Link>.</p>
       </Section>
     </LegalPage>
   );

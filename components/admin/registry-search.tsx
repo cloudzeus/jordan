@@ -183,7 +183,7 @@ export function RegistrySearch({
           aria-activedescendant={showList ? `${listId}-${active}` : undefined}
           placeholder={PLACEHOLDER[kind]}
           autoComplete="off"
-          className="h-9 pl-8 pr-8 text-[length:var(--fs-13)]"
+          className="h-9 pl-8 pr-8 text-(length:--fs-13)"
         />
         {loading && (
           <FiLoader
@@ -212,12 +212,12 @@ export function RegistrySearch({
                 className={cn(
                   'flex w-full cursor-pointer flex-col items-start gap-0.5 px-3 py-1.5 text-left',
                   'cx-transition motion-reduce:transition-none',
-                  i === active ? 'bg-sisyphus-50' : 'hover:bg-[var(--cx-hover)]',
+                  i === active ? 'bg-sisyphus-50' : 'hover:bg-(--cx-hover)',
                 )}
               >
-                <span className="line-clamp-1 text-[length:var(--fs-13)] font-medium text-foreground">
+                <span className="line-clamp-1 text-(length:--fs-13) font-medium text-foreground">
                   {r.inactive && (
-                    <span className="mr-1.5 rounded bg-amber-500/15 px-1.5 py-px align-middle text-[length:var(--fs-10)] font-semibold text-amber-800">ανενεργή</span>
+                    <span className="mr-1.5 rounded bg-amber-500/15 px-1.5 py-px align-middle text-(length:--fs-10) font-semibold text-amber-800">ανενεργή</span>
                   )}
                   {r.name}
                 </span>
@@ -248,7 +248,7 @@ export function RegistrySearch({
           <button
             type="button"
             onClick={() => { setFailed(false); setReload((n) => n + 1); }}
-            className="ml-auto inline-flex cursor-pointer items-center gap-1 rounded-sm px-1.5 py-0.5 text-caption font-medium text-sisyphus-700 outline-none hover:bg-[var(--cx-hover)] focus-visible:ring-2 focus-visible:ring-sisyphus-500"
+            className="ml-auto inline-flex cursor-pointer items-center gap-1 rounded-sm px-1.5 py-0.5 text-caption font-medium text-sisyphus-700 outline-hidden hover:bg-(--cx-hover) focus-visible:ring-2 focus-visible:ring-sisyphus-500"
           >
             <FiRefreshCw aria-hidden className="size-3" /> Δοκίμασε ξανά
           </button>

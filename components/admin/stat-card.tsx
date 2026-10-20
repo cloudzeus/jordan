@@ -51,14 +51,14 @@ export function StatCard({ label, value, unit, icon, tone = 'blue', sub, progres
       {edge}
       <div className="flex min-w-0 items-center gap-2">
         {icon && <span aria-hidden className={cn('grid size-7 shrink-0 place-items-center rounded-md [&_svg]:size-3.5', !color && t.icon)} style={color ? { backgroundColor: color.bg, color: color.fg } : undefined}>{icon}</span>}
-        <span className="min-w-0 flex-1 truncate text-[length:var(--fs-12)] font-medium text-muted-foreground" title={label}>{label}</span>
+        <span className="min-w-0 flex-1 truncate text-(length:--fs-12) font-medium text-muted-foreground" title={label}>{label}</span>
       </div>
       <div className="mt-2 flex min-w-0 items-baseline gap-1">
-        <span className="truncate text-[length:var(--fs-20)] font-semibold leading-none tabular-nums tracking-tight text-foreground">{value}</span>
-        {unit && <span className="shrink-0 text-[length:var(--fs-12)] font-medium text-muted-foreground">{unit}</span>}
+        <span className="truncate text-(length:--fs-20) font-semibold leading-none tabular-nums tracking-tight text-foreground">{value}</span>
+        {unit && <span className="shrink-0 text-(length:--fs-12) font-medium text-muted-foreground">{unit}</span>}
         {aside && <span className="-my-1 ml-auto shrink-0 self-center">{aside}</span>}
       </div>
-      {sub != null && <p className="mt-1 line-clamp-2 text-[length:var(--fs-11)] leading-snug tabular-nums text-muted-foreground">{sub}</p>}
+      {sub != null && <p className="mt-1 line-clamp-2 text-(length:--fs-11) leading-snug tabular-nums text-muted-foreground">{sub}</p>}
       {progress != null && (
         <div className="mt-auto pt-2" aria-hidden>
           <div className="h-1 overflow-hidden rounded-full bg-muted">
@@ -69,13 +69,13 @@ export function StatCard({ label, value, unit, icon, tone = 'blue', sub, progres
     </>
   );
   const cls = cn(
-    'relative flex h-full min-h-[5.75rem] min-w-0 flex-col overflow-hidden rounded-lg border border-border bg-card py-2.5 pl-3.5 pr-3 shadow-fluent-2',
+    'relative flex h-full min-h-23 min-w-0 flex-col overflow-hidden rounded-lg border border-border bg-card py-2.5 pl-3.5 pr-3 shadow-fluent-2',
     // Λεπτή χρωματιστή άκρη αριστερά — η ταυτότητα της κάρτας με μια ματιά.
     !color && ["before:absolute before:inset-y-0 before:left-0 before:w-[3px] before:content-['']", t.edge],
     className,
   );
   return href ? (
-    <Link href={href} className={cn(cls, 'cx-transition hover:-translate-y-0.5 hover:shadow-fluent-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring')}>{body}</Link>
+    <Link href={href} className={cn(cls, 'cx-transition hover:-translate-y-0.5 hover:shadow-fluent-4 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring')}>{body}</Link>
   ) : (
     <div className={cls}>{body}</div>
   );

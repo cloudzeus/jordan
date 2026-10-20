@@ -16,7 +16,7 @@ import { Field, FormSection, RowHint, fieldCls } from '@/components/admin/form-k
 export type AccessKind = 'customer-contact' | 'partner-contact' | 'partner';
 export type AccessUser = { id: string; email: string; isActive: boolean; createdAt: string; lastLogin: string | null } | null;
 
-const ITEM = 'cursor-pointer gap-2 text-[length:var(--fs-12)]';
+const ITEM = 'cursor-pointer gap-2 text-(length:--fs-12)';
 
 /** Τυχαίος κωδικός 12 χαρακτήρων: γράμματα (χωρίς μπερδεμένα l/I/O/0) + αριθμοί + σύμβολο. */
 export function generatePassword(len = 12): string {
@@ -83,8 +83,8 @@ export function AccessDialog({ open, onOpenChange, kind, holderId, holderName, d
         <DialogHeader className="flex-row items-center gap-3 border-b border-border px-4 py-2.5 pr-12 text-left">
           <span aria-hidden className="grid size-8 shrink-0 place-items-center rounded-lg bg-sisyphus-50 text-sisyphus-600 dark:bg-sisyphus-500/15 [&_svg]:size-4"><FiKey /></span>
           <div className="min-w-0">
-            <DialogTitle className="text-[length:var(--fs-15)]">{mode === 'grant' ? 'Πρόσβαση στην πλατφόρμα' : 'Αλλαγή κωδικού'}</DialogTitle>
-            <DialogDescription className="truncate text-[length:var(--fs-11)]">{holderName}</DialogDescription>
+            <DialogTitle className="text-(length:--fs-15)">{mode === 'grant' ? 'Πρόσβαση στην πλατφόρμα' : 'Αλλαγή κωδικού'}</DialogTitle>
+            <DialogDescription className="truncate text-(length:--fs-11)">{holderName}</DialogDescription>
           </div>
         </DialogHeader>
         <DialogBody className="space-y-3 bg-muted/20 px-4 py-3">
@@ -104,7 +104,7 @@ export function AccessDialog({ open, onOpenChange, kind, holderId, holderName, d
             </Field>
             <RowHint>Τουλάχιστον 8 χαρακτήρες με γράμματα και αριθμούς. Δώσε τον κωδικό στον χρήστη με ασφαλή τρόπο (π.χ. τηλεφωνικά) — <strong>δεν</strong> στέλνεται με email.</RowHint>
             {mode === 'grant' && (
-              <label className="flex cursor-pointer items-start gap-2 text-[length:var(--fs-12)]">
+              <label className="flex cursor-pointer items-start gap-2 text-(length:--fs-12)">
                 <input type="checkbox" className="mt-0.5 size-4 accent-[#0369A1]" checked={welcome} onChange={(e) => setWelcome(e.target.checked)} />
                 <span><strong>Email καλωσορίσματος</strong> — με το όνομα χρήστη και τον σύνδεσμο σύνδεσης (χωρίς τον κωδικό).</span>
               </label>
@@ -126,15 +126,15 @@ export function AccessDialog({ open, onOpenChange, kind, holderId, holderName, d
 
 /** Ένδειξη πρόσβασης: «Χωρίς πρόσβαση» / «Ενεργή · τελευταία σύνδεση …» / «Απενεργοποιημένη». */
 export function AccessStatus({ user, compact }: { user: AccessUser; compact?: boolean }) {
-  if (!user) return <span className="text-[length:var(--fs-11)] text-muted-foreground">{compact ? '—' : 'Χωρίς πρόσβαση'}</span>;
+  if (!user) return <span className="text-(length:--fs-11) text-muted-foreground">{compact ? '—' : 'Χωρίς πρόσβαση'}</span>;
   const last = user.lastLogin ? new Date(user.lastLogin).toLocaleString('el-GR', { dateStyle: 'short', timeStyle: 'short' }) : null;
   return (
     <span className="inline-flex min-w-0 flex-col">
-      <span className={cn('inline-flex w-fit items-center gap-1 rounded-sm px-1.5 py-0.5 text-[length:var(--fs-10)] font-semibold', user.isActive ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-300' : 'bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-200')}>
+      <span className={cn('inline-flex w-fit items-center gap-1 rounded-sm px-1.5 py-0.5 text-(length:--fs-10) font-semibold', user.isActive ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-300' : 'bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-200')}>
         {user.isActive ? <FiUnlock className="size-3" aria-hidden /> : <FiLock className="size-3" aria-hidden />}
         {user.isActive ? 'Πρόσβαση' : 'Απενεργοποιημένη'}
       </span>
-      {!compact && <span className="truncate text-[length:var(--fs-10)] text-muted-foreground" title={user.email}>{user.email}{last ? ` · ${last}` : ' · δεν συνδέθηκε ακόμη'}</span>}
+      {!compact && <span className="truncate text-(length:--fs-10) text-muted-foreground" title={user.email}>{user.email}{last ? ` · ${last}` : ' · δεν συνδέθηκε ακόμη'}</span>}
     </span>
   );
 }

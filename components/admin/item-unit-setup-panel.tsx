@@ -73,8 +73,8 @@ function SlotRow({
     <div className={cn('rounded-md border bg-card px-3 py-2', bad ? 'border-destructive/40' : 'border-border')}>
       <div className="grid grid-cols-12 items-center gap-x-3 gap-y-1.5">
         <div className="col-span-12 sm:col-span-4">
-          <div className="text-[length:var(--fs-12)] font-semibold">{title}</div>
-          <p className="text-[length:var(--fs-11)] leading-snug text-muted-foreground">{help}</p>
+          <div className="text-(length:--fs-12) font-semibold">{title}</div>
+          <p className="text-(length:--fs-11) leading-snug text-muted-foreground">{help}</p>
         </div>
         <div className="col-span-12 flex items-center gap-2 sm:col-span-3">
           {visual ? <UnitThumb kind={visual} size={36} /> : <span className="size-9 shrink-0 rounded-md border border-dashed border-border" aria-hidden />}
@@ -91,28 +91,28 @@ function SlotRow({
           <div className="col-span-8 flex items-center gap-1.5 sm:col-span-4">
             {own ? (
               <>
-                <span className="shrink-0 whitespace-nowrap text-[length:var(--fs-12)] text-muted-foreground">1 {unitLabel} =</span>
+                <span className="shrink-0 whitespace-nowrap text-(length:--fs-12) text-muted-foreground">1 {unitLabel} =</span>
                 <Input
                   id={`${idPrefix}-ratio`} inputMode="decimal" value={ratio ?? ''} onChange={(e) => onRatio(e.target.value)}
                   className={cn(fieldCls, 'w-24 tabular-nums')} aria-label={`Πόσες ${baseLabel} κάνει 1 ${unitLabel}`}
                   aria-invalid={bad || undefined}
                 />
-                <span className="truncate text-[length:var(--fs-12)] font-medium">{baseLabel}</span>
+                <span className="truncate text-(length:--fs-12) font-medium">{baseLabel}</span>
               </>
-            ) : <span className="text-[length:var(--fs-11)] text-muted-foreground">ίδια με τη βασική</span>}
+            ) : <span className="text-(length:--fs-11) text-muted-foreground">ίδια με τη βασική</span>}
           </div>
         )}
         {onStrict && own && (
-          <label className="col-span-4 inline-flex cursor-pointer items-center justify-end gap-1.5 text-[length:var(--fs-11)] sm:col-span-1" title="Αυστηρή σχέση: το SoftOne υπολογίζει πάντα τη μία ποσότητα από την άλλη με αυτόν τον συντελεστή.">
+          <label className="col-span-4 inline-flex cursor-pointer items-center justify-end gap-1.5 text-(length:--fs-11) sm:col-span-1" title="Αυστηρή σχέση: το SoftOne υπολογίζει πάντα τη μία ποσότητα από την άλλη με αυτόν τον συντελεστή.">
             <input type="checkbox" className="size-3.5 accent-[#B45309]" checked={!!strict} onChange={(e) => onStrict(e.target.checked)} />
             Αυστηρή
           </label>
         )}
       </div>
-      {locked && lockNote && <p className="mt-1.5 flex items-center gap-1 text-[length:var(--fs-11)] text-muted-foreground"><FiLock className="size-3" aria-hidden /> {lockNote}</p>}
+      {locked && lockNote && <p className="mt-1.5 flex items-center gap-1 text-(length:--fs-11) text-muted-foreground"><FiLock className="size-3" aria-hidden /> {lockNote}</p>}
       {children}
       {issues.map((i, n) => (
-        <p key={n} role={i.level === 'error' ? 'alert' : undefined} className={cn('mt-1.5 flex items-start gap-1 text-[length:var(--fs-11)] leading-snug', i.level === 'error' ? 'text-destructive' : 'text-amber-800 dark:text-amber-300')}>
+        <p key={n} role={i.level === 'error' ? 'alert' : undefined} className={cn('mt-1.5 flex items-start gap-1 text-(length:--fs-11) leading-snug', i.level === 'error' ? 'text-destructive' : 'text-amber-800 dark:text-amber-300')}>
           {i.level === 'error' ? <FiAlertCircle className="mt-0.5 size-3 shrink-0" aria-hidden /> : <FiAlertTriangle className="mt-0.5 size-3 shrink-0" aria-hidden />} {i.message}
         </p>
       ))}
@@ -160,7 +160,7 @@ export function ItemUnitSetupPanel({
     <FormSection
       tone="amber" icon={<FiBox />} title="Μονάδες μέτρησης"
       aside={(
-        <Button type="button" variant="outline" size="sm" className="h-7 text-[length:var(--fs-11)]" disabled={!ids || baseLocked && originalUnit1 !== ids?.sqm}
+        <Button type="button" variant="outline" size="sm" className="h-7 text-(length:--fs-11)" disabled={!ids || baseLocked && originalUnit1 !== ids?.sqm}
           title={!ids ? 'Λείπουν οι μονάδες Παλέτα / Container / Τετραγωνικά μέτρα — φτιάξε τες στο Operations → Μονάδες μέτρησης' : baseLocked && originalUnit1 !== ids?.sqm ? 'Η βασική μονάδα είναι κλειδωμένη (το είδος έχει κινήσεις) και δεν είναι τ.μ.' : undefined}
           onClick={() => setPreset({ sqmPerPallet: setup.unit2 === ids?.pallet && setup.ratio2 ? fmtNum(setup.ratio2) : '', palletsPerContainer: setup.unitBuy === ids?.container && setup.ratio2 ? fmtNum(setup.buyRatio / setup.ratio2) : '' })}
         >
@@ -168,7 +168,7 @@ export function ItemUnitSetupPanel({
         </Button>
       )}
     >
-      <details data-tint="off" className="group rounded-md bg-amber-50/60 px-3 py-2 text-[length:var(--fs-12)] dark:bg-amber-500/10">
+      <details data-tint="off" className="group rounded-md bg-amber-50/60 px-3 py-2 text-(length:--fs-12) dark:bg-amber-500/10">
         <summary className="flex cursor-pointer list-none items-center gap-1.5 font-medium text-amber-900 dark:text-amber-200">
           <FiHelpCircle className="size-3.5" aria-hidden /> Πώς δουλεύουν οι μονάδες — διάβασέ το πριν αλλάξεις κάτι
         </summary>
@@ -184,16 +184,16 @@ export function ItemUnitSetupPanel({
 
       {preset && ids && (
         <div className="rounded-md border border-amber-500/40 bg-card px-3 py-2">
-          <p className="mb-1.5 text-[length:var(--fs-12)] font-semibold">Πρότυπο για πέτρες / πλακάκια — συμπλήρωσε τα νούμερα ΑΥΤΟΥ του είδους</p>
+          <p className="mb-1.5 text-(length:--fs-12) font-semibold">Πρότυπο για πέτρες / πλακάκια — συμπλήρωσε τα νούμερα ΑΥΤΟΥ του είδους</p>
           <div className="flex flex-wrap items-end gap-2">
-            <label className="grid gap-1 text-[length:var(--fs-11)] text-muted-foreground">τ.μ. ανά παλέτα
+            <label className="grid gap-1 text-(length:--fs-11) text-muted-foreground">τ.μ. ανά παλέτα
               <Input autoFocus inputMode="decimal" value={preset.sqmPerPallet} onChange={(e) => setPreset({ ...preset, sqmPerPallet: e.target.value })} className={cn(fieldCls, 'w-28 tabular-nums')} />
             </label>
-            <label className="grid gap-1 text-[length:var(--fs-11)] text-muted-foreground">παλέτες ανά container
+            <label className="grid gap-1 text-(length:--fs-11) text-muted-foreground">παλέτες ανά container
               <Input inputMode="decimal" value={preset.palletsPerContainer} onChange={(e) => setPreset({ ...preset, palletsPerContainer: e.target.value })} className={cn(fieldCls, 'w-28 tabular-nums')} />
             </label>
             {parseNum(preset.sqmPerPallet) > 0 && parseNum(preset.palletsPerContainer) > 0 && (
-              <span className="flex h-8 items-center gap-1 text-[length:var(--fs-12)] tabular-nums">
+              <span className="flex h-8 items-center gap-1 text-(length:--fs-12) tabular-nums">
                 <FiArrowRight className="size-3.5" aria-hidden /> 1 Container = {(parseNum(preset.sqmPerPallet) * parseNum(preset.palletsPerContainer)).toLocaleString('el-GR', { maximumFractionDigits: 4 })} τ.μ.
               </span>
             )}
@@ -228,7 +228,7 @@ export function ItemUnitSetupPanel({
           ratio={value.buyRatio} onRatio={(v) => onChange({ buyRatio: v })} strict={value.buyStrict} onStrict={(v) => onChange({ buyStrict: v })}
           opts={opts} baseLabel={baseLabel} unitLabel={label(setup.unitBuy)} issues={at('unitBuy', 'buyRatio')}>
           {showPalletsPerBuy && (
-            <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[length:var(--fs-11)] text-muted-foreground">
+            <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-(length:--fs-11) text-muted-foreground">
               ή γράψε: 1 {label(setup.unitBuy)} =
               <Input
                 inputMode="decimal" aria-label={`Πόσες ${label(setup.unit2)} σε 1 ${label(setup.unitBuy)}`}
@@ -247,8 +247,8 @@ export function ItemUnitSetupPanel({
 
       {(setup.unitBuy && setup.unitBuy !== setup.unit1) || (setup.unit2 && setup.unit2 !== setup.unit1) ? (
         <div className="rounded-md border border-border bg-card px-3 py-2">
-          <p className="mb-1.5 text-[length:var(--fs-11)] font-semibold uppercase tracking-wide text-muted-foreground">Με μια ματιά</p>
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-2 text-[length:var(--fs-13)] tabular-nums">
+          <p className="mb-1.5 text-(length:--fs-11) font-semibold uppercase tracking-wide text-muted-foreground">Με μια ματιά</p>
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-2 text-(length:--fs-13) tabular-nums">
             {setup.unitBuy && setup.unitBuy !== setup.unit1 && setup.buyRatio > 0 && (
               <>
                 <span className="inline-flex items-center gap-1.5"><UnitThumb kind={visualOf(setup.unitBuy)!} size={52} /><strong>1</strong> {label(setup.unitBuy)}</span>
@@ -270,15 +270,15 @@ export function ItemUnitSetupPanel({
               </>
             )}
           </div>
-          <p className="mt-1.5 text-[length:var(--fs-11)] text-muted-foreground">Αγοράζεις σε {label(setup.unitBuy ?? setup.unit1)}, η αποθήκη μετράει σε {baseLabel}, πουλάς σε {label(setup.unitSell ?? setup.unit1)}.</p>
+          <p className="mt-1.5 text-(length:--fs-11) text-muted-foreground">Αγοράζεις σε {label(setup.unitBuy ?? setup.unit1)}, η αποθήκη μετράει σε {baseLabel}, πουλάς σε {label(setup.unitSell ?? setup.unit1)}.</p>
         </div>
       ) : null}
 
       {showPalletsPerBuy && palletsPerBuy > 0 && (
         <div className="space-y-1">
           <div className="flex items-center justify-between">
-            <span className="text-[length:var(--fs-11)] font-semibold uppercase tracking-wide text-muted-foreground">3D προβολή φόρτωσης</span>
-            <button type="button" onClick={() => setShow3d((v) => !v)} className="cursor-pointer text-[length:var(--fs-11)] text-muted-foreground underline-offset-2 hover:text-foreground hover:underline">
+            <span className="text-(length:--fs-11) font-semibold uppercase tracking-wide text-muted-foreground">3D προβολή φόρτωσης</span>
+            <button type="button" onClick={() => setShow3d((v) => !v)} className="cursor-pointer text-(length:--fs-11) text-muted-foreground underline-offset-2 hover:text-foreground hover:underline">
               {show3d ? 'Απόκρυψη' : 'Εμφάνιση'}
             </button>
           </div>
@@ -296,8 +296,8 @@ export function ItemUnitSetupPanel({
 
       {chain.length > 0 && (
         <div className="rounded-md border border-sisyphus-500/25 bg-sisyphus-50/50 px-3 py-2 dark:bg-sisyphus-500/10" aria-live="polite">
-          <p className="mb-1 text-[length:var(--fs-11)] font-semibold uppercase tracking-wide text-sisyphus-700 dark:text-sisyphus-300">Τι θα συμβεί στα παραστατικά</p>
-          <ul className="space-y-0.5 text-[length:var(--fs-12)] tabular-nums">{chain.map((l) => <li key={l}>{l}</li>)}</ul>
+          <p className="mb-1 text-(length:--fs-11) font-semibold uppercase tracking-wide text-sisyphus-700 dark:text-sisyphus-300">Τι θα συμβεί στα παραστατικά</p>
+          <ul className="space-y-0.5 text-(length:--fs-12) tabular-nums">{chain.map((l) => <li key={l}>{l}</li>)}</ul>
         </div>
       )}
     </FormSection>

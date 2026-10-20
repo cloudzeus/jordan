@@ -17,7 +17,7 @@ export default async function RecipePage({ params }: { params: Promise<{ id: str
   if (!r) notFound();
   return (
     <div className="mx-auto w-full max-w-6xl">
-      <Link href="/admin/recipes" className="mb-2 inline-flex items-center gap-1 text-[length:var(--fs-12)] text-muted-foreground hover:text-foreground"><FiArrowLeft className="size-3.5" aria-hidden /> Συνταγές τοποθέτησης</Link>
+      <Link href="/admin/recipes" className="mb-2 inline-flex items-center gap-1 text-(length:--fs-12) text-muted-foreground hover:text-foreground"><FiArrowLeft className="size-3.5" aria-hidden /> Συνταγές τοποθέτησης</Link>
       <PageHeader
         icon={<FiLayers />}
         title={r.name}

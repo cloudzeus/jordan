@@ -17,7 +17,7 @@ export function PageHeader({ title, description, icon, actions, className, helpA
     <div className={cn('flex items-start justify-between gap-3 mb-5', className)}>
       <div className="flex items-start gap-3 min-w-0">
         {icon && (
-          <span className="inline-flex h-8 w-8 items-center justify-center rounded-sm bg-[var(--cx-accent-soft)] text-primary shrink-0 [&_svg]:size-4">
+          <span className="inline-flex h-8 w-8 items-center justify-center rounded-sm bg-(--cx-accent-soft) text-primary shrink-0 [&_svg]:size-4">
             {icon}
           </span>
         )}

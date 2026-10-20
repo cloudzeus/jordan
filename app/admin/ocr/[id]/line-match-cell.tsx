@@ -321,38 +321,38 @@ export function LineMatchCell({
       {meta && label ? (
         <span className="flex min-w-0 flex-wrap items-center gap-1">
           <span
-            className="inline-flex shrink-0 items-center gap-1 rounded-full px-1.5 py-0.5 text-[length:var(--fs-10)] font-semibold"
+            className="inline-flex shrink-0 items-center gap-1 rounded-full px-1.5 py-0.5 text-(length:--fs-10) font-semibold"
             style={{ backgroundColor: meta.bg, color: meta.fg }}
           >
             {meta.icon} {meta.label}
           </span>
-          <span className="min-w-0 truncate text-[length:var(--fs-12)] text-foreground" title={label}>{label}</span>
+          <span className="min-w-0 truncate text-(length:--fs-12) text-foreground" title={label}>{label}</span>
           {match?.matchedBy && MATCHED_BY[match.matchedBy] && (
-            <span className="shrink-0 text-[length:var(--fs-10)] text-muted-foreground">· {MATCHED_BY[match.matchedBy]}</span>
+            <span className="shrink-0 text-(length:--fs-10) text-muted-foreground">· {MATCHED_BY[match.matchedBy]}</span>
           )}
         </span>
       ) : (
-        <span className="text-[length:var(--fs-12)] text-muted-foreground">Χωρίς αντιστοίχιση</span>
+        <span className="text-(length:--fs-12) text-muted-foreground">Χωρίς αντιστοίχιση</span>
       )}
       {!match && canManage && suggestion && suggestion.candidates.length > 0 && (
-        <span className="flex flex-col gap-1 rounded-md border border-sisyphus-500/25 bg-sisyphus-500/[0.05] px-2 py-1.5">
-          <span className="text-[length:var(--fs-10)] font-semibold uppercase tracking-wide text-sisyphus-700">Πρόταση · {suggestion.label}</span>
+        <span className="flex flex-col gap-1 rounded-md border border-sisyphus-500/25 bg-sisyphus-500/5 px-2 py-1.5">
+          <span className="text-(length:--fs-10) font-semibold uppercase tracking-wide text-sisyphus-700">Πρόταση · {suggestion.label}</span>
           {suggestion.candidates.map((c) => (
             <button
               key={`${c.kind}-${c.id}`} type="button" disabled={busy}
               onClick={() => void acceptSuggestion(c)}
-              className="flex min-h-8 items-center gap-1.5 rounded px-1.5 text-left text-[length:var(--fs-12)] text-foreground hover:bg-sisyphus-500/10 disabled:opacity-60"
+              className="flex min-h-8 items-center gap-1.5 rounded px-1.5 text-left text-(length:--fs-12) text-foreground hover:bg-sisyphus-500/10 disabled:opacity-60"
             >
               <FiCheck className="size-3.5 shrink-0 text-sisyphus-600" aria-hidden />
-              <span className="font-mono text-[length:var(--fs-11)]">{c.code}</span>
+              <span className="font-mono text-(length:--fs-11)">{c.code}</span>
               <span className="min-w-0 truncate">{c.name}</span>
-              {c.inactive && <span className="shrink-0 rounded bg-amber-500/15 px-1 text-[length:var(--fs-10)] font-semibold text-amber-800">ανενεργή</span>}
+              {c.inactive && <span className="shrink-0 rounded bg-amber-500/15 px-1 text-(length:--fs-10) font-semibold text-amber-800">ανενεργή</span>}
             </button>
           ))}
         </span>
       )}
       {shown.length > 0 && (
-        <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 text-[length:var(--fs-10)] text-muted-foreground">
+        <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 text-(length:--fs-10) text-muted-foreground">
           {shown.map(([k, v]) => (
             <span key={k} className="inline-flex min-w-0 items-center gap-1">
               {ANALYTICS_ICON[k]}
@@ -375,7 +375,7 @@ export function LineMatchCell({
         {match?.mtrl != null && !match.isService && trdr != null && (
           <button
             type="button" onClick={() => setSupplierOpen(true)}
-            className="mt-0.5 inline-flex min-h-6 cursor-pointer items-center gap-1 rounded text-[length:var(--fs-11)] font-medium text-sisyphus-600 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sisyphus-500"
+            className="mt-0.5 inline-flex min-h-6 cursor-pointer items-center gap-1 rounded text-(length:--fs-11) font-medium text-sisyphus-600 hover:underline focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-sisyphus-500"
           >
             <FiTag aria-hidden className="size-3" /> Κωδικός & τιμή προμηθευτή
           </button>
@@ -389,7 +389,7 @@ export function LineMatchCell({
           disabled={busy}
           title="Αφαίρεση αντιστοίχισης"
           aria-label="Αφαίρεση αντιστοίχισης"
-          className="inline-flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-md text-muted-foreground outline-none hover:bg-[var(--cx-hover)] hover:text-destructive focus-visible:ring-2 focus-visible:ring-sisyphus-500 disabled:cursor-not-allowed disabled:opacity-50"
+          className="inline-flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-md text-muted-foreground outline-hidden hover:bg-(--cx-hover) hover:text-destructive focus-visible:ring-2 focus-visible:ring-sisyphus-500 disabled:cursor-not-allowed disabled:opacity-50"
         >
           <FiX aria-hidden className="size-3.5" />
         </button>
@@ -398,7 +398,7 @@ export function LineMatchCell({
         type="button"
         disabled={busy}
         onClick={() => setOpen(true)}
-        className="inline-flex h-7 shrink-0 cursor-pointer items-center gap-1 rounded-md border border-input px-2 text-[length:var(--fs-11)] font-semibold text-foreground outline-none hover:bg-[var(--cx-hover)] focus-visible:ring-2 focus-visible:ring-sisyphus-500 disabled:cursor-not-allowed disabled:opacity-50"
+        className="inline-flex h-7 shrink-0 cursor-pointer items-center gap-1 rounded-md border border-input px-2 text-(length:--fs-11) font-semibold text-foreground outline-hidden hover:bg-(--cx-hover) focus-visible:ring-2 focus-visible:ring-sisyphus-500 disabled:cursor-not-allowed disabled:opacity-50"
       >
         {busy ? <FiLoader aria-hidden className="size-3 animate-spin motion-reduce:animate-none" />
           : match ? <FiEdit2 aria-hidden className="size-3" /> : <FiLink aria-hidden className="size-3" />}
@@ -411,20 +411,20 @@ export function LineMatchCell({
               <FiLink className="size-4" />
             </span>
             <div className="min-w-0 flex-1">
-              <DialogTitle className="truncate text-[length:var(--fs-15)]">
+              <DialogTitle className="truncate text-(length:--fs-15)">
                 {step === 1 || !tile ? 'Τι αφορά αυτή η αγορά;' : TILES[tile].title}
               </DialogTitle>
-              <DialogDescription className="flex min-w-0 items-baseline gap-x-2 text-[length:var(--fs-11)]">
+              <DialogDescription className="flex min-w-0 items-baseline gap-x-2 text-(length:--fs-11)">
                 <span className="min-w-0 truncate font-medium text-foreground" title={lineName || undefined}>{lineName || 'Γραμμή χωρίς περιγραφή'}</span>
                 {lineTotal != null && <span className="shrink-0 tabular-nums">{lineTotal.toLocaleString('el-GR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €</span>}
               </DialogDescription>
             </div>
             <div className="flex shrink-0 items-center gap-1">
-              <ol aria-label="Βήματα" className="hidden items-center gap-2 text-[length:var(--fs-11)] font-semibold sm:flex">
+              <ol aria-label="Βήματα" className="hidden items-center gap-2 text-(length:--fs-11) font-semibold sm:flex">
                 {(['Τι αφορά', 'Κατηγορία'] as const).map((t, i) => (
                   <li key={t} className={cn('flex items-center gap-1.5', step === i + 1 ? 'text-sisyphus-700 dark:text-sisyphus-300' : 'text-muted-foreground')}
                     aria-current={step === i + 1 ? 'step' : undefined}>
-                    <span className={cn('inline-flex size-5 items-center justify-center rounded-full text-[length:var(--fs-10)]',
+                    <span className={cn('inline-flex size-5 items-center justify-center rounded-full text-(length:--fs-10)',
                       step === i + 1 ? 'bg-sisyphus-500 text-white' : step > i + 1 ? 'bg-emerald-500 text-white' : 'bg-muted')}>
                       {step > i + 1 ? <FiCheck aria-hidden className="size-3" /> : i + 1}
                     </span>
@@ -434,7 +434,7 @@ export function LineMatchCell({
                 ))}
               </ol>
               <a href="/wiki/ocr/line-purpose" target="_blank" rel="noreferrer"
-                className="inline-flex h-8 items-center gap-1 rounded-md px-2 text-[length:var(--fs-12)] font-semibold text-sisyphus-700 outline-none hover:bg-sisyphus-500/10 focus-visible:ring-2 focus-visible:ring-sisyphus-500 dark:text-sisyphus-300">
+                className="inline-flex h-8 items-center gap-1 rounded-md px-2 text-(length:--fs-12) font-semibold text-sisyphus-700 outline-hidden hover:bg-sisyphus-500/10 focus-visible:ring-2 focus-visible:ring-sisyphus-500 dark:text-sisyphus-300">
                 <FiHelpCircle aria-hidden className="size-3.5" /> Βοήθεια
               </a>
             </div>
@@ -450,12 +450,12 @@ export function LineMatchCell({
                     <button
                       key={`${c.kind}-${c.id}`} type="button" disabled={busy}
                       onClick={async () => { await acceptSuggestion(c); setOpen(false); }}
-                      className="flex min-h-9 w-full cursor-pointer items-center gap-2 px-3 text-left text-[length:var(--fs-13)] text-foreground outline-none hover:bg-emerald-500/10 focus-visible:bg-emerald-500/10 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-sisyphus-500 disabled:opacity-60"
+                      className="flex min-h-9 w-full cursor-pointer items-center gap-2 px-3 text-left text-(length:--fs-13) text-foreground outline-hidden hover:bg-emerald-500/10 focus-visible:bg-emerald-500/10 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-sisyphus-500 disabled:opacity-60"
                     >
                       <FiCheck className="size-4 shrink-0 text-emerald-600 dark:text-emerald-300" aria-hidden />
                       <span className="min-w-0 flex-1 truncate">{c.name}</span>
-                      <span className="shrink-0 font-mono text-[length:var(--fs-11)] text-muted-foreground">{c.code}</span>
-                      {c.inactive && <span className="shrink-0 rounded bg-amber-500/15 px-1 text-[length:var(--fs-10)] font-semibold text-amber-800 dark:text-amber-300">θα ενεργοποιηθεί</span>}
+                      <span className="shrink-0 font-mono text-(length:--fs-11) text-muted-foreground">{c.code}</span>
+                      {c.inactive && <span className="shrink-0 rounded bg-amber-500/15 px-1 text-(length:--fs-10) font-semibold text-amber-800 dark:text-amber-300">θα ενεργοποιηθεί</span>}
                     </button>
                   ))}
                 </div>
@@ -480,20 +480,20 @@ export function LineMatchCell({
                 {/* Διάλεξε κάτι διαφορετικό από την πρόταση: δεν το απαγορεύουμε — το λέμε, με ένα κλικ επιστροφή.
                     (Ένα laptop στο «Αυτοκίνητο» θα γινόταν έξοδο καυσίμων αντί για πάγιο.) */}
                 {advised && advised.tile !== tile && (TILES[advised.tile].purpose !== TILES[tile].purpose || advised.tile === 'equipment') && (
-                  <div role="alert" className="flex flex-wrap items-center gap-2 rounded-lg border border-amber-500/40 bg-amber-500/[0.07] px-3 py-2 text-[length:var(--fs-12)] text-foreground">
+                  <div role="alert" className="flex flex-wrap items-center gap-2 rounded-lg border border-amber-500/40 bg-amber-500/[0.07] px-3 py-2 text-(length:--fs-12) text-foreground">
                     <FiAlertTriangle aria-hidden className="size-4 shrink-0 text-amber-600 dark:text-amber-300" />
                     <span className="min-w-0 flex-1">
                       <strong>Σίγουρα;</strong> Η γραμμή μοιάζει με «{TILES[advised.tile].title}». {advised.reason}
                     </span>
                     <button type="button" onClick={() => setTile(advised.tile)}
-                      className="inline-flex h-8 shrink-0 cursor-pointer items-center rounded-md bg-sisyphus-500 px-3 font-semibold text-white outline-none hover:bg-sisyphus-600 focus-visible:ring-2 focus-visible:ring-sisyphus-500 focus-visible:ring-offset-1">
+                      className="inline-flex h-8 shrink-0 cursor-pointer items-center rounded-md bg-sisyphus-500 px-3 font-semibold text-white outline-hidden hover:bg-sisyphus-600 focus-visible:ring-2 focus-visible:ring-sisyphus-500 focus-visible:ring-offset-1">
                       Πέρασέ το ως «{TILES[advised.tile].title}»
                     </button>
                   </div>
                 )}
 
                 <FormSection tone="blue" icon={<FiInfo />} title="Τι θα γίνει">
-                  <div className="space-y-1 text-[length:var(--fs-12)] leading-snug text-foreground">
+                  <div className="space-y-1 text-(length:--fs-12) leading-snug text-foreground">
                     <p>{PURPOSE_OUTCOME[TILES[tile].purpose]}</p>
                     {TILES[tile].accountingNote && <p className="text-muted-foreground">{TILES[tile].accountingNote}</p>}
                     {TILES[tile].purpose === 'asset' && (() => {
@@ -519,13 +519,13 @@ export function LineMatchCell({
                 {TILES[tile].purpose === 'asset' && (
                   <FormSection tone="amber" icon={<FiHardDrive />} title="Εξοπλισμός (πάγιο)">
                     <div className="flex flex-wrap items-center justify-between gap-2">
-                      <p className="min-w-0 flex-1 text-[length:var(--fs-12)] leading-snug text-foreground">
+                      <p className="min-w-0 flex-1 text-(length:--fs-12) leading-snug text-foreground">
                         Είναι <strong>καινούργια</strong> αγορά; Δημιούργησε τον εξοπλισμό — τα στοιχεία συμπληρώνονται από το τιμολόγιο.
                       </p>
                       <button
                         type="button" disabled={busy}
                         onClick={() => { setOpen(false); setCreatingAsset(true); }}
-                        className="inline-flex h-8 shrink-0 cursor-pointer items-center gap-1.5 rounded-md bg-sisyphus-500 px-3 text-[length:var(--fs-12)] font-semibold text-white outline-none hover:bg-sisyphus-600 focus-visible:ring-2 focus-visible:ring-sisyphus-500 focus-visible:ring-offset-1 disabled:opacity-50"
+                        className="inline-flex h-8 shrink-0 cursor-pointer items-center gap-1.5 rounded-md bg-sisyphus-500 px-3 text-(length:--fs-12) font-semibold text-white outline-hidden hover:bg-sisyphus-600 focus-visible:ring-2 focus-visible:ring-sisyphus-500 focus-visible:ring-offset-1 disabled:opacity-50"
                       >
                         <FiPlusCircle aria-hidden className="size-4" /> Νέος εξοπλισμός (πάγιο)
                       </button>
@@ -544,7 +544,7 @@ export function LineMatchCell({
                   const isGoods = rk === 'product';
                   return (
                     <FormSection tone="blue" icon={isGoods ? <FiPackage /> : <FiSearch />} title={isGoods ? 'Είδος από τον κατάλογο' : 'Κατηγορία εξόδου'}>
-                      <p className="text-[length:var(--fs-12)] font-medium leading-snug text-foreground">
+                      <p className="text-(length:--fs-12) font-medium leading-snug text-foreground">
                         {isGoods ? 'Βρες το είδος στον κατάλογο' : <>Βρες την <Term k={rk === 'lineitem' ? 'xreopistosi' : 'eksodo'}>κατηγορία εξόδου</Term></>}
                         {hint && <span className="font-normal text-muted-foreground"> — γράψε μια λέξη, π.χ. «{hint}»</span>}
                       </p>
@@ -556,7 +556,7 @@ export function LineMatchCell({
                               value={lineCategory ?? ''}
                               disabled={busy}
                               onChange={(e) => setLineCategory(e.target.value ? Number(e.target.value) : null)}
-                              className={cn('w-full cursor-pointer rounded-md border border-input bg-background px-2.5 outline-none focus-visible:ring-2 focus-visible:ring-sisyphus-500', fieldCls)}
+                              className={cn('w-full cursor-pointer rounded-md border border-input bg-background px-2.5 outline-hidden focus-visible:ring-2 focus-visible:ring-sisyphus-500', fieldCls)}
                             >
                               <option value="">Όλες</option>
                               {lineCategories.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
@@ -578,7 +578,7 @@ export function LineMatchCell({
                         type="button"
                         disabled={busy}
                         onClick={() => { setKind(rk); setOpen(false); setCreating(true); }}
-                        className="inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-md border border-sisyphus-500/40 px-3 text-[length:var(--fs-12)] font-semibold text-sisyphus-700 outline-none hover:bg-sisyphus-500/10 focus-visible:ring-2 focus-visible:ring-sisyphus-500 disabled:opacity-50 dark:text-sisyphus-300"
+                        className="inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-md border border-sisyphus-500/40 px-3 text-(length:--fs-12) font-semibold text-sisyphus-700 outline-hidden hover:bg-sisyphus-500/10 focus-visible:ring-2 focus-visible:ring-sisyphus-500 disabled:opacity-50 dark:text-sisyphus-300"
                       >
                         <FiPlusCircle aria-hidden className="size-3.5" /> Δεν υπάρχει; {isGoods ? 'Νέο είδος' : 'Νέα κατηγορία εξόδου'}
                       </button>
@@ -588,7 +588,7 @@ export function LineMatchCell({
 
                 {TILES[tile].purpose === 'split' && (
                   <FormSection tone="violet" icon={<FiPieChart />} title="Μοίρασμα σε κατηγορίες">
-                    <p className="text-[length:var(--fs-12)] leading-snug text-foreground">
+                    <p className="text-(length:--fs-12) leading-snug text-foreground">
                       Κάτω από τη γραμμή θα εμφανιστούν δύο κομμάτια (50% – 50%). Διάλεξε την κατηγορία εξόδου
                       του καθενός και γράψε ποσό <strong>ή</strong> ποσοστό — το τελευταίο κομμάτι κλείνει μόνο του.
                       Δες τι σημαίνει <Term k="epimerismos" />.
@@ -597,7 +597,7 @@ export function LineMatchCell({
                       type="button"
                       disabled={lineTotal == null}
                       onClick={() => { setOpen(false); emitStartSplit(lineId); }}
-                      className="inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-md bg-sisyphus-500 px-3 text-[length:var(--fs-12)] font-semibold text-white outline-none hover:bg-sisyphus-600 focus-visible:ring-2 focus-visible:ring-sisyphus-500 focus-visible:ring-offset-1 disabled:opacity-50"
+                      className="inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-md bg-sisyphus-500 px-3 text-(length:--fs-12) font-semibold text-white outline-hidden hover:bg-sisyphus-600 focus-visible:ring-2 focus-visible:ring-sisyphus-500 focus-visible:ring-offset-1 disabled:opacity-50"
                     >
                       <FiPieChart aria-hidden className="size-4" /> Ξεκίνα το μοίρασμα
                     </button>
@@ -611,7 +611,7 @@ export function LineMatchCell({
             <section className="overflow-hidden rounded-lg border border-violet-500/25 bg-card">
               <button
                 type="button" aria-expanded={advanced} onClick={() => setAdvanced((a) => !a)}
-                className="flex min-h-8 w-full cursor-pointer items-center gap-2 bg-violet-50/70 px-3 py-1.5 text-left text-[length:var(--fs-12)] font-semibold text-violet-800 outline-none hover:bg-violet-100/70 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-sisyphus-500 dark:bg-violet-500/10 dark:text-violet-300 dark:hover:bg-violet-500/15"
+                className="flex min-h-8 w-full cursor-pointer items-center gap-2 bg-violet-50/70 px-3 py-1.5 text-left text-(length:--fs-12) font-semibold text-violet-800 outline-hidden hover:bg-violet-100/70 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-sisyphus-500 dark:bg-violet-500/10 dark:text-violet-300 dark:hover:bg-violet-500/15"
               >
                 <span aria-hidden className="grid size-5 shrink-0 place-items-center rounded bg-violet-500/15 text-violet-700 dark:text-violet-300 [&_svg]:size-3"><FiDatabase /></span>
                 <span className="min-w-0 flex-1 truncate">Για λογιστές: επιλογή μητρώου SoftOne απευθείας</span>
@@ -638,10 +638,10 @@ export function LineMatchCell({
                             title={fits ? undefined : `Ο προορισμός «${target?.lines}» δεν δέχεται ${KIND_META[k].label.toLowerCase()}.`}
                             onClick={() => { setKind(k); if (k !== 'lineitem') setLineCategory(null); }}
                             className={cn(
-                              'flex h-7 flex-1 items-center justify-center gap-1 rounded px-1 text-[length:var(--fs-11)] font-semibold outline-none',
+                              'flex h-7 flex-1 items-center justify-center gap-1 rounded px-1 text-(length:--fs-11) font-semibold outline-hidden',
                               'cx-transition motion-reduce:transition-none focus-visible:ring-2 focus-visible:ring-sisyphus-500',
                               fits ? 'cursor-pointer' : 'cursor-not-allowed opacity-40',
-                              kind === k ? 'text-foreground shadow-sm' : 'text-muted-foreground hover:bg-[var(--cx-hover)]',
+                              kind === k ? 'text-foreground shadow-xs' : 'text-muted-foreground hover:bg-(--cx-hover)',
                             )}
                             style={kind === k ? { backgroundColor: KIND_META[k].bg, color: KIND_META[k].fg } : undefined}
                           >
@@ -653,7 +653,7 @@ export function LineMatchCell({
                   )}
                   {allowedHere.length > 1 && <RowHint>{kindsReason}</RowHint>}
                   {kind == null ? (
-                    <p className="flex items-start gap-1.5 rounded-md border border-amber-300 bg-amber-50 px-2.5 py-1.5 text-[length:var(--fs-11)] text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
+                    <p className="flex items-start gap-1.5 rounded-md border border-amber-300 bg-amber-50 px-2.5 py-1.5 text-(length:--fs-11) text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
                       <FiAlertTriangle aria-hidden className="mt-0.5 size-3 shrink-0" />
                       Διάλεξε πρώτα μητρώο — μια λάθος επιλογή γράφει στο SoftOne εγγραφή που το παραστατικό δεν μπορεί να χρησιμοποιήσει.
                     </p>
@@ -671,7 +671,7 @@ export function LineMatchCell({
                         type="button"
                         disabled={busy}
                         onClick={() => { setOpen(false); setCreating(true); }}
-                        className="inline-flex h-8 cursor-pointer items-center gap-1 rounded-md border border-sisyphus-500/30 px-2.5 text-[length:var(--fs-11)] font-semibold text-sisyphus-600 outline-none hover:bg-sisyphus-50 focus-visible:ring-2 focus-visible:ring-sisyphus-500 disabled:cursor-not-allowed disabled:opacity-50 dark:text-sisyphus-300 dark:hover:bg-sisyphus-500/10"
+                        className="inline-flex h-8 cursor-pointer items-center gap-1 rounded-md border border-sisyphus-500/30 px-2.5 text-(length:--fs-11) font-semibold text-sisyphus-600 outline-hidden hover:bg-sisyphus-50 focus-visible:ring-2 focus-visible:ring-sisyphus-500 disabled:cursor-not-allowed disabled:opacity-50 dark:text-sisyphus-300 dark:hover:bg-sisyphus-500/10"
                       >
                         <FiPlusCircle aria-hidden className="size-3" /> Δημιουργία νέας εγγραφής «{KIND_META[kind].label}»
                       </button>
@@ -679,7 +679,7 @@ export function LineMatchCell({
                   )}
                   {assetsHere && (
                     <div className="space-y-1.5 border-t border-border pt-2">
-                      <p className="flex items-center gap-1 text-[length:var(--fs-11)] font-semibold uppercase tracking-wide text-muted-foreground">
+                      <p className="flex items-center gap-1 text-(length:--fs-11) font-semibold uppercase tracking-wide text-muted-foreground">
                         <FiHardDrive aria-hidden className="size-3" /> Πάγιο
                       </p>
                       <AssetSearch id={`asset-adv-${lineId}`} disabled={busy} onPick={pickAsset} />
@@ -693,7 +693,7 @@ export function LineMatchCell({
             <section className="overflow-hidden rounded-lg border border-border bg-card">
               <button
                 type="button" aria-expanded={moreOpen} onClick={() => setMoreOpen((a) => !a)}
-                className="flex min-h-8 w-full cursor-pointer items-center gap-2 bg-muted/50 px-3 py-1.5 text-left text-[length:var(--fs-12)] font-semibold text-muted-foreground outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-sisyphus-500"
+                className="flex min-h-8 w-full cursor-pointer items-center gap-2 bg-muted/50 px-3 py-1.5 text-left text-(length:--fs-12) font-semibold text-muted-foreground outline-hidden hover:bg-muted focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-sisyphus-500"
               >
                 <span aria-hidden className="grid size-5 shrink-0 place-items-center rounded bg-muted text-muted-foreground [&_svg]:size-3"><FiSliders /></span>
                 <span className="min-w-0 flex-1 truncate">
@@ -737,12 +737,12 @@ export function LineMatchCell({
           <div className="flex shrink-0 items-center justify-between gap-2 border-t border-border bg-card px-4 py-2.5">
             {step === 2 ? (
               <button type="button" onClick={() => setStep(1)}
-                className="inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-md px-3 text-[length:var(--fs-13)] font-semibold text-foreground outline-none hover:bg-[var(--cx-hover)] focus-visible:ring-2 focus-visible:ring-sisyphus-500">
+                className="inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-md px-3 text-(length:--fs-13) font-semibold text-foreground outline-hidden hover:bg-(--cx-hover) focus-visible:ring-2 focus-visible:ring-sisyphus-500">
                 <FiArrowLeft aria-hidden className="size-4" /> Πίσω
               </button>
             ) : <span />}
             <button type="button" onClick={() => setOpen(false)}
-              className="inline-flex h-8 cursor-pointer items-center rounded-md border border-input px-4 text-[length:var(--fs-13)] font-semibold text-foreground outline-none hover:bg-[var(--cx-hover)] focus-visible:ring-2 focus-visible:ring-sisyphus-500">
+              className="inline-flex h-8 cursor-pointer items-center rounded-md border border-input px-4 text-(length:--fs-13) font-semibold text-foreground outline-hidden hover:bg-(--cx-hover) focus-visible:ring-2 focus-visible:ring-sisyphus-500">
               Κλείσιμο
             </button>
           </div>

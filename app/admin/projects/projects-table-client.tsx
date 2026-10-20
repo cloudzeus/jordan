@@ -26,7 +26,7 @@ const BAD = '#B91C1C';
 function MoneyCell({ value, tone }: { value: number | null | undefined; tone?: boolean }) {
   if (value == null) return DASH;
   const color = tone ? (value > 0 ? GOOD : value < 0 ? BAD : undefined) : undefined;
-  return <span className="block text-right tabular-nums text-[length:var(--fs-12)]" style={color ? { color } : undefined}>{eur0.format(value)}</span>;
+  return <span className="block text-right tabular-nums text-(length:--fs-12)" style={color ? { color } : undefined}>{eur0.format(value)}</span>;
 }
 
 /** Ταξινόμηση με τα έργα χωρίς οικονομικά πάντα στο τέλος. */
@@ -51,13 +51,13 @@ function Summary({ rows }: { rows: ProjectFinRow[] }) {
     <div className="grid grid-cols-2 gap-2 lg:grid-cols-4" aria-label="Σύνοψη κερδοφορίας των έργων που φαίνονται">
       {tiles.map(([label, value, sub, style]) => (
         <div key={label} className="min-w-0 rounded-lg border border-border bg-card p-3">
-          <p className="text-[length:var(--fs-11)] font-medium uppercase tracking-wide text-muted-foreground">{label}</p>
-          <p className="mt-1 truncate text-[length:var(--fs-18)] font-semibold tabular-nums" style={style}>{value}</p>
-          {sub && <p className="text-[length:var(--fs-11)] text-muted-foreground">{sub}</p>}
+          <p className="text-(length:--fs-11) font-medium uppercase tracking-wide text-muted-foreground">{label}</p>
+          <p className="mt-1 truncate text-(length:--fs-18) font-semibold tabular-nums" style={style}>{value}</p>
+          {sub && <p className="text-(length:--fs-11) text-muted-foreground">{sub}</p>}
         </div>
       ))}
       {t.issues > 0 && (
-        <p className="col-span-2 inline-flex items-center gap-1.5 text-[length:var(--fs-12)] text-amber-800 dark:text-amber-200 lg:col-span-4">
+        <p className="col-span-2 inline-flex items-center gap-1.5 text-(length:--fs-12) text-amber-800 dark:text-amber-200 lg:col-span-4">
           <FiAlertTriangle className="size-3.5 shrink-0" aria-hidden />
           {t.issues} έργ{t.issues === 1 ? 'ο έχει' : 'α έχουν'} «Δεδομένα που λείπουν» στο SoftOne — τα νούμερά τους είναι ελλιπή μέχρι να διορθωθούν (δες την καρτέλα κάθε έργου).
         </p>
@@ -70,7 +70,7 @@ const fmtDate = (v: string | null) => (v ? new Date(v).toLocaleDateString('el-GR
 
 function DateCell({ value }: { value: string | null }) {
   const s = fmtDate(value);
-  return s ? <span className="tabular-nums text-[length:var(--fs-12)] text-muted-foreground">{s}</span> : DASH;
+  return s ? <span className="tabular-nums text-(length:--fs-12) text-muted-foreground">{s}</span> : DASH;
 }
 
 export function ProjectsTableClient({
@@ -144,7 +144,7 @@ export function ProjectsTableClient({
     {
       id: 'marginPct', accessorFn: (r) => r.fin?.marginPct ?? null, header: 'Περιθ. %', size: 90, sortingFn: finSort('marginPct'),
       cell: ({ row }) => (row.original.fin?.marginPct == null ? DASH : (
-        <span className="block text-right tabular-nums text-[length:var(--fs-12)]">{row.original.fin.marginPct.toLocaleString('el-GR', { maximumFractionDigits: 1 })}%</span>
+        <span className="block text-right tabular-nums text-(length:--fs-12)">{row.original.fin.marginPct.toLocaleString('el-GR', { maximumFractionDigits: 1 })}%</span>
       )),
     },
   ] : []), [showFinancials]);
@@ -152,12 +152,12 @@ export function ProjectsTableClient({
   const columns = React.useMemo<ColumnDef<ProjectFinRow>[]>(() => [
     {
       accessorKey: 'code', header: 'Κωδικός', size: 110,
-      cell: ({ row }) => <span className="font-mono text-[length:var(--fs-12)] tabular-nums text-muted-foreground">{row.original.code}</span>,
+      cell: ({ row }) => <span className="font-mono text-(length:--fs-12) tabular-nums text-muted-foreground">{row.original.code}</span>,
     },
     {
       accessorKey: 'name', header: 'Έργο', size: 340,
       cell: ({ row }) => (
-        <Link href={`/admin/projects/${row.original.prjc}`} className="font-medium text-foreground text-[length:var(--fs-12)] hover:text-primary hover:underline">
+        <Link href={`/admin/projects/${row.original.prjc}`} className="font-medium text-foreground text-(length:--fs-12) hover:text-primary hover:underline">
           {row.original.name}
         </Link>
       ),
@@ -165,19 +165,19 @@ export function ProjectsTableClient({
     {
       accessorKey: 'customer', header: 'Πελάτης', size: 260,
       cell: ({ row }) => (row.original.customer
-        ? <span className="text-[length:var(--fs-12)] text-foreground">{row.original.customer}</span>
+        ? <span className="text-(length:--fs-12) text-foreground">{row.original.customer}</span>
         : DASH),
     },
     {
       id: 'site', accessorFn: (r) => r.site?.line ?? '', header: 'Τοποθεσία', size: 170,
       cell: ({ row }) => (row.original.site
-        ? <span className="inline-flex items-center gap-1 text-[length:var(--fs-12)] text-foreground"><FiMapPin className="size-3 shrink-0" style={{ color: '#0F766E' }} aria-hidden /><span className="truncate">{row.original.site.line || 'Ορίστηκε'}</span></span>
+        ? <span className="inline-flex items-center gap-1 text-(length:--fs-12) text-foreground"><FiMapPin className="size-3 shrink-0" style={{ color: '#0F766E' }} aria-hidden /><span className="truncate">{row.original.site.line || 'Ορίστηκε'}</span></span>
         : DASH),
     },
     {
       accessorKey: 'statusLabel', header: 'Status', size: 120,
       cell: ({ row }) => (row.original.actStatus != null
-        ? <span className="inline-flex rounded-sm bg-muted px-1.5 py-0.5 text-[length:var(--fs-11)] font-medium text-foreground">{row.original.statusLabel}</span>
+        ? <span className="inline-flex rounded-sm bg-muted px-1.5 py-0.5 text-(length:--fs-11) font-medium text-foreground">{row.original.statusLabel}</span>
         : DASH),
     },
     ...finColumns,
@@ -188,11 +188,11 @@ export function ProjectsTableClient({
       accessorKey: 'isActive', header: 'Ενεργό', size: 90,
       // Κατάσταση = εικονίδιο + κείμενο (όχι μόνο χρώμα).
       cell: ({ row }) => (row.original.isActive ? (
-        <span className="inline-flex items-center gap-1 text-[length:var(--fs-12)]" style={{ color: '#047857' }}>
+        <span className="inline-flex items-center gap-1 text-(length:--fs-12)" style={{ color: '#047857' }}>
           <FiCheck className="h-3.5 w-3.5" aria-hidden /> Ναι
         </span>
       ) : (
-        <span className="inline-flex items-center gap-1 text-[length:var(--fs-12)] text-muted-foreground">
+        <span className="inline-flex items-center gap-1 text-(length:--fs-12) text-muted-foreground">
           <FiSlash className="h-3.5 w-3.5" aria-hidden /> Όχι
         </span>
       )),
@@ -209,7 +209,7 @@ export function ProjectsTableClient({
   ], [canManage, canFiles, finColumns, showFinancials]);
 
   const chip = (active: boolean) => cn(
-    'inline-flex h-7 items-center gap-1 rounded-md border px-2.5 text-[length:var(--fs-11)] font-medium transition',
+    'inline-flex h-7 items-center gap-1 rounded-md border px-2.5 text-(length:--fs-11) font-medium transition',
     active ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-background text-muted-foreground hover:text-foreground',
   );
 
@@ -236,7 +236,7 @@ export function ProjectsTableClient({
     <div className="space-y-2">
       {showFinancials && <Summary rows={data} />}
       {financialsError && (
-        <p role="alert" className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-[length:var(--fs-12)] text-destructive">
+        <p role="alert" className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-(length:--fs-12) text-destructive">
           Το SoftOne δεν απάντησε ({financialsError}) — τα οικονομικά είναι από τον προηγούμενο υπολογισμό.
         </p>
       )}
@@ -253,10 +253,10 @@ export function ProjectsTableClient({
         // Σειρά θυσίας σε στενή οθόνη — κωδικός και όνομα μένουν πάντα.
         responsiveHide={['closeDate', 'isActive', 'finalDate', 'fromDate', 'site', 'statusLabel', 'costs', 'collected', 'customer', 'marginPct', 'revenue']}
         expandable={(r) => <ProjectActivityPanel prjc={r.prjc} canManage={canManage} projectLabel={`${r.code} · ${r.name}`} />}
-        emptyState={<p className="py-8 text-center text-[length:var(--fs-13)] text-muted-foreground">Δεν υπάρχουν έργα. Πάτησε «Συγχρονισμός από SoftOne».</p>}
+        emptyState={<p className="py-8 text-center text-(length:--fs-13) text-muted-foreground">Δεν υπάρχουν έργα. Πάτησε «Συγχρονισμός από SoftOne».</p>}
       />
       {lastSync && (
-        <p className="text-[length:var(--fs-11)] text-muted-foreground">
+        <p className="text-(length:--fs-11) text-muted-foreground">
           Τελευταίος συγχρονισμός: {new Date(lastSync).toLocaleString('el-GR')}
           {showFinancials && financialsAt && <> · οικονομικά: {new Date(financialsAt).toLocaleString('el-GR')}</>}
         </p>

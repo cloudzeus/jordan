@@ -154,7 +154,7 @@ export function DocumentTypesClient({ rows, canManage, categories: initialCatego
         <DialogContent className="w-[95vw] gap-0 overflow-hidden p-0 sm:max-w-xl">
           <DialogHeader className="flex-row items-center gap-3 border-b border-border px-4 py-2.5 pr-12">
             <span aria-hidden className="grid size-8 shrink-0 place-items-center rounded-lg bg-sisyphus-50 text-sisyphus-600 dark:bg-sisyphus-500/15"><FiFileText className="size-4" /></span>
-            <DialogTitle className="min-w-0 flex-1 truncate text-[length:var(--fs-15)]">{editing ? 'Επεξεργασία τύπου' : duplicating ? 'Αντίγραφο τύπου δικαιολογητικού' : 'Νέος τύπος δικαιολογητικού'}</DialogTitle>
+            <DialogTitle className="min-w-0 flex-1 truncate text-(length:--fs-15)">{editing ? 'Επεξεργασία τύπου' : duplicating ? 'Αντίγραφο τύπου δικαιολογητικού' : 'Νέος τύπος δικαιολογητικού'}</DialogTitle>
           </DialogHeader>
           <div className="max-h-[66vh] space-y-3 overflow-auto bg-muted/20 px-4 py-3">
             <FormSection tone="blue" icon={<FiFileText />} title="Στοιχεία τύπου">
@@ -164,7 +164,7 @@ export function DocumentTypesClient({ rows, canManage, categories: initialCatego
                 </Field>
                 {/* Το Combobox δεν δέχεται id — η ετικέτα μένει οπτική, όπως πριν. */}
                 <Field label="Κατηγορία" className="col-span-12 sm:col-span-6">
-                  <div className="[&_button]:h-8 [&_button]:text-[length:var(--fs-13)]">
+                  <div className="[&_button]:h-8 [&_button]:text-(length:--fs-13)">
                     <Combobox
                       value={form.categoryId}
                       items={categories.map((c) => ({ value: c.id, label: c.name }))}
@@ -187,15 +187,15 @@ export function DocumentTypesClient({ rows, canManage, categories: initialCatego
             </FormSection>
             <FormSection tone="amber" icon={<FiClock />} title="Λήξη & κατάσταση">
               <div className="grid grid-cols-12 gap-x-3 gap-y-2">
-                <label htmlFor="dt-expiry" className="col-span-12 flex h-8 cursor-pointer items-center gap-2 text-[length:var(--fs-13)] sm:col-span-5">
+                <label htmlFor="dt-expiry" className="col-span-12 flex h-8 cursor-pointer items-center gap-2 text-(length:--fs-13) sm:col-span-5">
                   <input id="dt-expiry" type="checkbox" checked={form.requiresExpiry} onChange={(e) => setForm({ ...form, requiresExpiry: e.target.checked })} className="size-4 accent-sisyphus-600" />
                   Απαιτεί ημερομηνία λήξης
                 </label>
-                <label htmlFor="dt-notify" className="col-span-12 flex h-8 cursor-pointer items-center gap-2 text-[length:var(--fs-13)] sm:col-span-4">
+                <label htmlFor="dt-notify" className="col-span-12 flex h-8 cursor-pointer items-center gap-2 text-(length:--fs-13) sm:col-span-4">
                   <input id="dt-notify" type="checkbox" checked={form.notifyExpiry} onChange={(e) => setForm({ ...form, notifyExpiry: e.target.checked })} className="size-4 accent-sisyphus-600" />
                   Ειδοποιήσεις λήξης
                 </label>
-                <label htmlFor="dt-active" className="col-span-12 flex h-8 cursor-pointer items-center gap-2 text-[length:var(--fs-13)] sm:col-span-3">
+                <label htmlFor="dt-active" className="col-span-12 flex h-8 cursor-pointer items-center gap-2 text-(length:--fs-13) sm:col-span-3">
                   <input id="dt-active" type="checkbox" checked={form.active} onChange={(e) => setForm({ ...form, active: e.target.checked })} className="size-4 accent-sisyphus-600" />
                   Ενεργό
                 </label>

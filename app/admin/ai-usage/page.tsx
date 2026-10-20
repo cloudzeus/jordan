@@ -133,7 +133,7 @@ export default async function AiUsagePage() {
         actions={
           <a
             href="/api/admin/ai-usage/export"
-            className="inline-flex h-9 items-center gap-1.5 rounded-md bg-sisyphus-500 px-3 text-[length:var(--fs-13)] font-semibold text-white shadow-fluent-2 transition hover:bg-sisyphus-600"
+            className="inline-flex h-9 items-center gap-1.5 rounded-md bg-sisyphus-500 px-3 text-(length:--fs-13) font-semibold text-white shadow-fluent-2 transition hover:bg-sisyphus-600"
           >
             <FiDownload className="size-4" />
             Excel report
@@ -151,8 +151,8 @@ export default async function AiUsagePage() {
 
       {/* Tokens per model chart */}
       <section className="rounded-xl border border-border bg-card p-4 shadow-fluent-2">
-        <h3 className="text-[length:var(--fs-14)] font-semibold tracking-tight">Tokens ανά μοντέλο</h3>
-        <p className="text-[length:var(--fs-11)] text-muted-foreground">Σύνολο tokens που έχουν καταναλωθεί</p>
+        <h3 className="text-(length:--fs-14) font-semibold tracking-tight">Tokens ανά μοντέλο</h3>
+        <p className="text-(length:--fs-11) text-muted-foreground">Σύνολο tokens που έχουν καταναλωθεί</p>
         {modelRows.length === 0 ? (
           <p className="mt-3 text-xs text-muted-foreground">Δεν υπάρχουν δεδομένα.</p>
         ) : (
@@ -164,21 +164,21 @@ export default async function AiUsagePage() {
               const cost = Number(r._sum.totalCost ?? 0);
               return (
                 <div key={r.model} className="flex items-center gap-3">
-                  <div className="w-[160px] shrink-0 truncate font-mono text-[length:var(--fs-11)]" title={r.model}>
+                  <div className="w-[160px] shrink-0 truncate font-mono text-(length:--fs-11)" title={r.model}>
                     {r.model}
                   </div>
                   <div className="relative flex-1">
                     <div className="h-5 rounded bg-neutral-8 overflow-hidden">
                       <div
-                        className="h-full rounded bg-gradient-to-r from-sisyphus-500 to-sisyphus-600 transition-all"
+                        className="h-full rounded bg-linear-to-r from-sisyphus-500 to-sisyphus-600 transition-all"
                         style={{ width: `${pct}%` }}
                       />
                     </div>
                   </div>
-                  <div className="w-[110px] shrink-0 text-right text-[length:var(--fs-11)] tabular-nums">
+                  <div className="w-[110px] shrink-0 text-right text-(length:--fs-11) tabular-nums">
                     {fmtNum(tokens)}
                   </div>
-                  <div className="w-[80px] shrink-0 text-right text-[length:var(--fs-11)] tabular-nums font-semibold">
+                  <div className="w-[80px] shrink-0 text-right text-(length:--fs-11) tabular-nums font-semibold">
                     {fmtEur(toEur(cost))}
                   </div>
                 </div>
@@ -190,8 +190,8 @@ export default async function AiUsagePage() {
 
       {/* Daily chart: cost (EUR) + documents + FX rate */}
       <section className="rounded-xl border border-border bg-card p-4 shadow-fluent-2">
-        <h3 className="text-[length:var(--fs-14)] font-semibold tracking-tight">Τελευταίες 30 μέρες</h3>
-        <p className="mb-3 text-[length:var(--fs-11)] text-muted-foreground">
+        <h3 className="text-(length:--fs-14) font-semibold tracking-tight">Τελευταίες 30 μέρες</h3>
+        <p className="mb-3 text-(length:--fs-11) text-muted-foreground">
           Κόστος ανά ημέρα (EUR), έγγραφα ανά ημέρα και ισοτιμία USD→EUR (ΕΚΤ/Frankfurter, ανά ημέρα)
         </p>
         <AiUsageDailyChart data={dailySeries} />
@@ -225,12 +225,12 @@ export default async function AiUsagePage() {
 
       {/* Recent activity */}
       <section className="rounded-xl border border-border bg-card shadow-fluent-2 overflow-hidden">
-        <div className="border-b border-border px-4 py-2.5 text-[length:var(--fs-11)] font-semibold uppercase tracking-wide text-muted-foreground">
+        <div className="border-b border-border px-4 py-2.5 text-(length:--fs-11) font-semibold uppercase tracking-wide text-muted-foreground">
           Πρόσφατες κλήσεις (50)
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="border-b border-border bg-neutral-6/60 text-left text-[length:var(--fs-10)] uppercase tracking-wide text-muted-foreground">
+            <thead className="border-b border-border bg-neutral-6/60 text-left text-(length:--fs-10) uppercase tracking-wide text-muted-foreground">
               <tr>
                 <th className="px-3 py-2">Πότε</th>
                 <th className="px-3 py-2">Λειτουργία</th>
@@ -246,11 +246,11 @@ export default async function AiUsagePage() {
                 <tr><td colSpan={7} className="px-3 py-8 text-center text-muted-foreground">Δεν υπάρχουν κλήσεις.</td></tr>
               ) : recent.map((r) => (
                 <tr key={r.id} className="hover:bg-neutral-6/40">
-                  <td className="px-3 py-2 text-[length:var(--fs-12)] text-muted-foreground tabular-nums">
+                  <td className="px-3 py-2 text-(length:--fs-12) text-muted-foreground tabular-nums">
                     {r.createdAt.toLocaleString('el-GR')}
                   </td>
-                  <td className="px-3 py-2 text-[length:var(--fs-12)]">{SCOPE_LABELS[r.scope] ?? r.scope}</td>
-                  <td className="px-3 py-2 font-mono text-[length:var(--fs-11)]">{r.model}</td>
+                  <td className="px-3 py-2 text-(length:--fs-12)">{SCOPE_LABELS[r.scope] ?? r.scope}</td>
+                  <td className="px-3 py-2 font-mono text-(length:--fs-11)">{r.model}</td>
                   <td className="px-3 py-2 text-right tabular-nums">{fmtNum(r.inputTokens)}</td>
                   <td className="px-3 py-2 text-right tabular-nums">{fmtNum(r.outputTokens)}</td>
                   <td className="px-3 py-2 text-right tabular-nums font-medium">{fmtNum(r.totalTokens)}</td>
@@ -276,14 +276,14 @@ function BreakdownTable({
   const totalCost = rows.reduce((s, r) => s + r.cost, 0);
   return (
     <div className="rounded-xl border border-border bg-card shadow-fluent-2 overflow-hidden">
-      <div className="border-b border-border px-4 py-2.5 text-[length:var(--fs-11)] font-semibold uppercase tracking-wide text-muted-foreground">
+      <div className="border-b border-border px-4 py-2.5 text-(length:--fs-11) font-semibold uppercase tracking-wide text-muted-foreground">
         {title}
       </div>
       {rows.length === 0 ? (
         <p className="px-4 py-6 text-sm text-muted-foreground">Δεν υπάρχουν δεδομένα.</p>
       ) : (
         <table className="w-full text-sm">
-          <thead className="border-b border-border bg-neutral-6/60 text-left text-[length:var(--fs-10)] uppercase tracking-wide text-muted-foreground">
+          <thead className="border-b border-border bg-neutral-6/60 text-left text-(length:--fs-10) uppercase tracking-wide text-muted-foreground">
             <tr>
               <th className="px-3 py-2">Όνομα</th>
               <th className="px-3 py-2 text-right">Κλήσεις</th>
@@ -299,7 +299,7 @@ function BreakdownTable({
                 <tr key={r.key} className="hover:bg-neutral-6/40">
                   <td className="px-3 py-2">
                     <div className="font-medium">{r.label}</div>
-                    {r.sublabel && <div className="text-[length:var(--fs-10)] text-muted-foreground">{r.sublabel}</div>}
+                    {r.sublabel && <div className="text-(length:--fs-10) text-muted-foreground">{r.sublabel}</div>}
                   </td>
                   <td className="px-3 py-2 text-right tabular-nums">{new Intl.NumberFormat('el-GR').format(r.count)}</td>
                   <td className="px-3 py-2 text-right tabular-nums">{new Intl.NumberFormat('el-GR').format(r.tokens)}</td>
@@ -309,7 +309,7 @@ function BreakdownTable({
                       <div className="h-1.5 flex-1 rounded-full bg-neutral-8 overflow-hidden">
                         <div className="h-full rounded-full bg-sisyphus-500" style={{ width: `${pct}%` }} />
                       </div>
-                      <span className="text-[length:var(--fs-10)] tabular-nums text-muted-foreground">{pct.toFixed(0)}%</span>
+                      <span className="text-(length:--fs-10) tabular-nums text-muted-foreground">{pct.toFixed(0)}%</span>
                     </div>
                   </td>
                 </tr>

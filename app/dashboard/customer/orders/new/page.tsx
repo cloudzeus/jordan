@@ -38,7 +38,7 @@ export default async function NewOrderPage({ searchParams }: { searchParams: Pro
         <PageTitle eyebrow="Παραγγελία από τον κατάλογο" title="Νέα παραγγελία" back={{ href: '/dashboard/customer/orders', label: 'Παραγγελίες' }}>
           Επιλέξτε υλικά και ποσότητες. Το αίτημα έρχεται στο τμήμα πωλήσεων, που επιβεβαιώνει τιμές, διαθεσιμότητα και ημερομηνία παράδοσης πριν το καταχωρίσει ως παραγγελία.
         </PageTitle>
-        {repeat && <p className="mt-4 text-[length:var(--fs-14)] text-[var(--s-ink-2)]">Προσυμπληρώθηκε από το {repeat.doc.fincode}{initial.length < (repeat.lines.length || 0) ? ' — όσα υλικά δεν είναι πλέον στον κατάλογο παραλείφθηκαν' : ''}.</p>}
+        {repeat && <p className="mt-4 text-(length:--fs-14) text-(--s-ink-2)">Προσυμπληρώθηκε από το {repeat.doc.fincode}{initial.length < (repeat.lines.length || 0) ? ' — όσα υλικά δεν είναι πλέον στον κατάλογο παραλείφθηκαν' : ''}.</p>}
         <div className="mt-12">
           <OrderForm
             initial={initial}

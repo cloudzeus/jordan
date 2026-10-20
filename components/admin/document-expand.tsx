@@ -9,8 +9,8 @@ import type { DocDetail } from '@/lib/document-detail';
 const eur = new Intl.NumberFormat('el-GR', { style: 'currency', currency: 'EUR' });
 const qtyFmt = new Intl.NumberFormat('el-GR', { maximumFractionDigits: 3 });
 const fmtDate = (v: string | null) => (v ? new Date(v).toLocaleDateString('el-GR', { timeZone: 'UTC' }) : '—');
-const TH = 'px-1.5 py-1 text-left text-[length:var(--fs-10)] font-semibold uppercase tracking-wide text-muted-foreground whitespace-nowrap';
-const TD = 'px-1.5 py-1 text-[length:var(--fs-12)] align-top';
+const TH = 'px-1.5 py-1 text-left text-(length:--fs-10) font-semibold uppercase tracking-wide text-muted-foreground whitespace-nowrap';
+const TD = 'px-1.5 py-1 text-(length:--fs-12) align-top';
 const NUM = 'text-right tabular-nums whitespace-nowrap';
 
 // Μνήμη ανά παραστατικό για τη σελίδα: δεύτερο άνοιγμα χωρίς νέα κλήση στο SoftOne.
@@ -36,7 +36,7 @@ export function DocumentDetailPanel({ findoc }: { findoc: number }) {
 
   if (error) {
     return (
-      <div role="alert" className="flex flex-wrap items-center gap-2 text-[length:var(--fs-12)] text-destructive">
+      <div role="alert" className="flex flex-wrap items-center gap-2 text-(length:--fs-12) text-destructive">
         <FiAlertTriangle className="size-3.5" aria-hidden /> {error}
         <button type="button" onClick={() => void load()} className="inline-flex cursor-pointer items-center gap-1 underline"><FiRefreshCw className="size-3" aria-hidden /> Ξανά</button>
       </div>
@@ -47,7 +47,7 @@ export function DocumentDetailPanel({ findoc }: { findoc: number }) {
   const meta: [string, React.ReactNode][] = [
     ['Σειρά', doc.seriesName ?? doc.series],
     ['Ημ/νία', fmtDate(doc.date)],
-    ['Συναλλασσόμενος', doc.trader ? <>{doc.trader.name}{doc.trader.code && <span className="ml-1 font-mono text-[length:var(--fs-11)] text-muted-foreground">{doc.trader.code}</span>}</> : '—'],
+    ['Συναλλασσόμενος', doc.trader ? <>{doc.trader.name}{doc.trader.code && <span className="ml-1 font-mono text-(length:--fs-11) text-muted-foreground">{doc.trader.code}</span>}</> : '—'],
     ['Έργο', doc.project ? <Link href={`/admin/projects/${doc.project.prjc}`} className="text-primary hover:underline">{doc.project.code} · {doc.project.name}</Link> : '—'],
   ];
   if (doc.mark) meta.push(['ΜΑΡΚ', <span key="m" className="font-mono">{doc.mark}</span>]);
@@ -59,14 +59,14 @@ export function DocumentDetailPanel({ findoc }: { findoc: number }) {
       <dl className="flex flex-wrap gap-x-5 gap-y-1.5">
         {meta.map(([k, v]) => (
           <div key={k} className="min-w-0">
-            <dt className="text-[length:var(--fs-10)] font-semibold uppercase tracking-wide text-muted-foreground">{k}</dt>
-            <dd className="text-[length:var(--fs-12)] text-foreground">{v}</dd>
+            <dt className="text-(length:--fs-10) font-semibold uppercase tracking-wide text-muted-foreground">{k}</dt>
+            <dd className="text-(length:--fs-12) text-foreground">{v}</dd>
           </div>
         ))}
       </dl>
 
       {doc.lines.length === 0 ? (
-        <p className="text-[length:var(--fs-12)] text-muted-foreground">Το παραστατικό δεν έχει γραμμές ειδών (π.χ. έμβασμα ή παραστατικό χωρίς είδη).</p>
+        <p className="text-(length:--fs-12) text-muted-foreground">Το παραστατικό δεν έχει γραμμές ειδών (π.χ. έμβασμα ή παραστατικό χωρίς είδη).</p>
       ) : (
         <div className="overflow-x-auto rounded-md border border-border bg-background">
           <table className="w-full border-collapse">
@@ -87,12 +87,12 @@ export function DocumentDetailPanel({ findoc }: { findoc: number }) {
                   <td className={cn(TD, 'tabular-nums text-muted-foreground')}>{l.lineNo}</td>
                   <td className={TD}>
                     <span className="text-foreground">{l.name}</span>
-                    {l.code && <span className="ml-1.5 font-mono text-[length:var(--fs-11)] text-muted-foreground">{l.code}</span>}
-                    {l.isService && <span className="ml-1.5 rounded-sm bg-muted px-1 text-[length:var(--fs-10)] text-muted-foreground">υπηρεσία</span>}
-                    {l.comments && <span className="block text-[length:var(--fs-11)] text-muted-foreground">{l.comments}</span>}
-                    {doc.project && l.prjc && l.prjc !== doc.project.prjc && <span className="block text-[length:var(--fs-11)] text-amber-700 dark:text-amber-300">άλλο έργο (#{l.prjc})</span>}
+                    {l.code && <span className="ml-1.5 font-mono text-(length:--fs-11) text-muted-foreground">{l.code}</span>}
+                    {l.isService && <span className="ml-1.5 rounded-sm bg-muted px-1 text-(length:--fs-10) text-muted-foreground">υπηρεσία</span>}
+                    {l.comments && <span className="block text-(length:--fs-11) text-muted-foreground">{l.comments}</span>}
+                    {doc.project && l.prjc && l.prjc !== doc.project.prjc && <span className="block text-(length:--fs-11) text-amber-700 dark:text-amber-300">άλλο έργο (#{l.prjc})</span>}
                   </td>
-                  <td className={cn(TD, NUM)}>{qtyFmt.format(l.qty)}{l.unit && <span className="ml-1 text-[length:var(--fs-11)] text-muted-foreground">{l.unit}</span>}</td>
+                  <td className={cn(TD, NUM)}>{qtyFmt.format(l.qty)}{l.unit && <span className="ml-1 text-(length:--fs-11) text-muted-foreground">{l.unit}</span>}</td>
                   <td className={cn(TD, NUM, 'hidden sm:table-cell')}>{eur.format(l.price)}</td>
                   <td className={cn(TD, NUM, 'hidden text-muted-foreground md:table-cell')}>{l.discPct ? `${l.discPct.toLocaleString('el-GR', { maximumFractionDigits: 2 })}%` : '—'}</td>
                   <td className={cn(TD, NUM, 'font-medium text-foreground')}>{eur.format(l.value)}</td>
@@ -119,9 +119,9 @@ export function DocumentDetailPanel({ findoc }: { findoc: number }) {
         </div>
       )}
       {doc.linesMismatch && (
-        <p className="text-[length:var(--fs-11)] text-muted-foreground">Οι γραμμές δεν αθροίζουν ακριβώς στο καθαρό του παραστατικού (υπάρχουν χρεώσεις χωρίς είδος ή στρογγυλοποιήσεις).</p>
+        <p className="text-(length:--fs-11) text-muted-foreground">Οι γραμμές δεν αθροίζουν ακριβώς στο καθαρό του παραστατικού (υπάρχουν χρεώσεις χωρίς είδος ή στρογγυλοποιήσεις).</p>
       )}
-      <p className="text-[length:var(--fs-11)] text-muted-foreground">Καταχώριση {fmtDate(doc.createdAt)} · τελευταία αλλαγή {fmtDate(doc.updatedAt)} · από το SoftOne</p>
+      <p className="text-(length:--fs-11) text-muted-foreground">Καταχώριση {fmtDate(doc.createdAt)} · τελευταία αλλαγή {fmtDate(doc.updatedAt)} · από το SoftOne</p>
     </div>
   );
 }
@@ -137,12 +137,12 @@ export function ExpandableDocRow({ findoc, fincode, colSpan, className, style, c
   const panelId = `doc-${findoc}-detail`;
   return (
     <>
-      <tr className={cn(className, open && 'bg-[var(--cx-expanded-bg)] shadow-[inset_3px_0_0_var(--cx-expanded-edge)]')} style={style}>
+      <tr className={cn(className, open && 'bg-(--cx-expanded-bg) shadow-[inset_3px_0_0_var(--cx-expanded-edge)]')} style={style}>
         <td className="w-7 px-0.5 py-1 align-top">
           <button
             type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} aria-controls={panelId}
             aria-label={`${open ? 'Κλείσιμο' : 'Άνοιγμα'} στοιχείων του ${fincode}`}
-            className="inline-flex size-7 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="inline-flex size-7 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
           >
             <FiChevronRight className={cn('size-3.5 transition-transform motion-reduce:transition-none', open && 'rotate-90')} aria-hidden />
           </button>
@@ -151,7 +151,7 @@ export function ExpandableDocRow({ findoc, fincode, colSpan, className, style, c
       </tr>
       {open && (
         <tr id={panelId} className="border-t border-border/60 shadow-[inset_3px_0_0_var(--cx-expanded-edge)]">
-          <td colSpan={colSpan} className="bg-[var(--cx-expanded-bg)] px-2 py-2.5 sm:px-3">
+          <td colSpan={colSpan} className="bg-(--cx-expanded-bg) px-2 py-2.5 sm:px-3">
             {/* w-0 + min-w-full: το panel παίρνει το πλάτος του κελιού χωρίς να φουσκώνει τον πίνακα —
                 σε στενή οθόνη κυλά μόνο ο πίνακας γραμμών του, όχι όλη η καρτέλα. */}
             <div className="w-0 min-w-full">

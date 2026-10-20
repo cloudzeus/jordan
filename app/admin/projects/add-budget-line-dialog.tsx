@@ -106,7 +106,7 @@ export function AddBudgetLineDialog({
 
   const tone = KIND_TONE[kind];
   const fieldErr = (msg: string | null) => (touched && msg
-    ? <p role="alert" className="mt-1 text-[length:var(--fs-11)] text-destructive">{msg}</p>
+    ? <p role="alert" className="mt-1 text-(length:--fs-11) text-destructive">{msg}</p>
     : null);
 
   return (
@@ -114,8 +114,8 @@ export function AddBudgetLineDialog({
       <DialogContent className="flex max-h-[92dvh] flex-col gap-0 overflow-hidden p-0 sm:max-w-lg">
         <form onSubmit={submit} className="flex min-h-0 flex-1 flex-col" noValidate>
           <DialogHeader className="px-5 pt-4 pb-3">
-            <DialogTitle className="text-[length:var(--fs-16)]">Προσθήκη στον προϋπολογισμό</DialogTitle>
-            <DialogDescription className="text-[length:var(--fs-12)]">
+            <DialogTitle className="text-(length:--fs-16)">Προσθήκη στον προϋπολογισμό</DialogTitle>
+            <DialogDescription className="text-(length:--fs-12)">
               Έργο <span className="font-medium text-foreground">{projectLabel}</span>. Αποθηκεύεται μόνο στην εφαρμογή — το SoftOne δεν αλλάζει.
             </DialogDescription>
           </DialogHeader>
@@ -133,8 +133,8 @@ export function AddBudgetLineDialog({
                     aria-checked={active}
                     onClick={() => { setKind(k); setPick(null); }}
                     className={cn(
-                      'inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-md px-3 text-[length:var(--fs-12)] font-medium transition-colors duration-150',
-                      active ? 'text-white shadow-sm' : 'text-muted-foreground hover:text-foreground',
+                      'inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-md px-3 text-(length:--fs-12) font-medium transition-colors duration-150',
+                      active ? 'text-white shadow-xs' : 'text-muted-foreground hover:text-foreground',
                     )}
                     style={active ? { backgroundColor: KIND_TONE[k] } : undefined}
                   >
@@ -145,7 +145,7 @@ export function AddBudgetLineDialog({
             </div>
 
             <div>
-              <Label htmlFor="budget-item" className="mb-1 block text-[length:var(--fs-12)]">
+              <Label htmlFor="budget-item" className="mb-1 block text-(length:--fs-12)">
                 {kind === 'product' ? 'Υλικό' : 'Υπηρεσία'} <span className="text-destructive">*</span>
               </Label>
               {pick ? (
@@ -155,8 +155,8 @@ export function AddBudgetLineDialog({
                 >
                   {kind === 'product' ? <FiPackage className="size-4 shrink-0" style={{ color: tone }} aria-hidden /> : <FiTool className="size-4 shrink-0" style={{ color: tone }} aria-hidden />}
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-[length:var(--fs-13)] font-medium text-foreground">{pick.name}</p>
-                    <p className="font-mono text-[length:var(--fs-11)] text-muted-foreground">{pick.code}</p>
+                    <p className="truncate text-(length:--fs-13) font-medium text-foreground">{pick.name}</p>
+                    <p className="font-mono text-(length:--fs-11) text-muted-foreground">{pick.code}</p>
                   </div>
                   <button
                     type="button"
@@ -175,7 +175,7 @@ export function AddBudgetLineDialog({
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <Label htmlFor="budget-qty" className="mb-1 block text-[length:var(--fs-12)]">
+                <Label htmlFor="budget-qty" className="mb-1 block text-(length:--fs-12)">
                   Ποσότητα <span className="text-destructive">*</span>
                 </Label>
                 <Input
@@ -186,7 +186,7 @@ export function AddBudgetLineDialog({
                 {fieldErr(qtyError)}
               </div>
               <div>
-                <Label htmlFor="budget-price" className="mb-1 block text-[length:var(--fs-12)]">Τιμή μονάδας (€)</Label>
+                <Label htmlFor="budget-price" className="mb-1 block text-(length:--fs-12)">Τιμή μονάδας (€)</Label>
                 <Input
                   id="budget-price" inputMode="decimal" autoComplete="off" placeholder="0,00" value={price}
                   onChange={(e) => setPrice(e.target.value)} onBlur={() => setTouched(true)}
@@ -194,38 +194,38 @@ export function AddBudgetLineDialog({
                 />
                 {fieldErr(priceError)}
                 {lastBuy === 'loading' && (
-                  <p className="mt-1 text-[length:var(--fs-11)] text-muted-foreground">Αναζήτηση τελευταίας τιμής αγοράς…</p>
+                  <p className="mt-1 text-(length:--fs-11) text-muted-foreground">Αναζήτηση τελευταίας τιμής αγοράς…</p>
                 )}
                 {lastBuy && lastBuy !== 'loading' && (
-                  <p className="mt-1 text-[length:var(--fs-11)] text-muted-foreground">
+                  <p className="mt-1 text-(length:--fs-11) text-muted-foreground">
                     Τελευταία αγορά: <span className="font-medium tabular-nums text-foreground">{eur.format(lastBuy.unitCost)}</span>
                     {' '}· {new Date(lastBuy.date).toLocaleDateString('el-GR', { timeZone: 'UTC' })} · {lastBuy.fincode}
                   </p>
                 )}
                 {lastBuy === null && pick && (
-                  <p className="mt-1 text-[length:var(--fs-11)] text-muted-foreground">Δεν υπάρχει αγορά του είδους στο SoftOne.</p>
+                  <p className="mt-1 text-(length:--fs-11) text-muted-foreground">Δεν υπάρχει αγορά του είδους στο SoftOne.</p>
                 )}
               </div>
             </div>
 
             <div>
-              <Label htmlFor="budget-notes" className="mb-1 block text-[length:var(--fs-12)]">Σημειώσεις</Label>
+              <Label htmlFor="budget-notes" className="mb-1 block text-(length:--fs-12)">Σημειώσεις</Label>
               <textarea
                 id="budget-notes" rows={2} maxLength={500} value={notes} onChange={(e) => setNotes(e.target.value)}
-                className="w-full rounded-lg border border-input bg-transparent px-2.5 py-1.5 text-[length:var(--fs-13)] outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                className="w-full rounded-lg border border-input bg-transparent px-2.5 py-1.5 text-(length:--fs-13) outline-hidden focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
                 placeholder="Προαιρετικά — π.χ. φάση, χώρος, προμηθευτής"
               />
             </div>
 
             <div className="flex items-baseline justify-between rounded-lg bg-muted/50 px-3 py-2">
-              <span className="text-[length:var(--fs-12)] text-muted-foreground">Αξία γραμμής</span>
-              <span className="text-[length:var(--fs-16)] font-semibold tabular-nums text-foreground">
+              <span className="text-(length:--fs-12) text-muted-foreground">Αξία γραμμής</span>
+              <span className="text-(length:--fs-16) font-semibold tabular-nums text-foreground">
                 {valid || (Number.isFinite(qtyN) && Number.isFinite(priceN)) ? eur.format((Number.isFinite(qtyN) ? qtyN : 0) * (Number.isFinite(priceN) ? priceN : 0)) : '—'}
               </span>
             </div>
 
             {serverError && (
-              <p role="alert" className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-[length:var(--fs-12)] text-destructive">
+              <p role="alert" className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-(length:--fs-12) text-destructive">
                 {serverError}
               </p>
             )}

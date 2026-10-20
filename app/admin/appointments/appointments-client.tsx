@@ -24,7 +24,7 @@ import type { CalendarTask } from '@/lib/project-tasks';
 
 const TASK_TONE = '#7C3AED';
 
-const ITEM = 'cursor-pointer gap-2 text-[length:var(--fs-12)]';
+const ITEM = 'cursor-pointer gap-2 text-(length:--fs-12)';
 const soft = (hex: string, pct: number) => `color-mix(in srgb, ${hex} ${pct}%, var(--background))`;
 const DASH = <span className="text-muted-foreground/40">—</span>;
 
@@ -36,7 +36,7 @@ async function patch(id: string, body: unknown) {
 
 function StatusBadge({ r }: { r: AppointmentView }) {
   const c = APPOINTMENT_TONE[r.status];
-  return <span className="whitespace-nowrap rounded-md px-2 py-0.5 text-[length:var(--fs-11)] font-medium" style={{ color: c, background: soft(c, 12) }}>{r.statusLabel}</span>;
+  return <span className="whitespace-nowrap rounded-md px-2 py-0.5 text-(length:--fs-11) font-medium" style={{ color: c, background: soft(c, 12) }}>{r.statusLabel}</span>;
 }
 
 type Action = { kind: 'cancel' | 'reschedule' | 'assign'; row: AppointmentView } | null;
@@ -73,9 +73,9 @@ function ActionsMenu({ r, onAction, onDone, softoneEnabled, align = 'end' }: { r
 }
 
 function Details({ r, staff = [] }: { r: AppointmentView; staff?: StaffUser[] }) {
-  const dl = (k: string, v: React.ReactNode) => (v ? <><dt className="text-muted-foreground">{k}</dt><dd className="min-w-0 break-words">{v}</dd></> : null);
+  const dl = (k: string, v: React.ReactNode) => (v ? <><dt className="text-muted-foreground">{k}</dt><dd className="min-w-0 wrap-break-word">{v}</dd></> : null);
   return (
-    <dl className="grid grid-cols-[7.5rem_1fr] gap-x-3 gap-y-1.5 text-[length:var(--fs-13)]">
+    <dl className="grid grid-cols-[7.5rem_1fr] gap-x-3 gap-y-1.5 text-(length:--fs-13)">
       {dl('Πότε', r.when)}
       {r.rescheduledFrom && dl('Αρχική ώρα', <span className="text-muted-foreground line-through">{formatSlotEl(r.rescheduledFrom)}</span>)}
       {dl('Προέλευση', r.source === 'staff' ? 'Από το προσωπικό' : 'Από το website')}
@@ -114,11 +114,11 @@ function CancelDialog({ row, onClose, onDone }: { row: AppointmentView | null; o
             <DialogDescription>{row?.name}{row?.company ? ` · ${row.company}` : ''} — {row?.when}. Η ώρα ελευθερώνεται για άλλους.</DialogDescription>
           </DialogHeader>
           <DialogBody className="space-y-3">
-            <label className="block space-y-1 text-[length:var(--fs-12)] font-medium">
+            <label className="block space-y-1 text-(length:--fs-12) font-medium">
               <span>Μήνυμα προς τον επισκέπτη (προαιρετικό)</span>
-              <textarea name="note" rows={3} maxLength={1000} className="w-full rounded-md border border-input bg-background px-3 py-2 text-[length:var(--fs-13)] font-normal" placeholder="π.χ. Το atelier θα είναι κλειστό λόγω έκθεσης" />
+              <textarea name="note" rows={3} maxLength={1000} className="w-full rounded-md border border-input bg-background px-3 py-2 text-(length:--fs-13) font-normal" placeholder="π.χ. Το atelier θα είναι κλειστό λόγω έκθεσης" />
             </label>
-            <label className="flex items-center gap-2 text-[length:var(--fs-12)]"><Switch checked={notify} onCheckedChange={setNotify} /> Email ενημέρωσης στον επισκέπτη</label>
+            <label className="flex items-center gap-2 text-(length:--fs-12)"><Switch checked={notify} onCheckedChange={setNotify} /> Email ενημέρωσης στον επισκέπτη</label>
           </DialogBody>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose}>Πίσω</Button>
@@ -165,32 +165,32 @@ function RescheduleDialog({ row, rows, blocks, availability, onClose, onDone }: 
           <DialogDescription>Τώρα: {row?.when}</DialogDescription>
         </DialogHeader>
         <DialogBody className="space-y-4">
-          <label className="block space-y-1 text-[length:var(--fs-12)] font-medium">
+          <label className="block space-y-1 text-(length:--fs-12) font-medium">
             <span>Νέα ημερομηνία</span>
             <Input type="date" value={date} onChange={(e) => { setDate(e.target.value); setStart(null); }} />
           </label>
           {!force && (
             <div className="space-y-1.5">
-              <p className="text-[length:var(--fs-12)] font-medium">Ελεύθερες ώρες</p>
+              <p className="text-(length:--fs-12) font-medium">Ελεύθερες ώρες</p>
               {slots.length ? (
                 <div className="grid grid-cols-4 gap-1.5 sm:grid-cols-6">
                   {slots.map((s) => (
                     <button key={s.start} type="button" disabled={!s.free} onClick={() => setStart(s.start)} aria-pressed={start === s.start}
-                      className={cn('h-9 cursor-pointer rounded-md border text-[length:var(--fs-12)] tabular-nums transition disabled:cursor-not-allowed disabled:opacity-35 disabled:line-through',
+                      className={cn('h-9 cursor-pointer rounded-md border text-(length:--fs-12) tabular-nums transition disabled:cursor-not-allowed disabled:opacity-35 disabled:line-through',
                         start === s.start ? 'border-primary bg-primary text-primary-foreground' : 'border-border hover:border-primary')}>{s.time}</button>
                   ))}
                 </div>
-              ) : <p className="text-[length:var(--fs-12)] text-muted-foreground">Το atelier είναι κλειστό αυτή τη μέρα (ωράριο). Διαλέξτε άλλη μέρα ή παράκαμψη ωραρίου.</p>}
+              ) : <p className="text-(length:--fs-12) text-muted-foreground">Το atelier είναι κλειστό αυτή τη μέρα (ωράριο). Διαλέξτε άλλη μέρα ή παράκαμψη ωραρίου.</p>}
             </div>
           )}
-          <label className="flex items-center gap-2 text-[length:var(--fs-12)]"><Switch checked={force} onCheckedChange={setForce} /> Παράκαμψη ωραρίου (οποιαδήποτε ώρα)</label>
+          <label className="flex items-center gap-2 text-(length:--fs-12)"><Switch checked={force} onCheckedChange={setForce} /> Παράκαμψη ωραρίου (οποιαδήποτε ώρα)</label>
           {force && (
-            <label className="block space-y-1 text-[length:var(--fs-12)] font-medium">
+            <label className="block space-y-1 text-(length:--fs-12) font-medium">
               <span>Ώρα έναρξης</span>
               <Input type="time" step={300} value={time} onChange={(e) => setTime(e.target.value)} className="w-32" />
             </label>
           )}
-          <label className="flex items-center gap-2 text-[length:var(--fs-12)]"><Switch checked={notify} onCheckedChange={setNotify} /> Email με τη νέα ώρα στον επισκέπτη</label>
+          <label className="flex items-center gap-2 text-(length:--fs-12)"><Switch checked={notify} onCheckedChange={setNotify} /> Email με τη νέα ώρα στον επισκέπτη</label>
         </DialogBody>
         <DialogFooter>
           <Button type="button" variant="outline" onClick={onClose}>Άκυρο</Button>
@@ -220,11 +220,11 @@ function AssignDialog({ row, staff, softoneEnabled, onClose, onDone }: { row: Ap
           <DialogDescription>{row?.company || row?.name} — {row?.when}</DialogDescription>
         </DialogHeader>
         <DialogBody className="space-y-2">
-          <select value={value} onChange={(e) => setValue(e.target.value)} aria-label="Υπεύθυνος" className="h-9 w-full rounded-md border border-input bg-background px-2 text-[length:var(--fs-13)]">
+          <select value={value} onChange={(e) => setValue(e.target.value)} aria-label="Υπεύθυνος" className="h-9 w-full rounded-md border border-input bg-background px-2 text-(length:--fs-13)">
             <option value="">— Κανείς —</option>
             {staff.map((u) => <option key={u.id} value={u.id}>{u.name}{u.softone ? ` · SoftOne: ${u.softone}` : ''}</option>)}
           </select>
-          <p className="text-[length:var(--fs-11)] text-muted-foreground">{pick?.softone ? (softoneEnabled ? (row?.status === 'PENDING' ? 'Θα καταχωριστεί στο SoftOne μόλις επιβεβαιωθεί.' : 'Θα καταχωριστεί/ενημερωθεί στο SoftOne ως Ενέργεια.') : 'Η καταχώριση στο SoftOne είναι κλειστή στις Ρυθμίσεις.') : 'Χωρίς σύνδεση με SoftOne: μένει μόνο στην εφαρμογή.'}</p>
+          <p className="text-(length:--fs-11) text-muted-foreground">{pick?.softone ? (softoneEnabled ? (row?.status === 'PENDING' ? 'Θα καταχωριστεί στο SoftOne μόλις επιβεβαιωθεί.' : 'Θα καταχωριστεί/ενημερωθεί στο SoftOne ως Ενέργεια.') : 'Η καταχώριση στο SoftOne είναι κλειστή στις Ρυθμίσεις.') : 'Χωρίς σύνδεση με SoftOne: μένει μόνο στην εφαρμογή.'}</p>
         </DialogBody>
         <DialogFooter>
           <Button type="button" variant="outline" onClick={onClose}>Άκυρο</Button>
@@ -271,7 +271,7 @@ export function AppointmentsClient({ rows, blocks, availability, canManage, canS
   const columns = React.useMemo<ColumnDef<AppointmentView>[]>(() => [
     { accessorKey: 'start', header: 'Πότε', size: 210, cell: ({ row }) => <span className="tabular-nums">{row.original.when}</span> },
     { id: 'who', accessorFn: (r) => `${r.name} ${r.company ?? ''} ${r.email} ${r.code}`, header: 'Επισκέπτης', size: 260, cell: ({ row }) => (
-      <span className="min-w-0"><span className="block truncate font-medium">{row.original.company || row.original.name}</span><span className="block truncate text-[length:var(--fs-11)] text-muted-foreground">{row.original.name} · {row.original.email}</span></span>
+      <span className="min-w-0"><span className="block truncate font-medium">{row.original.company || row.original.name}</span><span className="block truncate text-(length:--fs-11) text-muted-foreground">{row.original.name} · {row.original.email}</span></span>
     ) },
     { accessorKey: 'topic', header: 'Θέμα', size: 180, cell: ({ row }) => row.original.topic ?? DASH },
     { accessorKey: 'code', header: 'Κωδικός', size: 110, cell: ({ row }) => <span className="tabular-nums text-muted-foreground">{row.original.code}</span> },
@@ -280,7 +280,7 @@ export function AppointmentsClient({ rows, blocks, availability, canManage, canS
       cell: ({ row }) => (canManage ? <div className="flex justify-end"><ActionsMenu r={row.original} onAction={onAction} onDone={refresh} softoneEnabled={softoneEnabled} /></div> : null) },
   ], [canManage, softoneEnabled]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const chip = (active: boolean) => cn('inline-flex h-7 cursor-pointer items-center gap-1 rounded-md border px-2.5 text-[length:var(--fs-11)] font-medium transition',
+  const chip = (active: boolean) => cn('inline-flex h-7 cursor-pointer items-center gap-1 rounded-md border px-2.5 text-(length:--fs-11) font-medium transition',
     active ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-background text-muted-foreground hover:text-foreground');
 
   return (
@@ -291,7 +291,7 @@ export function AppointmentsClient({ rows, blocks, availability, canManage, canS
             <TabsTrigger value="calendar"><FiCalendar className="size-3.5" aria-hidden /> Ημερολόγιο</TabsTrigger>
             <TabsTrigger value="list">Λίστα</TabsTrigger>
           </TabsList>
-          <div className="flex flex-wrap items-center gap-3 text-[length:var(--fs-11)] text-muted-foreground">
+          <div className="flex flex-wrap items-center gap-3 text-(length:--fs-11) text-muted-foreground">
             {(['PENDING', 'CONFIRMED', 'COMPLETED'] as const).map((s) => <span key={s} className="inline-flex items-center gap-1.5"><span className="size-2.5 rounded-sm" style={{ background: APPOINTMENT_TONE[s] }} />{{ PENDING: 'Σε αναμονή', CONFIRMED: 'Επιβεβαιωμένο', COMPLETED: 'Ολοκληρώθηκε' }[s]}</span>)}
             {tasks.length > 0 && <span className="inline-flex items-center gap-1.5"><span className="size-2.5 rounded-sm" style={{ background: TASK_TONE }} />Εργασία έργου</span>}
             <label className="inline-flex items-center gap-1.5"><Switch checked={showCancelled} onCheckedChange={setShowCancelled} /> Ακυρωμένα</label>
@@ -315,7 +315,7 @@ export function AppointmentsClient({ rows, blocks, availability, canManage, canS
                 ))}
               </div>
             )}
-            emptyState={<div className="space-y-2 py-10 text-center"><FiCalendar className="mx-auto size-8 text-muted-foreground/50" aria-hidden /><p className="text-[length:var(--fs-13)] text-muted-foreground">{rows.length ? 'Κανένα ραντεβού με αυτό το φίλτρο.' : 'Δεν υπάρχουν ακόμη ραντεβού από το website.'}</p></div>}
+            emptyState={<div className="space-y-2 py-10 text-center"><FiCalendar className="mx-auto size-8 text-muted-foreground/50" aria-hidden /><p className="text-(length:--fs-13) text-muted-foreground">{rows.length ? 'Κανένα ραντεβού με αυτό το φίλτρο.' : 'Δεν υπάρχουν ακόμη ραντεβού από το website.'}</p></div>}
           />
         </TabsContent>
       </Tabs>

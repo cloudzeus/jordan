@@ -34,7 +34,7 @@ const SPAN: Record<WidgetSize, string> = {
   lg: 'col-span-12',
 };
 
-const BTN = 'inline-flex size-8 shrink-0 items-center justify-center rounded-md text-muted-foreground cx-transition hover:bg-[var(--cx-hover)] hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
+const BTN = 'inline-flex size-8 shrink-0 items-center justify-center rounded-md text-muted-foreground cx-transition hover:bg-(--cx-hover) hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring';
 
 export function DashboardGrid({
   initial, custom: initialCustom, meta, icons, nodes,
@@ -111,13 +111,13 @@ export function DashboardGrid({
   return (
     <div className="dash-root space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-[length:var(--fs-12)] text-muted-foreground">
+        <p className="text-(length:--fs-12) text-muted-foreground">
           <FiMove aria-hidden className="mr-1 inline size-3.5 align-[-2px]" />
           Σύρε από τη λαβή για να αλλάξεις θέση — ή Space και βελάκια.
           {saving ? ' Αποθήκευση…' : custom ? ' Η διάταξή σου αποθηκεύεται αυτόματα.' : ''}
         </p>
         <DropdownMenu>
-          <DropdownMenuTrigger className={cn(BTN, 'h-9 w-auto gap-1.5 border border-border bg-card px-3 text-[length:var(--fs-13)] font-medium')} aria-label="Ρυθμίσεις αρχικής">
+          <DropdownMenuTrigger className={cn(BTN, 'h-9 w-auto gap-1.5 border border-border bg-card px-3 text-(length:--fs-13) font-medium')} aria-label="Ρυθμίσεις αρχικής">
             <FiSliders aria-hidden className="size-4" /> Προσαρμογή
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-72">
@@ -142,7 +142,7 @@ export function DashboardGrid({
       {visible.length === 0 ? (
         <div className="cx-card grid place-items-center gap-2 p-10 text-center">
           <FiGrid aria-hidden className="size-6 text-muted-foreground" />
-          <p className="text-[length:var(--fs-14)] text-muted-foreground">
+          <p className="text-(length:--fs-14) text-muted-foreground">
             {meta.length ? 'Έκρυψες όλα τα widgets. Άνοιξέ τα από το «Προσαρμογή».' : 'Δεν υπάρχουν widgets για τα δικαιώματά σου.'}
           </p>
         </div>
@@ -208,12 +208,12 @@ function WidgetFrame({
         >
           <FiMove aria-hidden className="size-4" />
         </button>
-        {icon && <span aria-hidden className="mt-0.5 grid size-7 shrink-0 place-items-center rounded-md bg-[var(--cx-accent-soft)] text-primary [&_svg]:size-3.5">{icon}</span>}
+        {icon && <span aria-hidden className="mt-0.5 grid size-7 shrink-0 place-items-center rounded-md bg-(--cx-accent-soft) text-primary [&_svg]:size-3.5">{icon}</span>}
         <div className="min-w-0 flex-1 pt-0.5">
-          <h2 id={headingId} className="truncate text-[length:var(--fs-14)] font-semibold tracking-tight text-foreground">
-            {meta.href ? <Link href={meta.href} className="hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">{meta.title}</Link> : meta.title}
+          <h2 id={headingId} className="truncate text-(length:--fs-14) font-semibold tracking-tight text-foreground">
+            {meta.href ? <Link href={meta.href} className="hover:underline focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring">{meta.title}</Link> : meta.title}
           </h2>
-          <p className="truncate text-[length:var(--fs-12)] text-muted-foreground">{meta.description}</p>
+          <p className="truncate text-(length:--fs-12) text-muted-foreground">{meta.description}</p>
         </div>
         <DropdownMenu>
           <DropdownMenuTrigger className={BTN} aria-label={`Ενέργειες: ${meta.title}`}>

@@ -64,25 +64,25 @@ export function SaveTemplateDialog({ open, onOpenChange, prjc, tasks, onSaved }:
             </div>
             <fieldset className="space-y-1.5">
               <div className="flex items-center justify-between">
-                <legend className="text-[length:var(--fs-13)] font-medium">Εργασίες ({picked.length}/{tasks.length})</legend>
-                <button type="button" className="min-h-8 cursor-pointer text-[length:var(--fs-12)] font-medium text-primary hover:underline" onClick={() => setPicked(picked.length === tasks.length ? [] : tasks.map((t) => t.id))}>
+                <legend className="text-(length:--fs-13) font-medium">Εργασίες ({picked.length}/{tasks.length})</legend>
+                <button type="button" className="min-h-8 cursor-pointer text-(length:--fs-12) font-medium text-primary hover:underline" onClick={() => setPicked(picked.length === tasks.length ? [] : tasks.map((t) => t.id))}>
                   {picked.length === tasks.length ? 'Καμία' : 'Όλες'}
                 </button>
               </div>
               <ul className="max-h-64 space-y-0.5 overflow-auto rounded-md border border-border p-1.5">
                 {ordered.map((t) => (
                   <li key={t.id}>
-                    <label className="flex min-h-9 cursor-pointer items-center gap-2 rounded px-2 text-[length:var(--fs-13)] hover:bg-muted">
+                    <label className="flex min-h-9 cursor-pointer items-center gap-2 rounded px-2 text-(length:--fs-13) hover:bg-muted">
                       <Checkbox checked={picked.includes(t.id)} onCheckedChange={(c) => setPicked((p) => (c ? [...p, t.id] : p.filter((x) => x !== t.id)))} />
                       <span className="min-w-0 flex-1 truncate">{t.name}</span>
-                      <span className="shrink-0 text-[length:var(--fs-11)] tabular-nums text-muted-foreground">{fmt(t.sched.start)}</span>
+                      <span className="shrink-0 text-(length:--fs-11) tabular-nums text-muted-foreground">{fmt(t.sched.start)}</span>
                     </label>
                   </li>
                 ))}
               </ul>
-              {missingDeps.length > 0 && <p className="text-[length:var(--fs-11)] text-amber-700 dark:text-amber-300">Εξαρτήσεις προς μη επιλεγμένες εργασίες δεν θα κρατηθούν ({missingDeps.map((t) => t.name).join(', ')}).</p>}
+              {missingDeps.length > 0 && <p className="text-(length:--fs-11) text-amber-700 dark:text-amber-300">Εξαρτήσεις προς μη επιλεγμένες εργασίες δεν θα κρατηθούν ({missingDeps.map((t) => t.name).join(', ')}).</p>}
             </fieldset>
-            {error && <p role="alert" className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-[length:var(--fs-12)] text-destructive">{error}</p>}
+            {error && <p role="alert" className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-(length:--fs-12) text-destructive">{error}</p>}
           </form>
         </DialogBody>
         <DialogFooter>
@@ -131,7 +131,7 @@ export function ApplyTemplateDialog({ open, onOpenChange, prjc, templates, today
         </DialogHeader>
         <DialogBody>
           {templates.length === 0 ? (
-            <p className="py-6 text-center text-[length:var(--fs-13)] text-muted-foreground">Δεν υπάρχουν templates ακόμη — αποθηκεύστε ένα από τις εργασίες ενός έργου.</p>
+            <p className="py-6 text-center text-(length:--fs-13) text-muted-foreground">Δεν υπάρχουν templates ακόμη — αποθηκεύστε ένα από τις εργασίες ενός έργου.</p>
           ) : (
             <div className="space-y-4">
               <div className="space-y-1.5">
@@ -156,8 +156,8 @@ export function ApplyTemplateDialog({ open, onOpenChange, prjc, templates, today
               </div>
               {preview.length > 0 && (
                 <div>
-                  <p className="mb-1 text-[length:var(--fs-12)] font-medium text-muted-foreground">Προεπισκόπηση (εργάσιμες ημέρες)</p>
-                  <ol className="max-h-56 space-y-0.5 overflow-auto rounded-md border border-border p-1.5 text-[length:var(--fs-12)]">
+                  <p className="mb-1 text-(length:--fs-12) font-medium text-muted-foreground">Προεπισκόπηση (εργάσιμες ημέρες)</p>
+                  <ol className="max-h-56 space-y-0.5 overflow-auto rounded-md border border-border p-1.5 text-(length:--fs-12)">
                     {preview.map((p) => (
                       <li key={p.key} className="flex min-h-8 items-center gap-2 px-2">
                         <span className="min-w-0 flex-1 truncate">{p.name}</span>
@@ -168,7 +168,7 @@ export function ApplyTemplateDialog({ open, onOpenChange, prjc, templates, today
                   </ol>
                 </div>
               )}
-              {error && <p role="alert" className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-[length:var(--fs-12)] text-destructive">{error}</p>}
+              {error && <p role="alert" className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-(length:--fs-12) text-destructive">{error}</p>}
             </div>
           )}
         </DialogBody>

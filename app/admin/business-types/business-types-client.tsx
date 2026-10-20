@@ -97,7 +97,7 @@ export function BusinessTypesClient({ rows, canManage }: { rows: BusinessTypeRow
         <DialogContent className="w-[95vw] gap-0 overflow-hidden p-0 sm:max-w-lg">
           <DialogHeader className="flex-row items-center gap-3 border-b border-border px-4 py-2.5 pr-12">
             <span aria-hidden className="grid size-8 shrink-0 place-items-center rounded-lg bg-sisyphus-50 text-sisyphus-600 dark:bg-sisyphus-500/15"><FiBriefcase className="size-4" /></span>
-            <DialogTitle className="min-w-0 flex-1 truncate text-[length:var(--fs-15)]">{editing ? 'Επεξεργασία μορφής' : 'Νέα νομική μορφή'}</DialogTitle>
+            <DialogTitle className="min-w-0 flex-1 truncate text-(length:--fs-15)">{editing ? 'Επεξεργασία μορφής' : 'Νέα νομική μορφή'}</DialogTitle>
           </DialogHeader>
           <div className="max-h-[66vh] space-y-3 overflow-auto bg-muted/20 px-4 py-3">
             <FormSection tone="blue" icon={<FiBriefcase />} title="Νομική μορφή">
@@ -113,7 +113,7 @@ export function BusinessTypesClient({ rows, canManage }: { rows: BusinessTypeRow
                 </Field>
                 <div className="col-span-6 flex h-8 items-center gap-2 self-end sm:col-span-8">
                   <input id="bt-active" type="checkbox" checked={form.active} onChange={(e) => setForm({ ...form, active: e.target.checked })} className="size-4 accent-sisyphus-600" />
-                  <label htmlFor="bt-active" className="cursor-pointer text-[length:var(--fs-13)]">Ενεργό</label>
+                  <label htmlFor="bt-active" className="cursor-pointer text-(length:--fs-13)">Ενεργό</label>
                 </div>
               </div>
               {error && <RowHint tone="bad">{error}</RowHint>}

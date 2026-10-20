@@ -66,20 +66,20 @@ export async function Portal({ user }: { user: NonNullable<UserWithRole> }) {
   return (
     <PortalShell user={user} org={data.org} active="home">
       {/* ═══ Σκηνή: χαιρετισμός + νούμερα ═══ */}
-      <section className="relative overflow-hidden bg-[var(--s-paper)]">
+      <section className="relative overflow-hidden bg-(--s-paper)">
         <Grid />
         <div aria-hidden className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_55%_70%_at_20%_30%,rgba(255,255,255,0.95),transparent_70%)]" />
         <div className="relative mx-auto w-full max-w-[1440px] px-5 pb-12 pt-10 sm:px-8 lg:px-12 lg:pb-16 lg:pt-14">
-          <p className="s-rise s-kicker text-[var(--s-accent)]">{today}</p>
+          <p className="s-rise s-kicker text-(--s-accent)">{today}</p>
           <div className="mt-5 grid gap-10 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)] lg:items-end">
             <div className="min-w-0">
-              <h1 style={{ ["--d" as string]: "0.08s" }} className="s-rise font-display text-[length:var(--fs-56)] lg:text-[length:var(--fs-72)]">{greeting()}{first ? <>, <em>{first}.</em></> : '.'}</h1>
-              <p style={{ ["--d" as string]: "0.16s" }} className="s-rise mt-4 max-w-xl text-[length:var(--fs-18)] text-[var(--s-ink-2)]">
-                {data.org ? <><b className="font-medium text-[var(--s-ink)]">{data.org}</b> · </> : null}
+              <h1 style={{ ["--d" as string]: "0.08s" }} className="s-rise font-display text-(length:--fs-56) lg:text-(length:--fs-72)">{greeting()}{first ? <>, <em>{first}.</em></> : '.'}</h1>
+              <p style={{ ["--d" as string]: "0.16s" }} className="s-rise mt-4 max-w-xl text-(length:--fs-18) text-(--s-ink-2)">
+                {data.org ? <><b className="font-medium text-(--s-ink)">{data.org}</b> · </> : null}
                 {open.length ? `${open.length === 1 ? 'Ένα κοινό container είναι ανοιχτό' : `${open.length} κοινά container είναι ανοιχτά`} για εσάς αυτή τη στιγμή.` : 'Καμία ανοιχτή δυναμική προσφορά αυτή τη στιγμή — θα σας ειδοποιήσουμε με email.'}
               </p>
             </div>
-            <DimLine label={customer ? 'ΠΡΟΣΦΟΡΕΣ · ΕΡΓΑ · ΠΑΡΑΓΓΕΛΙΕΣ' : 'ΠΡΟΣΦΟΡΕΣ · ΚΑΤΑΛΟΓΟΣ'} className="hidden text-[var(--s-mute)] lg:flex" />
+            <DimLine label={customer ? 'ΠΡΟΣΦΟΡΕΣ · ΕΡΓΑ · ΠΑΡΑΓΓΕΛΙΕΣ' : 'ΠΡΟΣΦΟΡΕΣ · ΚΑΤΑΛΟΓΟΣ'} className="hidden text-(--s-mute) lg:flex" />
           </div>
 
           <div style={{ ['--d' as string]: '0.24s' }} className={customer ? 's-rise mt-12 grid grid-cols-2 gap-x-8 gap-y-10 lg:grid-cols-4' : 's-rise mt-12 grid grid-cols-2 gap-x-8 gap-y-10'}>
@@ -101,46 +101,46 @@ export async function Portal({ user }: { user: NonNullable<UserWithRole> }) {
       <section className="mx-auto w-full max-w-[1440px] px-5 py-16 sm:px-8 lg:px-12 lg:py-20" aria-labelledby="live">
         <SectionHead id="live" label="Δυναμικές προσφορές" title="Ζωντανά τώρα" action={{ href: '/dashboard/offers', text: 'Όλες οι προσφορές' }} />
         {open.length === 0 ? (
-          <div className="relative mt-10 border border-dashed border-[var(--s-line)] px-6 py-16 text-center">
-            <p className="font-display text-[length:var(--fs-32)]">Κανένα ανοιχτό container</p>
-            <p className="mt-2 text-[length:var(--fs-15)] text-[var(--s-ink-2)]">Μόλις ανοίξει νέο κοινό container για εσάς, θα έρθει email — και θα εμφανιστεί εδώ.</p>
+          <div className="relative mt-10 border border-dashed border-(--s-line) px-6 py-16 text-center">
+            <p className="font-display text-(length:--fs-32)">Κανένα ανοιχτό container</p>
+            <p className="mt-2 text-(length:--fs-15) text-(--s-ink-2)">Μόλις ανοίξει νέο κοινό container για εσάς, θα έρθει email — και θα εμφανιστεί εδώ.</p>
           </div>
         ) : (
           <ul className="mt-10 grid gap-6 md:grid-cols-2 xl:grid-cols-3" data-reveal data-stagger>
             {open.map((o, i) => <li key={o.id} className={i === 0 && open.length > 2 ? 'md:col-span-2 xl:col-span-2' : undefined}><OfferCard o={o} big={i === 0 && open.length > 2} /></li>)}
           </ul>
         )}
-        {closed.length > 0 && <p className="mt-6 text-[length:var(--fs-14)] text-[var(--s-ink-2)]">+ {closed.length} κλεισμένα container στο <Link href="/dashboard/offers" className="s-link text-[var(--s-ink)]">ιστορικό</Link>.</p>}
+        {closed.length > 0 && <p className="mt-6 text-(length:--fs-14) text-(--s-ink-2)">+ {closed.length} κλεισμένα container στο <Link href="/dashboard/offers" className="s-link text-(--s-ink)">ιστορικό</Link>.</p>}
       </section>
 
       {customer ? (
-        <section className="border-t border-[var(--s-line)] bg-white">
+        <section className="border-t border-(--s-line) bg-white">
           <div className="mx-auto grid w-full max-w-[1440px] gap-14 px-5 py-16 sm:px-8 lg:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)] lg:px-12 lg:py-20">
             {/* Έργα με χρονική πορεία */}
             <div className="min-w-0">
               <SectionHead label="Παρακολούθηση" title="Τα έργα σας" action={{ href: '/dashboard/customer/projects', text: 'Όλα τα έργα' }} />
               {projects.length === 0 ? (
-                <p className="mt-8 border border-dashed border-[var(--s-line)] px-6 py-10 text-center text-[length:var(--fs-15)] text-[var(--s-ink-2)]">Δεν υπάρχει ακόμη έργο στο όνομά σας.</p>
+                <p className="mt-8 border border-dashed border-(--s-line) px-6 py-10 text-center text-(length:--fs-15) text-(--s-ink-2)">Δεν υπάρχει ακόμη έργο στο όνομά σας.</p>
               ) : (
                 <ul className="mt-8 space-y-3" data-reveal data-stagger>
                   {(activeProjects.length ? activeProjects : projects).slice(0, 5).map((p) => {
                     const pct = elapsed(p.fromDate, p.finalDate, p.state === 'completed');
                     return (
                       <li key={p.prjc}>
-                        <Link href={`/dashboard/customer/projects/${p.prjc}`} className="group block border border-[var(--s-line)] bg-white p-5 transition-[border-color,box-shadow] hover:border-[var(--s-ink)] hover:shadow-[0_18px_50px_-30px_rgba(28,50,65,0.45)]">
+                        <Link href={`/dashboard/customer/projects/${p.prjc}`} className="group block border border-(--s-line) bg-white p-5 transition-[border-color,box-shadow] hover:border-(--s-ink) hover:shadow-[0_18px_50px_-30px_rgba(28,50,65,0.45)]">
                           <div className="flex items-start justify-between gap-4">
                             <div className="min-w-0">
-                              <p className="text-[length:var(--fs-12)] tabular-nums text-[var(--s-mute)]">{p.code}</p>
-                              <p className="font-display mt-1 text-[length:var(--fs-24)] leading-tight">{p.name}</p>
+                              <p className="text-(length:--fs-12) tabular-nums text-(--s-mute)">{p.code}</p>
+                              <p className="font-display mt-1 text-(length:--fs-24) leading-tight">{p.name}</p>
                             </div>
                             <Pill label={p.stateLabel} tone={p.state === 'active' ? 'active' : p.state === 'completed' ? 'good' : 'neutral'} />
                           </div>
                           <div className="mt-5">
-                            <div className="relative h-1 bg-[var(--s-line)]">
-                              {pct != null && <div className="absolute inset-y-0 left-0 bg-[var(--s-ink)]" style={{ width: `${pct}%` }} />}
-                              {pct != null && p.state === 'active' && <span className="absolute -top-1.5 size-4 -translate-x-1/2 rounded-full border-2 border-white bg-[var(--s-accent)] shadow" style={{ left: `${pct}%` }} aria-hidden />}
+                            <div className="relative h-1 bg-(--s-line)">
+                              {pct != null && <div className="absolute inset-y-0 left-0 bg-(--s-ink)" style={{ width: `${pct}%` }} />}
+                              {pct != null && p.state === 'active' && <span className="absolute -top-1.5 size-4 -translate-x-1/2 rounded-full border-2 border-white bg-(--s-accent) shadow-sm" style={{ left: `${pct}%` }} aria-hidden />}
                             </div>
-                            <div className="mt-2 flex justify-between text-[length:var(--fs-12)] text-[var(--s-ink-2)]">
+                            <div className="mt-2 flex justify-between text-(length:--fs-12) text-(--s-ink-2)">
                               <span>Έναρξη {day(p.fromDate) || '—'}</span>
                               <span>{p.closeDate ? `Ολοκληρώθηκε ${day(p.closeDate)}` : p.finalDate ? `Παράδοση ${day(p.finalDate)}` : 'χωρίς ημερομηνία λήξης'}</span>
                             </div>
@@ -157,19 +157,19 @@ export async function Portal({ user }: { user: NonNullable<UserWithRole> }) {
             <div className="min-w-0">
               <SectionHead label="Ροή" title="Τι έγινε πρόσφατα" action={{ href: '/dashboard/customer/orders', text: 'Όλες οι κινήσεις' }} />
               {docs == null ? (
-                <p className="mt-8 border-l-2 border-[var(--s-ink)] bg-[var(--s-paper)] px-4 py-3 text-[length:var(--fs-14)] text-[var(--s-ink-2)]">Οι κινήσεις δεν είναι διαθέσιμες αυτή τη στιγμή. Δοκιμάστε ξανά σε λίγο.</p>
+                <p className="mt-8 border-l-2 border-(--s-ink) bg-(--s-paper) px-4 py-3 text-(length:--fs-14) text-(--s-ink-2)">Οι κινήσεις δεν είναι διαθέσιμες αυτή τη στιγμή. Δοκιμάστε ξανά σε λίγο.</p>
               ) : recent.length === 0 ? (
-                <p className="mt-8 text-[length:var(--fs-15)] text-[var(--s-ink-2)]">Καμία κίνηση ακόμη.</p>
+                <p className="mt-8 text-(length:--fs-15) text-(--s-ink-2)">Καμία κίνηση ακόμη.</p>
               ) : (
-                <ol className="relative mt-8 border-l border-[var(--s-line)] pl-6" data-reveal data-stagger>
+                <ol className="relative mt-8 border-l border-(--s-line) pl-6" data-reveal data-stagger>
                   {recent.map((d) => {
                     const s = sentence(d);
                     return (
                       <li key={d.findoc} className="relative pb-6 last:pb-0">
-                        <span className="absolute -left-[37px] grid size-6 place-items-center rounded-full border border-[var(--s-line)] bg-white text-[var(--s-ink)]" aria-hidden><s.icon className="size-3" /></span>
+                        <span className="absolute left-[-37px] grid size-6 place-items-center rounded-full border border-(--s-line) bg-white text-(--s-ink)" aria-hidden><s.icon className="size-3" /></span>
                         <Link href={d.kind === 'payment' ? '/dashboard/customer/orders' : `/dashboard/customer/orders/${d.findoc}`} className="group block">
-                          <p className="text-[length:var(--fs-12)] uppercase tracking-[0.14em] text-[var(--s-mute)]">{day(d.date)}</p>
-                          <p className="mt-0.5 text-[length:var(--fs-15)] group-hover:underline group-hover:underline-offset-4">{s.text}</p>
+                          <p className="text-(length:--fs-12) uppercase tracking-[0.14em] text-(--s-mute)">{day(d.date)}</p>
+                          <p className="mt-0.5 text-(length:--fs-15) group-hover:underline group-hover:underline-offset-4">{s.text}</p>
                         </Link>
                       </li>
                     );
@@ -182,11 +182,11 @@ export async function Portal({ user }: { user: NonNullable<UserWithRole> }) {
       ) : null}
 
       {/* ═══ Τι θέλετε να κάνετε; ═══ */}
-      <section className="relative overflow-hidden bg-[var(--s-paper)]">
+      <section className="relative overflow-hidden bg-(--s-paper)">
         <Grid />
         <div className="relative mx-auto w-full max-w-[1440px] px-5 py-16 sm:px-8 lg:px-12 lg:py-20">
           <Label>Συντομεύσεις</Label>
-          <h2 className="font-display mt-3 text-[length:var(--fs-40)]">Τι θέλετε να κάνετε;</h2>
+          <h2 className="font-display mt-3 text-(length:--fs-40)">Τι θέλετε να κάνετε;</h2>
           <div className={customer ? 'mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4' : 'mt-10 grid gap-4 sm:grid-cols-3'} data-reveal data-stagger>
             {customer && <ActionCard emphasis href="/dashboard/customer/orders/new" icon={FiPlus} title="Νέα παραγγελία" text="Υλικά και ποσότητες από τον κατάλογο, σε ένα λεπτό." />}
             <ActionCard href="/dashboard/offers" icon={FiBox} title="Κοινά container" text="Κλείστε παλέτες — η τιμή πέφτει για όλους." />
@@ -194,11 +194,11 @@ export async function Portal({ user }: { user: NonNullable<UserWithRole> }) {
             <ActionCard href="/products" icon={FiLayers} title="Κατάλογος υλικών" text="Πέτρες, κονιάματα, πλακίδια, ψηφίδες." />
             {!customer && <ActionCard href={`mailto:${c.salesEmail}?subject=${encodeURIComponent('Ραντεβού στο atelier')}`} icon={FiPhone} title="Ραντεβού στο atelier" text={c.hours} />}
           </div>
-          <p className="mt-10 flex flex-wrap items-center gap-x-6 gap-y-2 text-[length:var(--fs-14)] text-[var(--s-ink-2)]">
+          <p className="mt-10 flex flex-wrap items-center gap-x-6 gap-y-2 text-(length:--fs-14) text-(--s-ink-2)">
             <span>Χρειάζεστε βοήθεια;</span>
-            <a href={`tel:${c.phones[0].replace(/\s/g, '')}`} className="s-link tabular-nums text-[var(--s-ink)]">{c.phones[0]}</a>
-            <a href={`mailto:${c.salesEmail}`} className="s-link text-[var(--s-ink)]">{c.salesEmail}</a>
-            <Link href="/products" className="group inline-flex items-center gap-1 text-[var(--s-ink)]">Κατάλογος <FiArrowRight className="size-3.5 transition-transform group-hover:translate-x-0.5" aria-hidden /></Link>
+            <a href={`tel:${c.phones[0].replace(/\s/g, '')}`} className="s-link tabular-nums text-(--s-ink)">{c.phones[0]}</a>
+            <a href={`mailto:${c.salesEmail}`} className="s-link text-(--s-ink)">{c.salesEmail}</a>
+            <Link href="/products" className="group inline-flex items-center gap-1 text-(--s-ink)">Κατάλογος <FiArrowRight className="size-3.5 transition-transform group-hover:translate-x-0.5" aria-hidden /></Link>
           </p>
         </div>
       </section>

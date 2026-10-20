@@ -54,27 +54,27 @@ export function ExpensesTableClient({
   const columns = React.useMemo<ColumnDef<ExpenseRecord>[]>(() => [
     {
       accessorKey: 'code', header: 'Σύντμηση', size: 130,
-      cell: ({ row }) => <span className="font-mono text-[length:var(--fs-12)] tabular-nums text-foreground">{row.original.code || '—'}</span>,
+      cell: ({ row }) => <span className="font-mono text-(length:--fs-12) tabular-nums text-foreground">{row.original.code || '—'}</span>,
     },
     {
       accessorKey: 'name', header: 'Περιγραφή', size: 380,
-      cell: ({ row }) => <span className="font-medium text-foreground text-[length:var(--fs-12)]">{row.original.name || '—'}</span>,
+      cell: ({ row }) => <span className="font-medium text-foreground text-(length:--fs-12)">{row.original.name || '—'}</span>,
     },
     {
       accessorKey: 'vat', header: 'ΦΠΑ', size: 90,
       cell: ({ row }) => (row.original.vat
-        ? <span className="whitespace-nowrap text-[length:var(--fs-12)] tabular-nums text-foreground" title={row.original.vatTitle ?? undefined}>{row.original.vat}</span>
+        ? <span className="whitespace-nowrap text-(length:--fs-12) tabular-nums text-foreground" title={row.original.vatTitle ?? undefined}>{row.original.vat}</span>
         : DASH),
     },
     {
       accessorKey: 'isActive', header: 'Ενεργό', size: 100,
       // Κατάσταση = εικονίδιο + κείμενο (όχι μόνο χρώμα).
       cell: ({ row }) => (row.original.isActive ? (
-        <span className="inline-flex items-center gap-1 text-[length:var(--fs-12)]" style={{ color: '#047857' }}>
+        <span className="inline-flex items-center gap-1 text-(length:--fs-12)" style={{ color: '#047857' }}>
           <FiCheck className="h-3.5 w-3.5" aria-hidden /> Ναι
         </span>
       ) : (
-        <span className="inline-flex items-center gap-1 text-[length:var(--fs-12)] text-muted-foreground">
+        <span className="inline-flex items-center gap-1 text-(length:--fs-12) text-muted-foreground">
           <FiSlash className="h-3.5 w-3.5" aria-hidden /> Όχι
         </span>
       )),
@@ -100,7 +100,7 @@ export function ExpensesTableClient({
         pageSize={50}
       />
       {lastSync && (
-        <p className="text-[length:var(--fs-11)] text-muted-foreground">
+        <p className="text-(length:--fs-11) text-muted-foreground">
           Τελευταίος συγχρονισμός: {new Date(lastSync).toLocaleString('el-GR')}
         </p>
       )}

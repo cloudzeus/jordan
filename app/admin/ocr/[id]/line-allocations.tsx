@@ -47,8 +47,8 @@ const eur = (n: number) => `${n.toLocaleString('el-GR', { minimumFractionDigits:
 const fmt = (n: number) => n.toLocaleString('el-GR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 const CELL =
-  'h-8 w-full rounded-md border border-input bg-background px-2 text-[length:var(--fs-12)] text-foreground ' +
-  'transition focus:border-sisyphus-500 focus:outline-none focus:ring-2 focus:ring-sisyphus-500/25 disabled:opacity-60';
+  'h-8 w-full rounded-md border border-input bg-background px-2 text-(length:--fs-12) text-foreground ' +
+  'transition focus:border-sisyphus-500 focus:outline-hidden focus:ring-2 focus:ring-sisyphus-500/25 disabled:opacity-60';
 
 /**
  * Αναζήτηση χρεοπίστωσης (ο κωδικός της ΕΙΝΑΙ ο λογαριασμός γενικής) — ή, με `projects`, του ΕΡΓΟΥ
@@ -168,17 +168,17 @@ function AccountPicker({
       />
       <div className="mt-1 max-h-72 overflow-y-auto">
         {loading ? (
-          <p className="px-2 py-3 text-[length:var(--fs-11)] text-muted-foreground">Αναζήτηση…</p>
+          <p className="px-2 py-3 text-(length:--fs-11) text-muted-foreground">Αναζήτηση…</p>
         ) : hits.length === 0 ? (
-          <p className="px-2 py-3 text-[length:var(--fs-11)] text-muted-foreground">{emptyText ?? 'Καμία κατηγορία εξόδου.'}</p>
+          <p className="px-2 py-3 text-(length:--fs-11) text-muted-foreground">{emptyText ?? 'Καμία κατηγορία εξόδου.'}</p>
         ) : hits.map((h) => (
           <button
             key={h.id} type="button"
             onClick={() => { onPick(h); setOpen(false); setQ(''); }}
             className="block w-full rounded-md px-2 py-1.5 text-left hover:bg-sisyphus-500/10"
           >
-            <span className="font-mono text-[length:var(--fs-11)] text-sisyphus-700 dark:text-sisyphus-300">{h.code}</span>
-            <span className="ml-2 text-[length:var(--fs-12)] text-foreground">{h.name}</span>
+            <span className="font-mono text-(length:--fs-11) text-sisyphus-700 dark:text-sisyphus-300">{h.code}</span>
+            <span className="ml-2 text-(length:--fs-12) text-foreground">{h.name}</span>
           </button>
         ))}
       </div>
@@ -186,7 +186,7 @@ function AccountPicker({
         <button
           type="button"
           onClick={() => { setOpen(false); onCreate(); }}
-          className="mt-1 flex min-h-9 w-full items-center gap-1.5 rounded-md border-t border-border px-2 pt-1 text-left text-[length:var(--fs-12)] font-semibold text-sisyphus-700 hover:bg-sisyphus-500/10 dark:text-sisyphus-300"
+          className="mt-1 flex min-h-9 w-full items-center gap-1.5 rounded-md border-t border-border px-2 pt-1 text-left text-(length:--fs-12) font-semibold text-sisyphus-700 hover:bg-sisyphus-500/10 dark:text-sisyphus-300"
         >
           <FiPlus className="size-3.5" aria-hidden /> Δεν υπάρχει; Νέα κατηγορία εξόδου
         </button>
@@ -475,7 +475,7 @@ export function LineAllocations({
     <button
       type="button" onClick={addRow} disabled={busy || lineTotal == null}
       title={lineTotal == null ? 'Η γραμμή δεν έχει σύνολο' : 'Μοίρασε το ποσό της γραμμής σε περισσότερες κατηγορίες εξόδου'}
-      className="inline-flex min-h-8 cursor-pointer items-center gap-1 rounded-md px-2 text-[length:var(--fs-11)] font-semibold text-muted-foreground transition hover:bg-sisyphus-500/10 hover:text-sisyphus-700 disabled:cursor-not-allowed disabled:opacity-50 dark:hover:text-sisyphus-300"
+      className="inline-flex min-h-8 cursor-pointer items-center gap-1 rounded-md px-2 text-(length:--fs-11) font-semibold text-muted-foreground transition hover:bg-sisyphus-500/10 hover:text-sisyphus-700 disabled:cursor-not-allowed disabled:opacity-50 dark:hover:text-sisyphus-300"
     >
       <FiPlus className="size-3" aria-hidden /> Μοίρασμα σε κατηγορίες εξόδου
     </button>
@@ -505,7 +505,7 @@ export function LineAllocations({
   return wrap(
         <div className={cn('flex flex-col gap-1.5', layout === 'block' && 'p-2')}>
           <div className="flex items-center justify-between gap-2">
-            <span className="text-[length:var(--fs-12)] font-bold text-foreground">
+            <span className="text-(length:--fs-12) font-bold text-foreground">
               {rows.length > 1 ? `Μοίρασμα σε ${rows.length} κατηγορίες εξόδου` : 'Κατηγορία εξόδου της γραμμής'}
             </span>
             {canManage && (
@@ -513,14 +513,14 @@ export function LineAllocations({
                 <button
                   type="button" onClick={addRow} disabled={busy || lineTotal == null}
                   title={lineTotal == null ? 'Η γραμμή δεν έχει σύνολο' : undefined}
-                  className="inline-flex h-6 items-center gap-1 rounded-md border border-sisyphus-500/40 px-2 text-[length:var(--fs-11)] font-semibold text-sisyphus-700 transition hover:bg-sisyphus-500/10 disabled:cursor-not-allowed disabled:opacity-50 dark:text-sisyphus-300"
+                  className="inline-flex h-6 items-center gap-1 rounded-md border border-sisyphus-500/40 px-2 text-(length:--fs-11) font-semibold text-sisyphus-700 transition hover:bg-sisyphus-500/10 disabled:cursor-not-allowed disabled:opacity-50 dark:text-sisyphus-300"
                 >
                   <FiPlus className="size-3" /> Προσθήκη κομματιού
                 </button>
                 {dirty && (
                   <button
                     type="button" onClick={save} disabled={busy || (rows.length > 0 && !balanced)}
-                    className="inline-flex items-center gap-1 rounded-md bg-sisyphus-500 px-2.5 py-1 text-[length:var(--fs-11)] font-semibold text-white transition hover:bg-sisyphus-600 disabled:opacity-50"
+                    className="inline-flex items-center gap-1 rounded-md bg-sisyphus-500 px-2.5 py-1 text-(length:--fs-11) font-semibold text-white transition hover:bg-sisyphus-600 disabled:opacity-50"
                   >
                     <FiSave className="size-3" /> {busy ? 'Αποθήκευση…' : 'Αποθήκευση'}
                   </button>
@@ -533,23 +533,23 @@ export function LineAllocations({
           {shape && rows.length === 0 && (
             <div className="rounded-md border border-sisyphus-500/40 bg-sisyphus-500/10 px-2 py-1.5 shadow-fluent-2">
               <div className="flex items-center justify-between gap-2">
-                <span className="inline-flex items-center gap-1 text-[length:var(--fs-12)] font-extrabold uppercase tracking-wide text-foreground">
+                <span className="inline-flex items-center gap-1 text-(length:--fs-12) font-extrabold uppercase tracking-wide text-foreground">
                   <FiZap aria-hidden className="size-3 text-sisyphus-600" />
                   Ίδιο σπάσιμο με την προηγούμενη φορά — {shape.parts.length} κομμάτια
                 </span>
                 {canManage && (
                   <button type="button" onClick={applyShape}
-                    className="shrink-0 rounded bg-sisyphus-500 px-2 py-0.5 text-[length:var(--fs-11)] font-semibold text-white transition hover:bg-sisyphus-600">
+                    className="shrink-0 rounded bg-sisyphus-500 px-2 py-0.5 text-(length:--fs-11) font-semibold text-white transition hover:bg-sisyphus-600">
                     Χρήση
                   </button>
                 )}
               </div>
-              <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-[length:var(--fs-11)] text-foreground">
+              <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-(length:--fs-11) text-foreground">
                 {shape.parts.map((p, i) => (
                   <span key={i}><span className="font-mono">{p.code}</span> {p.percent}% · {eur(round2((total * p.percent) / 100))}</span>
                 ))}
               </div>
-              <p className="mt-1 text-[length:var(--fs-11)] text-muted-foreground">
+              <p className="mt-1 text-(length:--fs-11) text-muted-foreground">
                 {shape.sameIssuer ? 'Ίδιος εκδότης' : 'Ίδια περιγραφή'}
                 {shape.timesUsed > 0 ? ` · ${shape.timesUsed} φορές` : ''} · τα ποσά υπολογίζονται στο σημερινό σύνολο
               </p>
@@ -560,18 +560,18 @@ export function LineAllocations({
           {hw && rows.length === 0 && (
             <div className="rounded-md border border-sisyphus-500/40 bg-sisyphus-500/10 px-2 py-1.5 shadow-fluent-2">
               <div className="flex items-center justify-between gap-2">
-                <span className="inline-flex items-center gap-1 text-[length:var(--fs-12)] font-extrabold uppercase tracking-wide text-foreground">
+                <span className="inline-flex items-center gap-1 text-(length:--fs-12) font-extrabold uppercase tracking-wide text-foreground">
                   <FiZap aria-hidden className="size-3 text-sisyphus-600" /> Χειρόγραφο στο παραστατικό
                   {hw.parts.length + hw.unresolved.length > 1 && ` — ${hw.parts.length + hw.unresolved.length} κομμάτια`}
                 </span>
                 {hw.applicable && canManage && (
                   <button type="button" onClick={applyHandwritten}
-                    className="shrink-0 rounded bg-sisyphus-500 px-2 py-0.5 text-[length:var(--fs-11)] font-semibold text-white transition hover:bg-sisyphus-600">
+                    className="shrink-0 rounded bg-sisyphus-500 px-2 py-0.5 text-(length:--fs-11) font-semibold text-white transition hover:bg-sisyphus-600">
                     Χρήση
                   </button>
                 )}
               </div>
-              <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-[length:var(--fs-11)] text-foreground">
+              <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-(length:--fs-11) text-foreground">
                 {hw.parts.map((p, i) => (
                   <span key={`r${i}`}><span className="font-mono">{p.code}</span> {eur(p.amount)}</span>
                 ))}
@@ -581,7 +581,7 @@ export function LineAllocations({
               </div>
               {!hw.applicable && (
                 /* ΛΕΜΕ ΓΙΑΤΙ. Ένα «δεν γίνεται» χωρίς αιτία μοιάζει με σφάλμα της εφαρμογής. */
-                <p className="mt-1 text-[length:var(--fs-11)] text-muted-foreground">
+                <p className="mt-1 text-(length:--fs-11) text-muted-foreground">
                   {hw.unresolved.every((p) => p.accountLike)
                     /* ΟΧΙ «θα αντιστοιχιστούν μόλις συγχρονιστεί το λογιστικό σχέδιο»: ο
                        συγχρονισμός ΑΝΤΙΓΡΑΦΕΙ ό,τι υπάρχει στο SoftOne, δεν δημιουργεί
@@ -599,7 +599,7 @@ export function LineAllocations({
           {hint && rows.length === 0 && (
             <button
               type="button" onClick={applyHint}
-              className="flex w-full items-center justify-between gap-2 rounded-md border border-sisyphus-500/40 bg-sisyphus-500/10 px-2 py-1.5 text-left text-[length:var(--fs-11)] transition hover:bg-sisyphus-500/20"
+              className="flex w-full items-center justify-between gap-2 rounded-md border border-sisyphus-500/40 bg-sisyphus-500/10 px-2 py-1.5 text-left text-(length:--fs-11) transition hover:bg-sisyphus-500/20"
             >
               <span className="min-w-0">
                 <FiZap aria-hidden className="mr-1.5 inline size-3 text-sisyphus-600" />
@@ -647,7 +647,7 @@ export function LineAllocations({
                   onChange={(e) => setPercent(i, e.target.value)}
                   className={cn(CELL, 'pr-6 text-right font-mono tabular-nums')}
                 />
-                <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[length:var(--fs-11)] text-muted-foreground">%</span>
+                <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-(length:--fs-11) text-muted-foreground">%</span>
               </div>
               <div className="relative">
                 <input
@@ -656,7 +656,7 @@ export function LineAllocations({
                   onChange={(e) => setAmount(i, e.target.value)}
                   className={cn(CELL, 'pr-6 text-right font-mono tabular-nums')}
                 />
-                <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[length:var(--fs-11)] text-muted-foreground">€</span>
+                <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-(length:--fs-11) text-muted-foreground">€</span>
               </div>
               {canManage && (
                 <button
@@ -672,7 +672,7 @@ export function LineAllocations({
           {rows.length > 0 && (
             <div
               className={cn(
-                'flex flex-wrap items-center justify-between gap-2 rounded-md px-2 py-1 text-[length:var(--fs-11)] font-semibold',
+                'flex flex-wrap items-center justify-between gap-2 rounded-md px-2 py-1 text-(length:--fs-11) font-semibold',
                 balanced ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
                   : 'bg-amber-500/10 text-amber-700 dark:text-amber-300',
               )}

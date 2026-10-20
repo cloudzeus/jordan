@@ -88,10 +88,10 @@ export function useNamePreview(name: string, original: string | null, cfg: ItemN
 export function NamePreview({ typed, preview }: { typed: string; preview: { name: string; name1: string | null } | null }) {
   if (!preview || (preview.name === typed.trim() && !preview.name1)) return null;
   return (
-    <p className="min-w-0 text-[length:var(--fs-11)] text-muted-foreground">
+    <p className="min-w-0 text-(length:--fs-11) text-muted-foreground">
       <span className="font-medium text-foreground/80">Στη SoftOne:</span>{' '}
-      <span className="break-words text-foreground">«{preview.name}»</span>
-      {preview.name1 && <> · <span className="font-medium text-foreground/80">Περιγραφή 2:</span> <span className="break-words">«{preview.name1}»</span></>}
+      <span className="wrap-break-word text-foreground">«{preview.name}»</span>
+      {preview.name1 && <> · <span className="font-medium text-foreground/80">Περιγραφή 2:</span> <span className="wrap-break-word">«{preview.name1}»</span></>}
     </p>
   );
 }
@@ -102,7 +102,7 @@ export function TranslateButton({ busy, onClick }: { busy: boolean; onClick: () 
     <button
       type="button" onClick={onClick} disabled={busy}
       title="Μετάφραση της περιγραφής στα Ελληνικά — κωδικοί, διαστάσεις και μάρκες μένουν ως έχουν"
-      className="inline-flex h-8 shrink-0 cursor-pointer items-center gap-1 rounded-lg border border-sisyphus-500/30 bg-sisyphus-50 px-2 text-[length:var(--fs-12)] font-medium text-sisyphus-700 hover:bg-sisyphus-100 disabled:cursor-wait disabled:opacity-70 dark:bg-sisyphus-500/10 dark:text-sisyphus-300"
+      className="inline-flex h-8 shrink-0 cursor-pointer items-center gap-1 rounded-lg border border-sisyphus-500/30 bg-sisyphus-50 px-2 text-(length:--fs-12) font-medium text-sisyphus-700 hover:bg-sisyphus-100 disabled:cursor-wait disabled:opacity-70 dark:bg-sisyphus-500/10 dark:text-sisyphus-300"
     >
       {busy ? <FiLoader aria-hidden className="size-3.5 animate-spin motion-reduce:animate-none" /> : <FiGlobe aria-hidden className="size-3.5" />}
       Ελληνικά
@@ -113,7 +113,7 @@ export function TranslateButton({ busy, onClick }: { busy: boolean; onClick: () 
 /** Γραμμή κάτω από το πεδίο: η αρχική περιγραφή + επαναφορά. */
 export function TranslatedFrom({ original, onRestore }: { original: string; onRestore: () => void }) {
   return (
-    <p className="flex min-w-0 items-center gap-1.5 text-[length:var(--fs-11)] text-muted-foreground">
+    <p className="flex min-w-0 items-center gap-1.5 text-(length:--fs-11) text-muted-foreground">
       <span className="truncate" title={original}>Αρχική: «{original}»</span>
       <button type="button" onClick={onRestore} className="inline-flex shrink-0 cursor-pointer items-center gap-0.5 font-medium text-sisyphus-600 hover:underline">
         <FiRotateCcw aria-hidden className="size-3" /> Επαναφορά

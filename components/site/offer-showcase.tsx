@@ -113,7 +113,7 @@ export function OfferShowcase(p: ShowcaseProps) {
 
   return (
     <div ref={ref} className="grid gap-10 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)] lg:gap-14">
-      <div className="relative aspect-[4/3] w-full min-w-0 overflow-hidden">
+      <div className="relative aspect-4/3 w-full min-w-0 overflow-hidden">
         {mounted && (
           <ContainerScene
             pallets={p.capacity} perPallet={p.product.perPallet} filled={sceneFilled} load={p.product.load}
@@ -121,7 +121,7 @@ export function OfferShowcase(p: ShowcaseProps) {
             heightClass="h-full" expandable={false} fitScale={0.8}
             onPickSlots={pickable ? onPick : undefined} selectedSlots={Math.ceil(selected)}
             maxSelectable={p.booking ? Math.ceil(p.booking.maxPallets) : undefined}
-            className="h-full [&>div>.pointer-events-none]:hidden [&>div]:rounded-none [&>div]:border-0 [&>div]:![background:transparent] [&_figcaption]:hidden"
+            className="h-full [&>div>.pointer-events-none]:hidden [&>div]:rounded-none [&>div]:border-0 [&>div]:[background:transparent]! [&_figcaption]:hidden"
           />
         )}
         <div className="pointer-events-none absolute left-0 top-2 hidden flex-col items-start gap-2 sm:flex">
@@ -133,55 +133,55 @@ export function OfferShowcase(p: ShowcaseProps) {
           <Chip dot="#CFC9C0" hollow className="hidden sm:inline-flex">Ελεύθερες <b className="font-semibold tabular-nums">{fmt(Math.max(0, p.capacity - Math.floor(shown * 2) / 2), 1)}</b></Chip>
         </div>
         {p.pickHref && demoPick > 0 && (
-          <div className="absolute inset-x-0 top-1/2 mx-auto w-fit max-w-[92%] -translate-y-1/2 border border-[var(--s-line)] bg-white px-5 py-4 text-center shadow-[0_12px_40px_rgba(28,50,65,0.12)]" role="status">
-            <p className="text-[length:var(--fs-15)]">Θέλετε <b className="tabular-nums">{fmt(demoPick)}</b> {demoPick === 1 ? 'παλέτα' : 'παλέτες'};</p>
-            <p className="mt-1 text-[length:var(--fs-13)] text-[var(--s-ink-2)]">Οι κρατήσεις γίνονται από την περιοχή πελατών & συνεργατών.</p>
+          <div className="absolute inset-x-0 top-1/2 mx-auto w-fit max-w-[92%] -translate-y-1/2 border border-(--s-line) bg-white px-5 py-4 text-center shadow-[0_12px_40px_rgba(28,50,65,0.12)]" role="status">
+            <p className="text-(length:--fs-15)">Θέλετε <b className="tabular-nums">{fmt(demoPick)}</b> {demoPick === 1 ? 'παλέτα' : 'παλέτες'};</p>
+            <p className="mt-1 text-(length:--fs-13) text-(--s-ink-2)">Οι κρατήσεις γίνονται από την περιοχή πελατών & συνεργατών.</p>
             <div className="mt-3 flex items-center justify-center gap-4">
-              <a href={p.pickHref} className="inline-flex min-h-11 items-center bg-[var(--s-ink)] px-5 text-[length:var(--fs-14)] font-medium text-white hover:bg-[#2C4556]">Είσοδος για κράτηση</a>
-              <button type="button" onClick={() => { setDemoPick(0); setPlaying(true); }} className="min-h-11 cursor-pointer text-[length:var(--fs-14)] text-[var(--s-ink-2)] hover:text-[var(--s-ink)]">Κλείσιμο</button>
+              <a href={p.pickHref} className="inline-flex min-h-11 items-center bg-(--s-ink) px-5 text-(length:--fs-14) font-medium text-white hover:bg-[#2C4556]">Είσοδος για κράτηση</a>
+              <button type="button" onClick={() => { setDemoPick(0); setPlaying(true); }} className="min-h-11 cursor-pointer text-(length:--fs-14) text-(--s-ink-2) hover:text-(--s-ink)">Κλείσιμο</button>
             </div>
           </div>
         )}
-        <p className="pointer-events-none absolute bottom-0 left-0 text-[length:var(--fs-12)] text-[var(--s-mute)]">Σύρετε για περιστροφή</p>
+        <p className="pointer-events-none absolute bottom-0 left-0 text-(length:--fs-12) text-(--s-mute)">Σύρετε για περιστροφή</p>
       </div>
 
       <div className="flex min-w-0 flex-col">
-        {p.product.eyebrow && <p className="text-[length:var(--fs-12)] font-medium uppercase tracking-[0.18em] text-[var(--s-mute)]">{p.product.eyebrow}</p>}
-        <h3 className="font-site mt-3 text-[length:var(--fs-24)] font-light leading-tight">{p.product.name}</h3>
-        {p.product.code && <p className="mt-1 text-[length:var(--fs-13)] text-[var(--s-mute)]">{p.product.code} · παλέτα {fmt(p.product.perPallet)} {p.product.unit}</p>}
+        {p.product.eyebrow && <p className="text-(length:--fs-12) font-medium uppercase tracking-[0.18em] text-(--s-mute)">{p.product.eyebrow}</p>}
+        <h3 className="font-site mt-3 text-(length:--fs-24) font-light leading-tight">{p.product.name}</h3>
+        {p.product.code && <p className="mt-1 text-(length:--fs-13) text-(--s-mute)">{p.product.code} · παλέτα {fmt(p.product.perPallet)} {p.product.unit}</p>}
 
-        <dl className="mt-8 grid grid-cols-3 border-t border-[var(--s-line)]" aria-live="polite">
-          <Stat label="Παλέτες" value={<><span className="tabular-nums">{fmt(Math.floor(shown * 2) / 2, Number.isInteger(Math.floor(shown * 2) / 2) ? 0 : 1)}</span><span className="text-[length:var(--fs-15)] text-[var(--s-mute)]"> / {fmt(p.capacity)}</span></>} />
+        <dl className="mt-8 grid grid-cols-3 border-t border-(--s-line)" aria-live="polite">
+          <Stat label="Παλέτες" value={<><span className="tabular-nums">{fmt(Math.floor(shown * 2) / 2, Number.isInteger(Math.floor(shown * 2) / 2) ? 0 : 1)}</span><span className="text-(length:--fs-15) text-(--s-mute)"> / {fmt(p.capacity)}</span></>} />
           <Stat label={p.product.unit} value={<span className="tabular-nums">{fmt(Math.round(shown * p.product.perPallet))}</span>} />
           <Stat label="Πτώση" value={<span className="tabular-nums transition-colors duration-500" style={{ color: dropPct > 0 ? tierColor(idx, tiers.length) : undefined }}>{dropPct > 0 ? `−${fmt(dropPct)}%` : '0%'}</span>} />
         </dl>
 
         <div className="mt-8">
           <div className="flex items-baseline justify-between gap-4">
-            <p className="text-[length:var(--fs-12)] uppercase tracking-[0.18em] text-[var(--s-mute)]">{p.valueCaption}</p>
-            <p className={cn(/[\u0370-\u03FF]/.test(cur?.label ?? '') ? 'font-site' : 'font-num', 'text-[length:var(--fs-20)] font-light transition-colors duration-500')} style={{ color: tierColor(idx, tiers.length) }}>{cur?.label ?? '—'}</p>
+            <p className="text-(length:--fs-12) uppercase tracking-[0.18em] text-(--s-mute)">{p.valueCaption}</p>
+            <p className={cn(/[\u0370-\u03FF]/.test(cur?.label ?? '') ? 'font-site' : 'font-num', 'text-(length:--fs-20) font-light transition-colors duration-500')} style={{ color: tierColor(idx, tiers.length) }}>{cur?.label ?? '—'}</p>
           </div>
           <PriceSteps tiers={tiers} capacity={p.capacity} shown={shown} idx={idx} animate={!reduce} preview={previewN > 0 ? Math.min(p.capacity, shown + previewN) : undefined} />
-          <p className="mt-3 min-h-6 text-[length:var(--fs-14)] text-[var(--s-ink-2)]">
-            {next ? <>Επόμενη πτώση σε <strong className="font-medium tabular-nums text-[var(--s-ink)]">{fmt(Math.max(0.5, Math.ceil((next.from - shown) * 2) / 2), 1)}</strong> παλέτες → <span className="tabular-nums">{next.label}</span></> : 'Καλύτερη τιμή — το container είναι στο χαμηλότερο κλιμάκιο.'}
+          <p className="mt-3 min-h-6 text-(length:--fs-14) text-(--s-ink-2)">
+            {next ? <>Επόμενη πτώση σε <strong className="font-medium tabular-nums text-(--s-ink)">{fmt(Math.max(0.5, Math.ceil((next.from - shown) * 2) / 2), 1)}</strong> παλέτες → <span className="tabular-nums">{next.label}</span></> : 'Καλύτερη τιμή — το container είναι στο χαμηλότερο κλιμάκιο.'}
           </p>
         </div>
 
         {p.actions && <div className="mt-6">{p.actions}</div>}
 
         {p.extra && p.extra.length > 0 && (
-          <dl className="mt-6 space-y-2 border-t border-[var(--s-line)] pt-5 text-[length:var(--fs-14)]">
+          <dl className="mt-6 space-y-2 border-t border-(--s-line) pt-5 text-(length:--fs-14)">
             {p.extra.map((e) => (
-              <div key={e.label} className="flex justify-between gap-4"><dt className="text-[var(--s-mute)]">{e.label}</dt><dd className="tabular-nums">{e.value}</dd></div>
+              <div key={e.label} className="flex justify-between gap-4"><dt className="text-(--s-mute)">{e.label}</dt><dd className="tabular-nums">{e.value}</dd></div>
             ))}
           </dl>
         )}
 
         <div className="mt-auto flex items-center justify-between gap-4 pt-6">
-          {p.footnote ? <p className="text-[length:var(--fs-12)] text-[var(--s-mute)]">{p.footnote}</p> : <span />}
+          {p.footnote ? <p className="text-(length:--fs-12) text-(--s-mute)">{p.footnote}</p> : <span />}
           {p.mode === 'demo' && !reduce && (
             <button type="button" onClick={() => setPlaying((x) => !x)} aria-pressed={!playing}
-              className="inline-flex min-h-11 shrink-0 cursor-pointer items-center gap-2 text-[length:var(--fs-14)] text-[var(--s-ink-2)] transition-colors hover:text-[var(--s-ink)]">
+              className="inline-flex min-h-11 shrink-0 cursor-pointer items-center gap-2 text-(length:--fs-14) text-(--s-ink-2) transition-colors hover:text-(--s-ink)">
               {playing ? <FiPause className="size-4" aria-hidden /> : <FiPlay className="size-4" aria-hidden />}{playing ? 'Παύση' : 'Αναπαραγωγή'}
             </button>
           )}
@@ -193,7 +193,7 @@ export function OfferShowcase(p: ShowcaseProps) {
 
 function Chip({ dot, hollow, className, children }: { dot: string; hollow?: boolean; className?: string; children: React.ReactNode }) {
   return (
-    <span className={cn('inline-flex items-center gap-2 border border-[var(--s-line)] bg-white/90 px-3 py-1.5 text-[length:var(--fs-13)] text-[var(--s-ink)] backdrop-blur-sm', className)}>
+    <span className={cn('inline-flex items-center gap-2 border border-(--s-line) bg-white/90 px-3 py-1.5 text-(length:--fs-13) text-(--s-ink) backdrop-blur-xs', className)}>
       <span className="size-2 rounded-full" style={hollow ? { boxShadow: `inset 0 0 0 1.5px ${dot}` } : { background: dot }} aria-hidden />
       {children}
     </span>
@@ -202,9 +202,9 @@ function Chip({ dot, hollow, className, children }: { dot: string; hollow?: bool
 
 function Stat({ label, value }: { label: string; value: React.ReactNode }) {
   return (
-    <div className="border-r border-[var(--s-line)] py-4 pr-3 last:border-r-0 [&:not(:first-child)]:pl-4">
-      <dt className="text-[length:var(--fs-12)] uppercase tracking-[0.14em] text-[var(--s-mute)]">{label}</dt>
-      <dd className="font-num mt-1 text-[length:var(--fs-28)] font-light leading-none">{value}</dd>
+    <div className="border-r border-(--s-line) py-4 pr-3 last:border-r-0 not-first:pl-4">
+      <dt className="text-(length:--fs-12) uppercase tracking-[0.14em] text-(--s-mute)">{label}</dt>
+      <dd className="font-num mt-1 text-(length:--fs-28) font-light leading-none">{value}</dd>
     </div>
   );
 }
@@ -270,7 +270,7 @@ function PriceSteps({ tiers, capacity, shown, idx, animate, preview }: { tiers: 
         );
       })()}
       <line x1={cx} x2={cx} y1={cy} y2={base} stroke={color} strokeWidth={1} opacity={0.5} />
-      {animate && <circle cx={cx} cy={cy} r={7} fill={color} className="origin-center animate-ping [transform-box:fill-box] motion-reduce:hidden" opacity={0.3} />}
+      {animate && <circle cx={cx} cy={cy} r={7} fill={color} className="origin-center animate-ping transform-fill motion-reduce:hidden" opacity={0.3} />}
       <circle cx={cx} cy={cy} r={6} fill={color} stroke="#fff" strokeWidth={2} />
     </svg>
   );

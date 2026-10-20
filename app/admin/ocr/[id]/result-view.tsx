@@ -147,16 +147,16 @@ function LinesTable({ doc, data, match }: { doc: DocWithItems; data: any; match:
                 <tr className={`transition hover:bg-muted/40 ${idx > 0 ? 'border-t-2 border-border' : ''}`}>
                   <td className="px-3 py-2.5 font-mono text-xs text-muted-foreground">{it.code ?? '-'}</td>
                   <td className="px-3 py-2.5">
-                    <span className="mr-1.5 inline-flex size-4 items-center justify-center rounded bg-muted text-[length:var(--fs-10)] font-bold tabular-nums text-muted-foreground">{idx + 1}</span>
-                    <span className="text-[length:var(--fs-12)] font-semibold text-foreground">{it.name}</span>
+                    <span className="mr-1.5 inline-flex size-4 items-center justify-center rounded bg-muted text-(length:--fs-10) font-bold tabular-nums text-muted-foreground">{idx + 1}</span>
+                    <span className="text-(length:--fs-12) font-semibold text-foreground">{it.name}</span>
                     <UtilityChargeChip charge={match.utilityCharges?.[idx] ?? null} />
                     <SerialChips serials={serials} />
                   </td>
-                  <td className="px-3 py-2 text-right text-[length:var(--fs-12)]">{fmtNum(it.quantity)}</td>
-                  <td className="px-3 py-2 text-[length:var(--fs-12)] text-muted-foreground">{(line.unit ?? '') || '—'}</td>
-                  <td className="px-3 py-2 text-right text-[length:var(--fs-12)]">{fmtMoney(it.price)}</td>
-                  <td className="px-3 py-2 text-right text-[length:var(--fs-12)] text-destructive">{fmtNum(it.discount)}</td>
-                  <td className="px-3 py-2 text-right text-[length:var(--fs-12)] font-semibold">{fmtMoney(it.total)}</td>
+                  <td className="px-3 py-2 text-right text-(length:--fs-12)">{fmtNum(it.quantity)}</td>
+                  <td className="px-3 py-2 text-(length:--fs-12) text-muted-foreground">{(line.unit ?? '') || '—'}</td>
+                  <td className="px-3 py-2 text-right text-(length:--fs-12)">{fmtMoney(it.price)}</td>
+                  <td className="px-3 py-2 text-right text-(length:--fs-12) text-destructive">{fmtNum(it.discount)}</td>
+                  <td className="px-3 py-2 text-right text-(length:--fs-12) font-semibold">{fmtMoney(it.total)}</td>
                   <td className="px-3 py-2 min-w-[260px] align-top">
                     <LineMatchCell
                       lineId={it.id}
@@ -213,7 +213,7 @@ function LinesTable({ doc, data, match }: { doc: DocWithItems; data: any; match:
                 />
                 {hasLineCustomFields(lineCf) && (
                   <tr key={`${it.id}-cf`} className="bg-muted/20">
-                    <td colSpan={8} className="px-3 py-1.5 text-[length:var(--fs-11)] text-muted-foreground">
+                    <td colSpan={8} className="px-3 py-1.5 text-(length:--fs-11) text-muted-foreground">
                       <LineCustomFields cf={lineCf} />
                     </td>
                   </tr>
@@ -300,7 +300,7 @@ export function OcrResultView({ doc, match }: { doc: DocWithItems; match: LineMa
     return (
       <section className="space-y-4">
         {correction}
-        <div className="mx-auto max-w-sm rounded-xl border border-border bg-card p-5 font-mono space-y-3 shadow-sm">
+        <div className="mx-auto max-w-sm rounded-xl border border-border bg-card p-5 font-mono space-y-3 shadow-xs">
         <div className="border-b border-dashed border-border pb-3 text-center">
           <h3 className="text-base font-bold uppercase">{data.companyName ?? data.storeName ?? 'POS'}</h3>
           <p className="text-xs text-muted-foreground">
@@ -344,7 +344,7 @@ export function OcrResultView({ doc, match }: { doc: DocWithItems; match: LineMa
 
       {data.fullText && (
         <div className="rounded-xl border border-border bg-card p-4 space-y-2">
-          <p className="text-[length:var(--fs-11)] font-semibold uppercase tracking-wide text-muted-foreground">Verbatim</p>
+          <p className="text-(length:--fs-11) font-semibold uppercase tracking-wide text-muted-foreground">Verbatim</p>
           <textarea
             readOnly
             value={data.fullText}
@@ -364,7 +364,7 @@ function BankAccounts({ accounts }: { accounts: any }) {
   if (list.length === 0) return null;
   return (
     <div className="rounded-xl border border-border bg-card p-4 space-y-2">
-      <p className="text-[length:var(--fs-11)] font-semibold uppercase tracking-wide text-muted-foreground">
+      <p className="text-(length:--fs-11) font-semibold uppercase tracking-wide text-muted-foreground">
         Τραπεζικοί λογαριασμοί εκδότη
       </p>
       <ul className="space-y-1">

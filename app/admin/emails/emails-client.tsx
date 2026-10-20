@@ -26,7 +26,7 @@ const eur = (n: number) => n.toLocaleString('el-GR', { style: 'currency', curren
 const today = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Athens' }).format(new Date());
 const AUDIENCE = { customer: { label: 'Πελάτης', icon: FiUser, tone: '#8A5A12' }, staff: { label: 'Προσωπικό', icon: FiUsers, tone: '#475569' } } as const;
 const soft = (hex: string, pct: number) => `color-mix(in srgb, ${hex} ${pct}%, var(--background))`;
-const LABEL = 'text-[length:var(--fs-11)] font-semibold uppercase tracking-wide text-muted-foreground';
+const LABEL = 'text-(length:--fs-11) font-semibold uppercase tracking-wide text-muted-foreground';
 
 /** Δύο επιλογές δίπλα-δίπλα (π.χ. Υπολογιστής / Κινητό). */
 function Segmented<T extends string>({ value, onChange, options, label }: { value: T; onChange: (v: T) => void; options: { value: T; label: string; icon?: React.ComponentType<{ className?: string }> }[]; label: string }) {
@@ -34,8 +34,8 @@ function Segmented<T extends string>({ value, onChange, options, label }: { valu
     <div role="radiogroup" aria-label={label} className="inline-flex rounded-md border bg-muted/40 p-0.5">
       {options.map((o) => (
         <button key={o.value} type="button" role="radio" aria-checked={value === o.value} onClick={() => onChange(o.value)}
-          className={cn('inline-flex min-h-8 cursor-pointer items-center gap-1.5 rounded-[5px] px-2.5 text-[length:var(--fs-12)] font-medium transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring',
-            value === o.value ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground')}>
+          className={cn('inline-flex min-h-8 cursor-pointer items-center gap-1.5 rounded-[5px] px-2.5 text-(length:--fs-12) font-medium transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring',
+            value === o.value ? 'bg-background text-foreground shadow-xs' : 'text-muted-foreground hover:text-foreground')}>
           {o.icon && <o.icon className="size-3.5" />}{o.label}
         </button>
       ))}
@@ -50,18 +50,18 @@ function EmailFrame({ html, text, mode, device }: { html: string; text: string; 
   const fit = () => { const d = ref.current?.contentDocument; if (d?.body) setH(Math.max(400, d.documentElement.scrollHeight + 4)); };
   React.useEffect(() => { const t = setTimeout(fit, 60); return () => clearTimeout(t); }, [html, device]);
   if (mode === 'text') {
-    return <pre className="mx-auto max-w-[680px] whitespace-pre-wrap break-words rounded-md border bg-background p-5 font-mono text-[length:var(--fs-12-5)] leading-relaxed text-foreground">{text}</pre>;
+    return <pre className="mx-auto max-w-[680px] whitespace-pre-wrap wrap-break-word rounded-md border bg-background p-5 font-mono text-(length:--fs-12-5) leading-relaxed text-foreground">{text}</pre>;
   }
   return (
     <div className="flex justify-center overflow-x-auto rounded-md bg-[#F4F1EC] p-3 sm:p-6">
       <iframe ref={ref} title="Προεπισκόπηση email" srcDoc={html} sandbox="allow-same-origin" onLoad={fit}
-        className="block rounded-sm bg-white shadow-sm transition-[width] duration-200" style={{ width: device === 'mobile' ? 390 : 680, maxWidth: '100%', height: h, border: 0 }} />
+        className="block rounded-sm bg-white shadow-xs transition-[width] duration-200" style={{ width: device === 'mobile' ? 390 : 680, maxWidth: '100%', height: h, border: 0 }} />
     </div>
   );
 }
 
 function Pill({ tone, children }: { tone: string; children: React.ReactNode }) {
-  return <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-md px-1.5 py-0.5 text-[length:var(--fs-11)] font-medium" style={{ color: tone, background: soft(tone, 12) }}>{children}</span>;
+  return <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-md px-1.5 py-0.5 text-(length:--fs-11) font-medium" style={{ color: tone, background: soft(tone, 12) }}>{children}</span>;
 }
 
 // ── Πρότυπα ──────────────────────────────────────────────────────────────────────────────────
@@ -108,8 +108,8 @@ function TemplatesTab({ templates, me }: { templates: TemplateView[]; me: string
                 return (
                   <button key={x.id} type="button" onClick={() => setSel(x.id)} aria-current={x.id === t.id ? 'true' : undefined}
                     className={cn('flex w-full min-h-11 cursor-pointer flex-col items-start gap-1 rounded-md px-2.5 py-2 text-left transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-ring',
-                      x.id === t.id ? 'bg-[var(--cx-accent-soft)] text-foreground' : 'hover:bg-muted')}>
-                    <span className="text-[length:var(--fs-13)] font-medium leading-snug">{x.title}</span>
+                      x.id === t.id ? 'bg-(--cx-accent-soft) text-foreground' : 'hover:bg-muted')}>
+                    <span className="text-(length:--fs-13) font-medium leading-snug">{x.title}</span>
                     <span className="flex flex-wrap items-center gap-1.5">
                       <Pill tone={A.tone}><A.icon className="size-3" />{A.label}</Pill>
                       {x.attachments.length > 0 && <Pill tone="#64748B"><FiPaperclip className="size-3" />{x.attachments.length}</Pill>}
@@ -119,7 +119,7 @@ function TemplatesTab({ templates, me }: { templates: TemplateView[]; me: string
               })}
             </div>
           ))}
-          {!list.length && <p className="px-2 py-6 text-center text-[length:var(--fs-12)] text-muted-foreground">Κανένα πρότυπο δεν ταιριάζει.</p>}
+          {!list.length && <p className="px-2 py-6 text-center text-(length:--fs-12) text-muted-foreground">Κανένα πρότυπο δεν ταιριάζει.</p>}
         </nav>
       </aside>
 
@@ -128,8 +128,8 @@ function TemplatesTab({ templates, me }: { templates: TemplateView[]; me: string
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="min-w-0">
               <div className={LABEL}>Θέμα</div>
-              <div className="mt-0.5 break-words text-[length:var(--fs-15)] font-semibold">{t.subject}</div>
-              <p className="mt-1 text-[length:var(--fs-12)] text-muted-foreground">
+              <div className="mt-0.5 wrap-break-word text-(length:--fs-15) font-semibold">{t.subject}</div>
+              <p className="mt-1 text-(length:--fs-12) text-muted-foreground">
                 <span className="font-medium text-foreground">Πότε φεύγει:</span> {t.trigger}
                 {t.attachments.length > 0 && <> · <span className="font-medium text-foreground">Συνημμένα:</span> {t.attachments.join(', ')}</>}
               </p>
@@ -141,7 +141,7 @@ function TemplatesTab({ templates, me }: { templates: TemplateView[]; me: string
           <div className="mt-3 flex flex-wrap items-center gap-2">
             <Segmented label="Συσκευή" value={device} onChange={setDevice} options={[{ value: 'desktop', label: 'Υπολογιστής', icon: FiMonitor }, { value: 'mobile', label: 'Κινητό', icon: FiSmartphone }]} />
             <Segmented label="Μορφή" value={mode} onChange={setMode} options={[{ value: 'html', label: 'HTML', icon: FiEye }, { value: 'text', label: 'Απλό κείμενο', icon: FiFileText }]} />
-            <span className="text-[length:var(--fs-11-5)] text-muted-foreground">Δείγμα δεδομένων · η δοκιμή πηγαίνει μόνο στο {me}</span>
+            <span className="text-(length:--fs-11-5) text-muted-foreground">Δείγμα δεδομένων · η δοκιμή πηγαίνει μόνο στο {me}</span>
           </div>
         </div>
         <EmailFrame html={t.html} text={t.text} mode={mode} device={device} />
@@ -210,7 +210,7 @@ function StatementTab({ customers, me, canSend, banks, initialTrdr }: { customer
           <div className="min-w-0 [&_button]:min-h-10 [&_button>span]:truncate [&_button>span]:text-left">
             <Combobox value={trdr} items={items} onSelect={(v) => { setTrdr(v); setP(null); }} placeholder="Επιλέξτε πελάτη…" />
           </div>
-          <button type="button" onClick={() => { setTrdr(null); void load('sample'); }} className="mt-1.5 cursor-pointer text-[length:var(--fs-12)] text-primary underline-offset-4 hover:underline">
+          <button type="button" onClick={() => { setTrdr(null); void load('sample'); }} className="mt-1.5 cursor-pointer text-(length:--fs-12) text-primary underline-offset-4 hover:underline">
             ή δείτε δείγμα με φανταστικό πελάτη
           </button>
         </div>
@@ -221,15 +221,15 @@ function StatementTab({ customers, me, canSend, banks, initialTrdr }: { customer
         <label className="block">
           <span className={LABEL}>Μήνυμα (προαιρετικό)</span>
           <textarea value={message} onChange={(e) => setMessage(e.target.value)} rows={3} maxLength={600}
-            placeholder="π.χ. Σας ευχαριστούμε για τη συνεργασία…" className="mt-1 w-full rounded-md border bg-background px-3 py-2 text-[length:var(--fs-13)] outline-none focus-visible:ring-2 focus-visible:ring-ring" />
+            placeholder="π.χ. Σας ευχαριστούμε για τη συνεργασία…" className="mt-1 w-full rounded-md border bg-background px-3 py-2 text-(length:--fs-13) outline-hidden focus-visible:ring-2 focus-visible:ring-ring" />
         </label>
         <Button onClick={() => load()} disabled={loading} className="min-h-10 w-full cursor-pointer gap-1.5">
           <FiEye className="size-4" />{loading ? 'Ανάγνωση καρτέλας από SoftOne…' : 'Προεπισκόπηση'}
         </Button>
-        <p className="text-[length:var(--fs-11-5)] text-muted-foreground">Η καρτέλα διαβάζεται ζωντανά από το SoftOne (μόνο ανάγνωση, ~5–10″). Τίποτα δεν γράφεται.</p>
+        <p className="text-(length:--fs-11-5) text-muted-foreground">Η καρτέλα διαβάζεται ζωντανά από το SoftOne (μόνο ανάγνωση, ~5–10″). Τίποτα δεν γράφεται.</p>
 
         {banks === 0 && (
-          <div className="flex gap-2 rounded-md p-2.5 text-[length:var(--fs-12)]" style={{ background: soft('#B45309', 10), color: '#92400E' }}>
+          <div className="flex gap-2 rounded-md p-2.5 text-(length:--fs-12)" style={{ background: soft('#B45309', 10), color: '#92400E' }}>
             <FiAlertTriangle className="mt-0.5 size-4 shrink-0" />
             <span>Δεν έχουν οριστεί τραπεζικοί λογαριασμοί — το email/PDF θα βγει χωρίς IBAN. Ρυθμίσεις → Εταιρεία → «Τραπεζικοί λογαριασμοί».</span>
           </div>
@@ -237,7 +237,7 @@ function StatementTab({ customers, me, canSend, banks, initialTrdr }: { customer
 
         {p && (
           <div className="space-y-2 border-t pt-3">
-            <a href={`/api/admin/statements/${target}/pdf?${qs}&download=1`} className="inline-flex min-h-10 w-full cursor-pointer items-center justify-center gap-1.5 rounded-md border bg-background text-[length:var(--fs-13)] font-medium hover:bg-muted">
+            <a href={`/api/admin/statements/${target}/pdf?${qs}&download=1`} className="inline-flex min-h-10 w-full cursor-pointer items-center justify-center gap-1.5 rounded-md border bg-background text-(length:--fs-13) font-medium hover:bg-muted">
               <FiDownload className="size-4" />Λήψη PDF
             </a>
             <Button variant="outline" onClick={() => send('me')} disabled={!!sending} className="min-h-10 w-full cursor-pointer gap-1.5">
@@ -251,7 +251,7 @@ function StatementTab({ customers, me, canSend, banks, initialTrdr }: { customer
                 <Button onClick={() => send('customer')} disabled={!!sending || !email} className="min-h-10 w-full cursor-pointer gap-1.5">
                   <FiSend className="size-4" />{sending === 'customer' ? 'Αποστολή…' : 'Αποστολή στον πελάτη'}
                 </Button>
-                {!email && <p className="text-[length:var(--fs-11-5)] text-muted-foreground">Ο πελάτης δεν έχει email στο SoftOne — συμπληρώστε το παραπάνω.</p>}
+                {!email && <p className="text-(length:--fs-11-5) text-muted-foreground">Ο πελάτης δεν έχει email στο SoftOne — συμπληρώστε το παραπάνω.</p>}
               </div>
             )}
           </div>
@@ -262,8 +262,8 @@ function StatementTab({ customers, me, canSend, banks, initialTrdr }: { customer
         {!p && !loading && (
           <div className="flex min-h-72 flex-col items-center justify-center rounded-md border border-dashed bg-card p-8 text-center">
             <FiFileText className="mb-2 size-7 text-muted-foreground" />
-            <p className="text-[length:var(--fs-14)] font-medium">Επιλέξτε πελάτη και περίοδο</p>
-            <p className="mt-1 max-w-md text-[length:var(--fs-12-5)] text-muted-foreground">Θα δείτε το email και το PDF της κατάστασης (υπόλοιπο, κινήσεις, ανοιχτά παραστατικά, στοιχεία πληρωμής) πριν σταλεί οτιδήποτε.</p>
+            <p className="text-(length:--fs-14) font-medium">Επιλέξτε πελάτη και περίοδο</p>
+            <p className="mt-1 max-w-md text-(length:--fs-12-5) text-muted-foreground">Θα δείτε το email και το PDF της κατάστασης (υπόλοιπο, κινήσεις, ανοιχτά παραστατικά, στοιχεία πληρωμής) πριν σταλεί οτιδήποτε.</p>
           </div>
         )}
         {loading && <div className="h-72 animate-pulse rounded-md border bg-muted/50 motion-reduce:animate-none" aria-label="Φόρτωση" />}
@@ -277,15 +277,15 @@ function StatementTab({ customers, me, canSend, banks, initialTrdr }: { customer
                 { k: 'Κινήσεις περιόδου', v: String(s.lines) },
               ].map((x) => (
                 <div key={x.k} className={cn('rounded-md border p-3', x.strong ? 'bg-foreground text-background' : 'bg-card')}>
-                  <div className={cn('text-[length:var(--fs-10)] font-semibold uppercase tracking-wide', x.strong ? 'opacity-70' : 'text-muted-foreground')}>{x.k}</div>
-                  <div className="mt-1 text-[length:var(--fs-18)] font-semibold tabular-nums" style={x.warn ? { color: '#B45309' } : undefined}>{x.v}</div>
+                  <div className={cn('text-(length:--fs-10) font-semibold uppercase tracking-wide', x.strong ? 'opacity-70' : 'text-muted-foreground')}>{x.k}</div>
+                  <div className="mt-1 text-(length:--fs-18) font-semibold tabular-nums" style={x.warn ? { color: '#B45309' } : undefined}>{x.v}</div>
                 </div>
               ))}
             </div>
             <div className="flex flex-wrap items-center gap-2 rounded-md border bg-card p-2.5">
               <Segmented label="Προβολή" value={view} onChange={setView} options={[{ value: 'email', label: 'Email', icon: FiEye }, { value: 'pdf', label: 'PDF', icon: FiFileText }]} />
               {view === 'email' && <Segmented label="Μορφή" value={mode} onChange={setMode} options={[{ value: 'html', label: 'HTML' }, { value: 'text', label: 'Απλό κείμενο' }]} />}
-              <span className="min-w-0 truncate text-[length:var(--fs-12)] text-muted-foreground"><span className="font-medium text-foreground">Θέμα:</span> {p.subject}</span>
+              <span className="min-w-0 truncate text-(length:--fs-12) text-muted-foreground"><span className="font-medium text-foreground">Θέμα:</span> {p.subject}</span>
             </div>
             {view === 'email'
               ? <EmailFrame html={p.html} text={p.text} mode={mode} device="desktop" />

@@ -34,28 +34,28 @@ export function OfferCard({ o, big = false }: { o: PortalOffer; big?: boolean })
   const closes = o.status === 'OPEN' ? daysLeft(o.closesAt) : null;
 
   return (
-    <Link href={`/dashboard/offers/${o.id}`} className="group relative block bg-white text-[var(--s-ink)] transition-shadow duration-300 hover:shadow-[0_24px_60px_-28px_rgba(28,50,65,0.45)]">
-      <div className={big ? 'relative aspect-[16/10] overflow-hidden bg-[var(--s-paper)]' : 'relative aspect-[4/3] overflow-hidden bg-[var(--s-paper)]'}>
+    <Link href={`/dashboard/offers/${o.id}`} className="group relative block bg-white text-(--s-ink) transition-shadow duration-300 hover:shadow-[0_24px_60px_-28px_rgba(28,50,65,0.45)]">
+      <div className={big ? 'relative aspect-16/10 overflow-hidden bg-(--s-paper)' : 'relative aspect-4/3 overflow-hidden bg-(--s-paper)'}>
         {o.photo
           // eslint-disable-next-line @next/next/no-img-element
           ? <img src={o.photo} alt="" className="s-img size-full object-cover" />
           : <ProductPlaceholder mtrl={lead?.mtrl ?? 0} name={o.title} label={false} />}
-        <div className="absolute inset-0 bg-gradient-to-t from-[#0B1620]/70 via-transparent to-transparent" />
+        <div className="absolute inset-0 bg-linear-to-t from-[#0B1620]/70 via-transparent to-transparent" />
         <div className="absolute left-3 top-3 flex flex-wrap gap-2">
           {o.status === 'OPEN'
-            ? <span className="inline-flex items-center gap-1.5 bg-white/95 px-2.5 py-1 text-[length:var(--fs-11)] font-medium uppercase tracking-[0.16em] text-[#B42318]"><span className="relative flex size-2"><span className="absolute inline-flex size-full animate-ping rounded-full bg-[#F87171] opacity-75 motion-reduce:hidden" /><span className="relative inline-flex size-2 rounded-full bg-[#EF4444]" /></span>Ζωντανά</span>
-            : <span className="bg-white/95 px-2.5 py-1 text-[length:var(--fs-11)] font-medium uppercase tracking-[0.16em] text-[var(--s-ink-2)]">Έκλεισε</span>}
-          {o.items.length > 1 && <span className="bg-white/95 px-2.5 py-1 text-[length:var(--fs-11)] uppercase tracking-[0.12em]">{o.items.length} προϊόντα</span>}
+            ? <span className="inline-flex items-center gap-1.5 bg-white/95 px-2.5 py-1 text-(length:--fs-11) font-medium uppercase tracking-[0.16em] text-[#B42318]"><span className="relative flex size-2"><span className="absolute inline-flex size-full animate-ping rounded-full bg-[#F87171] opacity-75 motion-reduce:hidden" /><span className="relative inline-flex size-2 rounded-full bg-[#EF4444]" /></span>Ζωντανά</span>
+            : <span className="bg-white/95 px-2.5 py-1 text-(length:--fs-11) font-medium uppercase tracking-[0.16em] text-(--s-ink-2)">Έκλεισε</span>}
+          {o.items.length > 1 && <span className="bg-white/95 px-2.5 py-1 text-(length:--fs-11) uppercase tracking-[0.12em]">{o.items.length} προϊόντα</span>}
         </div>
         {(o.mine > 0 || o.myPending.length > 0) && (
-          <span className="absolute right-3 top-3 bg-[var(--s-ink)] px-2.5 py-1 text-[length:var(--fs-12)] text-white">{o.mine > 0 ? `Δικές σας: ${num(o.mine)} παλ.` : 'Αίτημα σε αναμονή'}</span>
+          <span className="absolute right-3 top-3 bg-(--s-ink) px-2.5 py-1 text-(length:--fs-12) text-white">{o.mine > 0 ? `Δικές σας: ${num(o.mine)} παλ.` : 'Αίτημα σε αναμονή'}</span>
         )}
         <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-3 p-4 text-white">
-          <p className="font-display min-w-0 text-[length:var(--fs-24)] leading-tight">{o.title}</p>
+          <p className="font-display min-w-0 text-(length:--fs-24) leading-tight">{o.title}</p>
           {cur != null && (
             <p className="shrink-0 text-right">
-              <span className="font-num block text-[length:var(--fs-28)] leading-none">{eur(cur)}</span>
-              <span className="text-[length:var(--fs-12)] text-white/80">/ {lead?.baseUnit ?? 'τ.μ.'}</span>
+              <span className="font-num block text-(length:--fs-28) leading-none">{eur(cur)}</span>
+              <span className="text-(length:--fs-12) text-white/80">/ {lead?.baseUnit ?? 'τ.μ.'}</span>
             </p>
           )}
         </div>
@@ -71,19 +71,19 @@ export function OfferCard({ o, big = false }: { o: PortalOffer; big?: boolean })
           </svg>
           <div className="min-w-0 flex-1 text-right">
             {drop > 0
-              ? <p className="inline-flex items-center gap-1 px-2 py-0.5 text-[length:var(--fs-13)] font-medium" style={{ color, background: `${color}14` }}><FiTrendingDown className="size-3.5" aria-hidden />−{num(Math.round(drop * 10) / 10)}%</p>
-              : <p className="text-[length:var(--fs-13)] text-[var(--s-mute)]">βασική τιμή</p>}
-            <p className="mt-1 text-[length:var(--fs-12)] text-[var(--s-ink-2)]">{o.nextLevel ? <>πτώση σε <b className="font-medium tabular-nums">{num(o.nextLevel.missing)}</b> παλ.</> : 'καλύτερη τιμή'}</p>
+              ? <p className="inline-flex items-center gap-1 px-2 py-0.5 text-(length:--fs-13) font-medium" style={{ color, background: `${color}14` }}><FiTrendingDown className="size-3.5" aria-hidden />−{num(Math.round(drop * 10) / 10)}%</p>
+              : <p className="text-(length:--fs-13) text-(--s-mute)">βασική τιμή</p>}
+            <p className="mt-1 text-(length:--fs-12) text-(--s-ink-2)">{o.nextLevel ? <>πτώση σε <b className="font-medium tabular-nums">{num(o.nextLevel.missing)}</b> παλ.</> : 'καλύτερη τιμή'}</p>
           </div>
         </div>
-        <div className="relative mt-3 h-1.5 bg-[var(--s-line)]" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(o.percent)} aria-label="Γέμισμα container">
+        <div className="relative mt-3 h-1.5 bg-(--s-line)" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(o.percent)} aria-label="Γέμισμα container">
           <div className="absolute inset-y-0 left-0" style={{ width: `${o.percent}%`, background: `linear-gradient(90deg, ${tierColor(0, o.levels.length)}, ${color})` }} />
         </div>
-        <div className="mt-2 flex items-center justify-between text-[length:var(--fs-12)] text-[var(--s-ink-2)]">
+        <div className="mt-2 flex items-center justify-between text-(length:--fs-12) text-(--s-ink-2)">
           <span className="tabular-nums">{num(o.filled)} / {num(o.capacity)} παλέτες · {o.customers} συμμετέχοντες</span>
           {closes ? <span className="inline-flex items-center gap-1"><FiClock className="size-3" aria-hidden />{closes}</span> : <FiArrowRight className="size-4 transition-transform group-hover:translate-x-1" aria-hidden />}
         </div>
-        <CropMarks className="text-[var(--s-line)] opacity-0 transition-opacity group-hover:opacity-100" size={12} />
+        <CropMarks className="text-(--s-line) opacity-0 transition-opacity group-hover:opacity-100" size={12} />
       </div>
     </Link>
   );

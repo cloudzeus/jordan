@@ -28,7 +28,7 @@ export function UtilityChargeChip({ charge }: { charge: UtilityCharge | null }) 
   const outside = OUTSIDE_VAT_CHARGES.includes(charge);
   return (
     <span
-      className="ml-1.5 inline-flex items-center rounded-full border border-sisyphus-500/30 bg-sisyphus-500/[0.07] px-2 py-px align-middle text-[length:var(--fs-10)] font-semibold text-sisyphus-700"
+      className="ml-1.5 inline-flex items-center rounded-full border border-sisyphus-500/30 bg-sisyphus-500/[0.07] px-2 py-px align-middle text-(length:--fs-10) font-semibold text-sisyphus-700"
       title={outside ? 'Εκτός ΦΠΑ από τη φύση του' : undefined}
     >
       {UTILITY_CHARGE_LABEL[charge]}{outside ? ' · εκτός ΦΠΑ' : ''}
@@ -76,11 +76,11 @@ export function UtilityBillCard({
             <Icon className="size-4" />
           </span>
           <div className="min-w-0">
-            <h2 id="utility-card-title" className="text-[length:var(--fs-14)] font-semibold text-foreground">
+            <h2 id="utility-card-title" className="text-(length:--fs-14) font-semibold text-foreground">
               {UTILITY_KIND_TITLE[analysis.kind]}
               {analysis.provider ? <span className="font-normal text-muted-foreground"> · {analysis.provider}</span> : null}
             </h2>
-            <p className="mt-0.5 text-[length:var(--fs-12)] text-muted-foreground" title={analysis.evidence.join(' · ')}>
+            <p className="mt-0.5 text-(length:--fs-12) text-muted-foreground" title={analysis.evidence.join(' · ')}>
               {period && (period.from || period.to) ? `Περίοδος ${fmtDate(period.from)} – ${fmtDate(period.to)} · ` : ''}
               Αναγνωρίστηκε από: {analysis.evidence.join(', ')}
             </p>
@@ -89,7 +89,7 @@ export function UtilityBillCard({
         {helpHref && (
           <Link
             href={helpHref}
-            className="inline-flex min-h-9 items-center gap-1 rounded-md px-2 text-[length:var(--fs-12)] text-muted-foreground hover:bg-muted hover:text-foreground"
+            className="inline-flex min-h-9 items-center gap-1 rounded-md px-2 text-(length:--fs-12) text-muted-foreground hover:bg-muted hover:text-foreground"
           >
             <FiHelpCircle className="size-3.5" aria-hidden /> Πώς λειτουργεί
           </Link>
@@ -103,16 +103,16 @@ export function UtilityBillCard({
           return (
             <li key={charge} className="rounded-lg border border-border bg-background px-3 py-2">
               <div className="flex items-baseline justify-between gap-2">
-                <span className="text-[length:var(--fs-12)] font-semibold text-foreground">
+                <span className="text-(length:--fs-12) font-semibold text-foreground">
                   {charge === 'none' ? 'Χωρίς κατάταξη' : UTILITY_CHARGE_LABEL[charge]}
                 </span>
-                <span className="shrink-0 text-[length:var(--fs-12)] font-semibold tabular-nums text-foreground">{money(g.total)}</span>
+                <span className="shrink-0 text-(length:--fs-12) font-semibold tabular-nums text-foreground">{money(g.total)}</span>
               </div>
-              <p className="mt-0.5 text-[length:var(--fs-11)] text-muted-foreground">
+              <p className="mt-0.5 text-(length:--fs-11) text-muted-foreground">
                 Γραμμ{g.idx.length === 1 ? 'ή' : 'ές'} {g.idx.join(', ')}
                 {charge !== 'none' && OUTSIDE_VAT_CHARGES.includes(charge) ? ' · εκτός ΦΠΑ' : ''}
               </p>
-              <p className={`mt-1 flex items-start gap-1 text-[length:var(--fs-11)] ${done ? 'text-emerald-700' : 'text-muted-foreground'}`}>
+              <p className={`mt-1 flex items-start gap-1 text-(length:--fs-11) ${done ? 'text-emerald-700' : 'text-muted-foreground'}`}>
                 {done ? <FiCheck className="mt-px size-3.5 shrink-0" aria-hidden /> : null}
                 <span>
                   {target
@@ -126,7 +126,7 @@ export function UtilityBillCard({
       </ul>
 
       {Array.from(groups.entries()).some(([c, g]) => c !== 'none' && g.matched < g.idx.length) && (
-        <p className="mt-2 text-[length:var(--fs-12)] text-muted-foreground">
+        <p className="mt-2 text-(length:--fs-12) text-muted-foreground">
           Αντιστοίχισε στον πίνακα γραμμών <strong className="font-semibold text-foreground">μία γραμμή ανά είδος χρέωσης</strong>:
           οι υπόλοιπες του ίδιου είδους, εδώ και σε κάθε λογαριασμό {UTILITY_KIND_TITLE[analysis.kind].replace(/^Λογαριασμός |^Μισθώματα /, '')}, συμπληρώνονται μόνες τους.
         </p>
@@ -138,10 +138,10 @@ export function UtilityBillCard({
             <li
               key={f.code}
               role={f.tone === 'warning' ? 'alert' : undefined}
-              className={`flex items-start gap-2 rounded-md border px-3 py-2 text-[length:var(--fs-12)] ${
+              className={`flex items-start gap-2 rounded-md border px-3 py-2 text-(length:--fs-12) ${
                 f.tone === 'warning'
-                  ? 'border-amber-500/40 bg-amber-500/[0.06] text-foreground'
-                  : 'border-sisyphus-500/25 bg-sisyphus-500/[0.06] text-foreground'
+                  ? 'border-amber-500/40 bg-amber-500/6 text-foreground'
+                  : 'border-sisyphus-500/25 bg-sisyphus-500/6 text-foreground'
               }`}
             >
               {f.tone === 'warning'

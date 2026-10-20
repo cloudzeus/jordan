@@ -13,14 +13,14 @@ import { confirmAction } from '@/components/ui/confirm-dialog';
 import type { LeadView } from '@/lib/leads';
 import type { SubscriberView } from '@/lib/newsletter';
 
-const ITEM = 'cursor-pointer gap-2 text-[length:var(--fs-12)]';
+const ITEM = 'cursor-pointer gap-2 text-(length:--fs-12)';
 const DASH = <span className="text-muted-foreground/40">—</span>;
 const day = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString('el-GR') : null);
 const soft = (hex: string, pct: number) => `color-mix(in srgb, ${hex} ${pct}%, var(--background))`;
 const SOFTONE_TONE: Record<string, string> = { PENDING: '#B45309', DISABLED: '#64748B', CREATED: '#047857', LINKED: '#0369A1', FAILED: '#BE123C' };
 const SOURCE: Record<string, string> = { appointment: 'Ραντεβού', newsletter: 'Newsletter' };
 const NL: Record<string, { label: string; tone: string }> = { PENDING: { label: 'Αναμένει επιβεβαίωση', tone: '#B45309' }, CONFIRMED: { label: 'Επιβεβαιωμένος', tone: '#047857' }, UNSUBSCRIBED: { label: 'Διαγράφηκε', tone: '#64748B' } };
-const Pill = ({ tone, children }: { tone: string; children: React.ReactNode }) => <span className="whitespace-nowrap rounded-md px-2 py-0.5 text-[length:var(--fs-11)] font-medium" style={{ color: tone, background: soft(tone, 12) }}>{children}</span>;
+const Pill = ({ tone, children }: { tone: string; children: React.ReactNode }) => <span className="whitespace-nowrap rounded-md px-2 py-0.5 text-(length:--fs-11) font-medium" style={{ color: tone, background: soft(tone, 12) }}>{children}</span>;
 const trigger = 'inline-flex size-8 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground';
 
 export function LeadsClient({ leads, subscribers, canManage, softoneEnabled }: { leads: LeadView[]; subscribers: SubscriberView[]; canManage: boolean; softoneEnabled: boolean }) {
@@ -42,11 +42,11 @@ export function LeadsClient({ leads, subscribers, canManage, softoneEnabled }: {
 
   const leadCols = React.useMemo<ColumnDef<LeadView>[]>(() => [
     { id: 'who', accessorFn: (l) => `${l.company ?? ''} ${l.name ?? ''} ${l.email}`, header: 'Επαφή', size: 280, cell: ({ row }) => (
-      <span className="min-w-0"><span className="block truncate font-medium">{row.original.company || row.original.name || row.original.email}</span><span className="block truncate text-[length:var(--fs-11)] text-muted-foreground">{[row.original.name, (row.original.company || row.original.name) ? row.original.email : null].filter(Boolean).join(' · ') || 'Newsletter'}</span></span>
+      <span className="min-w-0"><span className="block truncate font-medium">{row.original.company || row.original.name || row.original.email}</span><span className="block truncate text-(length:--fs-11) text-muted-foreground">{[row.original.name, (row.original.company || row.original.name) ? row.original.email : null].filter(Boolean).join(' · ') || 'Newsletter'}</span></span>
     ) },
     { accessorKey: 'phone', header: 'Τηλέφωνο', size: 130, cell: ({ row }) => (row.original.phone ? <span className="tabular-nums">{row.original.phone}</span> : DASH) },
     { id: 'sources', accessorFn: (l) => l.sources.join(' '), header: 'Πηγή', size: 170, cell: ({ row }) => (
-      <span className="flex flex-wrap gap-1">{row.original.sources.map((s) => <span key={s} className="rounded border border-border px-1.5 text-[length:var(--fs-11)]">{SOURCE[s] ?? s}</span>)}{row.original.appointments > 1 && <span className="text-[length:var(--fs-11)] text-muted-foreground">×{row.original.appointments}</span>}</span>
+      <span className="flex flex-wrap gap-1">{row.original.sources.map((s) => <span key={s} className="rounded border border-border px-1.5 text-(length:--fs-11)">{SOURCE[s] ?? s}</span>)}{row.original.appointments > 1 && <span className="text-(length:--fs-11) text-muted-foreground">×{row.original.appointments}</span>}</span>
     ) },
     { accessorKey: 'softoneStatus', header: 'SoftOne', size: 190, cell: ({ row }) => (
       <span className="inline-flex items-center gap-1.5" title={row.original.softoneError ?? undefined}><Pill tone={SOFTONE_TONE[row.original.softoneStatus] ?? '#64748B'}>{row.original.softoneCode ? `${row.original.softoneStatus === 'LINKED' ? 'Πελάτης' : 'Υποψήφιος'} ${row.original.softoneCode}` : row.original.softoneLabel}</Pill></span>
@@ -72,7 +72,7 @@ export function LeadsClient({ leads, subscribers, canManage, softoneEnabled }: {
   ], [canManage, softoneEnabled]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const subCols = React.useMemo<ColumnDef<SubscriberView>[]>(() => [
-    { id: 'who', accessorFn: (s) => `${s.email} ${s.name ?? ''}`, header: 'Email', size: 300, cell: ({ row }) => <span className="min-w-0"><span className="block truncate font-medium">{row.original.email}</span>{row.original.name && <span className="block truncate text-[length:var(--fs-11)] text-muted-foreground">{row.original.name}</span>}</span> },
+    { id: 'who', accessorFn: (s) => `${s.email} ${s.name ?? ''}`, header: 'Email', size: 300, cell: ({ row }) => <span className="min-w-0"><span className="block truncate font-medium">{row.original.email}</span>{row.original.name && <span className="block truncate text-(length:--fs-11) text-muted-foreground">{row.original.name}</span>}</span> },
     { accessorKey: 'status', header: 'Κατάσταση', size: 170, cell: ({ row }) => <Pill tone={NL[row.original.status]?.tone ?? '#64748B'}>{NL[row.original.status]?.label ?? row.original.status}</Pill> },
     { accessorKey: 'source', header: 'Από', size: 120, cell: ({ row }) => ({ footer: 'Footer', modal: 'Modal', page: 'Σελίδα', appointment: 'Ραντεβού' } as Record<string, string>)[row.original.source ?? ''] ?? DASH },
     { accessorKey: 'createdAt', header: 'Εγγραφή', size: 96, cell: ({ row }) => <span className="tabular-nums">{day(row.original.createdAt)}</span> },
@@ -90,7 +90,7 @@ export function LeadsClient({ leads, subscribers, canManage, softoneEnabled }: {
     ) },
   ], [canManage]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const chip = (active: boolean) => cn('inline-flex h-7 cursor-pointer items-center gap-1 rounded-md border px-2.5 text-[length:var(--fs-11)] font-medium transition',
+  const chip = (active: boolean) => cn('inline-flex h-7 cursor-pointer items-center gap-1 rounded-md border px-2.5 text-(length:--fs-11) font-medium transition',
     active ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-background text-muted-foreground hover:text-foreground');
   const subs = subscribers.filter((s) => nlFilter === 'all' || s.status === nlFilter);
   const confirmedEmails = subscribers.filter((s) => s.status === 'CONFIRMED').map((s) => s.email);
@@ -104,8 +104,8 @@ export function LeadsClient({ leads, subscribers, canManage, softoneEnabled }: {
       <TabsContent value="leads">
         <DataTable columns={leadCols} data={leads} searchKey="email" filterAllColumns searchPlaceholder="Αναζήτηση (εταιρεία, όνομα, email…)" persistKey="admin.leads.table.v1"
           pageSize={25} growColumnId="who" responsiveHide={['phone', 'createdAt', 'sources']}
-          expandable={(l) => l.softoneError ? <p className="px-2 py-3 text-[length:var(--fs-12)] text-destructive">SoftOne: {l.softoneError}</p> : <p className="px-2 py-3 text-[length:var(--fs-12)] text-muted-foreground">{l.profession ?? 'Χωρίς δραστηριότητα'} · {l.appointments} ραντεβού{l.newsletter ? ` · newsletter: ${NL[l.newsletter]?.label ?? l.newsletter}` : ''}</p>}
-          emptyState={<div className="space-y-2 py-10 text-center"><FiTarget className="mx-auto size-8 text-muted-foreground/50" aria-hidden /><p className="text-[length:var(--fs-13)] text-muted-foreground">Δεν υπάρχουν ακόμη leads από το website.</p></div>} />
+          expandable={(l) => l.softoneError ? <p className="px-2 py-3 text-(length:--fs-12) text-destructive">SoftOne: {l.softoneError}</p> : <p className="px-2 py-3 text-(length:--fs-12) text-muted-foreground">{l.profession ?? 'Χωρίς δραστηριότητα'} · {l.appointments} ραντεβού{l.newsletter ? ` · newsletter: ${NL[l.newsletter]?.label ?? l.newsletter}` : ''}</p>}
+          emptyState={<div className="space-y-2 py-10 text-center"><FiTarget className="mx-auto size-8 text-muted-foreground/50" aria-hidden /><p className="text-(length:--fs-13) text-muted-foreground">Δεν υπάρχουν ακόμη leads από το website.</p></div>} />
       </TabsContent>
       <TabsContent value="newsletter">
         <DataTable columns={subCols} data={subs} searchKey="email" filterAllColumns searchPlaceholder="Αναζήτηση email…" persistKey="admin.newsletter.table.v1" pageSize={25} growColumnId="who" responsiveHide={['source', 'confirmedAt', 'createdAt']}
@@ -117,7 +117,7 @@ export function LeadsClient({ leads, subscribers, canManage, softoneEnabled }: {
               {confirmedEmails.length > 0 && <button type="button" className={chip(false)} onClick={() => copy(confirmedEmails.join(', '))}><FiCopy className="size-3" aria-hidden /> Αντιγραφή επιβεβαιωμένων</button>}
             </div>
           )}
-          emptyState={<p className="py-10 text-center text-[length:var(--fs-13)] text-muted-foreground">Κανένας συνδρομητής με αυτό το φίλτρο.</p>} />
+          emptyState={<p className="py-10 text-center text-(length:--fs-13) text-muted-foreground">Κανένας συνδρομητής με αυτό το φίλτρο.</p>} />
       </TabsContent>
     </Tabs>
   );

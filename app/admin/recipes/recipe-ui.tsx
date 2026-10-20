@@ -12,7 +12,7 @@ export function KindBadge({ kind }: { kind: RecipeKind }) {
   const m = RECIPE_KIND_META[kind];
   return (
     <span
-      className="inline-flex items-center rounded px-1.5 py-0.5 text-[length:var(--fs-11)] font-medium"
+      className="inline-flex items-center rounded px-1.5 py-0.5 text-(length:--fs-11) font-medium"
       style={{ color: m.color, backgroundColor: `color-mix(in srgb, ${m.color} 12%, transparent)` }}
     >
       {m.label}
@@ -31,14 +31,14 @@ export function PickedItem({ code, name, unit, tone, onClear, disabled }: {
     >
       <FiPackage className="size-4 shrink-0" style={{ color: tone }} aria-hidden />
       <div className="min-w-0 flex-1">
-        <p className="truncate text-[length:var(--fs-13)] font-medium text-foreground">{name}</p>
-        <p className="font-mono text-[length:var(--fs-11)] text-muted-foreground">{code}{unit ? ` · ${unit}` : ''}</p>
+        <p className="truncate text-(length:--fs-13) font-medium text-foreground">{name}</p>
+        <p className="font-mono text-(length:--fs-11) text-muted-foreground">{code}{unit ? ` · ${unit}` : ''}</p>
       </div>
       {onClear && !disabled && (
         <button
           type="button"
           onClick={onClear}
-          className="inline-flex size-8 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="inline-flex size-8 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
           aria-label="Αλλαγή υλικού"
         >
           <FiX className="size-4" aria-hidden />

@@ -23,28 +23,28 @@ export function MilestonesProgress({ contract: c, canManage }: { contract: Contr
   };
   const done = c.milestones.filter((m) => m.status !== 'PENDING').length;
   return (
-    <section className="rounded-lg border border-border border-t-[3px] border-t-rose-500 bg-card p-4 shadow-sm">
+    <section className="rounded-lg border border-border border-t-[3px] border-t-rose-500 bg-card p-4 shadow-xs">
       <div className="mb-3 flex items-center justify-between gap-2">
-        <h2 className="flex items-center gap-2 text-[length:var(--fs-14)] font-semibold"><span className="inline-flex size-7 items-center justify-center rounded-md bg-rose-600 text-white shadow-sm"><FiFlag className="size-3.5" /></span> Πρόοδος</h2>
-        <span className="text-[length:var(--fs-12)] text-muted-foreground">{done}/{c.milestones.length} milestones</span>
+        <h2 className="flex items-center gap-2 text-(length:--fs-14) font-semibold"><span className="inline-flex size-7 items-center justify-center rounded-md bg-rose-600 text-white shadow-xs"><FiFlag className="size-3.5" /></span> Πρόοδος</h2>
+        <span className="text-(length:--fs-12) text-muted-foreground">{done}/{c.milestones.length} milestones</span>
       </div>
       <div className="mb-3 h-1.5 overflow-hidden rounded-full bg-muted"><div className="h-full rounded-full bg-primary transition-all" style={{ width: `${c.milestones.length ? (done / c.milestones.length) * 100 : 0}%` }} /></div>
       <ol className="space-y-1.5">
         {c.milestones.map((m) => (
           <li key={m.id} className="flex flex-wrap items-center gap-2 rounded-md px-2 py-1.5 hover:bg-muted/40">
             {m.status === 'PENDING' ? <FiCircle className="size-4 text-muted-foreground" /> : <FiCheckCircle className={cn('size-4', m.status === 'PAID' ? 'text-emerald-600' : 'text-primary')} />}
-            <span className="min-w-0 flex-1 text-[length:var(--fs-13)]">
+            <span className="min-w-0 flex-1 text-(length:--fs-13)">
               <span className="font-medium">{m.title}</span>
               <span className="text-muted-foreground"> · {m.partyKey ? `προς ${partyName.get(m.partyKey) ?? 'συνεργείο'}` : 'πελάτης'} · {dayEl(m.dueDate)} · {eur(m.amount)}</span>
             </span>
-            <span className="text-[length:var(--fs-11)] text-muted-foreground">{MILESTONE_STATUS_LABEL[m.status]}</span>
+            <span className="text-(length:--fs-11) text-muted-foreground">{MILESTONE_STATUS_LABEL[m.status]}</span>
             {canManage && (
               <div className="flex gap-1">
                 <button type="button" disabled={busy === m.id} onClick={() => set(m.id, m.status === 'PENDING' ? 'DONE' : 'PENDING')}
-                  className="min-h-8 rounded-md border border-border px-2 text-[length:var(--fs-11)] hover:bg-muted">{m.status === 'PENDING' ? 'Παραδόθηκε' : 'Αναίρεση'}</button>
+                  className="min-h-8 rounded-md border border-border px-2 text-(length:--fs-11) hover:bg-muted">{m.status === 'PENDING' ? 'Παραδόθηκε' : 'Αναίρεση'}</button>
                 {m.status !== 'PAID' && (
                   <button type="button" disabled={busy === m.id} onClick={() => set(m.id, 'PAID')}
-                    className="inline-flex min-h-8 items-center gap-1 rounded-md border border-border px-2 text-[length:var(--fs-11)] hover:bg-muted"><FiDollarSign className="size-3" />Εξοφλήθηκε</button>
+                    className="inline-flex min-h-8 items-center gap-1 rounded-md border border-border px-2 text-(length:--fs-11) hover:bg-muted"><FiDollarSign className="size-3" />Εξοφλήθηκε</button>
                 )}
               </div>
             )}

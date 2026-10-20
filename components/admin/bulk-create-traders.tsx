@@ -68,7 +68,7 @@ export function BulkCreateTradersButton({ groups, canManage }: { groups: BulkGro
           `groups.length === 0 → return null` το παράθυρο εξαφανιζόταν πριν δείξει τα αποτελέσματα. */}
       {groups.length > 0 && <button
         type="button" onClick={() => setOpen(true)}
-        className="inline-flex h-8 items-center gap-1.5 rounded-md bg-sisyphus-500 px-3 text-[length:var(--fs-12)] font-semibold text-white shadow-sm transition hover:bg-sisyphus-600 active:bg-sisyphus-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sisyphus-500/40 focus-visible:ring-offset-1"
+        className="inline-flex h-8 items-center gap-1.5 rounded-md bg-sisyphus-500 px-3 text-(length:--fs-12) font-semibold text-white shadow-xs transition hover:bg-sisyphus-600 active:bg-sisyphus-700 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-sisyphus-500/40 focus-visible:ring-offset-1"
       >
         <FiUsers className="size-3.5" /> Μαζική δημιουργία ({groups.length})
       </button>}
@@ -212,19 +212,19 @@ function BulkCreateTradersModal({ groups, onClose }: { groups: BulkGroup[]; onCl
         <DialogHeader className="flex-row items-center gap-3 border-b border-border px-4 py-2.5 pr-12">
           <span aria-hidden className="grid size-8 shrink-0 place-items-center rounded-lg bg-sisyphus-50 text-sisyphus-600 dark:bg-sisyphus-500/15 [&_svg]:size-4"><FiUsers /></span>
           <div className="min-w-0 flex-1">
-            <DialogTitle className="text-[length:var(--fs-15)]">Μαζική δημιουργία συναλλασσομένων</DialogTitle>
-            <DialogDescription className="truncate text-[length:var(--fs-11)]" title="Προεπιλεγμένοι είναι μόνο όσοι μπορούν να δημιουργηθούν με ασφάλεια. Οι υπόλοιποι φαίνονται με τον λόγο τους.">
+            <DialogTitle className="text-(length:--fs-15)">Μαζική δημιουργία συναλλασσομένων</DialogTitle>
+            <DialogDescription className="truncate text-(length:--fs-11)" title="Προεπιλεγμένοι είναι μόνο όσοι μπορούν να δημιουργηθούν με ασφάλεια. Οι υπόλοιποι φαίνονται με τον λόγο τους.">
               Προεπιλεγμένοι είναι μόνο όσοι μπορούν να δημιουργηθούν με ασφάλεια. Οι υπόλοιποι φαίνονται με τον λόγο τους.
             </DialogDescription>
           </div>
-          <div className="hidden shrink-0 flex-wrap items-center justify-end gap-1.5 text-[length:var(--fs-11)] sm:flex">
+          <div className="hidden shrink-0 flex-wrap items-center justify-end gap-1.5 text-(length:--fs-11) sm:flex">
             <Chip icon={FiCheck} fg="#047857">{counts.ready} έτοιμοι</Chip>
             {counts.country > 0 && <Chip icon={FiAlertTriangle} fg="#B45309">{counts.country} θέλουν χώρα</Chip>}
             {counts.invalid > 0 && <Chip icon={FiAlertOctagon} fg="#B91C1C">{counts.invalid} με λάθος ΑΦΜ</Chip>}
           </div>
         </DialogHeader>
         {/* Στο κινητό οι μετρητές κατεβαίνουν σε δική τους λωρίδα (η κεφαλίδα δεν χωρά). */}
-        <div className="flex flex-wrap items-center gap-1.5 border-b border-border bg-card px-4 py-1.5 text-[length:var(--fs-11)] sm:hidden">
+        <div className="flex flex-wrap items-center gap-1.5 border-b border-border bg-card px-4 py-1.5 text-(length:--fs-11) sm:hidden">
           <Chip icon={FiCheck} fg="#047857">{counts.ready} έτοιμοι</Chip>
           {counts.country > 0 && <Chip icon={FiAlertTriangle} fg="#B45309">{counts.country} θέλουν χώρα</Chip>}
           {counts.invalid > 0 && <Chip icon={FiAlertOctagon} fg="#B91C1C">{counts.invalid} με λάθος ΑΦΜ</Chip>}
@@ -232,8 +232,8 @@ function BulkCreateTradersModal({ groups, onClose }: { groups: BulkGroup[]; onCl
 
         <div className="min-h-0 flex-1 overflow-y-auto bg-muted/20 px-4 py-3">
           <div className="overflow-clip rounded-lg border border-border bg-card">
-          <table className="w-full table-fixed text-[length:var(--fs-12)]">
-            <thead className="sticky top-0 z-10 border-b border-border bg-muted text-left text-[length:var(--fs-11)] font-semibold uppercase tracking-wide text-muted-foreground">
+          <table className="w-full table-fixed text-(length:--fs-12)">
+            <thead className="sticky top-0 z-10 border-b border-border bg-muted text-left text-(length:--fs-11) font-semibold uppercase tracking-wide text-muted-foreground">
               <tr>
                 <th className="w-10 px-3 py-1.5">
                   <input
@@ -244,9 +244,9 @@ function BulkCreateTradersModal({ groups, onClose }: { groups: BulkGroup[]; onCl
                   />
                 </th>
                 <th className="px-2 py-1.5">Επωνυμία</th>
-                <th className="w-[8.5rem] px-2 py-1.5">ΑΦΜ</th>
-                <th className="w-[8.5rem] px-2 py-1.5">Τύπος</th>
-                <th className="w-[7.5rem] px-2 py-1.5">Χώρα</th>
+                <th className="w-34 px-2 py-1.5">ΑΦΜ</th>
+                <th className="w-34 px-2 py-1.5">Τύπος</th>
+                <th className="w-30 px-2 py-1.5">Χώρα</th>
                 <th className="w-[30%] px-2 py-1.5">Κατάσταση</th>
               </tr>
             </thead>
@@ -266,14 +266,14 @@ function BulkCreateTradersModal({ groups, onClose }: { groups: BulkGroup[]; onCl
                     </td>
                     <td className="min-w-0 px-2 py-1">
                       <p className="truncate pt-0.5 font-medium text-foreground" title={r.name}>{r.name}</p>
-                      {r.useAade && <p className="text-[length:var(--fs-10)] text-muted-foreground">Η επωνυμία θα έρθει από την ΑΑΔΕ</p>}
+                      {r.useAade && <p className="text-(length:--fs-10) text-muted-foreground">Η επωνυμία θα έρθει από την ΑΑΔΕ</p>}
                     </td>
                     <td className="px-2 py-1.5 font-mono tabular-nums text-foreground">{r.afm}</td>
                     <td className="px-2 py-1">
                       <select
                         value={r.kind} disabled={locked} aria-label={`Τύπος για ${r.name}`}
                         onChange={(e) => set(r.key, { kind: e.target.value as TraderKind })}
-                        className="h-7 w-full rounded-md border border-input bg-background px-1.5 text-[length:var(--fs-12)] text-foreground focus:border-sisyphus-500 focus:outline-none focus:ring-2 focus:ring-sisyphus-500/25 disabled:opacity-60"
+                        className="h-7 w-full rounded-md border border-input bg-background px-1.5 text-(length:--fs-12) text-foreground focus:border-sisyphus-500 focus:outline-hidden focus:ring-2 focus:ring-sisyphus-500/25 disabled:opacity-60"
                       >
                         {(['supplier', 'creditor', 'debtor'] as TraderKind[]).map((k) => <option key={k} value={k}>{KIND_LABEL[k]}</option>)}
                       </select>
@@ -284,7 +284,7 @@ function BulkCreateTradersModal({ groups, onClose }: { groups: BulkGroup[]; onCl
                           value={r.country ?? ''} disabled={locked} aria-label={`Χώρα για ${r.name}`}
                           onChange={(e) => set(r.key, { country: e.target.value || null, countryGuessed: false })}
                           className={cn(
-                            'h-7 w-full rounded-md border bg-background px-1.5 text-[length:var(--fs-12)] text-foreground focus:outline-none focus:ring-2 focus:ring-sisyphus-500/25 disabled:opacity-60',
+                            'h-7 w-full rounded-md border bg-background px-1.5 text-(length:--fs-12) text-foreground focus:outline-hidden focus:ring-2 focus:ring-sisyphus-500/25 disabled:opacity-60',
                             r.countryGuessed ? 'border-amber-400' : 'border-input',
                           )}
                         >
@@ -299,7 +299,7 @@ function BulkCreateTradersModal({ groups, onClose }: { groups: BulkGroup[]; onCl
                       <div className="pt-0.5"><StatusCell row={r} st={st} /></div>
                       {r.status === 'invalid_afm' && !locked && (
                         <button type="button" onClick={() => recover(r)} disabled={recovering != null}
-                          className="mt-1 inline-flex h-6 items-center gap-1 rounded-md bg-sisyphus-500 px-2 text-[length:var(--fs-10)] font-semibold text-white shadow-sm transition hover:bg-sisyphus-600 disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground disabled:shadow-none">
+                          className="mt-1 inline-flex h-6 items-center gap-1 rounded-md bg-sisyphus-500 px-2 text-(length:--fs-10) font-semibold text-white shadow-xs transition hover:bg-sisyphus-600 disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground disabled:shadow-none">
                           <FiLoader className={cn('size-3', recovering === r.key ? 'animate-spin' : 'hidden')} />
                           {recovering === r.key ? 'Επανάγνωση…' : 'Επανάγνωση από το αρχείο'}
                         </button>
@@ -315,7 +315,7 @@ function BulkCreateTradersModal({ groups, onClose }: { groups: BulkGroup[]; onCl
 
         {/* `mx-0 mb-0`: το DialogFooter έχει `-mx-4 -mb-4` για modal με padding· εδώ είναι `p-0`. */}
         <DialogFooter className="mx-0 mb-0 flex-col items-stretch gap-2 border-t border-border bg-card px-4 py-2.5 sm:flex-row sm:items-center sm:justify-between">
-          <p className="flex items-center gap-1.5 text-[length:var(--fs-11)] text-muted-foreground">
+          <p className="flex items-center gap-1.5 text-(length:--fs-11) text-muted-foreground">
             <FiDatabase className="size-3.5 shrink-0" aria-hidden />
             {target
               ? <>Θα γραφτούν στο SoftOne: <strong className="font-semibold text-foreground">{target}</strong></>
@@ -338,7 +338,7 @@ function BulkCreateTradersModal({ groups, onClose }: { groups: BulkGroup[]; onCl
             )}
             {phase === 'confirm' && (
               <>
-                <span className="text-[length:var(--fs-11)] font-semibold text-foreground">
+                <span className="text-(length:--fs-11) font-semibold text-foreground">
                   {chosen.length} νέες καρτέλες{target ? ` στο ${target}` : ''}. Σίγουρα;
                 </span>
                 <button type="button" onClick={() => setPhase('edit')} className={BTN_GHOST}>Πίσω</button>

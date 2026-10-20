@@ -21,17 +21,17 @@ export default async function AppointmentPage() {
     <Container className="py-14 md:py-20">
       <div className="grid grid-cols-[minmax(0,1fr)] gap-12 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] lg:gap-20">
         <div className="relative lg:pt-2">
-          <p className="s-kicker text-[var(--s-accent)]">Μόνο με ραντεβού</p>
-          <h1 className="font-display mt-4 text-[length:var(--fs-56)] leading-[1.05]">Κλείστε ραντεβού στο <em>atelier.</em></h1>
-          <p className="mt-6 max-w-md text-[length:var(--fs-18)] leading-relaxed text-[var(--s-ink-2)]">Μεγάλες επιφάνειες για κάθε υλικό, mock-ups και meeting room. Φέρτε τα σχέδια του έργου — βρίσκουμε μαζί το σωστό υλικό.</p>
-          <ul className="mt-8 space-y-3 text-[length:var(--fs-15)] text-[var(--s-ink)]">
-            <li className="flex items-start gap-3"><FiMapPin className="mt-1 size-4 shrink-0 text-[var(--s-accent)]" aria-hidden />{c.address}</li>
-            <li className="flex items-start gap-3"><FiPhone className="mt-1 size-4 shrink-0 text-[var(--s-accent)]" aria-hidden /><a className="s-link tabular-nums" href={`tel:${c.phones[0].replace(/\s/g, '')}`}>{c.phones[0]}</a></li>
+          <p className="s-kicker text-(--s-accent)">Μόνο με ραντεβού</p>
+          <h1 className="font-display mt-4 text-(length:--fs-56) leading-[1.05]">Κλείστε ραντεβού στο <em>atelier.</em></h1>
+          <p className="mt-6 max-w-md text-(length:--fs-18) leading-relaxed text-(--s-ink-2)">Μεγάλες επιφάνειες για κάθε υλικό, mock-ups και meeting room. Φέρτε τα σχέδια του έργου — βρίσκουμε μαζί το σωστό υλικό.</p>
+          <ul className="mt-8 space-y-3 text-(length:--fs-15) text-(--s-ink)">
+            <li className="flex items-start gap-3"><FiMapPin className="mt-1 size-4 shrink-0 text-(--s-accent)" aria-hidden />{c.address}</li>
+            <li className="flex items-start gap-3"><FiPhone className="mt-1 size-4 shrink-0 text-(--s-accent)" aria-hidden /><a className="s-link tabular-nums" href={`tel:${c.phones[0].replace(/\s/g, '')}`}>{c.phones[0]}</a></li>
           </ul>
-          <DimLine label={c.hours.toUpperCase()} className="mt-10 max-w-md text-[var(--s-mute)]" />
+          <DimLine label={c.hours.toUpperCase()} className="mt-10 max-w-md text-(--s-mute)" />
         </div>
-        <div className="relative min-w-0 border border-[var(--s-line)] bg-white p-4 sm:p-8 lg:p-10">
-          <CropMarks className="text-[var(--s-ink)]" size={18} />
+        <div className="relative min-w-0 border border-(--s-line) bg-white p-4 sm:p-8 lg:p-10">
+          <CropMarks className="text-(--s-ink)" size={18} />
           <BookingForm idPrefix="bkp" TitleAs="h2" />
         </div>
       </div>

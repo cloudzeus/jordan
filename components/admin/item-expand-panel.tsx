@@ -19,12 +19,12 @@ const KIND_TONE: Record<PurchaseKind, string> = {
 };
 
 const TRIGGER = cn(
-  '!h-9 flex-none cursor-pointer gap-1 rounded-none px-2 text-[length:var(--fs-12)] text-muted-foreground sm:gap-1.5 sm:px-3',
-  'hover:text-foreground data-[state=active]:font-semibold data-[state=active]:!text-[color:var(--tab-tone)]',
-  'after:bg-[var(--tab-tone)] after:!h-[2px] after:!bottom-0',
+  'h-9! flex-none cursor-pointer gap-1 rounded-none px-2 text-(length:--fs-12) text-muted-foreground sm:gap-1.5 sm:px-3',
+  'hover:text-foreground data-[state=active]:font-semibold data-[state=active]:text-(--tab-tone)!',
+  'after:bg-(--tab-tone) after:h-[2px]! after:bottom-0!',
 );
-const TH = 'px-1.5 sm:px-2 py-1.5 text-left text-[length:var(--fs-10)] font-semibold uppercase tracking-wide text-muted-foreground whitespace-nowrap';
-const TD = 'px-1.5 sm:px-2 py-1.5 text-[length:var(--fs-12)] align-top';
+const TH = 'px-1.5 sm:px-2 py-1.5 text-left text-(length:--fs-10) font-semibold uppercase tracking-wide text-muted-foreground whitespace-nowrap';
+const TD = 'px-1.5 sm:px-2 py-1.5 text-(length:--fs-12) align-top';
 const NUM = 'text-right tabular-nums whitespace-nowrap';
 
 function useJson<T>(url: string | null) {
@@ -51,7 +51,7 @@ function useJson<T>(url: string | null) {
 
 function ErrorBox({ message, onRetry }: { message: string; onRetry: () => void }) {
   return (
-    <div role="alert" className="flex flex-wrap items-center gap-2 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-[length:var(--fs-12)]">
+    <div role="alert" className="flex flex-wrap items-center gap-2 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-(length:--fs-12)">
       <FiAlertTriangle className="size-4 shrink-0 text-destructive" aria-hidden />
       <span className="flex-1">{message}</span>
       <button type="button" onClick={onRetry} className="inline-flex h-8 cursor-pointer items-center gap-1 rounded-md border border-border bg-background px-2.5 hover:bg-muted">
@@ -75,8 +75,8 @@ type FullItem = {
 function Fact({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="min-w-0">
-      <dt className="text-[length:var(--fs-10)] font-semibold uppercase tracking-wide text-muted-foreground">{label}</dt>
-      <dd className="mt-0.5 truncate text-[length:var(--fs-12)] text-foreground">{children}</dd>
+      <dt className="text-(length:--fs-10) font-semibold uppercase tracking-wide text-muted-foreground">{label}</dt>
+      <dd className="mt-0.5 truncate text-(length:--fs-12) text-foreground">{children}</dd>
     </div>
   );
 }
@@ -125,7 +125,7 @@ function InfoTab({ mtrl, isService }: { mtrl: number; isService: boolean }) {
         <div className="flex flex-wrap items-center gap-1.5">
           <FiTag className="size-3.5 text-violet-600" aria-hidden />
           {attrs.data.attributes.map((a) => (
-            <span key={a.name} className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[length:var(--fs-11)]" style={{ borderColor: soft('#7C3AED', 35), backgroundColor: soft('#7C3AED', 8) }}>
+            <span key={a.name} className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-(length:--fs-11)" style={{ borderColor: soft('#7C3AED', 35), backgroundColor: soft('#7C3AED', 8) }}>
               <span className="text-muted-foreground">{a.name}:</span>
               <span className="font-medium text-foreground">{a.value}{a.unit ? ` ${a.unit}` : ''}</span>
             </span>
@@ -148,8 +148,8 @@ function PurchasesTab({ mtrl }: { mtrl: number }) {
   const rows = kind === 'all' ? data.lines : data.lines.filter((l) => l.kind === kind);
   const t = data.totals;
   const chip = (active: boolean) => cn(
-    'inline-flex h-7 cursor-pointer items-center gap-1 rounded-md border px-2.5 text-[length:var(--fs-11)] font-medium transition-colors duration-150',
-    active ? 'text-white shadow-sm' : 'border-border bg-background hover:bg-muted',
+    'inline-flex h-7 cursor-pointer items-center gap-1 rounded-md border px-2.5 text-(length:--fs-11) font-medium transition-colors duration-150',
+    active ? 'text-white shadow-xs' : 'border-border bg-background hover:bg-muted',
   );
 
   return (
@@ -163,16 +163,16 @@ function PurchasesTab({ mtrl }: { mtrl: number }) {
           ['Τιμολόγια / προμηθευτές', `${t.docs} / ${t.suppliers}`],
         ].map(([label, value], i) => (
           <div
-            key={label} className="min-w-[8.5rem] flex-1 rounded-md border px-3 py-1.5 sm:flex-none"
+            key={label} className="min-w-34 flex-1 rounded-md border px-3 py-1.5 sm:flex-none"
             style={i === 1 ? { backgroundColor: soft(TAB.purchases, 8), borderColor: soft(TAB.purchases, 30), boxShadow: `inset 3px 0 0 ${TAB.purchases}` } : undefined}
           >
-            <p className="text-[length:var(--fs-11)] font-medium text-muted-foreground">{label}</p>
-            <p className="text-[length:var(--fs-14)] font-semibold tabular-nums text-foreground">{value}</p>
+            <p className="text-(length:--fs-11) font-medium text-muted-foreground">{label}</p>
+            <p className="text-(length:--fs-14) font-semibold tabular-nums text-foreground">{value}</p>
           </div>
         ))}
         <button
           type="button" onClick={reload} disabled={loading}
-          className="ml-auto inline-flex h-8 cursor-pointer items-center gap-1 self-start rounded-md px-2 text-[length:var(--fs-11)] text-muted-foreground transition-colors duration-150 hover:bg-muted hover:text-foreground disabled:opacity-50"
+          className="ml-auto inline-flex h-8 cursor-pointer items-center gap-1 self-start rounded-md px-2 text-(length:--fs-11) text-muted-foreground transition-colors duration-150 hover:bg-muted hover:text-foreground disabled:opacity-50"
         >
           <FiRefreshCw className={cn('size-3.5', loading && 'animate-spin motion-reduce:animate-none')} aria-hidden /> Ανανέωση
         </button>
@@ -190,11 +190,11 @@ function PurchasesTab({ mtrl }: { mtrl: number }) {
             {k.label} <span className="tabular-nums opacity-80">{k.docs}</span>
           </button>
         ))}
-        <span className="text-[length:var(--fs-11)] text-muted-foreground">Τα σύνολα μετρούν μόνο τιμολόγια μείον πιστωτικά.</span>
+        <span className="text-(length:--fs-11) text-muted-foreground">Τα σύνολα μετρούν μόνο τιμολόγια μείον πιστωτικά.</span>
       </div>
 
       {rows.length === 0 ? (
-        <p className="rounded-md border border-dashed border-border px-3 py-5 text-center text-[length:var(--fs-12)] text-muted-foreground">
+        <p className="rounded-md border border-dashed border-border px-3 py-5 text-center text-(length:--fs-12) text-muted-foreground">
           {data.lines.length === 0 ? 'Δεν υπάρχουν παραστατικά αγορών για αυτό το είδος στο SoftOne.' : 'Κανένα παραστατικό αυτού του τύπου.'}
         </p>
       ) : (
@@ -221,11 +221,11 @@ function PurchasesTab({ mtrl }: { mtrl: number }) {
                     <td className={TD}>
                       <span className={cn('font-mono font-medium whitespace-nowrap', l.cancelled ? 'line-through' : counts && 'text-foreground')}>{l.fincode}</span>
                       <span className="mt-0.5 flex flex-wrap items-center gap-1">
-                        <span className="rounded-sm px-1 text-[length:var(--fs-10)] font-semibold" style={{ color: tone, backgroundColor: soft(tone, 12) }}>{l.kindLabel}</span>
-                        {l.cancelled && <span className="inline-flex items-center gap-0.5 rounded-sm bg-muted px-1 text-[length:var(--fs-10)]"><FiSlash className="size-3" aria-hidden /> Ακυρωμένο</span>}
-                        <span className="text-[length:var(--fs-10)] text-muted-foreground">{l.seriesName ?? `Σειρά ${l.series}`}</span>
+                        <span className="rounded-sm px-1 text-(length:--fs-10) font-semibold" style={{ color: tone, backgroundColor: soft(tone, 12) }}>{l.kindLabel}</span>
+                        {l.cancelled && <span className="inline-flex items-center gap-0.5 rounded-sm bg-muted px-1 text-(length:--fs-10)"><FiSlash className="size-3" aria-hidden /> Ακυρωμένο</span>}
+                        <span className="text-(length:--fs-10) text-muted-foreground">{l.seriesName ?? `Σειρά ${l.series}`}</span>
                       </span>
-                      <span className="block text-[length:var(--fs-11)] md:hidden">{l.supplier ?? ''}</span>
+                      <span className="block text-(length:--fs-11) md:hidden">{l.supplier ?? ''}</span>
                     </td>
                     <td className={cn(TD, 'hidden md:table-cell')}>{l.supplier ?? '—'}</td>
                     <td className={cn(TD, 'hidden lg:table-cell')}>{l.project ?? <span className="text-muted-foreground/50">—</span>}</td>
@@ -247,7 +247,7 @@ function PurchasesTab({ mtrl }: { mtrl: number }) {
 export function ItemExpandPanel({ mtrl, canManage, isService }: { mtrl: number; canManage: boolean; isService: boolean }) {
   return (
     <Tabs defaultValue="info" className="gap-3">
-      <TabsList variant="line" className="!h-auto min-h-9 flex-wrap w-full justify-start gap-0 border-b border-border p-0">
+      <TabsList variant="line" className="h-auto! min-h-9 flex-wrap w-full justify-start gap-0 border-b border-border p-0">
         <TabsTrigger value="info" className={TRIGGER} style={{ ['--tab-tone' as string]: TAB.info }}>
           <FiInfo className="size-3.5" aria-hidden /> Info
         </TabsTrigger>

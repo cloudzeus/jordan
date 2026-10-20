@@ -78,36 +78,36 @@ export function CopyRecipeDialog({ recipe, onClose }: { recipe: RecipeView | nul
       <DialogContent className="flex max-h-[92dvh] flex-col gap-0 overflow-hidden p-0 sm:max-w-lg">
         <form onSubmit={submit} className="flex min-h-0 flex-1 flex-col" noValidate>
           <DialogHeader className="px-5 pt-4 pb-3">
-            <DialogTitle className="text-[length:var(--fs-16)]">Αντιγραφή για ομοειδές υλικό</DialogTitle>
-            <DialogDescription className="text-[length:var(--fs-12)]">
+            <DialogTitle className="text-(length:--fs-16)">Αντιγραφή για ομοειδές υλικό</DialogTitle>
+            <DialogDescription className="text-(length:--fs-12)">
               Από «<span className="font-medium text-foreground">{recipe.name}</span>»: {recipe.lines.length} υλικά, φύρα {toInput(recipe.wastePct, 2) || '0'}% και εργατικά {eur.format(recipe.laborCostPerSqm)}/m² — κατηγορία {RECIPE_KIND_META[recipe.kind].label.toLowerCase()}.
             </DialogDescription>
           </DialogHeader>
           <DialogBody className="space-y-4">
             <div>
-              <Label htmlFor="copy-main" className="mb-1 block text-[length:var(--fs-12)]">Νέο κύριο υλικό</Label>
+              <Label htmlFor="copy-main" className="mb-1 block text-(length:--fs-12)">Νέο κύριο υλικό</Label>
               {main ? (
                 <PickedItem code={main.code} name={main.name} unit={main.unit} tone={tone} onClear={() => { setMain(null); setLastBuy(null); setPrice(toInput(recipe.materialPrice)); }} />
               ) : (
                 <>
                   <RegistrySearch id="copy-main" kind="product" onPick={pick} label="" />
-                  <p className="mt-1 text-[length:var(--fs-11)] text-muted-foreground">
+                  <p className="mt-1 text-(length:--fs-11) text-muted-foreground">
                     {recipe.mtrlName ? <>Αν δεν διαλέξετε, κρατιέται το ίδιο: <span className="text-foreground">{recipe.mtrlName}</span>.</> : 'Αν δεν διαλέξετε, η συνταγή μένει γενική.'}
                   </p>
                 </>
               )}
             </div>
             <div>
-              <Label htmlFor="copy-name" className="mb-1 block text-[length:var(--fs-12)]">Όνομα <span className="text-destructive">*</span></Label>
+              <Label htmlFor="copy-name" className="mb-1 block text-(length:--fs-12)">Όνομα <span className="text-destructive">*</span></Label>
               <Input id="copy-name" value={name} onChange={(e) => setName(e.target.value)} maxLength={160} />
             </div>
             <div>
-              <Label htmlFor="copy-price" className="mb-1 block text-[length:var(--fs-12)]">Τιμή κύριου υλικού (€/m²)</Label>
+              <Label htmlFor="copy-price" className="mb-1 block text-(length:--fs-12)">Τιμή κύριου υλικού (€/m²)</Label>
               <Input id="copy-price" inputMode="decimal" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="0,00" className="tabular-nums" aria-invalid={priceErr} />
-              {priceErr && <p role="alert" className="mt-1 text-[length:var(--fs-11)] text-destructive">Αριθμός ≥ 0.</p>}
-              {lastBuy != null && <p className="mt-1 text-[length:var(--fs-11)] text-muted-foreground">Τελευταία αγορά: {eur.format(lastBuy)}{main?.unit ? ` / ${main.unit}` : ''}</p>}
+              {priceErr && <p role="alert" className="mt-1 text-(length:--fs-11) text-destructive">Αριθμός ≥ 0.</p>}
+              {lastBuy != null && <p className="mt-1 text-(length:--fs-11) text-muted-foreground">Τελευταία αγορά: {eur.format(lastBuy)}{main?.unit ? ` / ${main.unit}` : ''}</p>}
             </div>
-            {error && <p role="alert" className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-[length:var(--fs-12)] text-destructive">{error}</p>}
+            {error && <p role="alert" className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-(length:--fs-12) text-destructive">{error}</p>}
           </DialogBody>
           <DialogFooter className="m-0 border-t border-border px-5 py-3">
             <Button type="button" variant="ghost" onClick={onClose} disabled={busy}>Άκυρο</Button>

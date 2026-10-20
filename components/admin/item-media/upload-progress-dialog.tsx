@@ -112,8 +112,8 @@ export function UploadProgressDialog({
             <FiUploadCloud />
           </span>
           <div className="min-w-0 flex-1">
-            <DialogTitle className="text-[length:var(--fs-15)]">Μεταφόρτωση {KIND_LABEL[kind]}</DialogTitle>
-            <DialogDescription className="text-[length:var(--fs-11)]" aria-live="polite">
+            <DialogTitle className="text-(length:--fs-15)">Μεταφόρτωση {KIND_LABEL[kind]}</DialogTitle>
+            <DialogDescription className="text-(length:--fs-11)" aria-live="polite">
               {active ? `Ολοκληρώθηκαν ${done} από ${jobs.length}…` : failed.length ? `${done} επιτυχίες, ${failed.length} αποτυχίες` : `Ολοκληρώθηκαν και τα ${done}`}
             </DialogDescription>
           </div>
@@ -143,11 +143,11 @@ export function UploadProgressDialog({
                 </span>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-baseline gap-2">
-                    <p className="truncate text-[length:var(--fs-12)] font-medium text-foreground" title={j.file.name}>{j.file.name}</p>
-                    <span className="ml-auto shrink-0 text-[length:var(--fs-10)] tabular-nums text-muted-foreground">{fmtSize(j.file.size)}</span>
+                    <p className="truncate text-(length:--fs-12) font-medium text-foreground" title={j.file.name}>{j.file.name}</p>
+                    <span className="ml-auto shrink-0 text-(length:--fs-10) tabular-nums text-muted-foreground">{fmtSize(j.file.size)}</span>
                   </div>
                   {j.status === 'error' ? (
-                    <p role="alert" className="text-[length:var(--fs-11)] text-destructive">{j.error}</p>
+                    <p role="alert" className="text-(length:--fs-11) text-destructive">{j.error}</p>
                   ) : (
                     <div className="mt-1 flex items-center gap-2">
                       <div className="h-1 flex-1 overflow-hidden rounded-full bg-muted">
@@ -156,7 +156,7 @@ export function UploadProgressDialog({
                           style={{ width: `${Math.round((j.status === 'done' || j.status === 'processing' ? 1 : j.progress) * 100)}%` }}
                         />
                       </div>
-                      <span className="w-24 shrink-0 text-right text-[length:var(--fs-10)] tabular-nums text-muted-foreground">
+                      <span className="w-24 shrink-0 text-right text-(length:--fs-10) tabular-nums text-muted-foreground">
                         {j.status === 'queued' ? 'Σε αναμονή' : j.status === 'uploading' ? `Ανέβασμα ${Math.round(j.progress * 100)}%` : j.status === 'processing' ? 'Επεξεργασία…' : 'Έτοιμο'}
                       </span>
                     </div>

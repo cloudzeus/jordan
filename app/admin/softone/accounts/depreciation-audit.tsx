@@ -27,26 +27,26 @@ export function DepreciationAudit() {
   return (
     <section aria-labelledby="depr-h" className="rounded-xl border border-border bg-card shadow-fluent-2">
       <header className="border-b border-border px-4 py-3">
-        <h2 id="depr-h" className="text-[length:var(--fs-14)] font-semibold text-foreground">Συντελεστές απόσβεσης κατηγοριών παγίων</h2>
-        <p className="text-[length:var(--fs-12)] text-muted-foreground">
+        <h2 id="depr-h" className="text-(length:--fs-14) font-semibold text-foreground">Συντελεστές απόσβεσης κατηγοριών παγίων</h2>
+        <p className="text-(length:--fs-12) text-muted-foreground">
           Σύγκριση του φορολογικού συντελεστή κάθε λογιστικής κατηγορίας του SoftOne με τον {DEPRECIATION_SOURCE}. Σε κάθε νέο
           πάγιο η εφαρμογή προτείνει τον συντελεστή του νόμου και τον γράφει στο ίδιο το πάγιο· τις κατηγορίες τις διορθώνει ο λογιστής στο SoftOne.
         </p>
       </header>
       {!rows && !error && (
-        <p className="flex items-center gap-2 px-4 py-3 text-[length:var(--fs-12)] text-muted-foreground">
+        <p className="flex items-center gap-2 px-4 py-3 text-(length:--fs-12) text-muted-foreground">
           <FiLoader aria-hidden className="size-4 animate-spin motion-reduce:animate-none" /> Φόρτωση από το SoftOne…
         </p>
       )}
-      {error && <p role="alert" className="px-4 py-3 text-[length:var(--fs-12)] text-rose-700">{error}</p>}
+      {error && <p role="alert" className="px-4 py-3 text-(length:--fs-12) text-rose-700">{error}</p>}
       {rows && (
         <>
-          <p className={`flex items-center gap-1.5 px-4 pt-3 text-[length:var(--fs-13)] font-semibold ${wrong ? 'text-amber-800' : 'text-emerald-700'}`}>
+          <p className={`flex items-center gap-1.5 px-4 pt-3 text-(length:--fs-13) font-semibold ${wrong ? 'text-amber-800' : 'text-emerald-700'}`}>
             {wrong ? <FiAlertTriangle aria-hidden className="size-4" /> : <FiCheckCircle aria-hidden className="size-4" />}
             {wrong ? `${wrong} από ${rows.length} κατηγορίες έχουν άλλον συντελεστή από τον νόμο` : 'Όλες οι κατηγορίες συμφωνούν με τον νόμο'}
           </p>
           <div className="overflow-x-auto px-4 pb-3 pt-2">
-            <table className="w-full text-[length:var(--fs-12)]">
+            <table className="w-full text-(length:--fs-12)">
               <thead>
                 <tr className="text-left text-muted-foreground">
                   <th className="py-1.5 pr-3 font-medium">Κατηγορία SoftOne</th>

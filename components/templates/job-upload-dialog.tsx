@@ -111,8 +111,8 @@ export function JobUploadDialog({ templateId, templateName, defaultEmails, open,
         <DialogHeader className="flex-row items-center gap-3 border-b border-border px-4 py-2.5 pr-12">
           <span aria-hidden className="grid size-8 shrink-0 place-items-center rounded-lg bg-sisyphus-50 text-sisyphus-600 dark:bg-sisyphus-500/15 [&_svg]:size-4"><FiUploadCloud /></span>
           <div className="min-w-0 flex-1">
-            <DialogTitle className="truncate text-[length:var(--fs-15)]" title={`Σάρωση αρχείων — ${templateName}`}>Σάρωση αρχείων — {templateName}</DialogTitle>
-            <DialogDescription className="truncate text-[length:var(--fs-11)]" title="Τα αρχεία διαβάζονται στο παρασκήνιο, ένα-ένα. Μπορείς να κλείσεις τη σελίδα· η εργασία συνεχίζει.">
+            <DialogTitle className="truncate text-(length:--fs-15)" title={`Σάρωση αρχείων — ${templateName}`}>Σάρωση αρχείων — {templateName}</DialogTitle>
+            <DialogDescription className="truncate text-(length:--fs-11)" title="Τα αρχεία διαβάζονται στο παρασκήνιο, ένα-ένα. Μπορείς να κλείσεις τη σελίδα· η εργασία συνεχίζει.">
               Τα αρχεία διαβάζονται στο παρασκήνιο, ένα-ένα. Μπορείς να κλείσεις τη σελίδα· η εργασία συνεχίζει.
             </DialogDescription>
           </div>
@@ -135,7 +135,7 @@ export function JobUploadDialog({ templateId, templateName, defaultEmails, open,
                   <textarea
                     id="job-desc" value={description} maxLength={500} rows={2}
                     onChange={(e) => setDescription(e.target.value)}
-                    className="min-h-[3.5rem] w-full rounded-lg border border-input bg-background px-2.5 py-1.5 text-[length:var(--fs-13)] outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50 dark:bg-input/30"
+                    className="min-h-14 w-full rounded-lg border border-input bg-background px-2.5 py-1.5 text-(length:--fs-13) outline-hidden placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50 dark:bg-input/30"
                     placeholder="Τι είναι αυτή η παρτίδα"
                   />
                 </Field>
@@ -154,7 +154,7 @@ export function JobUploadDialog({ templateId, templateName, defaultEmails, open,
               aside={files.length > 0 ? (
                 <span className="flex items-center gap-2">
                   <span className={cn('tabular-nums', tooMuch && 'font-medium text-dg-red-600')}>{files.length} αρχεία · {humanSize(totalBytes)}</span>
-                  <button type="button" className="cursor-pointer rounded font-medium hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed" onClick={() => setFiles([])} disabled={busy}>Καθαρισμός</button>
+                  <button type="button" className="cursor-pointer rounded font-medium hover:underline focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed" onClick={() => setFiles([])} disabled={busy}>Καθαρισμός</button>
                 </span>
               ) : undefined}
             >
@@ -165,8 +165,8 @@ export function JobUploadDialog({ templateId, templateName, defaultEmails, open,
               >
                 <FiUploadCloud className="size-5 shrink-0 text-muted-foreground" aria-hidden />
                 <div className="min-w-0 flex-1">
-                  <p className="text-[length:var(--fs-12)] text-muted-foreground">Σύρε αρχεία εδώ ή</p>
-                  <p className="text-[length:var(--fs-10)] text-muted-foreground">PDF, PNG, JPEG, WebP · έως 25 MB το καθένα · έως {MAX_JOB_FILES} αρχεία · έως {MAX_TOTAL_MB} MB συνολικά</p>
+                  <p className="text-(length:--fs-12) text-muted-foreground">Σύρε αρχεία εδώ ή</p>
+                  <p className="text-(length:--fs-10) text-muted-foreground">PDF, PNG, JPEG, WebP · έως 25 MB το καθένα · έως {MAX_JOB_FILES} αρχεία · έως {MAX_TOTAL_MB} MB συνολικά</p>
                 </div>
                 <Button type="button" variant="outline" size="sm" className="shrink-0" onClick={() => inputRef.current?.click()} disabled={busy}>
                   Επιλογή αρχείων
@@ -186,14 +186,14 @@ export function JobUploadDialog({ templateId, templateName, defaultEmails, open,
               {files.length > 0 && (
                 <ul className="max-h-40 divide-y divide-border overflow-auto rounded-md border border-border bg-card">
                   {files.map((f, i) => (
-                    <li key={`${f.name}:${f.size}:${i}`} className="flex h-8 items-center gap-2 px-2 text-[length:var(--fs-11)] hover:bg-muted/40">
+                    <li key={`${f.name}:${f.size}:${i}`} className="flex h-8 items-center gap-2 px-2 text-(length:--fs-11) hover:bg-muted/40">
                       <FiFile className="size-3 shrink-0 text-muted-foreground" aria-hidden />
                       <span className="min-w-0 flex-1 truncate" title={f.name}>{f.name}</span>
                       <span className="shrink-0 tabular-nums text-muted-foreground">{humanSize(f.size)}</span>
                       <button
                         type="button" aria-label={`Αφαίρεση ${f.name}`} disabled={busy}
                         onClick={() => setFiles((prev) => prev.filter((_, idx) => idx !== i))}
-                        className="shrink-0 rounded p-1 text-muted-foreground hover:text-dg-red-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        className="shrink-0 rounded p-1 text-muted-foreground hover:text-dg-red-600 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
                       >
                         <FiX className="size-3" />
                       </button>

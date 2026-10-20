@@ -12,7 +12,7 @@ export default async function NewRecipePage() {
   const templates = await listRecipes();
   return (
     <div className="mx-auto w-full max-w-6xl">
-      <Link href="/admin/recipes" className="mb-2 inline-flex items-center gap-1 text-[length:var(--fs-12)] text-muted-foreground hover:text-foreground"><FiArrowLeft className="size-3.5" aria-hidden /> Συνταγές τοποθέτησης</Link>
+      <Link href="/admin/recipes" className="mb-2 inline-flex items-center gap-1 text-(length:--fs-12) text-muted-foreground hover:text-foreground"><FiArrowLeft className="size-3.5" aria-hidden /> Συνταγές τοποθέτησης</Link>
       <PageHeader icon={<FiPlusCircle />} title="Νέα συνταγή" description="Υλικό, υλικά ανά m² με φύρα και εργατικό κόστος ανά m²" helpAnchor="recipes" />
       <RecipeEditor initial={null} templates={templates} />
     </div>

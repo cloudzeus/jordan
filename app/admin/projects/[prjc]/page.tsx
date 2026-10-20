@@ -25,8 +25,8 @@ const fmtDate = (d: Date | null) => (d ? d.toLocaleDateString('el-GR', { timeZon
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="min-w-0">
-      <dt className="text-[length:var(--fs-11)] font-medium uppercase tracking-wide text-muted-foreground">{label}</dt>
-      <dd className="mt-0.5 text-[length:var(--fs-13)] text-foreground break-words">{children}</dd>
+      <dt className="text-(length:--fs-11) font-medium uppercase tracking-wide text-muted-foreground">{label}</dt>
+      <dd className="mt-0.5 text-(length:--fs-13) text-foreground wrap-break-word">{children}</dd>
     </div>
   );
 }
@@ -39,8 +39,8 @@ function TraderBlock({ t }: { t: Trader }) {
   return (
     <>
       <span className="font-medium">{t.name}</span>{' '}
-      <span className="font-mono text-[length:var(--fs-11)] text-muted-foreground">{t.code}</span>
-      {meta && <span className="text-[length:var(--fs-12)] text-muted-foreground"> · {meta}</span>}
+      <span className="font-mono text-(length:--fs-11) text-muted-foreground">{t.code}</span>
+      {meta && <span className="text-(length:--fs-12) text-muted-foreground"> · {meta}</span>}
     </>
   );
 }
@@ -64,7 +64,7 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
 
   return (
     <div className="w-full max-w-5xl">
-      <Link href="/admin/projects" className="mb-3 inline-flex items-center gap-1 text-[length:var(--fs-12)] text-muted-foreground hover:text-foreground">
+      <Link href="/admin/projects" className="mb-3 inline-flex items-center gap-1 text-(length:--fs-12) text-muted-foreground hover:text-foreground">
         <FiArrowLeft className="size-3.5" aria-hidden /> Όλα τα έργα
       </Link>
       <PageHeader
@@ -76,7 +76,7 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
       />
 
       {/* Στοιχεία έργου — μία πυκνή λωρίδα: μόνο τα πεδία με τιμή, συναλλασσόμενοι σε μία γραμμή. */}
-      <section aria-label="Στοιχεία έργου" className="rounded-xl border border-border bg-card px-3 py-2.5 shadow-sm sm:px-4">
+      <section aria-label="Στοιχεία έργου" className="rounded-xl border border-border bg-card px-3 py-2.5 shadow-xs sm:px-4">
         <dl className="flex flex-wrap gap-x-6 gap-y-2">
           <Field label="Status">{p.statusLabel}</Field>
           {!p.isActive && <Field label="Ενεργό">Όχι</Field>}
@@ -89,7 +89,7 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
             {site ? (
               <>
                 {siteLine(site)}
-                <span className="text-[length:var(--fs-12)] text-muted-foreground">
+                <span className="text-(length:--fs-12) text-muted-foreground">
                   {' · '}<a href={`https://www.openstreetmap.org/?mlat=${site.lat}&mlon=${site.lng}#map=18/${site.lat}/${site.lng}`} target="_blank" rel="noopener noreferrer" className="underline-offset-2 hover:text-foreground hover:underline">χάρτης</a>
                   {' · '}<a href={`https://www.google.com/maps/dir/?api=1&destination=${site.lat},${site.lng}`} target="_blank" rel="noopener noreferrer" className="underline-offset-2 hover:text-foreground hover:underline">οδηγίες</a>
                 </span>
@@ -99,53 +99,53 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
           <Field label="Πελάτης"><TraderBlock t={p.customer} /></Field>
           {p.supplier && <Field label="Προμηθευτής"><TraderBlock t={p.supplier} /></Field>}
         </dl>
-        {p.remarks && <p className="mt-2 whitespace-pre-wrap border-t border-border pt-2 text-[length:var(--fs-12)] text-muted-foreground">{p.remarks}</p>}
+        {p.remarks && <p className="mt-2 whitespace-pre-wrap border-t border-border pt-2 text-(length:--fs-12) text-muted-foreground">{p.remarks}</p>}
       </section>
 
       <ProjectTabs openTasks={work.tasks.length - counts.DONE} tasks={(
         <TasksWorkspace prjc={p.prjc} tasks={work.tasks} options={options} templates={templates} canManage={canManage} canFiles={canManageFiles} today={zonedParts(new Date()).date} openTaskId={query.task ?? null} />
       )} overview={(<>
       {/* Εργασίες: σύνοψη προόδου + είσοδος στην καρτέλα «Εργασίες» */}
-      <section aria-label="Εργασίες έργου" className="flex flex-wrap items-center gap-x-6 gap-y-3 rounded-xl border border-border bg-card px-3 py-3 shadow-sm sm:px-4">
+      <section aria-label="Εργασίες έργου" className="flex flex-wrap items-center gap-x-6 gap-y-3 rounded-xl border border-border bg-card px-3 py-3 shadow-xs sm:px-4">
         <div className="min-w-40 flex-1">
           <div className="flex items-baseline justify-between gap-2">
-            <span className="text-[length:var(--fs-13)] font-semibold">Εργασίες</span>
-            <span className="text-[length:var(--fs-13)] font-semibold tabular-nums">{work.progress}%</span>
+            <span className="text-(length:--fs-13) font-semibold">Εργασίες</span>
+            <span className="text-(length:--fs-13) font-semibold tabular-nums">{work.progress}%</span>
           </div>
           <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-muted" role="progressbar" aria-valuenow={work.progress} aria-valuemin={0} aria-valuemax={100} aria-label="Ολοκλήρωση εργασιών">
             <div className="h-full rounded-full bg-primary" style={{ width: `${work.progress}%` }} />
           </div>
-          <p className="mt-1 flex flex-wrap gap-x-3 text-[length:var(--fs-11)] text-muted-foreground">
+          <p className="mt-1 flex flex-wrap gap-x-3 text-(length:--fs-11) text-muted-foreground">
             {work.tasks.length === 0 ? 'Καμία εργασία ακόμη' : PHASES.map((ph) => <span key={ph.key}>{ph.label} <span className="tabular-nums font-medium text-foreground">{counts[ph.key]}</span></span>)}
           </p>
         </div>
-        <Link href={`/admin/projects/${p.prjc}?tab=tasks`} scroll={false} className="inline-flex min-h-9 items-center gap-1.5 rounded-md border border-border px-3 text-[length:var(--fs-12)] font-medium hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+        <Link href={`/admin/projects/${p.prjc}?tab=tasks`} scroll={false} className="inline-flex min-h-9 items-center gap-1.5 rounded-md border border-border px-3 text-(length:--fs-12) font-medium hover:bg-muted focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring">
           <FiTrello className="size-3.5" aria-hidden /> Kanban εργασιών
         </Link>
       </section>
 
       {fin && <ProjectFinancials profit={fin.profit} issues={fin.issues} computedAt={fin.computedAt} error={fresh?.error ?? null} />}
       {canFinancials && !fin && (
-        <p role="alert" className="mt-4 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-[length:var(--fs-12)] text-destructive">
+        <p role="alert" className="mt-4 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-(length:--fs-12) text-destructive">
           Τα οικονομικά του έργου δεν υπολογίστηκαν ακόμη{fresh?.error ? ` — ${fresh.error}` : ''}.
         </p>
       )}
 
       {canFiles && (
         <Card id="files" className="mt-4 scroll-mt-20">
-          <CardHeader className="px-3 sm:px-6"><CardTitle className="text-[length:var(--fs-14)]">Αρχεία έργου</CardTitle></CardHeader>
+          <CardHeader className="px-3 sm:px-6"><CardTitle className="text-(length:--fs-14)">Αρχεία έργου</CardTitle></CardHeader>
           <CardContent className="px-3 sm:px-6"><EntityFilesPanel scope="projects" id={p.prjc} /></CardContent>
         </Card>
       )}
 
       <Card className="mt-4">
-        <CardHeader className="px-3 sm:px-6"><CardTitle className="text-[length:var(--fs-14)]">Κινήσεις στο SoftOne</CardTitle></CardHeader>
+        <CardHeader className="px-3 sm:px-6"><CardTitle className="text-(length:--fs-14)">Κινήσεις στο SoftOne</CardTitle></CardHeader>
         {/* Στο κινητό λιγότερο padding: οι πίνακες χρειάζονται κάθε pixel πλάτους. */}
         <CardContent className="px-3 sm:px-6"><ProjectActivityPanel prjc={p.prjc} canManage={canManage} projectLabel={`${p.code} · ${p.name}`} /></CardContent>
       </Card>
       </>)} />
 
-      <p className="mt-4 text-[length:var(--fs-11)] text-muted-foreground">
+      <p className="mt-4 text-(length:--fs-11) text-muted-foreground">
         Από SoftOne (PRJC {p.prjc}) · τελευταίος συγχρονισμός {p.syncedAt.toLocaleString('el-GR')}
       </p>
     </div>

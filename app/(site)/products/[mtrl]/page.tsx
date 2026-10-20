@@ -35,14 +35,14 @@ export default async function ProductPage({ params }: { params: Params }) {
 
   return (
     <Container className="py-10 md:py-16">
-      <nav aria-label="Διαδρομή" className="text-[length:var(--fs-13)] text-[var(--s-mute)]">
+      <nav aria-label="Διαδρομή" className="text-(length:--fs-13) text-(--s-mute)">
         <Link href="/products" className="s-link">Υλικά</Link>
         {p.category?.name && <> <span aria-hidden>/</span> <Link href={`/products?category=${p.category.code}`} className="s-link">{p.category.name}</Link></>}
       </nav>
 
       <div className="mt-8 grid gap-10 md:grid-cols-[1.2fr_1fr] md:gap-16">
         <div className="space-y-4">
-          <div className="relative aspect-square overflow-hidden bg-[var(--s-paper)]">
+          <div className="relative aspect-square overflow-hidden bg-(--s-paper)">
             {main
               // eslint-disable-next-line @next/next/no-img-element
               ? <img src={main.url} alt={p.name} className="size-full object-cover" />
@@ -51,7 +51,7 @@ export default async function ProductPage({ params }: { params: Params }) {
           {rest.length > 0 && (
             <ul className="grid grid-cols-4 gap-4">
               {rest.slice(0, 8).map((ph, i) => (
-                <li key={ph.url} className="aspect-square overflow-hidden bg-[var(--s-paper)]">
+                <li key={ph.url} className="aspect-square overflow-hidden bg-(--s-paper)">
                   <a href={ph.url} target="_blank" rel="noreferrer" aria-label={`Φωτογραφία ${i + 2} σε πλήρες μέγεθος`}>
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={ph.thumb} alt="" loading="lazy" className="size-full object-cover" />
@@ -64,14 +64,14 @@ export default async function ProductPage({ params }: { params: Params }) {
 
         <div className="md:pt-4">
           {p.category?.name && <Eyebrow>{p.category.name}</Eyebrow>}
-          <h1 className="font-site mt-4 text-[length:var(--fs-28)] font-light leading-tight">{p.name}</h1>
-          {p.name2 && p.name2 !== p.name && <p className="mt-3 text-[length:var(--fs-16)] text-[var(--s-ink-2)]">{p.name2}</p>}
+          <h1 className="font-site mt-4 text-(length:--fs-28) font-light leading-tight">{p.name}</h1>
+          {p.name2 && p.name2 !== p.name && <p className="mt-3 text-(length:--fs-16) text-(--s-ink-2)">{p.name2}</p>}
 
-          <dl className="mt-10 border-t border-[var(--s-line)]">
+          <dl className="mt-10 border-t border-(--s-line)">
             {specs.map(([k, v]) => (
-              <div key={k} className="grid grid-cols-[9rem_1fr] gap-4 border-b border-[var(--s-line)] py-3 text-[length:var(--fs-15)]">
-                <dt className="text-[var(--s-mute)]">{k}</dt>
-                <dd className="text-[var(--s-ink)]">{v}</dd>
+              <div key={k} className="grid grid-cols-[9rem_1fr] gap-4 border-b border-(--s-line) py-3 text-(length:--fs-15)">
+                <dt className="text-(--s-mute)">{k}</dt>
+                <dd className="text-(--s-ink)">{v}</dd>
               </div>
             ))}
           </dl>
@@ -80,26 +80,26 @@ export default async function ProductPage({ params }: { params: Params }) {
             {user?.role.key === 'CUSTOMER' && user.customerTrdr != null ? (
               <>
                 <Link href={`/dashboard/customer/orders/new?add=${p.mtrl}`} className={`${btn.primary} w-full sm:w-auto`}>Προσθήκη σε νέα παραγγελία</Link>
-                <p className="text-[length:var(--fs-14)] text-[var(--s-ink-2)]">Τιμή και διαθεσιμότητα επιβεβαιώνονται με την παραγγελία. <Link href={homeFor(user.role.key)} className="s-link text-[var(--s-ink)]">Δυναμικές προσφορές</Link></p>
+                <p className="text-(length:--fs-14) text-(--s-ink-2)">Τιμή και διαθεσιμότητα επιβεβαιώνονται με την παραγγελία. <Link href={homeFor(user.role.key)} className="s-link text-(--s-ink)">Δυναμικές προσφορές</Link></p>
               </>
             ) : user ? (
               <Link href={homeFor(user.role.key)} className={btn.primary}>{isStaffRole(user.role.key) ? 'Στη διαχείριση' : 'Στην περιοχή μου'}</Link>
             ) : (
               <>
                 {c.email && <a href={`mailto:${c.email}?subject=${subject}`} className={`${btn.primary} w-full sm:w-auto`}>Ζητήστε προσφορά</a>}
-                <p className="text-[length:var(--fs-14)] text-[var(--s-ink-2)]">
-                  Επαγγελματίας με λογαριασμό; <Link href="/auth/signin" className="s-link text-[var(--s-ink)]">Συνδεθείτε</Link> για να το παραγγείλετε. Νέος συνεργάτης; <Link href="/auth/register" className="s-link text-[var(--s-ink)]">Αίτημα πρόσβασης</Link>.
+                <p className="text-(length:--fs-14) text-(--s-ink-2)">
+                  Επαγγελματίας με λογαριασμό; <Link href="/auth/signin" className="s-link text-(--s-ink)">Συνδεθείτε</Link> για να το παραγγείλετε. Νέος συνεργάτης; <Link href="/auth/register" className="s-link text-(--s-ink)">Αίτημα πρόσβασης</Link>.
                 </p>
               </>
             )}
-            {c.phone && <p className="text-[length:var(--fs-14)] text-[var(--s-mute)]">ή καλέστε στο <a href={`tel:${c.phone.replace(/\s/g, '')}`} className="s-link text-[var(--s-ink)]">{c.phone}</a></p>}
+            {c.phone && <p className="text-(length:--fs-14) text-(--s-mute)">ή καλέστε στο <a href={`tel:${c.phone.replace(/\s/g, '')}`} className="s-link text-(--s-ink)">{c.phone}</a></p>}
           </div>
         </div>
       </div>
 
       {rel.length > 0 && (
-        <section className="mt-24 border-t border-[var(--s-line)] pt-12" aria-labelledby="related">
-          <h2 id="related" className="font-site text-[length:var(--fs-20)] font-light">Στην ίδια κατηγορία</h2>
+        <section className="mt-24 border-t border-(--s-line) pt-12" aria-labelledby="related">
+          <h2 id="related" className="font-site text-(length:--fs-20) font-light">Στην ίδια κατηγορία</h2>
           <ul className="mt-8 grid grid-cols-2 gap-x-4 gap-y-10 md:grid-cols-4 md:gap-x-6">
             {rel.slice(0, 4).map((r) => <li key={r.mtrl}><ProductCard p={r} /></li>)}
           </ul>
