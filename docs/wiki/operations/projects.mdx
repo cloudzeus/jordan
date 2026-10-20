@@ -4,7 +4,7 @@ module: operations
 slug: projects
 roles: [SUPER_ADMIN, ADMIN, EMPLOYEE]
 order: 1
-updatedAt: 2026-10-19
+updatedAt: 2026-10-20
 description: "Όλα τα έργα της εταιρίας από το SoftOne, με πελάτη, status, ημερομηνίες, υλικά, υπηρεσίες και παραστατικά ανά έργο."
 screenshots:
   - file: list.png
@@ -13,7 +13,7 @@ screenshots:
   - file: kanban.png
     route: /admin/projects?view=kanban
     caption: "Kanban εργασιών όλων των έργων"
-related: [recipes, softone-resync, project-profitability, operations/project-tasks, operations/all-tasks]
+related: [recipes, softone-resync, project-profitability, operations/project-tasks, operations/all-tasks, operations/floor-plan-measure]
 helpAnchors: [projects]
 ---
 
@@ -37,6 +37,7 @@ helpAnchors: [projects]
   <li><strong>Τοποθεσία έργου:</strong> ⋮ → <strong>Τοποθεσία έργου…</strong>. Γράψε τη διεύθυνση του εργοταξίου και πάτησε <strong>Εύρεση</strong>· διάλεξε το σωστό αποτέλεσμα. Αν η ένδειξη λέει «Μόνο η οδός» ή «Μόνο η περιοχή», σύρε την πινέζα στο ακριβές σημείο (ή κάνε κλικ στον χάρτη) — η διεύθυνση συμπληρώνεται ξανά από το σημείο. Πάτησε <strong>Αποθήκευση θέσης</strong>. Η τοποθεσία φαίνεται στην καρτέλα του έργου (με «χάρτης» και «οδηγίες») και στη στήλη <strong>Τοποθεσία</strong> της λίστας.</li>
   <li><strong>Kanban εργασιών:</strong> πάνω από τη λίστα, η εναλλαγή <strong>Έργα | Kanban εργασιών</strong> δείχνει τις εργασίες όλων των έργων στις 4 φάσεις (Να γίνει, Σε εξέλιξη, Σε έλεγχο, Ολοκληρώθηκε). Διάλεξε <strong>έργο</strong> από τη λίστα για να δεις μόνο τις δικές του. Σύρε μια κάρτα σε άλλη στήλη για να αλλάξει φάση και ποσοστό — αποθηκεύεται αμέσως.</li>
   <li><strong>Καρτέλα έργου → Εργασίες:</strong> η καρτέλα του έργου έχει δύο καρτέλες, <strong>Επισκόπηση</strong> και <strong>Εργασίες</strong>. Στις Εργασίες υπάρχει το Kanban, το Gantt και η λίστα του έργου, με νέα εργασία, templates και επεξεργασία — δες «Εργασίες έργου».</li>
+  <li><strong>Διαστασιολόγηση κάτοψης:</strong> ⋮ → <strong>Διαστασιολόγηση κάτοψης…</strong> ανοίγει εργαλείο που υπολογίζει τα m² κάθε χώρου από φωτογραφία ή PDF κάτοψης — δες «Διαστασιολόγηση κάτοψης».</li>
   <li>Με το δικαίωμα «Οικονομικά έργων» η λίστα και η καρτέλα δείχνουν και την κερδοφορία κάθε έργου — δες τη σελίδα «Κερδοφορία έργων».</li>
 </Steps>
 

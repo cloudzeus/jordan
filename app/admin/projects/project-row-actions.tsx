@@ -1,8 +1,9 @@
 'use client';
 
 import * as React from 'react';
+import dynamic from 'next/dynamic';
 import { usePathname, useRouter } from 'next/navigation';
-import { FiMoreVertical, FiPackage, FiTool, FiExternalLink, FiRefreshCw, FiCopy, FiMapPin, FiFolder, FiTrello, FiLayers } from 'react-icons/fi';
+import { FiMoreVertical, FiPackage, FiTool, FiExternalLink, FiRefreshCw, FiCopy, FiMapPin, FiFolder, FiTrello, FiLayers, FiSquare } from 'react-icons/fi';
 import { toast } from 'sonner';
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
@@ -15,9 +16,12 @@ import { ExportItem, useFinancialsActions } from './financials-actions';
 
 const ITEM = 'cursor-pointer gap-2 text-[length:var(--fs-12)]';
 
+// three.js + pdfjs φορτώνονται μόνο όταν ανοίξει το εργαλείο.
+const FloorPlanDialog = dynamic(() => import('@/components/admin/floorplan/floor-plan-dialog').then((m) => m.FloorPlanDialog), { ssr: false });
+
 /** Μενού ενεργειών δεξιά σε κάθε έργο (λίστα) ή στην κεφαλίδα της καρτέλας του. */
 export function ProjectRowActions({
-  prjc, code, name, canManage, financials = false, exportDoc = false, files = false,
+  prjc, code, name, canManage, financials = false, exportDoc = false, files = false, manageFiles = false,
 }: {
   prjc: number;
   code: string;
@@ -29,6 +33,8 @@ export function ProjectRowActions({
   exportDoc?: boolean;
   /** files.read: «Αρχεία έργου» (φάκελος στο Bunny, ενότητα #files της καρτέλας) */
   files?: boolean;
+  /** files.manage: η διαστασιολόγηση κάτοψης μπορεί να αποθηκεύσει PNG/CSV στα αρχεία του έργου. */
+  manageFiles?: boolean;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -41,6 +47,8 @@ export function ProjectRowActions({
   const [dialog, setDialog] = React.useState<'product' | 'service' | null>(null);
   const [siteOpen, setSiteOpen] = React.useState(false);
   const [recipeOpen, setRecipeOpen] = React.useState(false);
+  // Μένει mounted μετά το πρώτο άνοιγμα: κλείσιμο/άνοιγμα δεν χάνει την κάτοψη και τις μετρήσεις.
+  const [plan, setPlan] = React.useState<'closed' | 'open' | 'hidden'>('closed');
 
   const copy = async () => {
     try {
@@ -88,6 +96,9 @@ export function ProjectRowActions({
           <DropdownMenuItem className={ITEM} onSelect={() => router.push(`/admin/projects/${prjc}/tasks`)}>
             <FiTrello className="size-3.5" style={{ color: '#2563EB' }} aria-hidden /> Εργασίες (Kanban & Gantt)
           </DropdownMenuItem>
+          <DropdownMenuItem className={ITEM} onSelect={() => setPlan('open')}>
+            <FiSquare className="size-3.5" style={{ color: '#0891B2' }} aria-hidden /> Διαστασιολόγηση κάτοψης…
+          </DropdownMenuItem>
           {files && (
             <DropdownMenuItem className={ITEM} onSelect={openFiles}>
               <FiFolder className="size-3.5" style={{ color: '#B91C1C' }} aria-hidden /> Αρχεία & φάκελοι έργου
@@ -124,6 +135,12 @@ export function ProjectRowActions({
       )}
       {canManage && (
         <ApplyRecipeDialog open={recipeOpen} onOpenChange={setRecipeOpen} prjc={prjc} projectLabel={`${code} · ${name}`} />
+      )}
+      {plan !== 'closed' && (
+        <FloorPlanDialog
+          prjc={prjc} projectLabel={`${code} · ${name}`} canSave={manageFiles}
+          open={plan === 'open'} onOpenChange={(o) => setPlan(o ? 'open' : 'hidden')}
+        />
       )}
       {canManage && siteOpen && (
         <ProjectSiteDialog open={siteOpen} onOpenChange={setSiteOpen} prjc={prjc} projectLabel={`${code} · ${name}`} />
