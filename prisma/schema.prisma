@@ -3843,6 +3843,10 @@ model InstallRecipe {
   materialPrice   Float               @default(0) // τιμή κύριου υλικού ανά m²
   wastePct        Float               @default(0) // φύρα κύριου υλικού (%)
   laborCostPerSqm Float               @default(0) // εργατικό κόστος ανά m²
+  // Υπηρεσία (MTRL) με την οποία μπαίνουν τα εργατικά στον προϋπολογισμό έργου — προαιρετική
+  laborMtrl       Int?
+  laborCode       String?
+  laborName       String?
   copiedFromId    String? // συνταγή-πηγή όταν φτιάχτηκε με αντιγραφή
   createdById     String?
   createdAt       DateTime            @default(now())
