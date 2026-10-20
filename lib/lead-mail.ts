@@ -1,6 +1,6 @@
 import 'server-only';
 import { getSetting } from '@/lib/settings';
-import { mailgunConfig, sendTransactionalEmail, type MailAttachment } from '@/lib/mailgun';
+import { allowedRecipients, mailgunConfig, sendTransactionalEmail, type MailAttachment } from '@/lib/mailgun';
 import { appUrl } from '@/lib/app-url';
 
 /**
@@ -20,6 +20,10 @@ export type MailResult = 'sent' | 'skipped' | 'failed';
 export async function sendLeadMail(to: string, subject: string, html: string, opts: { replyTo?: string | null; attachments?: MailAttachment[]; text?: string | null } = {}): Promise<MailResult> {
   if (process.env.MAIL_DRY_RUN === '1' || isReservedRecipient(to)) {
     console.info(`[lead-mail] δεν στάλθηκε (δοκιμή) → ${to}: ${subject}`);
+    return 'skipped';
+  }
+  if (!(await allowedRecipients(to)).length) {
+    console.info(`[lead-mail] δεν στάλθηκε (πριν το live μόνο σε χρήστες προσωπικού) → ${to}: ${subject}`);
     return 'skipped';
   }
   try {

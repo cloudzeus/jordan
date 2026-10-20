@@ -1,5 +1,7 @@
 import Mailgun from 'mailgun.js';
 import { htmlToText } from '@/lib/email/layout';
+import type { RoleKey } from '@prisma/client';
+import { prisma } from '@/lib/db';
 
 type MailgunClient = ReturnType<InstanceType<typeof Mailgun>['client']>;
 
@@ -46,11 +48,36 @@ export type MailAttachment = { filename: string; content: string | Uint8Array; c
  * Συνημμένα: με το ΕΓΓΕΝΕΣ FormData το mailgun.js καλεί `append(name, data, filename)` — που δέχεται
  * μόνο Blob όταν δίνεται filename. Γι' αυτό κάθε συνημμένο γίνεται Blob με τον σωστό τύπο.
  */
+// ── Φραγμός πριν το live ─────────────────────────────────────────────────────────────────────────
+// Μέχρι να βγει live η εφαρμογή ΔΕΝ φεύγει email σε πελάτες/προμηθευτές/τρίτους (παράπονα 10/2026):
+// επιτρέπονται ΜΟΝΟ email ενεργών χρηστών του προσωπικού (SUPER_ADMIN/ADMIN/EMPLOYEE). Οι υπόλοιποι
+// παραλήπτες κόβονται σιωπηλά (γραμμή στο log). Άνοιγμα για όλους: `MAIL_LIVE=1` στο περιβάλλον.
+const STAFF_ROLES: RoleKey[] = ['SUPER_ADMIN', 'ADMIN', 'EMPLOYEE'];
+export const mailLive = () => process.env.MAIL_LIVE === '1';
+
+/** Οι παραλήπτες (λίστα με κόμμα) που επιτρέπεται να λάβουν email τώρα. */
+export async function allowedRecipients(to: string): Promise<string[]> {
+  const list = to.split(',').map((x) => x.trim()).filter(Boolean);
+  if (mailLive() || !list.length) return list;
+  const staff = await prisma.user.findMany({
+    where: { isActive: true, email: { in: list, mode: 'insensitive' }, role: { key: { in: STAFF_ROLES } } },
+    select: { email: true },
+  });
+  const ok = new Set(staff.map((u) => u.email.toLowerCase()));
+  return list.filter((e) => ok.has(e.toLowerCase()));
+}
+
 export async function sendTransactionalEmail(to: string, subject: string, html: string, opts: { replyTo?: string | null; fromName?: string | null; attachments?: MailAttachment[]; text?: string | null } = {}) {
+  const allowed = await allowedRecipients(to);
+  if (!allowed.length) {
+    console.info(`[mail] ΔΕΝ στάλθηκε (πριν το live μόνο σε χρήστες προσωπικού) → ${to}: ${subject}`);
+    return { id: null, message: 'blocked-before-live', blocked: true as const };
+  }
+  if (allowed.length < to.split(',').filter((x) => x.trim()).length) console.info(`[mail] παραλήπτες εκτός προσωπικού αφαιρέθηκαν: ${to} → ${allowed.join(', ')}`);
   const { domain, address } = mailgunConfig();
   return getClient().messages.create(domain, {
     from: opts.fromName ? `${opts.fromName.replace(/[<>"]/g, '').trim()} <${address}>` : address,
-    to,
+    to: allowed.join(', '),
     subject,
     html,
     text: opts.text || htmlToText(html),

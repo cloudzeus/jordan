@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 vi.mock('server-only', () => ({}));
 const settings = vi.hoisted(() => ({ map: {} as Record<string, unknown> }));
 vi.mock('@/lib/settings', () => ({ getSetting: vi.fn(async (k: string) => settings.map[k]) }));
-const mg = vi.hoisted(() => ({ sendTransactionalEmail: vi.fn(async () => ({})), mailgunConfig: () => ({ address: 'connect@dgsmart.gr' }) }));
+const mg = vi.hoisted(() => ({ sendTransactionalEmail: vi.fn(async () => ({})), mailgunConfig: () => ({ address: 'connect@dgsmart.gr' }), allowedRecipients: vi.fn(async (to: string) => to.split(',').map((x) => x.trim())) }));
 vi.mock('@/lib/mailgun', () => mg);
 
 import { isReservedRecipient, sendLeadMail, staffRecipient } from '../lead-mail';
