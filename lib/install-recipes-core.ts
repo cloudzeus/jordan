@@ -81,3 +81,59 @@ export function parseDecimal(v: string): number {
 
 /** Αριθμός σε ελληνική μορφή για πεδίο φόρμας (χωρίς διαχωριστικό χιλιάδων). */
 export const toInput = (n: number, digits = 4) => (Number.isFinite(n) && n !== 0 ? n.toLocaleString('el-GR', { maximumFractionDigits: digits, useGrouping: false }) : '');
+
+export type OfferLineMode = 'detailed' | 'bundled';
+export type RecipeForOffer = Omit<RecipeCalcInput, 'lines'> & {
+  name: string;
+  kind: RecipeKind;
+  mtrl: number | null;
+  mtrlCode: string | null;
+  mtrlName: string | null;
+  labor: { mtrl: number; code: string; name: string } | null;
+  lines: (RecipeLineCalcInput & { mtrl: number; code: string; name: string; unit: string | null })[];
+};
+export type OfferLine = {
+  kind: 'MATERIAL' | 'SERVICE'; mtrl: number | null; code: string | null; name: string; unit: string | null;
+  qty: number; unitPrice: number; notes: string | null;
+};
+
+/**
+ * Συνταγή → γραμμές προσφοράς/σύμβασης για Χ m². Οι τιμές της συνταγής είναι ΚΟΣΤΟΣ, οπότε
+ * προσαυξάνονται με το περιθώριο (%) για τον πελάτη.
+ *  • detailed: κύριο υλικό (m² με φύρα), κάθε βοηθητικό υλικό, εργασία (m²) ως υπηρεσία.
+ *  • bundled:  μία γραμμή «Προμήθεια & τοποθέτηση» σε m² με το συνολικό κόστος/m².
+ */
+export function recipeToOfferLines(r: RecipeForOffer, sqm: number, opts: { markupPct: number; mode: OfferLineMode }): OfferLine[] {
+  if (!(Number.isFinite(sqm) && sqm > 0)) return [];
+  const k = wasteFactor(Number.isFinite(opts.markupPct) && opts.markupPct > 0 ? opts.markupPct : 0);
+  const price = (p: number) => round(p * k, 2);
+  const area = round(sqm, 3);
+
+  if (opts.mode === 'bundled') {
+    const perSqm = recipeCost(r).total;
+    if (perSqm <= 0) return [];
+    // Η σημείωση τυπώνεται στο έγγραφο του πελάτη: τι περιλαμβάνει η τιμή/m² (χωρίς εσωτερικά ονόματα συνταγών).
+    const parts = [r.mtrl || r.materialPrice > 0 ? r.mtrlName || RECIPE_KIND_META[r.kind].label.toLowerCase() : null, ...r.lines.map((l) => l.name), r.laborCostPerSqm > 0 ? 'εργασία τοποθέτησης' : null];
+    const notes = `Περιλαμβάνει: ${parts.filter(Boolean).join(', ')}`;
+    return [{ kind: 'SERVICE', mtrl: null, code: null, name: `Προμήθεια & τοποθέτηση — ${r.mtrlName || r.name}`, unit: 'm²', qty: area, unitPrice: price(perSqm), notes }];
+  }
+
+  const calc = recipeForArea(r, sqm);
+  const out: OfferLine[] = [];
+  if (r.mtrl || r.materialPrice > 0) {
+    out.push({
+      kind: 'MATERIAL', mtrl: r.mtrl, code: r.mtrlCode, name: r.mtrlName || `${RECIPE_KIND_META[r.kind].label} (κύριο υλικό)`,
+      unit: 'm²', qty: calc.rows[0].qty, unitPrice: price(r.materialPrice), notes: null,
+    });
+  }
+  r.lines.forEach((l, i) => {
+    out.push({ kind: 'MATERIAL', mtrl: l.mtrl, code: l.code, name: l.name, unit: l.unit, qty: calc.rows[i + 1].qty, unitPrice: price(l.unitPrice), notes: null });
+  });
+  if (r.laborCostPerSqm > 0) {
+    out.push({
+      kind: 'SERVICE', mtrl: r.labor?.mtrl ?? null, code: r.labor?.code ?? null, name: r.labor?.name || `Εργασία τοποθέτησης — ${r.mtrlName || RECIPE_KIND_META[r.kind].label.toLowerCase()}`,
+      unit: 'm²', qty: area, unitPrice: price(r.laborCostPerSqm), notes: null,
+    });
+  }
+  return out.filter((l) => l.qty > 0);
+}

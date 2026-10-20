@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { lineCostPerSqm, lineQtyWithWaste, parseDecimal, recipeCost, recipeForArea, wasteFactor } from '../install-recipes-core';
+import { lineCostPerSqm, lineQtyWithWaste, parseDecimal, recipeCost, recipeForArea, recipeToOfferLines, wasteFactor } from '../install-recipes-core';
 
 const recipe = {
   mtrlName: 'Πλακάκι 60x60',
@@ -46,5 +46,30 @@ describe('συνταγές τοποθέτησης', () => {
     expect(parseDecimal('1.234,5')).toBe(1234.5);
     expect(parseDecimal('2.5')).toBe(2.5);
     expect(Number.isNaN(parseDecimal(''))).toBe(true);
+  });
+});
+
+describe('συνταγή → γραμμές προσφοράς', () => {
+  const r = {
+    name: 'Δάπεδο 60x60', kind: 'TILE' as const, mtrl: 10, mtrlCode: 'P1', mtrlName: 'Πλακάκι 60x60',
+    materialPrice: 20, wastePct: 10, laborCostPerSqm: 12, labor: null,
+    lines: [{ mtrl: 11, code: 'K1', name: 'Κόλλα', unit: 'kg', qtyPerSqm: 5, wastePct: 5, unitPrice: 0.4 }],
+  };
+
+  it('αναλυτικά: υλικά με φύρα + εργασία, με περιθώριο', () => {
+    const l = recipeToOfferLines(r, 100, { markupPct: 25, mode: 'detailed' });
+    expect(l).toHaveLength(3);
+    expect(l[0]).toMatchObject({ kind: 'MATERIAL', mtrl: 10, unit: 'm²', qty: 110, unitPrice: 25, notes: null });
+    expect(l[1]).toMatchObject({ kind: 'MATERIAL', mtrl: 11, unit: 'kg', qty: 525, unitPrice: 0.5 });
+    expect(l[2]).toMatchObject({ kind: 'SERVICE', mtrl: null, name: 'Εργασία τοποθέτησης — Πλακάκι 60x60', qty: 100, unitPrice: 15 });
+  });
+
+  it('μία γραμμή ανά m²', () => {
+    const [l] = recipeToOfferLines(r, 50, { markupPct: 0, mode: 'bundled' });
+    expect(l).toMatchObject({ kind: 'SERVICE', unit: 'm²', qty: 50, unitPrice: 36.1, notes: 'Περιλαμβάνει: Πλακάκι 60x60, Κόλλα, εργασία τοποθέτησης' });
+  });
+
+  it('χωρίς τετραγωνικά → καμία γραμμή', () => {
+    expect(recipeToOfferLines(r, 0, { markupPct: 0, mode: 'detailed' })).toEqual([]);
   });
 });
