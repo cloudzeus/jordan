@@ -162,7 +162,7 @@ const DISABLED_CLS =
   'disabled:hover:bg-muted';
 const INPUT_CLS =
   'h-8 w-full rounded-md border border-input bg-background px-2 text-[length:var(--fs-12)] text-foreground ' +
-  'placeholder:text-muted-foreground/60 transition focus:border-sisyphus-500 focus:outline-none ' +
+  'placeholder:text-muted-foreground transition focus:border-sisyphus-500 focus:outline-none ' +
   'focus:ring-2 focus:ring-sisyphus-500/25 disabled:opacity-60';
 
 function CellInput({

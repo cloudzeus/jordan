@@ -1680,7 +1680,7 @@ function ChannelsPanel({ companyId, compact = false }: { companyId: string; comp
         return (
           <div key={g.kind} className="rounded-[4px] border border-border bg-background">
             <div className="px-3 py-1.5 border-b border-border bg-muted/30 text-[length:var(--fs-10)] uppercase tracking-wider font-semibold text-muted-foreground flex items-center gap-1.5">
-              <Meta.icon className="size-3" /> {Meta.label} <span className="text-muted-foreground/60">({g.list.length})</span>
+              <Meta.icon className="size-3" /> {Meta.label} <span className="text-muted-foreground">({g.list.length})</span>
             </div>
             <ul className="divide-y divide-border">
               {g.list.map((c) => (

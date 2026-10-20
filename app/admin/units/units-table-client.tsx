@@ -404,7 +404,7 @@ export function UnitsTableClient({ rows, usageError, canManage, lastSync }: { ro
     {
       accessorKey: 'itemCount', header: 'Είδη', size: 70,
       cell: ({ row }) => (row.original.itemCount == null ? DASH
-        : <span className={cn('tabular-nums text-[length:var(--fs-12)]', !row.original.itemCount && 'text-muted-foreground/50')}>{row.original.itemCount.toLocaleString('el-GR')}</span>),
+        : <span className={cn('tabular-nums text-[length:var(--fs-12)]', !row.original.itemCount && 'text-muted-foreground')}>{row.original.itemCount.toLocaleString('el-GR')}</span>),
     },
     {
       accessorKey: 'isActive', header: 'Ενεργή', size: 95,

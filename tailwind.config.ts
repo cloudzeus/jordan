@@ -3,6 +3,11 @@ import dsPreset from './lib/design-system/tailwind.config';
 
 const config: Config = {
   presets: [dsPreset],
+  // Οι `dark:` κλάσεις ακολουθούν το ΘΕΜΑ της εφαρμογής (.dark / data-theme="dark"), όχι το
+  // prefers-color-scheme του λειτουργικού. Η προεπιλογή του Tailwind ('media') άναβε το `dark:` σε
+  // Mac με σκούρο θέμα ενώ το φόντο μένει λευκό → ανοιχτό κείμενο σε λευκό, δυσανάγνωστο
+  // (ίδιος κανόνας με το components/admin/home/home.css).
+  darkMode: ['variant', ['&:is(.dark *)', '&:is([data-theme="dark"] *)']],
   content: [
     './app/**/*.{js,ts,jsx,tsx}',
     './components/**/*.{js,ts,jsx,tsx}',

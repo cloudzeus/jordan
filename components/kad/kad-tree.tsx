@@ -94,10 +94,10 @@ function KadNode({ node, depth }: { node: KadTreeNodeData; depth: number }) {
               Τομέας {node.sector}
             </span>
           )}
-          <button type="button" className="p-1 text-slate-400 hover:text-slate-700" aria-label="edit">
+          <button type="button" className="p-1 text-slate-500 hover:text-slate-700" aria-label="edit">
             <FiEdit2 className="w-3.5 h-3.5" />
           </button>
-          <button type="button" className="p-1 text-rose-400 hover:text-rose-600" aria-label="delete">
+          <button type="button" className="p-1 text-rose-500 hover:text-rose-700" aria-label="delete">
             <FiTrash2 className="w-3.5 h-3.5" />
           </button>
         </div>
