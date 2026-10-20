@@ -9,18 +9,20 @@ export const fmtM2 = (v: number) => `${nf2.format(v)} m²`;
 export const fmtM = (v: number) => `${nf2.format(v)} m`;
 
 /** CSV με «;» και BOM — ανοίγει σωστά με ελληνικά στο Excel. */
-export function roomsCsv(rooms: ExportRoom[]): Blob {
+/** wallLenM: συνολικό μήκος τοίχων που σχεδίασε ο χρήστης (αξονικό), αν υπάρχουν. */
+export function roomsCsv(rooms: ExportRoom[], wallLenM: number | null = null): Blob {
   const esc = (s: string) => (/[;"\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s);
   const rows = [['Χώρος', 'Εμβαδό (m²)', 'Περίμετρος (m)']];
   for (const r of rooms) rows.push([r.name, r.areaM2 == null ? '' : nf2.format(r.areaM2), r.perimeterM == null ? '' : nf2.format(r.perimeterM)]);
   const total = rooms.reduce((s, r) => s + (r.areaM2 ?? 0), 0);
   rows.push(['Σύνολο', nf2.format(total), '']);
+  if (wallLenM != null) rows.push(['Μήκος σχεδιασμένων τοίχων (m)', '', nf2.format(wallLenM)]);
   return new Blob(['﻿' + rows.map((r) => r.map(esc).join(';')).join('\r\n')], { type: 'text/csv;charset=utf-8' });
 }
 
-export function roomsText(rooms: ExportRoom[], title: string): string {
+export function roomsText(rooms: ExportRoom[], title: string, wallLenM: number | null = null): string {
   const total = rooms.reduce((s, r) => s + (r.areaM2 ?? 0), 0);
-  return [title, ...rooms.map((r) => `• ${r.name}: ${r.areaM2 == null ? '—' : fmtM2(r.areaM2)}`), `Σύνολο: ${fmtM2(total)}`].join('\n');
+  return [title, ...rooms.map((r) => `• ${r.name}: ${r.areaM2 == null ? '—' : fmtM2(r.areaM2)}`), `Σύνολο: ${fmtM2(total)}`, ...(wallLenM != null ? [`Μήκος τοίχων: ${fmtM(wallLenM)}`] : [])].join('\n');
 }
 
 /**
@@ -29,6 +31,8 @@ export function roomsText(rooms: ExportRoom[], title: string): string {
  */
 export async function annotatedPng(o: {
   image: HTMLCanvasElement; w: number; h: number; rooms: ExportRoom[]; dividers: Array<[Pt, Pt]>; title: string; scaleNote: string;
+  /** Τοίχοι που σχεδίασε ο χρήστης (πάχος t σε px ανάλυσης). */
+  walls?: Array<{ a: Pt; b: Pt; t: number }>;
 }): Promise<Blob> {
   const k = o.image.width / o.w;
   const lf = Math.max(14, Math.round(o.image.width / 80));
@@ -39,6 +43,9 @@ export async function annotatedPng(o: {
   g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height);
   g.drawImage(o.image, 0, 0);
   const fs = Math.max(14, Math.round(c.width / 90));
+  g.strokeStyle = '#1E293B'; g.lineCap = 'square';
+  for (const wl of o.walls ?? []) { g.lineWidth = wl.t * k; g.beginPath(); g.moveTo(wl.a.x * k, wl.a.y * k); g.lineTo(wl.b.x * k, wl.b.y * k); g.stroke(); }
+  g.lineCap = 'butt';
   for (const r of o.rooms) {
     if (r.polygon.length < 3) continue;
     g.beginPath();

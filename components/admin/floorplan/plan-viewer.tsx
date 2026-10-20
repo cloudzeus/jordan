@@ -1,9 +1,9 @@
 'use client';
 
-// Προβολή κάτοψης με three.js: η εικόνα ως υφή σε επίπεδο, οι τοίχοι ως διαφανής μάσκα (2D) ή ως
-// εξωθημένοι όγκοι (3D), οι χώροι ως γεμισμένα πολύγωνα με περίγραμμα, ετικέτες σε HTML (καθαρό
-// κείμενο σε κάθε zoom). Ορθογραφική κάμερα: σύρσιμο = μετακίνηση, ροδέλα = zoom· στο 3D το
-// αριστερό κουμπί περιστρέφει. «Κλικ» θεωρείται πάτημα χωρίς μετακίνηση > 5px.
+// Προβολή κάτοψης (2D) με three.js: η εικόνα ως υφή σε επίπεδο, οι τοίχοι ως διαφανής μάσκα, οι
+// χώροι ως γεμισμένα πολύγωνα με περίγραμμα, ετικέτες σε HTML (καθαρό κείμενο σε κάθε zoom).
+// Ορθογραφική κάμερα από πάνω: σύρσιμο = μετακίνηση, ροδέλα = zoom. «Κλικ» θεωρείται πάτημα χωρίς
+// μετακίνηση > 5px.
 // Συντεταγμένες: εικόνα (x δεξιά, y κάτω) ↔ κόσμος (x − w/2, h/2 − y, z).
 import * as React from 'react';
 import * as THREE from 'three';
@@ -12,10 +12,10 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { Line2 } from 'three/examples/jsm/lines/Line2.js';
 import { LineGeometry } from 'three/examples/jsm/lines/LineGeometry.js';
 import { LineMaterial } from 'three/examples/jsm/lines/LineMaterial.js';
-import type { Pt, Rect } from '@/lib/floorplan/core';
+import type { Pt } from '@/lib/floorplan/core';
 
 export type ViewerRoom = { id: string; color: string; polygon: Pt[]; label: string; sub: string; anchor: Pt };
-export type ViewerTool = 'room' | 'polygon' | 'divider' | 'calibrate' | 'pan';
+export type ViewerTool = 'room' | 'polygon' | 'wall' | 'divider' | 'calibrate' | 'pan';
 
 export type PlanViewerProps = {
   image: HTMLCanvasElement;
@@ -23,10 +23,9 @@ export type PlanViewerProps = {
   w: number;
   h: number;
   wallsOverlay: HTMLCanvasElement | null;
-  wallRects: Rect[];
-  wallHeightPx: number;
   showWalls: boolean;
-  mode3d: boolean;
+  /** Πάχος (px) του τοίχου που σχεδιάζεται τώρα — το «λάστιχο» δείχνει το πραγματικό πάχος. */
+  wallThicknessPx: number;
   rooms: ViewerRoom[];
   selectedId: string | null;
   dividers: Array<[Pt, Pt]>;
@@ -42,6 +41,8 @@ export type PlanViewerProps = {
 
 const Z = { plan: 0, walls: 0.2, rooms: 0.4, outline: 0.6, divider: 0.8, draft: 1 };
 const BG = '#0B1220';
+/** Χρώμα τοίχων που σχεδιάζει ο χρήστης (και στη μάσκα, βλ. floor-plan-dialog). */
+export const WALL_DRAW = '#FB923C';
 
 function circleTexture() {
   const c = document.createElement('canvas');
@@ -53,7 +54,7 @@ function circleTexture() {
 }
 
 export function PlanViewer(props: PlanViewerProps) {
-  const { image, w, h, wallsOverlay, wallRects, wallHeightPx, showWalls, mode3d, rooms, selectedId, dividers, calibration, draft, tool, fitKey } = props;
+  const { image, w, h, wallsOverlay, showWalls, rooms, selectedId, dividers, calibration, draft, tool, fitKey } = props;
   const host = React.useRef<HTMLDivElement | null>(null);
   const labelsEl = React.useRef<HTMLDivElement | null>(null);
   const tipEl = React.useRef<HTMLDivElement | null>(null);
@@ -62,7 +63,7 @@ export function PlanViewer(props: PlanViewerProps) {
 
   type Ctx = {
     renderer: THREE.WebGLRenderer; scene: THREE.Scene; camera: THREE.OrthographicCamera; controls: OrbitControls;
-    plane: THREE.Mesh; layers: Record<'walls' | 'walls3d' | 'rooms' | 'lines' | 'draft', THREE.Group>;
+    plane: THREE.Mesh; layers: Record<'walls' | 'rooms' | 'lines' | 'draft', THREE.Group>;
     lineMats: Set<LineMaterial>; dot: THREE.Texture; hover: Pt | null; shift: boolean;
   };
   const ctx = React.useRef<Ctx | null>(null);
@@ -83,8 +84,7 @@ export function PlanViewer(props: PlanViewerProps) {
     const scene = new THREE.Scene();
     const D = Math.max(w, h) * 2;
     const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 1, D * 6);
-    camera.up.set(0, 0, 1);
-    camera.position.set(0, -D * 0.001, D);
+    camera.position.set(0, 0, D);
     camera.lookAt(0, 0, 0);
 
     const controls = new OrbitControls(camera, renderer.domElement);
@@ -94,14 +94,8 @@ export function PlanViewer(props: PlanViewerProps) {
     controls.enableRotate = false;
     controls.mouseButtons = { LEFT: THREE.MOUSE.PAN, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.PAN };
     controls.touches = { ONE: THREE.TOUCH.PAN, TWO: THREE.TOUCH.DOLLY_PAN };
-    controls.maxPolarAngle = 1.3;
     controls.minZoom = 0.02;
     controls.maxZoom = 40;
-
-    scene.add(new THREE.AmbientLight(0xffffff, 1.6));
-    const sun = new THREE.DirectionalLight(0xffffff, 1.6);
-    sun.position.set(-w * 0.4, -h * 0.8, D);
-    scene.add(sun);
 
     const tex = new THREE.CanvasTexture(image);
     tex.colorSpace = THREE.SRGBColorSpace;
@@ -110,12 +104,12 @@ export function PlanViewer(props: PlanViewerProps) {
     plane.position.z = Z.plan;
     scene.add(plane);
 
-    // Λεπτό «χαρτί» γύρω από το σχέδιο για βάθος στο 3D.
+    // Λεπτό «χαρτί» γύρω από το σχέδιο.
     const sheet = new THREE.Mesh(new THREE.PlaneGeometry(w * 1.04, h * 1.04), new THREE.MeshBasicMaterial({ color: 0x16213a }));
     sheet.position.z = -0.5;
     scene.add(sheet);
 
-    const layers = { walls: new THREE.Group(), walls3d: new THREE.Group(), rooms: new THREE.Group(), lines: new THREE.Group(), draft: new THREE.Group() };
+    const layers = { walls: new THREE.Group(), rooms: new THREE.Group(), lines: new THREE.Group(), draft: new THREE.Group() };
     Object.values(layers).forEach((g) => scene.add(g));
 
     const c: Ctx = { renderer, scene, camera, controls, plane, layers, lineMats: new Set(), dot: circleTexture(), hover: null, shift: false };
@@ -200,7 +194,7 @@ export function PlanViewer(props: PlanViewerProps) {
       if (tip) {
         const last = cbs.current.draft[cbs.current.draft.length - 1];
         const t = cbs.current.tool;
-        if (c.hover && last && (t === 'calibrate' || t === 'divider' || t === 'polygon')) {
+        if (c.hover && last && (t === 'calibrate' || t === 'divider' || t === 'polygon' || t === 'wall')) {
           v.set(c.hover.x - w / 2, h / 2 - c.hover.y, Z.draft).project(camera);
           tip.style.opacity = '1';
           tip.style.transform = `translate(${((v.x + 1) / 2) * cw + 14}px, ${((1 - v.y) / 2) * ch + 14}px)`;
@@ -246,14 +240,14 @@ export function PlanViewer(props: PlanViewerProps) {
       });
     }
   };
-  const line = (pts: Pt[], z: number, color: string, width: number, opts: { closed?: boolean; dashed?: boolean } = {}) => {
+  const line = (pts: Pt[], z: number, color: string, width: number, opts: { closed?: boolean; dashed?: boolean; world?: boolean } = {}) => {
     const c = ctx.current!;
     const arr: number[] = [];
     const seq = opts.closed ? [...pts, pts[0]] : pts;
     for (const p of seq) { const v = toWorld(p, z); arr.push(v.x, v.y, v.z); }
     const g = new LineGeometry();
     g.setPositions(arr);
-    const m = new LineMaterial({ color: new THREE.Color(color).getHex(), linewidth: width, dashed: !!opts.dashed, dashSize: 8, gapSize: 6, worldUnits: false, transparent: true, depthTest: false });
+    const m = new LineMaterial({ color: new THREE.Color(color).getHex(), linewidth: width, dashed: !!opts.dashed, dashSize: 8, gapSize: 6, worldUnits: !!opts.world, transparent: true, opacity: opts.world ? 0.75 : 1, depthTest: false });
     m.resolution.set(host.current?.clientWidth ?? 1, host.current?.clientHeight ?? 1);
     c.lineMats.add(m);
     const l = new Line2(g, m);
@@ -278,9 +272,10 @@ export function PlanViewer(props: PlanViewerProps) {
     const { draft: d, tool: t } = cbs.current;
     clear(c.layers.draft);
     if (!d.length) return;
-    const color = t === 'calibrate' ? '#F59E0B' : t === 'divider' ? '#F43F5E' : '#22D3EE';
+    const color = t === 'calibrate' ? '#F59E0B' : t === 'divider' ? '#F43F5E' : t === 'wall' ? WALL_DRAW : '#22D3EE';
     const seq = c.hover ? [...d, c.hover] : d;
-    if (seq.length >= 2) c.layers.draft.add(line(seq, Z.draft, color, 2.5, { dashed: t === 'polygon' }));
+    if (seq.length >= 2 && t === 'wall') c.layers.draft.add(line(seq, Z.draft, color, Math.max(2, cbs.current.wallThicknessPx), { world: true }));
+    else if (seq.length >= 2) c.layers.draft.add(line(seq, Z.draft, color, 2.5, { dashed: t === 'polygon' }));
     if (t === 'polygon' && d.length >= 2 && c.hover) c.layers.draft.add(line([c.hover, d[0]], Z.draft, color, 1, { dashed: true }));
     c.layers.draft.add(dots(d, Z.draft + 0.1));
   };
@@ -301,33 +296,10 @@ export function PlanViewer(props: PlanViewerProps) {
     c.layers.walls.add(m);
   }, [wallsOverlay, w, h, image]);
 
-  // Τοίχοι 3D (InstancedMesh από τα ορθογώνια).
   React.useEffect(() => {
     const c = ctx.current;
-    if (!c) return;
-    clear(c.layers.walls3d);
-    if (!wallRects.length) return;
-    const geo = new THREE.BoxGeometry(1, 1, 1);
-    const mat = new THREE.MeshStandardMaterial({ color: 0xE2E8F0, roughness: 0.85, metalness: 0 });
-    const inst = new THREE.InstancedMesh(geo, mat, wallRects.length);
-    const m4 = new THREE.Matrix4();
-    wallRects.forEach((r, i) => {
-      const cx = r.x + r.w / 2, cy = r.y + r.h / 2;
-      m4.makeScale(r.w, r.h, wallHeightPx);
-      m4.setPosition(cx - w / 2, h / 2 - cy, wallHeightPx / 2);
-      inst.setMatrixAt(i, m4);
-    });
-    inst.instanceMatrix.needsUpdate = true;
-    c.layers.walls3d.add(inst);
-  }, [wallRects, wallHeightPx, w, h, image]);
-
-  // Ορατότητα στρωμάτων ανά λειτουργία.
-  React.useEffect(() => {
-    const c = ctx.current;
-    if (!c) return;
-    c.layers.walls.visible = showWalls && !mode3d;
-    c.layers.walls3d.visible = mode3d;
-  }, [showWalls, mode3d, wallsOverlay, wallRects, image]);
+    if (c) c.layers.walls.visible = showWalls;
+  }, [showWalls, wallsOverlay, image]);
 
   // Χώροι + γραμμές.
   React.useEffect(() => {
@@ -342,11 +314,11 @@ export function PlanViewer(props: PlanViewerProps) {
         new THREE.ShapeGeometry(shape),
         new THREE.MeshBasicMaterial({ color: r.color, transparent: true, opacity: sel ? 0.5 : 0.32, depthWrite: false, side: THREE.DoubleSide }),
       );
-      fill.position.z = mode3d ? 0.6 : Z.rooms;
+      fill.position.z = Z.rooms;
       c.layers.rooms.add(fill);
       c.layers.rooms.add(line(r.polygon, Z.outline, sel ? '#FFFFFF' : r.color, sel ? 3.5 : 2.5, { closed: true }));
     }
-  }, [rooms, selectedId, mode3d, w, h, image, toWorld]);
+  }, [rooms, selectedId, w, h, image, toWorld]);
 
   React.useEffect(() => {
     const c = ctx.current;
@@ -357,25 +329,7 @@ export function PlanViewer(props: PlanViewerProps) {
       c.layers.lines.add(line(calibration, Z.divider, '#F59E0B', 3));
       c.layers.lines.add(dots(calibration, Z.divider + 0.1, 10));
     }
-  }, [dividers, calibration, mode3d, image, toWorld]);
-
-  // 2D ⇄ 3D: απαλή μετάβαση κάμερας με GSAP.
-  React.useEffect(() => {
-    const c = ctx.current;
-    if (!c) return;
-    const { camera, controls } = c;
-    const D = Math.max(w, h) * 2;
-    const t = controls.target;
-    const to = mode3d ? { x: t.x, y: t.y - D * 0.5, z: D * 0.86 } : { x: t.x, y: t.y - D * 0.001, z: D };
-    controls.enableRotate = mode3d;
-    controls.mouseButtons = mode3d
-      ? { LEFT: THREE.MOUSE.ROTATE, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.PAN }
-      : { LEFT: THREE.MOUSE.PAN, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.PAN };
-    controls.touches = mode3d ? { ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_PAN } : { ONE: THREE.TOUCH.PAN, TWO: THREE.TOUCH.DOLLY_PAN };
-    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    const tw = gsap.to(camera.position, { ...to, duration: reduce ? 0 : 0.9, ease: 'power3.inOut', onUpdate: () => camera.lookAt(t) });
-    return () => { tw.kill(); };
-  }, [mode3d, w, h, image]);
+  }, [dividers, calibration, image, toWorld]);
 
   // «Χωράει ολόκληρο».
   React.useEffect(() => {
@@ -384,11 +338,10 @@ export function PlanViewer(props: PlanViewerProps) {
     if (!c || !el || fitKey === 0) return;
     const { camera, controls } = c;
     const zoom = Math.min(el.clientWidth / w, el.clientHeight / h) * 0.92;
-    const D = Math.max(w, h) * 2;
     const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const tl = gsap.timeline({ defaults: { duration: reduce ? 0 : 0.6, ease: 'power2.inOut' } });
     tl.to(controls.target, { x: 0, y: 0, z: 0 }, 0)
-      .to(camera.position, { x: 0, y: mode3d ? -D * 0.5 : -D * 0.001, z: mode3d ? D * 0.86 : D, onUpdate: () => camera.lookAt(controls.target) }, 0)
+      .to(camera.position, { x: 0, y: 0, onUpdate: () => camera.lookAt(controls.target) }, 0)
       .to(camera, { zoom, onUpdate: () => camera.updateProjectionMatrix() }, 0);
     return () => { tl.kill(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps

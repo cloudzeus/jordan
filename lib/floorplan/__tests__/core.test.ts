@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   burnLine, detectWalls, flood, labelPoint, measureRoom, otsu, pointInPolygon, polygonArea, simplifyClosed,
-  toGray, traceOuter, wallRects, type Mask,
+  toGray, traceOuter, type Mask,
 } from '../core';
 
 /** Κάτοψη-παιχνίδι: λευκό φόντο, χοντροί μαύροι τοίχοι, προαιρετικά κείμενο/λεπτές γραμμές. */
@@ -125,17 +125,16 @@ describe('βοηθητικά', () => {
     expect(flood(m, 10, 10, 5, 5)?.touchesBorder).toBe(true);
   });
 
+  it('labelPoint σε σχήμα Γ: όχι πάνω σε πλευρά', () => {
+    const g = [{ x: 2, y: 2 }, { x: 8, y: 2 }, { x: 8, y: 4 }, { x: 5, y: 4 }, { x: 5, y: 7 }, { x: 2, y: 7 }];
+    const p = labelPoint(g);
+    expect(pointInPolygon(p, g)).toBe(true);
+    expect(Math.abs(p.x - 5) > 0.3 || p.y < 3.7).toBe(true);
+  });
+
   it('labelPoint μέσα σε πολύγωνο U', () => {
     const u = [{ x: 0, y: 0 }, { x: 3, y: 0 }, { x: 3, y: 10 }, { x: 7, y: 10 }, { x: 7, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 12 }, { x: 0, y: 12 }];
     expect(pointInPolygon(labelPoint(u), u)).toBe(true);
   });
 
-  it('wallRects καλύπτει τους τοίχους με λίγα ορθογώνια', () => {
-    const { walls } = detectWalls(twoRooms(false), W, H, { minThickness: 5 });
-    const rects = wallRects(walls, W, H, 2);
-    expect(rects.length).toBeLessThan(40);
-    const area = rects.reduce((s, r) => s + r.w * r.h, 0);
-    const on = walls.reduce((s, v) => s + v, 0);
-    expect(Math.abs(area - on) / on).toBeLessThan(0.1);
-  });
 });

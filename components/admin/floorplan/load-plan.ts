@@ -15,6 +15,8 @@ export type LoadedPlan = {
   /** Σελίδες PDF (1 για εικόνα). */
   pages: number;
   page: number;
+  /** Κενός κάναβος (χωρίς σχέδιο): γνωστή κλίμακα, pixels ανάλυσης ανά μέτρο. */
+  pxPerM?: number;
 };
 
 function fit(w: number, h: number, max: number) {
@@ -94,4 +96,38 @@ async function loadPdf(file: File, page: number): Promise<LoadedPlan> {
 
 export function loadPlan(file: File, page = 1): Promise<LoadedPlan> {
   return isPdf(file) ? loadPdf(file, page) : loadImage(file);
+}
+
+/**
+ * Κενός κάναβος για σχεδίαση τοίχων από το μηδέν (όταν το αρχείο του πελάτη δεν διαβάζεται ή δεν
+ * υπάρχει). Η κλίμακα είναι γνωστή εκ κατασκευής· γραμμές ανά 0,5 m / 1 m / 5 m με αρίθμηση.
+ */
+export function blankPlan(widthM = 20, heightM = 14): LoadedPlan {
+  const pxPerM = Math.floor(ANALYSIS_MAX / Math.max(widthM, heightM));
+  const aw = Math.round(widthM * pxPerM), ah = Math.round(heightM * pxPerM);
+  const k = 2;
+  const display = document.createElement('canvas');
+  display.width = aw * k; display.height = ah * k;
+  const g = display.getContext('2d')!;
+  g.fillStyle = '#fff'; g.fillRect(0, 0, display.width, display.height);
+  const step = (pxPerM * k) / 2;
+  for (let i = 0; i * step <= display.width + 1; i++) {
+    g.strokeStyle = i % 10 === 0 ? '#94A3B8' : i % 2 === 0 ? '#CBD5E1' : '#E2E8F0';
+    g.lineWidth = i % 10 === 0 ? 2 : 1;
+    g.beginPath(); g.moveTo(i * step, 0); g.lineTo(i * step, display.height); g.stroke();
+  }
+  for (let i = 0; i * step <= display.height + 1; i++) {
+    g.strokeStyle = i % 10 === 0 ? '#94A3B8' : i % 2 === 0 ? '#CBD5E1' : '#E2E8F0';
+    g.lineWidth = i % 10 === 0 ? 2 : 1;
+    g.beginPath(); g.moveTo(0, i * step); g.lineTo(display.width, i * step); g.stroke();
+  }
+  g.fillStyle = '#64748B';
+  g.font = `${Math.round(pxPerM * k * 0.28)}px ui-monospace, monospace`;
+  for (let m = 5; m < widthM; m += 5) g.fillText(`${m} m`, m * pxPerM * k + 6, pxPerM * k * 0.4);
+  for (let m = 5; m < heightM; m += 5) g.fillText(`${m} m`, 6, m * pxPerM * k - 6);
+  const ac = document.createElement('canvas');
+  ac.width = aw; ac.height = ah;
+  const actx = ac.getContext('2d', { willReadFrequently: true })!;
+  actx.drawImage(display, 0, 0, aw, ah);
+  return { name: `Κενός κάναβος ${widthM}×${heightM} m`, display, analysis: actx.getImageData(0, 0, aw, ah), pages: 1, page: 1, pxPerM };
 }

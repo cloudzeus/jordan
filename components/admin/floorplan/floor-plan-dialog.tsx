@@ -1,7 +1,8 @@
 'use client';
 
 // Διαστασιολόγηση κάτοψης έργου — modal σε 3 βήματα:
-//   1. Τοίχοι: ανέβασμα εικόνας/PDF, αυτόματη ανίχνευση τοίχων (ρυθμίσεις κατωφλίου/πάχους).
+//   1. Τοίχοι: ανέβασμα εικόνας/PDF, αυτόματη ανίχνευση τοίχων (ρυθμίσεις κατωφλίου/πάχους) ή/και
+//      σχεδίαση τοίχων από τον χρήστη — πάνω στο σχέδιο ή σε κενό κάναβο αν το αρχείο δεν διαβάζεται.
 //   2. Κλίμακα: γραμμή γνωστού μήκους (π.χ. μια διάσταση του σχεδίου) → μέτρα ανά pixel.
 //   3. Μέτρηση: κλικ μέσα σε χώρο (αυτόματο περίγραμμα) ή χειροκίνητο πολύγωνο· διαχωριστικά για
 //      ανοιχτές πόρτες/ενιαίους χώρους. Εμβαδά, περίμετροι, σύνολο, εξαγωγή CSV/PNG ή αποθήκευση
@@ -12,28 +13,30 @@ import gsap from 'gsap';
 import { useDropzone } from 'react-dropzone';
 import { toast } from 'sonner';
 import {
-  FiUploadCloud, FiLoader, FiCheck, FiMove, FiMousePointer, FiEdit3, FiScissors, FiMaximize, FiBox, FiSquare,
+  FiUploadCloud, FiLoader, FiCheck, FiMove, FiMousePointer, FiEdit3, FiScissors, FiMaximize, FiSquare, FiGrid, FiRotateCcw,
   FiEye, FiEyeOff, FiTrash2, FiCopy, FiDownload, FiSave, FiRefreshCw, FiHelpCircle, FiChevronLeft, FiChevronRight, FiFileText,
 } from 'react-icons/fi';
-import { Ruler } from 'lucide-react';
+import { BrickWall, Ruler } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
-  burnLine, detectWalls, labelPoint, measureRoom, pointInPolygon, polygonArea, polygonPerimeter, toGray, toM2, wallRects,
+  burnLine, detectWalls, labelPoint, measureRoom, pointInPolygon, polygonArea, polygonPerimeter, toGray, toM2,
   type Mask, type Pt, type WallResult,
 } from '@/lib/floorplan/core';
-import { loadPlan, type LoadedPlan } from './load-plan';
-import { PlanViewer, type ViewerRoom, type ViewerTool } from './plan-viewer';
+import { blankPlan, loadPlan, type LoadedPlan } from './load-plan';
+import { PlanViewer, WALL_DRAW, type ViewerRoom, type ViewerTool } from './plan-viewer';
 import { annotatedPng, download, fmtM, fmtM2, roomsCsv, roomsText, type ExportRoom } from './export';
 
 type Room = { id: string; name: string; color: string; polygon: Pt[]; areaPx: number; perimeterPx: number; manual: boolean };
 type Calib = { a: Pt; b: Pt; meters: number };
+/** Τοίχος σχεδιασμένος από τον χρήστη: τμήμα a→b με πάχος t (px ανάλυσης). */
+type DrawnWall = { a: Pt; b: Pt; t: number };
 
 const PALETTE = ['#38BDF8', '#34D399', '#FBBF24', '#F472B6', '#A78BFA', '#FB923C', '#2DD4BF', '#F87171', '#A3E635', '#60A5FA'];
 const WALL_RGB = [34, 211, 238];
-// Ενδεικτικό ύψος τοίχων στο 3D: χαμηλό, ώστε να φαίνονται οι χώροι από πάνω (όχι το πραγματικό 2,7 m).
-const WALL_VIEW_M = 1.1;
+const DRAWN_RGB = [251, 146, 60]; // = WALL_DRAW
+
 const nf = new Intl.NumberFormat('el-GR', { maximumFractionDigits: 1 });
 const uid = () => Math.random().toString(36).slice(2, 10);
 
@@ -41,18 +44,21 @@ const TOOLS: Array<{ key: ViewerTool; label: string; hint: string; kbd: string; 
   { key: 'pan', label: 'Μετακίνηση', kbd: 'V', icon: <FiMove />, hint: 'Σύρε για μετακίνηση, ροδέλα για zoom.' },
   { key: 'room', label: 'Χώρος με κλικ', kbd: 'R', icon: <FiMousePointer />, hint: 'Κάνε κλικ μέσα σε έναν χώρο — το περίγραμμα βγαίνει αυτόματα από τους τοίχους.' },
   { key: 'polygon', label: 'Πολύγωνο', kbd: 'P', icon: <FiEdit3 />, hint: 'Κλικ στις γωνίες· διπλό κλικ, Enter ή κλικ στο πρώτο σημείο κλείνει. Shift = ορθές γωνίες.' },
+  { key: 'wall', label: 'Τοίχος', kbd: 'W', icon: <BrickWall className="size-4" />, hint: 'Κλικ σε κάθε γωνία του τοίχου· διπλό κλικ ή Enter τελειώνει. Shift = οριζόντια/κάθετα· κουμπώνει στα άκρα άλλων τοίχων.' },
   { key: 'divider', label: 'Διαχωριστικό', kbd: 'D', icon: <FiScissors />, hint: 'Δύο κλικ: μια νοητή γραμμή που κλείνει πόρτες ή χωρίζει ενιαίους χώρους.' },
   { key: 'calibrate', label: 'Κλίμακα', kbd: 'K', icon: <Ruler className="size-4" />, hint: 'Δύο κλικ στα άκρα μιας γνωστής απόστασης (π.χ. μια διάσταση του σχεδίου).' },
 ];
 
-function maskOverlay(walls: Mask, w: number, h: number): HTMLCanvasElement {
+/** Μάσκα τοίχων ως διαφανής εικόνα: αυτόματοι σε κυανό, σχεδιασμένοι από τον χρήστη σε πορτοκαλί. */
+function maskOverlay(auto: Mask | null, drawn: Mask, w: number, h: number): HTMLCanvasElement {
   const c = document.createElement('canvas');
   c.width = w; c.height = h;
   const g = c.getContext('2d')!;
   const img = g.createImageData(w, h);
-  for (let i = 0, j = 0; i < walls.length; i++, j += 4) {
-    if (!walls[i]) continue;
-    img.data[j] = WALL_RGB[0]; img.data[j + 1] = WALL_RGB[1]; img.data[j + 2] = WALL_RGB[2]; img.data[j + 3] = 150;
+  for (let i = 0, j = 0; i < drawn.length; i++, j += 4) {
+    const rgb = drawn[i] ? DRAWN_RGB : auto?.[i] ? WALL_RGB : null;
+    if (!rgb) continue;
+    img.data[j] = rgb[0]; img.data[j + 1] = rgb[1]; img.data[j + 2] = rgb[2]; img.data[j + 3] = drawn[i] ? 210 : 150;
   }
   g.putImageData(img, 0, 0);
   return c;
@@ -111,7 +117,12 @@ export function FloorPlanDialog({ prjc, projectLabel, open, onOpenChange, canSav
   const [thick, setThick] = React.useState<number | null>(null);
   const [walls, setWalls] = React.useState<WallResult | null>(null);
   const [showWalls, setShowWalls] = React.useState(true);
-  const [mode3d, setMode3d] = React.useState(false);
+  /** Αυτόματη ανίχνευση τοίχων· σβήνει όταν το σχέδιο δεν «διαβάζεται» και ο χρήστης τους σχεδιάζει μόνος. */
+  const [autoWalls, setAutoWalls] = React.useState(true);
+  const [drawnWalls, setDrawnWalls] = React.useState<DrawnWall[]>([]);
+  const [wallCm, setWallCm] = React.useState(15);
+  /** Πολύγωνο: οι πλευρές του γίνονται και τοίχοι (καθαρό εμβαδό μέσα από τον τοίχο). */
+  const [polyWalls, setPolyWalls] = React.useState(false);
   const [tool, setTool] = React.useState<ViewerTool>('calibrate');
   const [draft, setDraft] = React.useState<Pt[]>([]);
   const [dividers, setDividers] = React.useState<Array<[Pt, Pt]>>([]);
@@ -135,21 +146,33 @@ export function FloorPlanDialog({ prjc, projectLabel, open, onOpenChange, canSav
   // ── Φόρτωση ──────────────────────────────────────────────────────────────────────────
   const reset = () => {
     setWalls(null); setThr(null); setThick(null); setDraft([]); setDividers([]); setCalib(null); setCalibLine(null);
-    setMeters(''); setRooms([]); setSelected(null); setMode3d(false); setTool('calibrate'); seq.current = 0;
+    setMeters(''); setRooms([]); setSelected(null); setTool('calibrate'); seq.current = 0;
+    setDrawnWalls([]); setAutoWalls(true);
   };
   const load = React.useCallback(async (f: File, page = 1, keep = false) => {
     setLoading(true);
     try {
       const p = await loadPlan(f, page);
       if (!keep) reset();
-      else { setWalls(null); setDraft([]); setDividers([]); setRooms([]); setSelected(null); setCalib(null); setCalibLine(null); }
+      else { setWalls(null); setDraft([]); setDividers([]); setRooms([]); setSelected(null); setCalib(null); setCalibLine(null); setDrawnWalls([]); }
       setFile(f); setPlan(p);
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Το αρχείο δεν άνοιξε.');
+      toast.error(e instanceof Error ? e.message : 'Το αρχείο δεν άνοιξε.', {
+        description: 'Μπορείς να σχεδιάσεις τους τοίχους μόνος σου σε κενό κάναβο.',
+        action: { label: 'Κενός κάναβος', onClick: () => startBlank() },
+      });
     } finally {
       setLoading(false);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+  // Χωρίς σχέδιο: κενός κάναβος με γνωστή κλίμακα — κατευθείαν στη σχεδίαση τοίχων.
+  function startBlank() {
+    const p = blankPlan();
+    reset();
+    setFile(null); setPlan(p); setAutoWalls(false); setTool('wall');
+    setCalib({ a: { x: 0, y: 0 }, b: { x: p.pxPerM!, y: 0 }, meters: 1 });
+  }
   const dz = useDropzone({
     accept: { 'image/*': ['.png', '.jpg', '.jpeg', '.webp', '.gif', '.bmp'], 'application/pdf': ['.pdf'] },
     maxFiles: 1, multiple: false, noClick: !!plan, noKeyboard: !!plan,
@@ -159,7 +182,7 @@ export function FloorPlanDialog({ prjc, projectLabel, open, onOpenChange, canSav
 
   // ── Ανίχνευση τοίχων (καθυστέρηση ώστε να ζωγραφιστεί πρώτα η ένδειξη) ───────────────
   React.useEffect(() => {
-    if (!gray) return;
+    if (!gray || !autoWalls) { setWalls(null); setAnalyzing(false); return; }
     setAnalyzing(true);
     const t = setTimeout(() => {
       const r = detectWalls(gray, w, h, { threshold: thr, minThickness: thick });
@@ -167,16 +190,23 @@ export function FloorPlanDialog({ prjc, projectLabel, open, onOpenChange, canSav
       setAnalyzing(false);
     }, 120);
     return () => clearTimeout(t);
-  }, [gray, w, h, thr, thick]);
+  }, [gray, w, h, thr, thick, autoWalls]);
 
-  const overlay = React.useMemo(() => (walls ? maskOverlay(walls.walls, w, h) : null), [walls, w, h]);
-  const rects = React.useMemo(() => (walls && mode3d ? wallRects(walls.walls, w, h, Math.max(2, Math.ceil(maxDim / 450))) : []), [walls, mode3d, w, h, maxDim]);
+  const drawnMask = React.useMemo(() => {
+    const m = new Uint8Array(w * h);
+    for (const d of drawnWalls) burnLine(m, w, h, d.a, d.b, Math.max(1, Math.round(d.t / 2)));
+    return m;
+  }, [drawnWalls, w, h]);
+  const autoMask = autoWalls ? walls?.walls ?? null : null;
+  const overlay = React.useMemo(() => (plan ? maskOverlay(autoMask, drawnMask, w, h) : null), [plan, autoMask, drawnMask, w, h]);
+  // Εμπόδια για το «χώρος με κλικ»: αυτόματοι + σχεδιασμένοι τοίχοι + διαχωριστικά.
   const blocked = React.useMemo(() => {
-    if (!walls) return null;
-    const b = walls.walls.slice();
+    if (!plan || (autoWalls && !walls)) return null;
+    const b = drawnMask.slice();
+    if (autoMask) for (let i = 0; i < b.length; i++) if (autoMask[i]) b[i] = 1;
     for (const [a, c] of dividers) burnLine(b, w, h, a, c, 1);
     return b;
-  }, [walls, dividers, w, h]);
+  }, [plan, autoWalls, walls, autoMask, drawnMask, dividers, w, h]);
 
   // Είσοδος στο πάνελ: απαλή εμφάνιση βημάτων.
   React.useEffect(() => {
@@ -211,9 +241,31 @@ export function FloorPlanDialog({ prjc, projectLabel, open, onOpenChange, canSav
     setSelected(r.id);
   };
 
+  const wallPx = mPerPx ? wallCm / 100 / mPerPx : Math.max(4, Math.round(maxDim * 0.008));
+  // Κούμπωμα στα άκρα των τοίχων (και στο πρώτο σημείο της τρέχουσας αλυσίδας) για κλειστά περιγράμματα.
+  const snap = (p: Pt): Pt => {
+    const r = Math.max(6, maxDim * 0.012);
+    let best: Pt | null = null, bd = r;
+    for (const q of [...drawnWalls.flatMap((d) => [d.a, d.b]), ...draft]) {
+      const d = Math.hypot(q.x - p.x, q.y - p.y);
+      if (d < bd) { bd = d; best = q; }
+    }
+    return best ? { ...best } : p;
+  };
+  const finish = () => { if (tool === 'wall') setDraft([]); else finishPolygon(); };
+
   const finishPolygon = () => {
     if (tool !== 'polygon' || draft.length < 3) return;
-    addRoom(draft, polygonArea(draft), polygonPerimeter(draft), true);
+    if (polyWalls) {
+      // Το περίγραμμα γίνεται τοίχος· ο χώρος μετριέται μέσα του όπως με το «χώρος με κλικ».
+      const edges: DrawnWall[] = draft.map((a, i) => ({ a, b: draft[(i + 1) % draft.length], t: wallPx }));
+      setDrawnWalls((ws) => [...ws, ...edges]);
+      const b = blocked ? blocked.slice() : new Uint8Array(w * h);
+      for (const e of edges) burnLine(b, w, h, e.a, e.b, Math.max(1, Math.round(e.t / 2)));
+      const res = measureRoom(b, w, h, labelPoint(draft), [0]);
+      if (res.ok) addRoom(res.polygon, res.areaPx, res.perimeterPx, true);
+      else addRoom(draft, polygonArea(draft), polygonPerimeter(draft), true);
+    } else addRoom(draft, polygonArea(draft), polygonPerimeter(draft), true);
     setDraft([]);
   };
 
@@ -228,7 +280,7 @@ export function FloorPlanDialog({ prjc, projectLabel, open, onOpenChange, canSav
       if (!res.ok) {
         toast.error(res.reason === 'on-wall'
           ? 'Το κλικ έπεσε πάνω σε τοίχο — κάνε κλικ στο δάπεδο του χώρου.'
-          : 'Ο χώρος «διαρρέει» από κάποιο άνοιγμα. Κλείσ’ το με «Διαχωριστικό» ή αύξησε το «Μέγιστο άνοιγμα πόρτας».');
+          : 'Ο χώρος «διαρρέει» από κάποιο άνοιγμα. Κλείσ’ το με «Τοίχος» ή «Διαχωριστικό», ή αύξησε το «Μέγιστο άνοιγμα πόρτας».');
         return;
       }
       addRoom(res.polygon, res.areaPx, res.perimeterPx, false);
@@ -238,6 +290,16 @@ export function FloorPlanDialog({ prjc, projectLabel, open, onOpenChange, canSav
     if (tool === 'polygon') {
       if (draft.length >= 3 && Math.hypot(p.x - draft[0].x, p.y - draft[0].y) < maxDim * 0.012) { finishPolygon(); return; }
       setDraft((d) => [...d, p]);
+      return;
+    }
+    if (tool === 'wall') {
+      const q = snap(p);
+      const last = draft[draft.length - 1];
+      if (!last) { setDraft([q]); return; }
+      if (Math.hypot(q.x - last.x, q.y - last.y) < 2) return; // δεύτερο κλικ του διπλού κλικ
+      setDrawnWalls((ws) => [...ws, { a: last, b: q, t: wallPx }]);
+      // Κλείσιμο στο πρώτο σημείο της αλυσίδας ⇒ τέλος· αλλιώς συνεχίζουμε από το νέο άκρο.
+      setDraft(draft.length > 1 && q.x === draft[0].x && q.y === draft[0].y ? [] : [...draft, q]);
       return;
     }
     if (tool === 'divider') {
@@ -274,12 +336,11 @@ export function FloorPlanDialog({ prjc, projectLabel, open, onOpenChange, canSav
       const tag = (e.target as HTMLElement | null)?.tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA') return;
       if (e.key === 'Escape' && draft.length) { e.preventDefault(); e.stopPropagation(); setDraft([]); return; }
-      if (e.key === 'Enter') { finishPolygon(); return; }
+      if (e.key === 'Enter') { finish(); return; }
       if (e.key === 'Backspace' && draft.length) { e.preventDefault(); setDraft((d) => d.slice(0, -1)); return; }
       if ((e.key === 'Delete' || e.key === 'Backspace') && selected) { setRooms((rs) => rs.filter((r) => r.id !== selected)); setSelected(null); return; }
       const t = TOOLS.find((x) => x.kbd.toLowerCase() === e.key.toLowerCase());
       if (t && !e.metaKey && !e.ctrlKey) changeTool(t.key);
-      if (e.key === '3' && !e.metaKey && !e.ctrlKey) setMode3d((m) => !m);
     };
     window.addEventListener('keydown', onKey, true);
     return () => window.removeEventListener('keydown', onKey, true);
@@ -289,15 +350,16 @@ export function FloorPlanDialog({ prjc, projectLabel, open, onOpenChange, canSav
   const exportRooms: ExportRoom[] = rooms.map((r) => ({
     name: r.name, color: r.color, polygon: r.polygon, areaM2: areaOf(r), perimeterM: mPerPx ? r.perimeterPx * mPerPx : null,
   }));
+  const wallLenM = mPerPx && drawnWalls.length ? drawnWalls.reduce((sum, d) => sum + Math.hypot(d.b.x - d.a.x, d.b.y - d.a.y), 0) * mPerPx : null;
   const baseName = `katopsi-${prjc}-${new Date().toISOString().slice(0, 10)}`;
   const scaleNote = calib ? `Κλίμακα: ${nf.format(calib.meters)} m = ${Math.round(calib.meters / (mPerPx ?? 1))} px · αρχείο ${plan?.name ?? ''}${plan && plan.pages > 1 ? ` (σελ. ${plan.page})` : ''}` : 'Χωρίς κλίμακα';
-  const png = () => annotatedPng({ image: plan!.display, w, h, rooms: exportRooms, dividers, title: projectLabel, scaleNote });
+  const png = () => annotatedPng({ image: plan!.display, w, h, rooms: exportRooms, dividers, walls: drawnWalls, title: projectLabel, scaleNote });
 
   const save = async () => {
     if (!plan || !rooms.length) return;
     setSaving(true);
     try {
-      const files: Array<[Blob, string]> = [[await png(), `${baseName}.png`], [roomsCsv(exportRooms), `${baseName}.csv`]];
+      const files: Array<[Blob, string]> = [[await png(), `${baseName}.png`], [roomsCsv(exportRooms, wallLenM), `${baseName}.csv`]];
       for (const [b, name] of files) {
         const fd = new FormData();
         fd.append('file', new File([b], name, { type: b.type }));
@@ -319,7 +381,11 @@ export function FloorPlanDialog({ prjc, projectLabel, open, onOpenChange, canSav
     sub: mPerPx ? fmtM2(toM2(r.areaPx, mPerPx)) : `${nf.format(r.areaPx)} px²`,
   })), [rooms, mPerPx]);
 
-  const step = !walls ? 1 : !calib ? 2 : 3;
+  // Η αυτόματη κλίμακα του κενού κάναβου δεν σχεδιάζεται ως γραμμή.
+  const blankScale = !!calib && plan?.pxPerM != null && calib.meters === 1 && calib.a.x === 0 && calib.b.x === plan.pxPerM;
+  const wallLenPx = drawnWalls.reduce((sum, d) => sum + Math.hypot(d.b.x - d.a.x, d.b.y - d.a.y), 0);
+  const wallsReady = autoWalls ? !!walls : drawnWalls.length > 0;
+  const step = !wallsReady ? 1 : !calib ? 2 : 3;
   const activeTool = TOOLS.find((t) => t.key === tool)!;
   const thickCm = walls && mPerPx ? walls.minThickness * mPerPx * 100 : null;
 
@@ -383,33 +449,79 @@ export function FloorPlanDialog({ prjc, projectLabel, open, onOpenChange, canSav
                 </ol>
               </div>
             </div>
+            <div className="absolute inset-x-0 bottom-6 flex justify-center px-4">
+              <button
+                type="button" onClick={startBlank}
+                className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-slate-600 bg-slate-900/80 px-4 py-2 text-[length:var(--fs-12)] font-medium text-slate-200 transition-colors hover:border-orange-400 hover:text-orange-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300"
+              >
+                <FiGrid className="size-4" aria-hidden /> Δεν διαβάζεται το σχέδιο; Σχεδίασε τους τοίχους σε κενό κάναβο
+              </button>
+            </div>
           </div>
         ) : (
           <div className="grid min-h-0 flex-1 grid-cols-1 grid-rows-[minmax(0,1fr)_auto] md:grid-cols-[320px_minmax(0,1fr)] md:grid-rows-1">
             {/* ── Πάνελ βημάτων ── */}
             <div ref={railRef} className="order-2 max-h-[42dvh] space-y-3 overflow-y-auto border-t border-border bg-muted/30 p-3 md:order-1 md:max-h-none md:border-r md:border-t-0">
-              <Step n={1} title="Τοίχοι" done={!!walls} active={step === 1}>
-                <p className="flex items-center gap-1.5 text-muted-foreground">
-                  {analyzing ? <><FiLoader className="size-3.5 animate-spin" aria-hidden /> Ανάλυση σχεδίου…</> : walls ? <>Τοίχοι στο <b className="font-mono text-foreground">{nf.format(walls.coverage * 100)}%</b> της εικόνας</> : 'Ανάλυση…'}
-                </p>
-                <Range
-                  label="Κατώφλι μελανιού" min={40} max={235} value={thr ?? walls?.threshold ?? 128}
-                  display={thr == null ? `αυτόματο · ${walls?.threshold ?? '—'}` : String(thr)} onChange={setThr}
-                />
-                <Range
-                  label="Ελάχιστο πάχος τοίχου" min={2} max={40} value={thick ?? walls?.minThickness ?? 6}
-                  display={`${thick == null ? 'αυτόματο · ' : ''}${walls?.minThickness ?? '—'} px${thickCm != null ? ` ≈ ${nf.format(thickCm)} cm` : ''}`}
-                  onChange={setThick}
-                />
-                <div className="flex flex-wrap gap-1.5">
-                  {(thr != null || thick != null) && (
-                    <Button size="xs" variant="outline" onClick={() => { setThr(null); setThick(null); }}><FiRefreshCw aria-hidden /> Αυτόματα</Button>
-                  )}
-                  <Button size="xs" variant="ghost" onClick={() => setShowWalls((s) => !s)}>
-                    {showWalls ? <FiEyeOff aria-hidden /> : <FiEye aria-hidden />} {showWalls ? 'Απόκρυψη' : 'Εμφάνιση'} τοίχων
+              <Step n={1} title="Τοίχοι" done={wallsReady} active={step === 1}>
+                {plan.pxPerM == null && (
+                  <label className="flex cursor-pointer items-center justify-between gap-2">
+                    <span>Αυτόματη ανίχνευση από το σχέδιο</span>
+                    <input type="checkbox" role="switch" checked={autoWalls} onChange={(e) => setAutoWalls(e.target.checked)} className="size-4 cursor-pointer accent-[var(--primary)]" />
+                  </label>
+                )}
+                {autoWalls && (
+                  <>
+                    <p className="flex items-center gap-1.5 text-muted-foreground">
+                      {analyzing ? <><FiLoader className="size-3.5 animate-spin" aria-hidden /> Ανάλυση σχεδίου…</> : walls ? <>Τοίχοι στο <b className="font-mono text-foreground">{nf.format(walls.coverage * 100)}%</b> της εικόνας</> : 'Ανάλυση…'}
+                    </p>
+                    <Range
+                      label="Κατώφλι μελανιού" min={40} max={235} value={thr ?? walls?.threshold ?? 128}
+                      display={thr == null ? `αυτόματο · ${walls?.threshold ?? '—'}` : String(thr)} onChange={setThr}
+                    />
+                    <Range
+                      label="Ελάχιστο πάχος τοίχου" min={2} max={40} value={thick ?? walls?.minThickness ?? 6}
+                      display={`${thick == null ? 'αυτόματο · ' : ''}${walls?.minThickness ?? '—'} px${thickCm != null ? ` ≈ ${nf.format(thickCm)} cm` : ''}`}
+                      onChange={setThick}
+                    />
+                    {(thr != null || thick != null) && (
+                      <Button size="xs" variant="outline" onClick={() => { setThr(null); setThick(null); }}><FiRefreshCw aria-hidden /> Αυτόματα</Button>
+                    )}
+                    <p className="text-[length:var(--fs-11)] text-muted-foreground">Αν χάνονται λεπτοί εσωτερικοί τοίχοι, μίκρυνε το πάχος· αν «πιάνονται» γράμματα και έπιπλα, μεγάλωσέ το. Ό,τι λείπει, σχεδίασέ το παρακάτω.</p>
+                  </>
+                )}
+                {!autoWalls && plan.pxPerM == null && (
+                  <p className="text-muted-foreground">Σχεδίασε τους τοίχους πάνω στο σχέδιο — μόνο αυτοί μετρούν για τα περιγράμματα των χώρων.</p>
+                )}
+                {plan.pxPerM != null && (
+                  <p className="text-muted-foreground">Κενός κάναβος {plan.name.replace('Κενός κάναβος ', '')} · κάθε τετράγωνο 0,5 m. Σχεδίασε τους τοίχους με κλικ στις γωνίες.</p>
+                )}
+                <div className="rounded-lg border border-border bg-background p-2">
+                  <Button size="sm" variant={tool === 'wall' ? 'default' : 'outline'} onClick={() => changeTool('wall')} className="w-full">
+                    <BrickWall className="size-3.5" aria-hidden /> Σχεδίαση τοίχου
                   </Button>
+                  <div className="mt-2">
+                    <Range
+                      label="Πάχος τοίχου" min={5} max={50} step={5} value={wallCm} onChange={setWallCm} disabled={!calib}
+                      display={calib ? `${wallCm} cm` : `${wallPx} px · cm μετά την κλίμακα`}
+                    />
+                  </div>
+                  {drawnWalls.length > 0 && (
+                    <div className="mt-1.5 flex flex-wrap items-center justify-between gap-x-2 text-muted-foreground">
+                      <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
+                        <span className="size-2.5 rounded-sm" style={{ background: WALL_DRAW }} aria-hidden />
+                        {drawnWalls.length} τμήμα{drawnWalls.length === 1 ? '' : 'τα'}
+                        {mPerPx != null && <> · <b className="font-mono text-foreground">{nf.format(wallLenPx * mPerPx)} m</b></>}
+                      </span>
+                      <span className="flex gap-1">
+                        <Button size="xs" variant="ghost" onClick={() => setDrawnWalls((d) => d.slice(0, -1))}><FiRotateCcw aria-hidden /> Αναίρεση</Button>
+                        <Button size="xs" variant="ghost" onClick={() => { setDrawnWalls([]); setDraft([]); }}>Όλα</Button>
+                      </span>
+                    </div>
+                  )}
                 </div>
-                <p className="text-[length:var(--fs-11)] text-muted-foreground">Αν χάνονται λεπτοί εσωτερικοί τοίχοι, μίκρυνε το πάχος· αν «πιάνονται» γράμματα και έπιπλα, μεγάλωσέ το.</p>
+                <Button size="xs" variant="ghost" onClick={() => setShowWalls((s) => !s)}>
+                  {showWalls ? <FiEyeOff aria-hidden /> : <FiEye aria-hidden />} {showWalls ? 'Απόκρυψη' : 'Εμφάνιση'} τοίχων
+                </Button>
               </Step>
 
               <Step n={2} title="Κλίμακα" done={!!calib} active={step === 2}>
@@ -452,6 +564,15 @@ export function FloorPlanDialog({ prjc, projectLabel, open, onOpenChange, canSav
                     </button>
                   ))}
                 </div>
+                {tool === 'polygon' && (
+                  <label className="flex cursor-pointer items-start gap-2 rounded-lg border border-border bg-background p-2">
+                    <input type="checkbox" checked={polyWalls} onChange={(e) => setPolyWalls(e.target.checked)} className="mt-0.5 size-4 cursor-pointer accent-[var(--primary)]" />
+                    <span>
+                      <span className="font-medium">Το περίγραμμα είναι τοίχοι</span>
+                      <span className="block text-[length:var(--fs-11)] text-muted-foreground">Οι πλευρές του πολυγώνου γίνονται τοίχοι ({calib ? `${wallCm} cm` : `${wallPx} px`}) και το εμβαδό μετριέται καθαρό, μέσα από αυτούς. Σχεδίασε στον άξονα του τοίχου.</span>
+                    </span>
+                  </label>
+                )}
                 <Range
                   label="Μέγιστο άνοιγμα πόρτας" min={0} max={250} step={10} value={doorCm} onChange={setDoorCm} disabled={!calib}
                   display={calib ? `${doorCm} cm` : 'μετά την κλίμακα'}
@@ -517,11 +638,11 @@ export function FloorPlanDialog({ prjc, projectLabel, open, onOpenChange, canSav
                 <div className="mt-3 grid grid-cols-3 gap-1.5">
                   <Button
                     size="sm" variant="secondary" disabled={!rooms.length || !calib}
-                    onClick={() => navigator.clipboard.writeText(roomsText(exportRooms, projectLabel)).then(() => toast.success('Αντιγράφηκε'), () => toast.error('Δεν επετράπη η αντιγραφή'))}
+                    onClick={() => navigator.clipboard.writeText(roomsText(exportRooms, projectLabel, wallLenM)).then(() => toast.success('Αντιγράφηκε'), () => toast.error('Δεν επετράπη η αντιγραφή'))}
                   >
                     <FiCopy aria-hidden /> Αντιγρ.
                   </Button>
-                  <Button size="sm" variant="secondary" disabled={!rooms.length || !calib} onClick={() => download(roomsCsv(exportRooms), `${baseName}.csv`)}>
+                  <Button size="sm" variant="secondary" disabled={!rooms.length || !calib} onClick={() => download(roomsCsv(exportRooms, wallLenM), `${baseName}.csv`)}>
                     <FiFileText aria-hidden /> CSV
                   </Button>
                   <Button size="sm" variant="secondary" disabled={!rooms.length} onClick={() => void png().then((b) => download(b, `${baseName}.png`))}>
@@ -541,12 +662,11 @@ export function FloorPlanDialog({ prjc, projectLabel, open, onOpenChange, canSav
               <input {...dz.getInputProps()} />
               <PlanViewer
                 image={plan.display} w={w} h={h}
-                wallsOverlay={overlay} wallRects={rects} wallHeightPx={mPerPx ? WALL_VIEW_M / mPerPx : maxDim * 0.012}
-                showWalls={showWalls} mode3d={mode3d}
+                wallsOverlay={overlay} showWalls={showWalls} wallThicknessPx={wallPx}
                 rooms={viewerRooms} selectedId={selected} dividers={dividers}
-                calibration={calibLine ?? (calib ? [calib.a, calib.b] : null)}
+                calibration={calibLine ?? (calib && !blankScale ? [calib.a, calib.b] : null)}
                 draft={draft} tool={tool} formatLength={fmtLen}
-                onPick={onPick} onFinish={finishPolygon} fitKey={fitKey}
+                onPick={onPick} onFinish={finish} fitKey={fitKey}
               />
 
               {/* Εργαλειοθήκη (αριστερά) */}
@@ -565,17 +685,6 @@ export function FloorPlanDialog({ prjc, projectLabel, open, onOpenChange, canSav
 
               {/* Προβολή (δεξιά) */}
               <div className="absolute right-3 top-3 flex items-center gap-1 rounded-xl border border-slate-700/80 bg-slate-900/85 p-1 text-slate-200 shadow-xl backdrop-blur">
-                <div className="flex rounded-lg bg-slate-800/80 p-0.5" role="group" aria-label="Προβολή">
-                  {[{ v: false, l: '2D', i: <FiSquare /> }, { v: true, l: '3D', i: <FiBox /> }].map((o) => (
-                    <button
-                      key={o.l} type="button" onClick={() => setMode3d(o.v)} aria-pressed={mode3d === o.v}
-                      className="inline-flex h-7 cursor-pointer items-center gap-1 rounded-md px-2 text-[11px] font-semibold transition-colors [&_svg]:size-3.5"
-                      style={mode3d === o.v ? { background: '#22D3EE', color: '#0B1220' } : undefined}
-                    >
-                      {o.i}{o.l}
-                    </button>
-                  ))}
-                </div>
                 <button type="button" onClick={() => setShowWalls((s) => !s)} title="Τοίχοι" aria-label="Εναλλαγή τοίχων" aria-pressed={showWalls} className="inline-flex size-7 cursor-pointer items-center justify-center rounded-md hover:bg-slate-800 [&_svg]:size-4">
                   {showWalls ? <FiEye /> : <FiEyeOff />}
                 </button>

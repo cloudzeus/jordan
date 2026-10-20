@@ -308,20 +308,33 @@ export function pointInPolygon(p: Pt, pts: Pt[]): boolean {
   return inside;
 }
 
-/** Σημείο ετικέτας ΜΕΣΑ στο πολύγωνο: το μέσο του φαρδύτερου τμήματος της οριζόντιας από το κέντρο βάρους. */
+/**
+ * Σημείο ΜΕΣΑ στο πολύγωνο, όσο γίνεται μακριά από τις πλευρές (για ετικέτες και ως «σπόρος» του
+ * flood fill): πλέγμα 24×24 στο bbox και μετά τοπική βελτίωση γύρω από το καλύτερο. Το κέντρο βάρους
+ * δεν αρκεί — σε σχήματα Γ/Π πέφτει έξω ή πάνω σε πλευρά (= πάνω σε τοίχο).
+ */
 export function labelPoint(pts: Pt[]): Pt {
-  let cx = 0, cy = 0;
-  for (const p of pts) { cx += p.x; cy += p.y; }
-  cx /= pts.length; cy /= pts.length;
-  if (pointInPolygon({ x: cx, y: cy }, pts)) return { x: cx, y: cy };
-  const xs: number[] = [];
-  for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
-    const a = pts[i], b = pts[j];
-    if ((a.y > cy) !== (b.y > cy)) xs.push(((b.x - a.x) * (cy - a.y)) / (b.y - a.y) + a.x);
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (const p of pts) { if (p.x < minX) minX = p.x; if (p.x > maxX) maxX = p.x; if (p.y < minY) minY = p.y; if (p.y > maxY) maxY = p.y; }
+  const edgeDist = (q: Pt) => {
+    let d = Infinity;
+    for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) d = Math.min(d, segDist(q, pts[j], pts[i]));
+    return d;
+  };
+  let best: Pt = { x: (minX + maxX) / 2, y: (minY + maxY) / 2 }, bestD = -1;
+  const search = (x0: number, y0: number, x1: number, y1: number, n: number) => {
+    for (let i = 0; i <= n; i++) for (let j = 0; j <= n; j++) {
+      const q = { x: x0 + ((x1 - x0) * (i + 0.5)) / (n + 1), y: y0 + ((y1 - y0) * (j + 0.5)) / (n + 1) };
+      if (!pointInPolygon(q, pts)) continue;
+      const d = edgeDist(q);
+      if (d > bestD) { bestD = d; best = q; }
+    }
+  };
+  search(minX, minY, maxX, maxY, 24);
+  if (bestD > 0) {
+    const sx = (maxX - minX) / 12, sy = (maxY - minY) / 12;
+    search(best.x - sx, best.y - sy, best.x + sx, best.y + sy, 10);
   }
-  xs.sort((p, q) => p - q);
-  let best = { x: cx, y: cy }, wide = -1;
-  for (let i = 0; i + 1 < xs.length; i += 2) if (xs[i + 1] - xs[i] > wide) { wide = xs[i + 1] - xs[i]; best = { x: (xs[i] + xs[i + 1]) / 2, y: cy }; }
   return best;
 }
 
@@ -368,43 +381,6 @@ export function invert(m: Mask): Mask {
   const out = new Uint8Array(m.length);
   for (let i = 0; i < m.length; i++) out[i] = m[i] ? 0 : 1;
   return out;
-}
-
-/**
- * Τοίχοι ως ορθογώνια για τρισδιάστατη εξώθηση: πλέγμα κελιών (cell px), κελί = τοίχος αν >50% τοίχος,
- * οριζόντια τρεξίματα ενώνονται και όμοια τρεξίματα διαδοχικών γραμμών συγχωνεύονται («greedy meshing»).
- */
-export function wallRects(walls: Mask, w: number, h: number, cell: number): Rect[] {
-  const I = integral(walls, w, h), W = w + 1;
-  const gw = Math.ceil(w / cell), gh = Math.ceil(h / cell);
-  const grid = new Uint8Array(gw * gh);
-  for (let gy = 0; gy < gh; gy++) for (let gx = 0; gx < gw; gx++) {
-    const x0 = gx * cell, y0 = gy * cell, x1 = Math.min(w, x0 + cell), y1 = Math.min(h, y0 + cell);
-    grid[gy * gw + gx] = count(I, W, x0, y0, x1, y1) * 2 > (x1 - x0) * (y1 - y0) ? 1 : 0;
-  }
-  const open = new Map<string, Rect>();
-  const done: Rect[] = [];
-  for (let gy = 0; gy < gh; gy++) {
-    const runs: Array<[number, number]> = [];
-    for (let gx = 0; gx < gw;) {
-      if (!grid[gy * gw + gx]) { gx++; continue; }
-      const s = gx;
-      while (gx < gw && grid[gy * gw + gx]) gx++;
-      runs.push([s, gx - s]);
-    }
-    const next = new Map<string, Rect>();
-    for (const [s, len] of runs) {
-      const key = `${s}:${len}`;
-      const prev = open.get(key);
-      if (prev) { prev.h += 1; next.set(key, prev); open.delete(key); }
-      else next.set(key, { x: s, y: gy, w: len, h: 1 });
-    }
-    for (const r of open.values()) done.push(r);
-    open.clear();
-    for (const [k, r] of next) open.set(k, r);
-  }
-  for (const r of open.values()) done.push(r);
-  return done.map((r) => ({ x: r.x * cell, y: r.y * cell, w: Math.min(r.w * cell, w - r.x * cell), h: Math.min(r.h * cell, h - r.y * cell) }));
 }
 
 /** m² από px² με κλίμακα «μέτρα ανά pixel». */
