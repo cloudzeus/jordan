@@ -16,6 +16,7 @@ import { listTasks, listTemplates, partyOptions } from '@/lib/project-tasks';
 import { zonedParts } from '@/lib/appointments-core';
 import { TasksWorkspace } from './tasks/tasks-workspace';
 import { ProjectTabs } from './project-tabs';
+import { ProjectRoomsPanel } from '@/components/admin/rooms/project-rooms-panel';
 import { PHASES, phaseCounts } from '@/lib/project-tasks-core';
 
 export const dynamic = 'force-dynamic';
@@ -123,6 +124,8 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
           <FiTrello className="size-3.5" aria-hidden /> Kanban εργασιών
         </Link>
       </section>
+
+      <ProjectRoomsPanel prjc={p.prjc} projectLabel={`${p.code} · ${p.name}`} canManage={canManage} canSaveFiles={canManageFiles} />
 
       {fin && <ProjectFinancials profit={fin.profit} issues={fin.issues} computedAt={fin.computedAt} error={fresh?.error ?? null} />}
       {canFinancials && !fin && (

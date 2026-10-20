@@ -226,6 +226,8 @@ export type PromptInput = {
   total: number;
   terms?: string | null;
   guides: PromptGuide[];
+  /** Χώροι του έργου με το τελικό δάπεδο (lib/project-rooms-core → roomLine). */
+  rooms?: string[];
 };
 
 export const needsInstallation = (p: Pick<PromptInput, 'audience' | 'kind'>) => p.audience === 'PARTY' || p.kind === 'PRODUCT_INSTALL' || p.kind === 'SUBCONTRACT';
@@ -251,6 +253,11 @@ export function buildPrompt(p: PromptInput): { system: string; user: string } {
         ? '- Στο "installation" γράψε ΑΝΑΛΥΤΙΚΕΣ οδηγίες εγκατάστασης για τον τεχνίτη ανά εργασία/υλικό: προετοιμασία υποστρώματος, εργαλεία, βήματα, χρόνοι, προειδοποιήσεις, έλεγχοι ποιότητας. Χρησιμοποίησε τους οδηγούς εγκατάστασης που δίνονται (είναι πρωτογενής πηγή) και συμπλήρωσε με καλές πρακτικές.'
         : '- Στο "installation" γράψε σύντομα τι θα γίνει στην τοποθέτηση και τι χρειάζεται να προετοιμάσει ο πελάτης (όχι τεχνικές λεπτομέρειες).'
       : '- Το "installation" μένει κενός πίνακας [].',
+    p.rooms?.length
+      ? party
+        ? '- Δίνονται οι χώροι του έργου με το τελικό δάπεδο. Στο "installation" οργάνωσε τις οδηγίες ΑΝΑ ΧΩΡΟ ή ανά υλικό, τηρώντας ακριβώς τη διάταξη/φινίρισμα και το σοβατεπί που ορίζεται για κάθε χώρο.'
+        : '- Δίνονται οι χώροι του έργου με το τελικό δάπεδο. Στην περιγραφή της λύσης/αντικειμένου ανέφερε ποιο υλικό μπαίνει σε ποιον χώρο (ο πίνακας χώρων τυπώνεται αυτόματα — μη γράψεις εμβαδά).'
+      : '',
     'Απάντησε ΜΟΝΟ με JSON της μορφής:',
     '{"title": string, "preamble": string, "scopeSummary": string, "articles": [{"heading": string, "paragraphs": string[], "bullets": string[]}], "installation": [{"heading": string, "steps": string[], "warnings": string[], "checks": string[]}], "closing": string}',
     `Γράψε ${party ? '9–14' : p.stage === 'CONTRACT' ? '9–13' : '5–8'} άρθρα.`,
@@ -278,6 +285,7 @@ export function buildPrompt(p: PromptInput): { system: string; user: string } {
     `${party ? 'Εργασίες/υλικά του αναδόχου' : 'Υλικά & υπηρεσίες'}:`,
     lines || '—',
     '',
+    p.rooms?.length ? `Χώροι & τελικά δάπεδα:\n${p.rooms.map((r, i) => `${i + 1}. ${r}`).join('\n')}\n` : '',
     'Milestones (παραδοτέα με πληρωμή):',
     ms || '—',
     p.terms ? `\nΕιδικοί όροι που ΠΡΕΠΕΙ να ενσωματωθούν:\n${p.terms}` : '',

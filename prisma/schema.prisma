@@ -3384,6 +3384,41 @@ model ProjectSite {
   updatedAt   DateTime @updatedAt
 }
 
+// Χώροι έργου με το τελικό δάπεδο: από τη διαστασιολόγηση κάτοψης ή χειροκίνητα. Πηγή για την
+// προσφορά/σύμβαση (AI + PDF + γραμμές υλικών), τις προδιαγραφές και τις οδηγίες προς τον εργολάβο.
+// Το είδος κρατιέται ως στιγμιότυπο (κωδικός/όνομα/μονάδα), όπως στο ProjectBudgetLine.
+model ProjectRoom {
+  id          String   @id @default(cuid())
+  prjc        Int // SoftOne PRJC
+  name        String
+  /// Καθαρό εμβαδό δαπέδου (m²)
+  areaM2      Float
+  /// Περίμετρος (m) — για σοβατεπί
+  perimeterM  Float?
+  /// TILE (πλακάκι) · STONE (πέτρα) · SCREED (τσιμεντοκονία) · OTHER · null = δεν ορίστηκε
+  finish      String?
+  /// SoftOne MTRL του υλικού (προαιρετικό) + στιγμιότυπο
+  mtrl        Int?
+  itemCode    String?
+  itemName    String?
+  itemUnit    String?
+  /// Φύρα % για την ποσότητα παραγγελίας
+  wastePct    Float    @default(10)
+  /// Σοβατεπί από το ίδιο υλικό στην περίμετρο
+  skirting    Boolean  @default(false)
+  /// Διάταξη/αρμός/φινίρισμα: «60×60, αρμός 2 mm, ευθεία τοποθέτηση»
+  pattern     String?
+  notes       String?
+  /// floorplan · manual
+  source      String   @default("manual")
+  sortOrder   Int      @default(0)
+  updatedById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([prjc])
+}
+
 // ============================================================
 // Αρχεία πελατών/προμηθευτών (TRDR) και έργων (PRJC) — AutoCAD, PDF, Excel, Word στο Bunny.
 // ΧΩΡΙΣΤΟΙ πίνακες (όχι στήλες στο SoftoneTrader/SoftoneProject): ο resync σβήνει και ξαναγράφει

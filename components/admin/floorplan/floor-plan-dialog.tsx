@@ -26,9 +26,16 @@ import {
 } from '@/lib/floorplan/core';
 import { blankPlan, loadPlan, type LoadedPlan } from './load-plan';
 import { PlanViewer, WALL_DRAW, type ViewerRoom, type ViewerTool } from './plan-viewer';
+import { RoomFinishFields, emptyFinish, type FinishDraft } from '@/components/admin/rooms/room-finish-fields';
+import { mergeRooms } from '@/components/admin/rooms/rooms-api';
+import { FINISH_BY_KEY, finishLabel } from '@/lib/project-rooms-core';
 import { annotatedPng, download, fmtM, fmtM2, roomsCsv, roomsText, type ExportRoom } from './export';
 
-type Room = { id: string; name: string; color: string; polygon: Pt[]; areaPx: number; perimeterPx: number; manual: boolean };
+type Room = FinishDraft & {
+  id: string; name: string; color: string; polygon: Pt[]; areaPx: number; perimeterPx: number; manual: boolean;
+  /** Id του χώρου στο έργο (ProjectRoom) μετά την πρώτη αποθήκευση — οι επόμενες τον ενημερώνουν. */
+  dbId?: string | null;
+};
 type Calib = { a: Pt; b: Pt; meters: number };
 /** Τοίχος σχεδιασμένος από τον χρήστη: τμήμα a→b με πάχος t (px ανάλυσης). */
 type DrawnWall = { a: Pt; b: Pt; t: number };
@@ -104,10 +111,12 @@ function Range({ label, value, min, max, step = 1, display, onChange, disabled }
   );
 }
 
-export function FloorPlanDialog({ prjc, projectLabel, open, onOpenChange, canSave = false }: {
+export function FloorPlanDialog({ prjc, projectLabel, open, onOpenChange, canSave = false, canManage = false }: {
   prjc: number; projectLabel: string; open: boolean; onOpenChange: (o: boolean) => void;
   /** files.manage: «Αποθήκευση στο έργο» ανεβάζει PNG + CSV στον φάκελο «Κατόψεις». */
   canSave?: boolean;
+  /** projects.manage: «Αποθήκευση χώρων στο έργο» (όνομα, m², δάπεδο) → Χώροι & δάπεδα του έργου. */
+  canManage?: boolean;
 }) {
   const [file, setFile] = React.useState<File | null>(null);
   const [plan, setPlan] = React.useState<LoadedPlan | null>(null);
@@ -236,7 +245,7 @@ export function FloorPlanDialog({ prjc, projectLabel, open, onOpenChange, canSav
   const seq = React.useRef(0);
   const addRoom = (polygon: Pt[], areaPx: number, perimeterPx: number, manual: boolean) => {
     const n = ++seq.current;
-    const r: Room = { id: uid(), name: `Χώρος ${n}`, color: PALETTE[(n - 1) % PALETTE.length], polygon, areaPx, perimeterPx, manual };
+    const r: Room = { ...emptyFinish(), id: uid(), name: `Χώρος ${n}`, color: PALETTE[(n - 1) % PALETTE.length], polygon, areaPx, perimeterPx, manual };
     setRooms((rs) => [...rs, r]);
     setSelected(r.id);
   };
@@ -335,6 +344,8 @@ export function FloorPlanDialog({ prjc, projectLabel, open, onOpenChange, canSav
     const onKey = (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement | null)?.tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+      // Στο πάνελ (υλικά, κουμπιά) τα πλήκτρα ανήκουν στα στοιχεία του — όχι διαγραφή χώρου κατά λάθος.
+      if ((e.target as HTMLElement | null)?.closest?.('[data-fp-rail]')) return;
       if (e.key === 'Escape' && draft.length) { e.preventDefault(); e.stopPropagation(); setDraft([]); return; }
       if (e.key === 'Enter') { finish(); return; }
       if (e.key === 'Backspace' && draft.length) { e.preventDefault(); setDraft((d) => d.slice(0, -1)); return; }
@@ -376,9 +387,27 @@ export function FloorPlanDialog({ prjc, projectLabel, open, onOpenChange, canSav
     }
   };
 
+  // Χώροι & δάπεδα του έργου: όνομα, m², περίμετρος και υλικό. Οι ήδη αποθηκευμένοι ενημερώνονται.
+  const [savingRooms, setSavingRooms] = React.useState(false);
+  const saveRooms = async () => {
+    if (!mPerPx || !rooms.length) return;
+    setSavingRooms(true);
+    try {
+      const { ids } = await mergeRooms(prjc, rooms.map((r) => ({
+        dbId: r.dbId ?? null, id: null, name: r.name.trim() || 'Χώρος', areaM2: Math.round(toM2(r.areaPx, mPerPx) * 100) / 100,
+        perimeterM: Math.round(r.perimeterPx * mPerPx * 100) / 100, finish: r.finish, mtrl: r.mtrl, itemCode: r.itemCode, itemName: r.itemName,
+        itemUnit: r.itemUnit, wastePct: r.wastePct, skirting: r.skirting, pattern: r.pattern, notes: r.notes, source: 'floorplan' as const,
+      })));
+      setRooms((rs) => rs.map((r, i) => ({ ...r, dbId: ids[i] || r.dbId })));
+      toast.success(`Αποθηκεύτηκαν ${rooms.length} χώροι στο έργο — θα τους βρεις στην καρτέλα «Χώροι & δάπεδα».`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Η αποθήκευση απέτυχε.');
+    } finally { setSavingRooms(false); }
+  };
+
   const viewerRooms: ViewerRoom[] = React.useMemo(() => rooms.map((r) => ({
     id: r.id, color: r.color, polygon: r.polygon, label: r.name, anchor: labelPoint(r.polygon),
-    sub: mPerPx ? fmtM2(toM2(r.areaPx, mPerPx)) : `${nf.format(r.areaPx)} px²`,
+    sub: `${mPerPx ? fmtM2(toM2(r.areaPx, mPerPx)) : `${nf.format(r.areaPx)} px²`}${r.finish ? ` · ${finishLabel(r.finish)}` : ''}`,
   })), [rooms, mPerPx]);
 
   // Η αυτόματη κλίμακα του κενού κάναβου δεν σχεδιάζεται ως γραμμή.
@@ -461,7 +490,7 @@ export function FloorPlanDialog({ prjc, projectLabel, open, onOpenChange, canSav
         ) : (
           <div className="grid min-h-0 flex-1 grid-cols-1 grid-rows-[minmax(0,1fr)_auto] md:grid-cols-[320px_minmax(0,1fr)] md:grid-rows-1">
             {/* ── Πάνελ βημάτων ── */}
-            <div ref={railRef} className="order-2 max-h-[42dvh] space-y-3 overflow-y-auto border-t border-border bg-muted/30 p-3 md:order-1 md:max-h-none md:border-r md:border-t-0">
+            <div ref={railRef} data-fp-rail className="order-2 max-h-[42dvh] space-y-3 overflow-y-auto border-t border-border bg-muted/30 p-3 md:order-1 md:max-h-none md:border-r md:border-t-0">
               <Step n={1} title="Τοίχοι" done={wallsReady} active={step === 1}>
                 {plan.pxPerM == null && (
                   <label className="flex cursor-pointer items-center justify-between gap-2">
@@ -596,29 +625,41 @@ export function FloorPlanDialog({ prjc, projectLabel, open, onOpenChange, canSav
                     {rooms.map((r) => {
                       const a = areaOf(r);
                       return (
-                        <li
-                          key={r.id}
-                          className="flex items-center gap-2 px-2 py-1.5"
-                          style={r.id === selected ? { background: 'color-mix(in oklab, var(--primary) 7%, transparent)' } : undefined}
-                          onClick={() => setSelected(r.id)}
-                        >
-                          <span className="size-3 shrink-0 rounded-sm" style={{ background: r.color }} aria-hidden />
-                          <input
-                            value={r.name} aria-label="Όνομα χώρου"
-                            onChange={(e) => setRooms((rs) => rs.map((x) => (x.id === r.id ? { ...x, name: e.target.value } : x)))}
-                            className="min-w-0 flex-1 rounded border border-transparent bg-transparent px-1 py-0.5 text-[length:var(--fs-12)] hover:border-border focus:border-ring focus:outline-none"
-                          />
-                          <span className="shrink-0 text-right font-mono text-[length:var(--fs-12)] font-semibold tabular-nums">
-                            {a == null ? '—' : nf.format(a)}<span className="ml-0.5 text-[10px] font-normal text-muted-foreground">m²</span>
-                            {mPerPx && <span className="block text-[10px] font-normal text-muted-foreground">Π {nf.format(r.perimeterPx * mPerPx)} m{r.manual ? ' · χειρ.' : ''}</span>}
-                          </span>
-                          <button
-                            type="button" aria-label={`Διαγραφή ${r.name}`}
-                            onClick={(e) => { e.stopPropagation(); setRooms((rs) => rs.filter((x) => x.id !== r.id)); }}
-                            className="inline-flex size-6 shrink-0 cursor-pointer items-center justify-center rounded text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                          >
-                            <FiTrash2 className="size-3.5" aria-hidden />
-                          </button>
+                        <li key={r.id} style={r.id === selected ? { background: 'color-mix(in oklab, var(--primary) 7%, transparent)' } : undefined}>
+                          <div className="flex items-center gap-2 px-2 py-1.5" onClick={() => setSelected(r.id)}>
+                            <span className="size-3 shrink-0 rounded-sm" style={{ background: r.color }} aria-hidden />
+                            <div className="min-w-0 flex-1">
+                              <input
+                                value={r.name} aria-label="Όνομα χώρου"
+                                onChange={(e) => setRooms((rs) => rs.map((x) => (x.id === r.id ? { ...x, name: e.target.value } : x)))}
+                                className="w-full rounded border border-transparent bg-transparent px-1 py-0.5 text-[length:var(--fs-12)] hover:border-border focus:border-ring focus:outline-none"
+                              />
+                              <button type="button" onClick={() => setSelected(r.id === selected ? null : r.id)} className="block max-w-full cursor-pointer truncate px-1 text-left text-[10px] text-muted-foreground hover:text-foreground">
+                                {r.finish
+                                  ? <><span className="font-medium" style={{ color: FINISH_BY_KEY.get(r.finish)?.color }}>{finishLabel(r.finish)}</span>{r.itemName ? ` · ${r.itemName}` : ''}</>
+                                  : '+ υλικό δαπέδου'}
+                              </button>
+                            </div>
+                            <span className="shrink-0 text-right font-mono text-[length:var(--fs-12)] font-semibold tabular-nums">
+                              {a == null ? '—' : nf.format(a)}<span className="ml-0.5 text-[10px] font-normal text-muted-foreground">m²</span>
+                              {mPerPx && <span className="block text-[10px] font-normal text-muted-foreground">Π {nf.format(r.perimeterPx * mPerPx)} m{r.manual ? ' · χειρ.' : ''}</span>}
+                            </span>
+                            <button
+                              type="button" aria-label={`Διαγραφή ${r.name}`}
+                              onClick={(e) => { e.stopPropagation(); setRooms((rs) => rs.filter((x) => x.id !== r.id)); }}
+                              className="inline-flex size-6 shrink-0 cursor-pointer items-center justify-center rounded text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                            >
+                              <FiTrash2 className="size-3.5" aria-hidden />
+                            </button>
+                          </div>
+                          {r.id === selected && (
+                            <div className="border-t border-border px-2 pb-2.5 pt-2">
+                              <RoomFinishFields
+                                idPrefix={`fp-${r.id}`} value={r} compact
+                                onChange={(p) => setRooms((rs) => rs.map((x) => (x.id === r.id ? { ...x, ...p } : x)))}
+                              />
+                            </div>
+                          )}
                         </li>
                       );
                     })}
@@ -649,8 +690,13 @@ export function FloorPlanDialog({ prjc, projectLabel, open, onOpenChange, canSav
                     <FiDownload aria-hidden /> PNG
                   </Button>
                 </div>
+                {canManage && (
+                  <Button className="mt-1.5 w-full" size="sm" disabled={!rooms.length || !calib || savingRooms} onClick={() => void saveRooms()}>
+                    {savingRooms ? <FiLoader className="animate-spin" aria-hidden /> : <FiGrid aria-hidden />} Αποθήκευση χώρων στο έργο
+                  </Button>
+                )}
                 {canSave && (
-                  <Button className="mt-1.5 w-full" size="sm" disabled={!rooms.length || !calib || saving} onClick={() => void save()}>
+                  <Button className="mt-1.5 w-full" size="sm" variant="secondary" disabled={!rooms.length || !calib || saving} onClick={() => void save()}>
                     {saving ? <FiLoader className="animate-spin" aria-hidden /> : <FiSave aria-hidden />} Αποθήκευση στα αρχεία του έργου
                   </Button>
                 )}

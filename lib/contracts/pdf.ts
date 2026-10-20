@@ -30,6 +30,8 @@ export type ContractPdfData = {
   milestones: PdfMilestone[];
   doc: ContractDoc;
   itemGuides: { item: string; guide: InstallGuide }[];
+  /** Χώροι του έργου με το τελικό δάπεδο (αν η σύμβαση είναι συνδεδεμένη με έργο). */
+  rooms?: { name: string; areaM2: number; finish: string; item: string | null; pattern: string | null }[];
 };
 
 const A4 = { w: 595.28, h: 841.89 };
@@ -271,6 +273,13 @@ export async function renderContractPdf(d: ContractPdfData): Promise<Buffer> {
   }
   if ('fee' in d.totals) sums(w, [['Συνολική αμοιβή', eur(d.totals.fee), true]]);
   else sums(w, [['Καθαρή αξία', eur(d.totals.net)], [`ΦΠΑ ${qtyEl(d.totals.vatRate)}%`, eur(d.totals.vat)], ['Σύνολο', eur(d.totals.gross), true]]);
+
+  // ── Χώροι & τελικά δάπεδα ──
+  if (d.rooms?.length) {
+    w.section('Χώροι & τελικά δάπεδα');
+    table(w, [{ label: '#', w: 4 }, { label: 'Χώρος', w: 22 }, { label: 'Εμβαδό', w: 12, align: 'right' }, { label: 'Δάπεδο', w: 14 }, { label: 'Υλικό', w: 34 }],
+      d.rooms.map((r, i) => ({ cells: [String(i + 1), r.name, `${qtyEl(r.areaM2)} m²`, r.finish, r.item ?? '—'], sub: r.pattern })), 4);
+  }
 
   // ── Πρόγραμμα παραδοτέων & πληρωμών ──
   if (d.milestones.length) {

@@ -225,9 +225,15 @@ export async function GET(req: Request) {
 
   if (type === 'products' || type === 'services') {
     // Ρητά μητρώα ανά κατηγορία, ώστε ο καλών να μη χρειάζεται το `service` flag.
+    // `group` (π.χ. G_TILES): μόνο είδη της ομάδας εφαρμογής (lib/item-groups.ts) — πρόταση ή εγκεκριμένη.
+    const group = sp.get('group');
+    const inGroup = group
+      ? (await prisma.itemGroupAssignment.findMany({ where: { group: { key: group } }, select: { mtrl: true } })).map((g) => g.mtrl)
+      : null;
     const rows = await prisma.softoneItem.findMany({
       where: {
         isService: type === 'services',
+        ...(inGroup ? { mtrl: { in: inGroup } } : {}),
         OR: [
           { name: { contains: q, mode: 'insensitive' } },
           { code: { contains: q } }, { code1: { contains: q } }, { code2: { contains: q } },

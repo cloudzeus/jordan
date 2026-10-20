@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import {
   FiArrowDown, FiArrowUp, FiCalendar, FiEdit3, FiFlag, FiLoader, FiMapPin, FiMic, FiMoreVertical, FiPackage, FiPlus, FiSave,
-  FiSearch, FiSquare, FiTool, FiTrash2, FiUser, FiUsers, FiX,
+  FiGrid, FiSearch, FiSquare, FiTool, FiTrash2, FiUser, FiUsers, FiX,
 } from 'react-icons/fi';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -20,6 +20,7 @@ import {
   CONTRACT_KINDS, KIND_HINT, KIND_LABEL, allowsCrews, crewTotal, eur, lineNet, milestoneCoverage, round2, totals, type ContractKind,
 } from '@/lib/contracts/core';
 import { siteLine } from '@/lib/project-site-core';
+import { contractLinesFromRooms, materialNeeds, type RoomView } from '@/lib/project-rooms-core';
 import type { ContractView } from '@/lib/contracts/service';
 import { ProjectSiteDialog, type ProjectSiteValue } from '../project-site-dialog';
 
@@ -247,6 +248,29 @@ export function ContractEditor({ initial, staff, readOnly = false }: { initial: 
     const r = await fetch(`/api/admin/contracts/options?kind=item&mtrl=${pick.id}`).then((x) => x.json()).catch(() => null);
     if (r?.item) setLine(line.uid, { unit: r.item.unit, unitPrice: r.item.price ?? 0 });
   };
+  // Από τους «Χώρους & δάπεδα» του έργου: υλικά (m² με φύρα, σοβατεπί) και, όταν υπάρχει
+  // τοποθέτηση, μία εργασία ανά υλικό στο καθαρό εμβαδό. Τιμή μόνο όπου το είδος πουλιέται σε m².
+  const addFromRooms = async () => {
+    if (!initial?.prjc) return;
+    const r = await fetch(`/api/admin/projects/${initial.prjc}/rooms`, { cache: 'no-store' }).then((x) => (x.ok ? x.json() : null)).catch(() => null);
+    const rooms: RoomView[] = r?.rooms ?? [];
+    const mats = contractLinesFromRooms(rooms);
+    if (!mats.length) { toast.error('Το έργο δεν έχει χώρους με υλικό δαπέδου — όρισέ τους στην καρτέλα του έργου ή στη διαστασιολόγηση κάτοψης.'); return; }
+    const fresh: Line[] = mats.map((l) => ({ uid: uid(), kind: 'MATERIAL', mtrl: l.mtrl, code: l.code, name: l.name, unit: l.unit, qty: l.qty, unitPrice: 0, discount: 0, notes: l.notes, partyKey: null, crewFee: null }));
+    if (s.kind !== 'PRODUCT') {
+      for (const n of materialNeeds(rooms)) {
+        fresh.push({ uid: uid(), kind: 'SERVICE', mtrl: null, code: null, name: `Τοποθέτηση — ${n.name}`, unit: 'm²', qty: n.netM2, unitPrice: 0, discount: 0, notes: `Χώροι: ${n.rooms.join(', ')}`, partyKey: null, crewFee: null });
+      }
+    }
+    up((p) => ({ lines: [...p.lines, ...fresh] }));
+    toast.success(`Προστέθηκαν ${fresh.length} γραμμές από ${rooms.length} χώρους — συμπλήρωσε τις τιμές όπου λείπουν.`);
+    for (const l of fresh) {
+      if (!l.mtrl) continue;
+      const o = await fetch(`/api/admin/contracts/options?kind=item&mtrl=${l.mtrl}`).then((x) => x.json()).catch(() => null);
+      const unit: string | null = o?.item?.unit ?? null;
+      if (o?.item?.price && (!unit || /m²|m2|τ\.?μ/i.test(unit)) && l.unit === 'm²') setLine(l.uid, { unitPrice: o.item.price });
+    }
+  };
   const addFree = (kind: 'MATERIAL' | 'SERVICE') => up((p) => ({ lines: [...p.lines, { uid: uid(), kind, mtrl: null, code: null, name: '', unit: kind === 'SERVICE' ? 'm²' : 'τεμ.', qty: 1, unitPrice: 0, discount: 0, notes: null, partyKey: null, crewFee: null }] }));
   const addParty = (o: CrewOpt) => up((p) => ({
     parties: [...p.parties, { key: `new-${uid()}`, kind: o.kind, trdr: o.kind === 'SUPPLIER' ? Number(o.ref) : null, partnerId: o.kind === 'PARTNER' ? o.ref : null, name: o.name, email: o.email, phone: o.phone, afm: o.afm, specialty: o.sub, scope: null }],
@@ -360,6 +384,9 @@ export function ContractEditor({ initial, staff, readOnly = false }: { initial: 
             <DropdownMenuContent align="end" className="min-w-52">
               <DropdownMenuItem className={ITEM} onSelect={() => setAdding('product')}><FiPackage className="size-3.5" />Υλικό από το μητρώο</DropdownMenuItem>
               <DropdownMenuItem className={ITEM} onSelect={() => setAdding('service')}><FiTool className="size-3.5" />Υπηρεσία από το μητρώο</DropdownMenuItem>
+              {initial?.prjc != null && (
+                <DropdownMenuItem className={ITEM} onSelect={() => void addFromRooms()}><FiGrid className="size-3.5" />Υλικά από «Χώροι & δάπεδα» του έργου</DropdownMenuItem>
+              )}
               <DropdownMenuSeparator />
               <DropdownMenuItem className={ITEM} onSelect={() => addFree('MATERIAL')}><FiPlus className="size-3.5" />Ελεύθερη γραμμή υλικού</DropdownMenuItem>
               <DropdownMenuItem className={ITEM} onSelect={() => addFree('SERVICE')}><FiPlus className="size-3.5" />Ελεύθερη γραμμή εργασίας</DropdownMenuItem>

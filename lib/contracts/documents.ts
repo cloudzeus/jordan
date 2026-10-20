@@ -7,7 +7,10 @@ import { callout, facts, paragraph, renderEmail, none } from '@/lib/email/layout
 import { sendLeadMail } from '@/lib/lead-mail';
 import { bunnyDownload } from '@/lib/bunny';
 import { uploadEntityFile } from '@/lib/entity-files/service';
-import { InstallGuideSchema, type InstallGuide } from '@/lib/install-guide/guide';
+import type { InstallGuide } from '@/lib/install-guide/guide';
+import { itemGuides } from '@/lib/install-guide/item-guides';
+import { listRooms } from '@/lib/project-rooms';
+import { finishLabel, roomLine } from '@/lib/project-rooms-core';
 import { composeContractDoc } from './ai';
 import { renderContractPdf, type ContractPdfData } from './pdf';
 import {
@@ -20,23 +23,6 @@ const SUBFOLDER = 'Συμβάσεις';
 
 type User = { id: string; name: string | null; email: string };
 
-/** Οι πιο πρόσφατοι οδηγοί εγκατάστασης των ειδών (μόνο όσα έχουν). */
-async function itemGuides(mtrls: number[]): Promise<{ mtrl: number; item: string; guide: InstallGuide }[]> {
-  if (!mtrls.length) return [];
-  const rows = await prisma.itemInstallGuide.findMany({ where: { mtrl: { in: mtrls } }, orderBy: { createdAt: 'desc' } });
-  const items = await prisma.softoneItem.findMany({ where: { mtrl: { in: mtrls } }, select: { mtrl: true, code: true, name: true } });
-  const name = new Map(items.map((i) => [i.mtrl, `${i.code} · ${i.name}`]));
-  const seen = new Set<number>();
-  const out: { mtrl: number; item: string; guide: InstallGuide }[] = [];
-  for (const r of rows) {
-    if (seen.has(r.mtrl)) continue;
-    const g = InstallGuideSchema.safeParse(r.content);
-    if (!g.success) continue;
-    seen.add(r.mtrl);
-    out.push({ mtrl: r.mtrl, item: name.get(r.mtrl) ?? String(r.mtrl), guide: g.data });
-  }
-  return out;
-}
 const toPromptGuide = (g: { item: string; guide: InstallGuide }): PromptGuide => ({
   item: g.item, summary: g.guide.summary,
   steps: g.guide.steps.map((s) => [s.title, s.detail, s.warning ? `ΠΡΟΣΟΧΗ: ${s.warning}` : ''].filter(Boolean).join(' — ')),
@@ -60,11 +46,12 @@ export async function generateDocument(contractId: string, partyId: string | nul
   if (party && !lines.length) throw new ContractError(`Δεν έχουν ανατεθεί γραμμές στο «${party.name}»`, 409);
   const milestones = c.milestones.filter((m) => (party ? m.partyId === party.id : !m.partyId));
 
-  const [brand, trader, guides, partyTrader] = await Promise.all([
+  const [brand, trader, guides, partyTrader, rooms] = await Promise.all([
     emailBrand(),
     c.trdr ? prisma.softoneTrader.findUnique({ where: { trdr: c.trdr }, select: { name: true, afm: true, address: true, zip: true, city: true, email: true, phone: true } }) : null,
     itemGuides([...new Set(lines.map((l) => l.mtrl).filter((x): x is number => x != null))]),
     party?.trdr ? prisma.softoneTrader.findUnique({ where: { trdr: party.trdr }, select: { address: true, zip: true, city: true } }) : null,
+    c.prjc ? listRooms(c.prjc) : [],
   ]);
   const t = totals(c.lines, c.vatRate);
   const fee = party ? crewTotal(c.lines, party.id) : 0;
@@ -83,6 +70,7 @@ export async function generateDocument(contractId: string, partyId: string | nul
     milestones: milestones.map((m) => ({ title: m.title, deliverables: m.deliverables, dueDate: m.dueDate?.toISOString().slice(0, 10) ?? null, amount: m.amount })),
     total: party ? fee : t.gross, terms: c.terms,
     guides: guides.map(toPromptGuide),
+    rooms: rooms.map(roomLine),
   }, { userId: user.id, contractId: c.id });
 
   const prev = await prisma.contractDocument.findFirst({ where: { contractId: c.id, audience, partyId: party?.id ?? null }, orderBy: { version: 'desc' }, select: { version: true } });
@@ -104,6 +92,7 @@ export async function generateDocument(contractId: string, partyId: string | nul
     totals: party ? { fee } : { ...t, vatRate: c.vatRate },
     milestones: milestones.map((m) => ({ title: m.title, deliverables: m.deliverables, dueDate: m.dueDate?.toISOString().slice(0, 10) ?? null, amount: m.amount })),
     doc, itemGuides: party ? guides : [],
+    rooms: rooms.map((r) => ({ name: r.name, areaM2: r.areaM2, finish: finishLabel(r.finish), item: r.itemName ? `${r.itemCode ? `${r.itemCode} · ` : ''}${r.itemName}` : null, pattern: r.pattern })),
   };
   const pdf = await renderContractPdf(pdfData);
   const fileName = pdfFileName(c.number, c.stage, audience, version, party?.name);

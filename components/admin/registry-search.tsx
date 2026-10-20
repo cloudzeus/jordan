@@ -57,6 +57,7 @@ export function RegistrySearch({
   id = 'registry-search',
   category,
   initialQuery,
+  group,
 }: {
   kind: RegistryKind;
   onPick: (pick: RegistryPick) => void | Promise<void>;
@@ -67,6 +68,8 @@ export function RegistrySearch({
   category?: number | null;
   /** Λέξη με την οποία ξεκινά η αναζήτηση (π.χ. «καύσιμα» από την κατηγορία που διάλεξε ο χρήστης). */
   initialQuery?: string | null;
+  /** Μόνο για `product`: ομάδα ειδών (π.χ. «G_TILES») που στενεύει την αναζήτηση. */
+  group?: string | null;
 }) {
   const [q, setQ] = React.useState(initialQuery ?? '');
   // Νέα αφετηρία (άλλη κατηγορία στον οδηγό) ⇒ νέα αναζήτηση.
@@ -81,7 +84,7 @@ export function RegistrySearch({
   const listId = `${id}-list`;
 
   // Αλλαγή μητρώου (segmented) ⇒ τα προηγούμενα αποτελέσματα δεν ισχύουν πια.
-  React.useEffect(() => { setResults([]); setOpen(false); setActive(0); setFailed(false); }, [kind, category]);
+  React.useEffect(() => { setResults([]); setOpen(false); setActive(0); setFailed(false); }, [kind, category, group]);
 
   React.useEffect(() => {
     const term = q.trim();
@@ -90,7 +93,7 @@ export function RegistrySearch({
     let ignore = false;
     setLoading(true);
     const h = setTimeout(() => {
-      const cat = kind === 'lineitem' && category ? `&category=${category}` : '';
+      const cat = (kind === 'lineitem' && category ? `&category=${category}` : '') + (kind === 'product' && group ? `&group=${encodeURIComponent(group)}` : '');
       fetch(`/api/admin/softone/search?type=${ENDPOINT[kind]}&q=${encodeURIComponent(term)}${cat}`)
         .then(async (r) => {
           // Σφάλμα δικτύου/διακομιστή δεν είναι «δεν βρέθηκε»: το λέμε ρητά.
@@ -108,7 +111,7 @@ export function RegistrySearch({
         .finally(() => { if (!ignore) setLoading(false); });
     }, 250);
     return () => { ignore = true; clearTimeout(h); };
-  }, [q, kind, category, reload]);
+  }, [q, kind, category, group, reload]);
 
   React.useEffect(() => {
     if (!open) return;
