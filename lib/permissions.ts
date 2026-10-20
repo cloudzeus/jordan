@@ -135,7 +135,7 @@ export const ROLE_DEFAULTS: Record<string, string[]> = {
     'files.read', 'files.manage',
     'assistant.use', 'assistant.memory',
   ],
-  EMPLOYEE: ['users.read', 'appointments.read', 'appointments.manage', 'appointments.schedule', 'leads.read'],
+  EMPLOYEE: ['users.read', 'appointments.read', 'appointments.manage', 'appointments.schedule', 'leads.read', 'recipes.read'],
   COLLABORATOR: ['users.read'],
   SUPPLIER: [],
   CUSTOMER: [],
