@@ -48,6 +48,7 @@ export function RecipeEditor({ initial, templates = [], readOnly = false }: { in
   const [materialPrice, setMaterialPrice] = React.useState(toInput(initial?.materialPrice ?? 0));
   const [waste, setWaste] = React.useState(toInput(initial?.wastePct ?? 0, 2));
   const [labor, setLabor] = React.useState(toInput(initial?.laborCostPerSqm ?? 0));
+  const [laborItem, setLaborItem] = React.useState<{ mtrl: number; code: string; name: string } | null>(initial?.labor ?? null);
   const [lines, setLines] = React.useState<LineState[]>(() => (initial ? fromRecipe(initial) : []));
   const [area, setArea] = React.useState('100');
   const [source, setSource] = React.useState('');
@@ -95,6 +96,7 @@ export function RecipeEditor({ initial, templates = [], readOnly = false }: { in
     setLines(fromRecipe(t));
     setWaste(toInput(t.wastePct, 2));
     setLabor(toInput(t.laborCostPerSqm));
+    setLaborItem(t.labor);
     if (!description.trim() && t.description) setDescription(t.description);
     toast.success(`Αντιγράφηκαν ${t.lines.length} υλικά, φύρα και εργατικά από «${t.name}»`);
   };
@@ -135,7 +137,7 @@ export function RecipeEditor({ initial, templates = [], readOnly = false }: { in
     try {
       const payload = {
         name: name.trim(), kind, description: description.trim() || null, mtrl: main?.mtrl ?? null,
-        materialPrice: priceN, wastePct: wasteN, laborCostPerSqm: laborN,
+        materialPrice: priceN, wastePct: wasteN, laborCostPerSqm: laborN, laborMtrl: laborItem?.mtrl ?? null,
         lines: parsedLines.map((x) => ({ mtrl: x.l.mtrl, qtyPerSqm: x.qty, wastePct: x.w, unitPrice: x.p, notes: x.l.notes.trim() || null })),
       };
       const res = await fetch(initial ? `/api/admin/recipes/${initial.id}` : '/api/admin/recipes', {
@@ -315,10 +317,23 @@ export function RecipeEditor({ initial, templates = [], readOnly = false }: { in
         {/* ── 3. Εργατικά ── */}
         <section className="rounded-xl border border-border bg-card p-4 shadow-sm">
           <h2 className="mb-3 text-[length:var(--fs-14)] font-semibold">3 · Εργατικό κόστος</h2>
-          <div className="max-w-xs">
-            <Label htmlFor="recipe-labor" className="mb-1 block text-[length:var(--fs-12)]">Εργατικά ανά m² (€)</Label>
-            <Input id="recipe-labor" inputMode="decimal" value={labor} onChange={(e) => setLabor(e.target.value)} disabled={readOnly} placeholder="0,00" className={field} aria-invalid={touched && !!errors.labor} />
-            {err('labor')}
+          <div className="grid gap-3 sm:grid-cols-[200px_minmax(0,1fr)]">
+            <div>
+              <Label htmlFor="recipe-labor" className="mb-1 block text-[length:var(--fs-12)]">Εργατικά ανά m² (€)</Label>
+              <Input id="recipe-labor" inputMode="decimal" value={labor} onChange={(e) => setLabor(e.target.value)} disabled={readOnly} placeholder="0,00" className={field} aria-invalid={touched && !!errors.labor} />
+              {err('labor')}
+            </div>
+            <div className="min-w-0">
+              <Label htmlFor="recipe-labor-item" className="mb-1 block text-[length:var(--fs-12)]">Υπηρεσία εργατικών (για τον προϋπολογισμό έργου)</Label>
+              {laborItem ? (
+                <PickedItem code={laborItem.code} name={laborItem.name} tone="#7C3AED" disabled={readOnly} onClear={() => setLaborItem(null)} />
+              ) : readOnly ? (
+                <p className="text-[length:var(--fs-13)] text-muted-foreground">Δεν έχει οριστεί.</p>
+              ) : (
+                <RegistrySearch id="recipe-labor-item" kind="service" onPick={(p) => setLaborItem({ mtrl: p.id, code: p.code, name: p.name })} label="" />
+              )}
+              {!readOnly && <p className="mt-1 text-[length:var(--fs-11)] text-muted-foreground">Προαιρετικό: όταν η συνταγή μπαίνει σε έργο, τα εργατικά γράφονται ως αυτή η υπηρεσία (m² × εργατικά/m²).</p>}
+            </div>
           </div>
         </section>
       </div>

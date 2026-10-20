@@ -2,7 +2,7 @@ import 'server-only';
 import { z } from 'zod';
 import { prisma } from '@/lib/db';
 import { lastPurchasePrices } from '@/lib/last-purchase-price';
-import { RECIPE_KINDS, recipeCost, type RecipeCost, type RecipeKind } from '@/lib/install-recipes-core';
+import { RECIPE_KINDS, recipeCost, recipeForArea, type RecipeCost, type RecipeKind } from '@/lib/install-recipes-core';
 
 export class RecipeError extends Error {
   constructor(message: string, readonly status = 400) { super(message); }
@@ -25,6 +25,8 @@ export type RecipeView = {
   materialPrice: number;
   wastePct: number;
   laborCostPerSqm: number;
+  /** Υπηρεσία με την οποία μπαίνουν τα εργατικά στον προϋπολογισμό έργου. */
+  labor: { mtrl: number; code: string; name: string } | null;
   copiedFrom: { id: string; name: string } | null;
   updatedAt: string;
   lines: RecipeLineView[];
@@ -42,6 +44,7 @@ export const recipeInput = z.object({
   materialPrice: money.default(0),
   wastePct: pct.default(0),
   laborCostPerSqm: money.default(0),
+  laborMtrl: z.number().int().positive().nullish().transform((v) => v ?? null),
   lines: z.array(z.object({
     mtrl: z.number().int().positive(),
     qtyPerSqm: z.number().positive('Η ποσότητα ανά m² πρέπει να είναι μεγαλύτερη από 0').max(1e6),
@@ -76,6 +79,7 @@ function toView(r: Row, names: Map<string, string>): RecipeView {
     id: r.id, name: r.name, kind: r.kind, description: r.description,
     mtrl: r.mtrl, mtrlCode: r.mtrlCode, mtrlName: r.mtrlName, mtrlUnit: r.mtrlUnit,
     materialPrice: r.materialPrice, wastePct: r.wastePct, laborCostPerSqm: r.laborCostPerSqm,
+    labor: r.laborMtrl ? { mtrl: r.laborMtrl, code: r.laborCode ?? '', name: r.laborName ?? '' } : null,
     copiedFrom: r.copiedFromId && names.has(r.copiedFromId) ? { id: r.copiedFromId, name: names.get(r.copiedFromId)! } : null,
     updatedAt: r.updatedAt.toISOString(),
     lines,
@@ -115,14 +119,19 @@ async function snapshotItems(mtrls: number[]) {
 }
 
 async function buildData(input: RecipeInput) {
-  const items = await snapshotItems([...(input.mtrl ? [input.mtrl] : []), ...input.lines.map((l) => l.mtrl)]);
+  const items = await snapshotItems([
+    ...(input.mtrl ? [input.mtrl] : []), ...(input.laborMtrl ? [input.laborMtrl] : []), ...input.lines.map((l) => l.mtrl),
+  ]);
   const main = input.mtrl ? items.get(input.mtrl)! : null;
   if (main?.isService) throw new RecipeError('Το κύριο υλικό πρέπει να είναι είδος, όχι υπηρεσία');
+  const labor = input.laborMtrl ? items.get(input.laborMtrl)! : null;
+  if (labor && !labor.isService) throw new RecipeError('Τα εργατικά συνδέονται με υπηρεσία, όχι με είδος');
   return {
     head: {
       name: input.name, kind: input.kind, description: input.description,
       mtrl: input.mtrl, mtrlCode: main?.code ?? null, mtrlName: main?.name ?? null, mtrlUnit: main?.unit ?? null,
       materialPrice: input.materialPrice, wastePct: input.wastePct, laborCostPerSqm: input.laborCostPerSqm,
+      laborMtrl: input.laborMtrl, laborCode: labor?.code ?? null, laborName: labor?.name ?? null,
     },
     lines: input.lines.map((l, i) => {
       const it = items.get(l.mtrl)!;
@@ -167,6 +176,7 @@ export async function copyRecipe(id: string, input: RecipeCopyInput, userId: str
     materialPrice: input.materialPrice ?? (sameMaterial ? src.materialPrice : 0),
     wastePct: src.wastePct,
     laborCostPerSqm: src.laborCostPerSqm,
+    laborMtrl: src.laborMtrl,
     lines: src.lines.map((l) => ({ mtrl: l.mtrl, qtyPerSqm: l.qtyPerSqm, wastePct: l.wastePct, unitPrice: l.unitPrice, notes: l.notes })),
   });
   return prisma.installRecipe.create({ data: { ...head, copiedFromId: src.id, createdById: userId, lines: { create: lines } }, select: { id: true, name: true } });
@@ -184,4 +194,44 @@ export async function recipeItemInfo(mtrls: number[]): Promise<Record<number, Re
     out[mtrl] = { unit: it.unit, lastPurchase: l ? { unitCost: l.unitCost, date: l.date, fincode: l.fincode } : null };
   }
   return out;
+}
+
+export const applyRecipeInput = z.object({
+  recipeId: z.string().min(1, 'Διαλέξτε συνταγή'),
+  sqm: z.number().positive('Τα τετραγωνικά πρέπει να είναι περισσότερα από 0').max(1e6),
+  /** Υπηρεσία για τα εργατικά — αν λείπει, χρησιμοποιείται της συνταγής· null = χωρίς εργατικά. */
+  laborMtrl: z.number().int().positive().nullish(),
+});
+export type ApplyRecipeInput = z.infer<typeof applyRecipeInput>;
+
+/**
+ * Συνταγή → γραμμές προϋπολογισμού έργου για Χ m²: κύριο υλικό (m² με φύρα), βοηθητικά υλικά
+ * (ποσότητα/m² × m² με φύρα) και εργατικά ως υπηρεσία (m² × εργατικά/m²). Όλες οι γραμμές
+ * γράφονται μαζί (ή καμία) και η σημείωση δείχνει από ποια συνταγή ήρθαν.
+ */
+export async function applyRecipeToBudget(prjc: number, input: ApplyRecipeInput, userId: string | null) {
+  const project = await prisma.softoneProject.findUnique({ where: { prjc }, select: { prjc: true } });
+  if (!project) throw new RecipeError('Το έργο δεν υπάρχει', 404);
+  const r = await prisma.installRecipe.findUnique({ where: { id: input.recipeId }, include: { lines: { orderBy: { sortOrder: 'asc' } } } });
+  if (!r) throw new RecipeError('Η συνταγή δεν βρέθηκε', 404);
+
+  const laborMtrl = input.laborMtrl === undefined ? r.laborMtrl : input.laborMtrl;
+  const items = await snapshotItems([...(r.mtrl ? [r.mtrl] : []), ...(laborMtrl ? [laborMtrl] : []), ...r.lines.map((l) => l.mtrl)]);
+  if (laborMtrl && !items.get(laborMtrl)!.isService) throw new RecipeError('Τα εργατικά μπαίνουν στον προϋπολογισμό ως υπηρεσία — διαλέξτε υπηρεσία');
+
+  const calc = recipeForArea({ ...r, lines: r.lines }, input.sqm);
+  const note = `Συνταγή «${r.name}» · ${input.sqm.toLocaleString('el-GR', { maximumFractionDigits: 2 })} m²`;
+  const row = (mtrl: number, qty: number, unitPrice: number) => {
+    const it = items.get(mtrl)!;
+    return { prjc, mtrl, code: it.code, name: it.name, isService: it.isService, unit: it.unit, qty, unitPrice, notes: note, createdById: userId };
+  };
+  const data = [
+    ...(r.mtrl ? [row(r.mtrl, calc.rows[0].qty, r.materialPrice)] : []),
+    ...r.lines.map((l, i) => row(l.mtrl, calc.rows[i + 1].qty, l.unitPrice)),
+    ...(laborMtrl && r.laborCostPerSqm > 0 ? [row(laborMtrl, input.sqm, r.laborCostPerSqm)] : []),
+  ].filter((d) => d.qty > 0);
+  if (!data.length) throw new RecipeError('Η συνταγή δεν έχει υλικά ή εργατικά για να μπουν στον προϋπολογισμό');
+
+  await prisma.projectBudgetLine.createMany({ data });
+  return { recipe: { id: r.id, name: r.name }, lines: data.length, value: data.reduce((s, d) => s + d.qty * d.unitPrice, 0) };
 }
