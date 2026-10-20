@@ -12,7 +12,7 @@ const TONE: Record<ContractStatus, string> = {
 
 export function StatusBadge({ stage, status, className }: { stage: string; status: ContractStatus; className?: string }) {
   return (
-    <span className={cn('inline-flex h-5 items-center gap-1 rounded px-1.5 text-[length:var(--fs-10)] font-semibold uppercase tracking-wide', TONE[status] ?? TONE.DRAFT, className)}>
+    <span className={cn('inline-flex h-5 items-center gap-1 rounded px-1.5 text-(length:--fs-10) font-semibold uppercase tracking-wide', TONE[status] ?? TONE.DRAFT, className)}>
       {STAGE_LABEL[stage] ?? stage} · {STATUS_LABEL[status] ?? status}
     </span>
   );

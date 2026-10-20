@@ -75,8 +75,8 @@ export function OpenAccountDialog({ req, onClose, onDone }: { req: OpenRequest |
         <DialogHeader className="flex-row items-center gap-3 border-b border-border px-4 py-2.5 pr-12">
           <span aria-hidden className="grid size-8 shrink-0 place-items-center rounded-lg bg-sisyphus-50 text-sisyphus-600 dark:bg-sisyphus-500/15"><FiBookOpen className="size-4" /></span>
           <div className="min-w-0 flex-1">
-            <DialogTitle className="text-[length:var(--fs-15)]">Άνοιγμα λογαριασμού στο SoftOne</DialogTitle>
-            <DialogDescription className="truncate font-mono text-[length:var(--fs-11)]">{req?.code}</DialogDescription>
+            <DialogTitle className="text-(length:--fs-15)">Άνοιγμα λογαριασμού στο SoftOne</DialogTitle>
+            <DialogDescription className="truncate font-mono text-(length:--fs-11)">{req?.code}</DialogDescription>
           </div>
         </DialogHeader>
         <div className="space-y-3 bg-muted/20 px-4 py-3">
@@ -88,13 +88,13 @@ export function OpenAccountDialog({ req, onClose, onDone }: { req: OpenRequest |
               </Field>
               <Field label="Περιγραφή" htmlFor="open-account-name" className="col-span-12 sm:col-span-8">
                 <input id="open-account-name" value={name} onChange={(e) => setName(e.target.value)} onBlur={() => void preview()}
-                  className={cn(fieldCls, 'w-full rounded-md border border-input bg-background px-2.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring')} />
+                  className={cn(fieldCls, 'w-full rounded-md border border-input bg-background px-2.5 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring')} />
               </Field>
             </div>
           </FormSection>
           {plan && (
             <FormSection tone="emerald" icon={<FiCheckCircle />} title="Τι θα σταλεί" aside="προεπισκόπηση">
-              <dl className="grid grid-cols-[7rem_minmax(0,1fr)] gap-x-3 gap-y-1.5 text-[length:var(--fs-12)]">
+              <dl className="grid grid-cols-[7rem_minmax(0,1fr)] gap-x-3 gap-y-1.5 text-(length:--fs-12)">
                 <dt className="text-muted-foreground">Κάτω από</dt><dd className="min-w-0"><span className="font-mono">{plan.parent.code}</span> {plan.parent.name}</dd>
                 <dt className="text-muted-foreground">Ρυθμίσεις από</dt><dd className="min-w-0"><span className="font-mono">{plan.template.code}</span> {plan.template.name}</dd>
                 <dt className="text-muted-foreground">ΦΠΑ</dt><dd className="min-w-0">{plan.vat ? `${plan.vat.rate}% (κωδ. ${plan.vat.code})` : 'Χωρίς ΦΠΑ'}</dd>
@@ -103,7 +103,7 @@ export function OpenAccountDialog({ req, onClose, onDone }: { req: OpenRequest |
             </FormSection>
           )}
           {error && (
-            <p role="alert" className="flex items-start gap-1.5 rounded-lg border border-amber-500/40 bg-amber-50/70 px-3 py-2 text-[length:var(--fs-12)] text-amber-900 dark:bg-amber-500/10 dark:text-amber-200">
+            <p role="alert" className="flex items-start gap-1.5 rounded-lg border border-amber-500/40 bg-amber-50/70 px-3 py-2 text-(length:--fs-12) text-amber-900 dark:bg-amber-500/10 dark:text-amber-200">
               <FiAlertTriangle aria-hidden className="mt-0.5 size-3.5 shrink-0" /> {error}
             </p>
           )}

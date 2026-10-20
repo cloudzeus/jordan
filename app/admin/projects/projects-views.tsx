@@ -56,12 +56,12 @@ export function ProjectsViews({ tasks, canManage, initialView, initialPrjc, chil
               {projects.map(([id, p]) => <SelectItem key={id} value={String(id)}>{p.label}{p.open ? ` · ${p.open} ανοιχτές` : ''}</SelectItem>)}
             </SelectContent>
           </Select>
-          <p className="flex flex-wrap gap-x-3 text-[length:var(--fs-12)] text-muted-foreground" role="status">
+          <p className="flex flex-wrap gap-x-3 text-(length:--fs-12) text-muted-foreground" role="status">
             {PHASES.map((ph) => (
               <span key={ph.key} className="inline-flex items-center gap-1.5"><span className="size-2 rounded-full" style={{ background: ph.color }} aria-hidden />{ph.label} <span className="font-semibold tabular-nums text-foreground">{counts[ph.key]}</span></span>
             ))}
           </p>
-          <span className="ml-auto flex flex-wrap gap-x-3 text-[length:var(--fs-12)]">
+          <span className="ml-auto flex flex-wrap gap-x-3 text-(length:--fs-12)">
             {prjc != null && <Link href={`/admin/projects/${prjc}?tab=tasks`} className="inline-flex min-h-8 items-center font-medium text-primary hover:underline">Εργασίες του έργου</Link>}
             <Link href="/admin/tasks?view=board" className="inline-flex min-h-8 items-center gap-1 font-medium text-primary hover:underline"><FiColumns className="size-3.5" aria-hidden /> Περισσότερα φίλτρα & Gantt</Link>
           </span>
@@ -69,8 +69,8 @@ export function ProjectsViews({ tasks, canManage, initialView, initialPrjc, chil
         {shown.length === 0 ? (
           <div className="rounded-xl border border-dashed border-border px-6 py-14 text-center">
             <FiTrello className="mx-auto size-8 text-muted-foreground opacity-50" aria-hidden />
-            <p className="mt-3 text-[length:var(--fs-14)] font-medium">Δεν υπάρχουν ακόμη εργασίες</p>
-            <p className="mt-1 text-[length:var(--fs-12)] text-muted-foreground">Ανοίξτε ένα έργο → καρτέλα «Εργασίες» για να προσθέσετε (ή φέρτε έτοιμες από template).</p>
+            <p className="mt-3 text-(length:--fs-14) font-medium">Δεν υπάρχουν ακόμη εργασίες</p>
+            <p className="mt-1 text-(length:--fs-12) text-muted-foreground">Ανοίξτε ένα έργο → καρτέλα «Εργασίες» για να προσθέσετε (ή φέρτε έτοιμες από template).</p>
           </div>
         ) : (
           <AllTasksBoard tasks={shown} canManage={canManage} boardId="projects-kanban" />

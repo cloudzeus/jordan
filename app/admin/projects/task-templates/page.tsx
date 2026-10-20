@@ -15,7 +15,7 @@ export default async function TaskTemplatesPage() {
   const [templates, projects, canManage] = await Promise.all([listTemplates(), listProjects(), hasPermission('projects.manage')]);
   return (
     <div className="w-full max-w-4xl">
-      <Link href="/admin/projects" className="mb-3 inline-flex min-h-8 items-center gap-1 text-[length:var(--fs-12)] text-muted-foreground hover:text-foreground">
+      <Link href="/admin/projects" className="mb-3 inline-flex min-h-8 items-center gap-1 text-(length:--fs-12) text-muted-foreground hover:text-foreground">
         <FiArrowLeft className="size-3.5" aria-hidden /> Όλα τα έργα
       </Link>
       <PageHeader icon={<FiBookmark />} title="Templates εργασιών" description={`${templates.length} templates · αποθηκεύονται από τις εργασίες ενός έργου`} helpAnchor="task-templates" />

@@ -75,7 +75,7 @@ export function TraderClassPicker({ rows, loading, value, onChange, disabled, pr
       )}
       {incomplete && <RowHint tone="warn">Διάλεξε και {LEVEL_LABEL[value.length]?.toLocaleLowerCase('el') ?? 'το επόμενο επίπεδο'} — στην καρτέλα μπαίνει μόνο η πιο ειδική κατηγορία.</RowHint>}
       {proposal && (proposed?.length || proposal.needsReview) ? (
-        <div className="flex flex-wrap items-center gap-2 rounded-md bg-muted/40 px-2.5 py-1.5 text-[length:var(--fs-12)]">
+        <div className="flex flex-wrap items-center gap-2 rounded-md bg-muted/40 px-2.5 py-1.5 text-(length:--fs-12)">
           <FiZap aria-hidden className="size-3.5 shrink-0 text-amber-600" />
           <span className="min-w-0 flex-1">
             {proposed?.length ? <>Πρόταση: <strong className="font-medium">{pathLabel(rows, proposed)}</strong></> : <>Χωρίς πρόταση</>}

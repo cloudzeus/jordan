@@ -20,7 +20,7 @@ export default async function ContractsPage() {
         description={`${open.toLocaleString('el-GR')} ανοιχτές · προσφορές προς πελάτες, συμβάσεις και αναθέσεις σε συνεργεία`}
         helpAnchor="contracts"
         actions={canManage ? (
-          <Link href="/admin/projects/contracts/new" className="inline-flex min-h-9 items-center gap-1.5 rounded-md bg-primary px-3 text-[length:var(--fs-13)] font-medium text-primary-foreground hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+          <Link href="/admin/projects/contracts/new" className="inline-flex min-h-9 items-center gap-1.5 rounded-md bg-primary px-3 text-(length:--fs-13) font-medium text-primary-foreground hover:bg-primary/90 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring">
             <FiPlus className="size-4" aria-hidden /> Νέο έργο
           </Link>
         ) : null}

@@ -64,8 +64,8 @@ export function NewFieldDialog({ open, onOpenChange, region, takenKeys, busy, on
           <DialogHeader className="flex-row items-center gap-3 border-b border-border px-4 py-2.5 pr-12">
             <span aria-hidden className="grid size-8 shrink-0 place-items-center rounded-lg bg-sisyphus-50 text-sisyphus-600 dark:bg-sisyphus-500/15 [&_svg]:size-4"><FiCrop /></span>
             <div className="min-w-0 flex-1">
-              <DialogTitle className="text-[length:var(--fs-15)]">Νέο πεδίο από την περιοχή</DialogTitle>
-              <DialogDescription className="line-clamp-2 text-[length:var(--fs-11)]">
+              <DialogTitle className="text-(length:--fs-15)">Νέο πεδίο από την περιοχή</DialogTitle>
+              <DialogDescription className="line-clamp-2 text-(length:--fs-11)">
                 {region ? `Σελίδα ${region.page + 1}. ` : ''}Το πεδίο μπαίνει στο πρότυπο με αυτή την περιοχή και διαβάζεται αμέσως από το έγγραφο.
               </DialogDescription>
             </div>

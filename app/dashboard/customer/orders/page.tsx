@@ -53,20 +53,20 @@ export default async function CustomerOrdersPage({ searchParams }: { searchParam
 
         {requests.length > 0 && (
           <section className="mt-14" aria-labelledby="requests">
-            <h2 id="requests" className="font-site text-[length:var(--fs-24)] font-light">Αιτήματα από το portal</h2>
-            <p className="mt-1 text-[length:var(--fs-14)] text-[var(--s-ink-2)]">Ό,τι στείλατε από εδώ, μέχρι να καταχωριστεί ως παραγγελία.</p>
+            <h2 id="requests" className="font-site text-(length:--fs-24) font-light">Αιτήματα από το portal</h2>
+            <p className="mt-1 text-(length:--fs-14) text-(--s-ink-2)">Ό,τι στείλατε από εδώ, μέχρι να καταχωριστεί ως παραγγελία.</p>
             <div className="mt-6"><RequestList requests={requests} /></div>
           </section>
         )}
 
         <section className="mt-14" aria-labelledby="docs">
-          <h2 id="docs" className="font-site text-[length:var(--fs-24)] font-light">Παραστατικά</h2>
+          <h2 id="docs" className="font-site text-(length:--fs-24) font-light">Παραστατικά</h2>
           <nav aria-label="Φίλτρο παραστατικών" className="mt-5 flex flex-wrap gap-2">
             {FILTERS.map((f) => (
               <Link key={f.key} href={f.key === 'all' ? '/dashboard/customer/orders' : `/dashboard/customer/orders?kind=${f.key}`}
                 aria-current={f.key === kind ? 'page' : undefined}
-                className={cn('inline-flex min-h-11 items-center gap-1.5 border px-4 text-[length:var(--fs-14)] transition-colors',
-                  f.key === kind ? 'border-[var(--s-ink)] bg-[var(--s-ink)] text-white' : 'border-[var(--s-line)] text-[var(--s-ink-2)] hover:border-[var(--s-ink)]')}>
+                className={cn('inline-flex min-h-11 items-center gap-1.5 border px-4 text-(length:--fs-14) transition-colors',
+                  f.key === kind ? 'border-(--s-ink) bg-(--s-ink) text-white' : 'border-(--s-line) text-(--s-ink-2) hover:border-(--s-ink)')}>
                 {f.label}<span className="tabular-nums opacity-70">{count(f.key)}</span>
               </Link>
             ))}

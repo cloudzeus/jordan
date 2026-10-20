@@ -123,7 +123,7 @@ export function QueueRow({ id, selected, onSelect, children, className }: QueueR
         'cx-transition motion-reduce:transition-none',
         selected
           ? 'border-l-sisyphus-500 bg-sisyphus-50'
-          : 'border-l-transparent hover:bg-[var(--cx-hover)]',
+          : 'border-l-transparent hover:bg-(--cx-hover)',
         selected &&
           'group-focus-visible/queue:ring-2 group-focus-visible/queue:ring-inset group-focus-visible/queue:ring-sisyphus-500',
         className,
@@ -151,7 +151,7 @@ export function QueueEmpty({ icon, title, hint, action }: QueueEmptyProps) {
       >
         {icon ?? <FiInbox />}
       </span>
-      <p className="text-[length:var(--fs-13)] font-medium text-foreground">{title}</p>
+      <p className="text-(length:--fs-13) font-medium text-foreground">{title}</p>
       {hint && <p className="max-w-[38ch] text-body-sm text-muted-foreground">{hint}</p>}
       {action && <div className="mt-1">{action}</div>}
     </div>
@@ -254,7 +254,7 @@ export function QueueLayout<T,>({
         <div className="mb-5 flex items-start justify-between gap-3">
           <div className="flex min-w-0 items-start gap-3">
             {icon && (
-              <span className="inline-flex size-8 shrink-0 items-center justify-center rounded-sm bg-[var(--cx-accent-soft)] text-primary [&_svg]:size-4">
+              <span className="inline-flex size-8 shrink-0 items-center justify-center rounded-sm bg-(--cx-accent-soft) text-primary [&_svg]:size-4">
                 {icon}
               </span>
             )}
@@ -309,19 +309,19 @@ export function QueueLayout<T,>({
                       aria-selected={active}
                       onClick={() => onFilter?.(f.key)}
                       className={cn(
-                        'inline-flex h-11 cursor-pointer items-center gap-1.5 rounded-full border px-3 text-[length:var(--fs-12)] font-medium lg:h-7',
+                        'inline-flex h-11 cursor-pointer items-center gap-1.5 rounded-full border px-3 text-(length:--fs-12) font-medium lg:h-7',
                         'cx-transition motion-reduce:transition-none',
-                        'outline-none focus-visible:ring-2 focus-visible:ring-sisyphus-500 focus-visible:ring-offset-1',
+                        'outline-hidden focus-visible:ring-2 focus-visible:ring-sisyphus-500 focus-visible:ring-offset-1',
                         active
                           ? 'border-sisyphus-500 bg-sisyphus-50 text-sisyphus-700'
-                          : 'border-border bg-neutral-0 text-muted-foreground hover:bg-[var(--cx-hover)] hover:text-foreground',
+                          : 'border-border bg-neutral-0 text-muted-foreground hover:bg-(--cx-hover) hover:text-foreground',
                       )}
                     >
                       {f.label}
                       {typeof f.count === 'number' && (
                         <span
                           className={cn(
-                            'rounded-full px-1 text-[length:var(--fs-10)] tabular-nums',
+                            'rounded-full px-1 text-(length:--fs-10) tabular-nums',
                             active ? 'bg-sisyphus-100 text-sisyphus-700' : 'bg-neutral-8 text-muted-foreground',
                           )}
                         >
@@ -384,7 +384,7 @@ export function QueueLayout<T,>({
               tabIndex={0}
               aria-label={listLabel}
               aria-activedescendant={selectedId ? queueOptionId(selectedId) : undefined}
-              className="group/queue max-h-[calc(100dvh-14rem)] flex-1 overflow-auto outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-sisyphus-500"
+              className="group/queue max-h-[calc(100dvh-14rem)] flex-1 overflow-auto outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-sisyphus-500"
             >
               {items.map((item) => {
                 const id = getId(item);
@@ -415,7 +415,7 @@ export function QueueLayout<T,>({
           <button
             type="button"
             onClick={() => scrollTo(listRef.current)}
-            className="mb-2 inline-flex h-11 cursor-pointer items-center gap-1.5 rounded-lg px-2 text-[length:var(--fs-13)] font-medium text-sisyphus-700 outline-none cx-transition motion-reduce:transition-none hover:bg-[var(--cx-hover)] focus-visible:ring-2 focus-visible:ring-sisyphus-500 lg:hidden"
+            className="mb-2 inline-flex h-11 cursor-pointer items-center gap-1.5 rounded-lg px-2 text-(length:--fs-13) font-medium text-sisyphus-700 outline-hidden cx-transition motion-reduce:transition-none hover:bg-(--cx-hover) focus-visible:ring-2 focus-visible:ring-sisyphus-500 lg:hidden"
           >
             <FiArrowLeft aria-hidden className="size-4" />
             Πίσω στη λίστα

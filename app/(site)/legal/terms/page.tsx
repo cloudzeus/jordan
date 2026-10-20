@@ -12,7 +12,7 @@ export const metadata: Metadata = { title: 'Όροι χρήσης', description:
 export default async function TermsPage() {
   const c = await siteCompany();
   return (
-    <LegalPage title="Όροι χρήσης" current="/legal/terms" intro={<p>Οι όροι αυτοί διέπουν τη χρήση της B2B πύλης της {c.brand} (το «website» και η «περιοχή πελατών»). Η περιοχή πελατών (δυναμικές προσφορές, έργα, παραγγελίες) απευθύνεται σε <strong className="font-medium text-[var(--s-ink)]">επαγγελματίες</strong> — αρχιτέκτονες, τεχνικά γραφεία, κατασκευαστικές εταιρείες, εργολάβους και διακοσμητές. Τα υλικά μας διατίθενται και σε ιδιώτες, στο atelier.</p>}>
+    <LegalPage title="Όροι χρήσης" current="/legal/terms" intro={<p>Οι όροι αυτοί διέπουν τη χρήση της B2B πύλης της {c.brand} (το «website» και η «περιοχή πελατών»). Η περιοχή πελατών (δυναμικές προσφορές, έργα, παραγγελίες) απευθύνεται σε <strong className="font-medium text-(--s-ink)">επαγγελματίες</strong> — αρχιτέκτονες, τεχνικά γραφεία, κατασκευαστικές εταιρείες, εργολάβους και διακοσμητές. Τα υλικά μας διατίθενται και σε ιδιώτες, στο atelier.</p>}>
       <Section n={1} title="Ποιοι είμαστε">
         <CompanyBlock c={c} />
       </Section>
@@ -71,7 +71,7 @@ export default async function TermsPage() {
       </Section>
 
       <Section n={11} title="Προσωπικά δεδομένα και cookies">
-        <p>Η επεξεργασία προσωπικών δεδομένων περιγράφεται στην <Link href="/legal/privacy" className="s-link text-[var(--s-ink)]">Πολιτική απορρήτου</Link> και η χρήση cookies στη σελίδα <Link href="/legal/cookies" className="s-link text-[var(--s-ink)]">Cookies</Link>.</p>
+        <p>Η επεξεργασία προσωπικών δεδομένων περιγράφεται στην <Link href="/legal/privacy" className="s-link text-(--s-ink)">Πολιτική απορρήτου</Link> και η χρήση cookies στη σελίδα <Link href="/legal/cookies" className="s-link text-(--s-ink)">Cookies</Link>.</p>
       </Section>
 
       <Section n={12} title="Αλλαγές, δίκαιο και δικαιοδοσία">

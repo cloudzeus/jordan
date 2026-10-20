@@ -58,8 +58,8 @@ export function SoftoneAfmDialog({
         <DialogHeader className="flex-row items-center gap-3 border-b border-border px-4 py-2.5 pr-12">
           <span aria-hidden className="grid size-8 shrink-0 place-items-center rounded-lg bg-sisyphus-50 text-sisyphus-600 dark:bg-sisyphus-500/15"><FiSearch className="size-4" /></span>
           <div className="min-w-0 flex-1">
-            <DialogTitle className="text-[length:var(--fs-15)]">Έλεγχος ΑΦΜ στο SoftOne</DialogTitle>
-            <DialogDescription className="truncate text-[length:var(--fs-11)]">
+            <DialogTitle className="text-(length:--fs-15)">Έλεγχος ΑΦΜ στο SoftOne</DialogTitle>
+            <DialogDescription className="truncate text-(length:--fs-11)">
               ΑΦΜ <span className="font-mono font-medium text-foreground">{afm}</span>
               {contextLabel ? ` · ${contextLabel}` : ''}
             </DialogDescription>
@@ -75,8 +75,8 @@ export function SoftoneAfmDialog({
         </DialogHeader>
 
         <div className="max-h-[66vh] space-y-3 overflow-auto bg-muted/20 px-4 py-3">
-          {loading && <div role="status" className="py-8 text-center text-[length:var(--fs-13)] text-muted-foreground">Έλεγχος…</div>}
-          {error && <div role="alert" className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-[length:var(--fs-13)] text-destructive">{error}</div>}
+          {loading && <div role="status" className="py-8 text-center text-(length:--fs-13) text-muted-foreground">Έλεγχος…</div>}
+          {error && <div role="alert" className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-(length:--fs-13) text-destructive">{error}</div>}
 
           {result && (
             <>
@@ -89,7 +89,7 @@ export function SoftoneAfmDialog({
               </div>
 
               {!found && (
-                <div className="flex items-start gap-1.5 rounded-lg border border-amber-500/30 bg-amber-50/70 px-3 py-2 text-[length:var(--fs-13)] text-amber-900 dark:bg-amber-500/10 dark:text-amber-200">
+                <div className="flex items-start gap-1.5 rounded-lg border border-amber-500/30 bg-amber-50/70 px-3 py-2 text-(length:--fs-13) text-amber-900 dark:bg-amber-500/10 dark:text-amber-200">
                   <FiAlertTriangle aria-hidden className="mt-0.5 size-3.5 shrink-0" />
                   Δεν βρέθηκε καταχωρημένος στο SoftOne (ούτε ως πελάτης ούτε ως προμηθευτής).
                 </div>
@@ -109,7 +109,7 @@ function StatusPill({ ok, label, icon }: { ok: boolean; label: string; icon: Rea
   return (
     <span
       className={cn(
-        'inline-flex h-6 items-center gap-1 rounded-full border px-2 text-[length:var(--fs-11)] font-medium',
+        'inline-flex h-6 items-center gap-1 rounded-full border px-2 text-(length:--fs-11) font-medium',
         ok
           ? 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300'
           : 'border-border bg-muted text-muted-foreground',
@@ -127,12 +127,12 @@ function MatchGroup({ title, rows, tone, icon }: { title: string; rows: Trdr[]; 
     <FormSection tone={tone} icon={icon} title={title} aside={<span className="tabular-nums">{rows.length}</span>}>
       <div className="-mx-3 -my-2.5 divide-y divide-border">
         {rows.map((r) => (
-          <div key={r.trdr} className="px-3 py-1.5 text-[length:var(--fs-13)]">
+          <div key={r.trdr} className="px-3 py-1.5 text-(length:--fs-13)">
             <div className="flex min-w-0 items-baseline gap-2">
-              <span className="shrink-0 font-mono text-[length:var(--fs-12)] text-muted-foreground">{r.code}</span>
+              <span className="shrink-0 font-mono text-(length:--fs-12) text-muted-foreground">{r.code}</span>
               <span className="min-w-0 truncate font-medium text-foreground" title={r.name}>{r.name}</span>
             </div>
-            <div className="mt-0.5 flex flex-wrap gap-x-3 gap-y-0.5 text-[length:var(--fs-11)] text-muted-foreground">
+            <div className="mt-0.5 flex flex-wrap gap-x-3 gap-y-0.5 text-(length:--fs-11) text-muted-foreground">
               {r.kind && <span className="font-medium text-foreground">{r.kind}</span>}
               {r.doy && <span>ΔΟΥ: {r.doy}</span>}
               {r.city && <span>{r.city}</span>}

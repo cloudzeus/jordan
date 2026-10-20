@@ -460,7 +460,7 @@ export function ItemPanel({
     <div className="divide-y divide-border">
       {/* ── Κεφαλίδα ομάδας ─────────────────────────────────────────── */}
       <header className="px-4 py-3">
-        <h2 className="text-[length:var(--fs-15)] font-semibold leading-snug text-foreground">{group.sample}</h2>
+        <h2 className="text-(length:--fs-15) font-semibold leading-snug text-foreground">{group.sample}</h2>
         <p className="mt-0.5 text-body-sm text-muted-foreground">
           {group.supplier ?? 'Άγνωστος εκδότης'}
           {group.afm && <span className="font-mono"> · ΑΦΜ {group.afm}</span>}
@@ -503,7 +503,7 @@ export function ItemPanel({
           Γραμμές όπως τυπώθηκαν
         </h3>
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[420px] text-[length:var(--fs-12)]">
+          <table className="w-full min-w-[420px] text-(length:--fs-12)">
             <thead>
               <tr className="border-b border-border text-left text-caption text-muted-foreground">
                 <th scope="col" className="py-1 pr-2 font-medium">Περιγραφή</th>
@@ -523,7 +523,7 @@ export function ItemPanel({
                   <td className="py-1 pl-2">
                     <Link
                       href={`/admin/ocr/${l.docId}`}
-                      className="inline-flex max-w-[160px] cursor-pointer items-center gap-1 truncate rounded-sm text-sisyphus-700 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-sisyphus-500"
+                      className="inline-flex max-w-[160px] cursor-pointer items-center gap-1 truncate rounded-sm text-sisyphus-700 outline-hidden hover:underline focus-visible:ring-2 focus-visible:ring-sisyphus-500"
                     >
                       <FiExternalLink aria-hidden className="size-3 shrink-0" />
                       <span className="truncate">{l.fileName ?? l.docId.slice(0, 8)}</span>
@@ -574,9 +574,9 @@ export function ItemPanel({
                 ref={(el) => { segmentRefs.current[k] = el; }}
                 onClick={() => onCategory(k)}
                 className={cn(
-                  'inline-flex h-8 cursor-pointer items-center justify-center gap-1.5 rounded-md text-[length:var(--fs-12)] font-medium',
+                  'inline-flex h-8 cursor-pointer items-center justify-center gap-1.5 rounded-md text-(length:--fs-12) font-medium',
                   'cx-transition motion-reduce:transition-none',
-                  'outline-none focus-visible:ring-2 focus-visible:ring-sisyphus-500',
+                  'outline-hidden focus-visible:ring-2 focus-visible:ring-sisyphus-500',
                   active
                     ? 'bg-card text-sisyphus-700 shadow-fluent-2'
                     : 'text-muted-foreground hover:text-foreground',
@@ -661,7 +661,7 @@ export function ItemPanel({
                 value={lineCategory ?? ''}
                 disabled={locked || lineCategories.length === 0}
                 onChange={(e) => onLineCategory(e.target.value ? Number(e.target.value) : null)}
-                className="mt-1 h-9 w-full cursor-pointer rounded-lg border border-input bg-background px-2.5 text-[length:var(--fs-13)]"
+                className="mt-1 h-9 w-full cursor-pointer rounded-lg border border-input bg-background px-2.5 text-(length:--fs-13)"
               >
                 <option value="">Όλες οι κατηγορίες</option>
                 {lineCategories.map((c) => (
@@ -775,7 +775,7 @@ export function ItemPanel({
                   onChange={(e) => set('name', e.target.value)}
                   onBlur={() => setTouched((t) => ({ ...t, name: true }))}
                   aria-invalid={touched.name && !!errors.name}
-                  className="h-8 min-w-0 flex-1 text-[length:var(--fs-13)]"
+                  className="h-8 min-w-0 flex-1 text-(length:--fs-13)"
                 />
                 {!locked && (tr.offer || tr.busy) && <TranslateButton busy={tr.busy} onClick={() => void tr.translate()} />}
               </div>
@@ -797,11 +797,11 @@ export function ItemPanel({
                     onChange={(e) => set('code', e.target.value)}
                     onBlur={() => setTouched((t) => ({ ...t, code: true }))}
                     aria-invalid={!!erpCodeError || (touched.code && !!errors.code)}
-                    className="h-9 flex-1 font-mono text-[length:var(--fs-13)]"
+                    className="h-9 flex-1 font-mono text-(length:--fs-13)"
                   />
                   {isProposedCode && codeChip && (
                     <span
-                      className="inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-[length:var(--fs-11)] font-medium"
+                      className="inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-(length:--fs-11) font-medium"
                       style={{ backgroundColor: '#EAF4FC', color: '#0078D4' }}
                     >
                       {codeChip}
@@ -835,7 +835,7 @@ export function ItemPanel({
                   onChange={(e) => set('vat', e.target.value)}
                   onBlur={() => setTouched((t) => ({ ...t, vat: true }))}
                   aria-invalid={touched.vat && !!errors.vat}
-                  className="h-9 w-full cursor-pointer rounded-md border border-border bg-background px-2 text-[length:var(--fs-13)] outline-none focus-visible:border-sisyphus-500 focus-visible:ring-2 focus-visible:ring-sisyphus-100"
+                  className="h-9 w-full cursor-pointer rounded-md border border-border bg-background px-2 text-(length:--fs-13) outline-hidden focus-visible:border-sisyphus-500 focus-visible:ring-2 focus-visible:ring-sisyphus-100"
                 >
                   <option value="">— επιλογή —</option>
                   {vats.map((v) => <option key={v.code} value={v.code}>{v.label}</option>)}
@@ -850,7 +850,7 @@ export function ItemPanel({
                       onChange={(e) => set('unit', e.target.value)}
                       onBlur={() => setTouched((t) => ({ ...t, unit: true }))}
                       aria-invalid={touched.unit && !!errors.unit}
-                      className="h-9 w-full cursor-pointer rounded-md border border-border bg-background px-2 text-[length:var(--fs-13)] outline-none focus-visible:border-sisyphus-500 focus-visible:ring-2 focus-visible:ring-sisyphus-100"
+                      className="h-9 w-full cursor-pointer rounded-md border border-border bg-background px-2 text-(length:--fs-13) outline-hidden focus-visible:border-sisyphus-500 focus-visible:ring-2 focus-visible:ring-sisyphus-100"
                     >
                       <option value="">— επιλογή —</option>
                       {units.map((u) => <option key={u.code} value={u.code}>{u.label}</option>)}
@@ -861,7 +861,7 @@ export function ItemPanel({
                       onChange={(e) => set('unit', e.target.value)}
                       onBlur={() => setTouched((t) => ({ ...t, unit: true }))}
                       aria-invalid={touched.unit && !!errors.unit}
-                      className="h-9 text-[length:var(--fs-13)]"
+                      className="h-9 text-(length:--fs-13)"
                     />
                   )}
                 </Field>
@@ -883,7 +883,7 @@ export function ItemPanel({
                     }}
                     ratioSuggestion={ratioFromText(group.sample)}
                   />
-                  {touched.unit && errors.unit && <p className="mt-1 text-[length:var(--fs-11)] text-destructive" role="alert">{errors.unit}</p>}
+                  {touched.unit && errors.unit && <p className="mt-1 text-(length:--fs-11) text-destructive" role="alert">{errors.unit}</p>}
                 </div>
               )}
 
@@ -895,7 +895,7 @@ export function ItemPanel({
                   <Input
                     id="ni-price" value={form.price} disabled={locked} inputMode="decimal" placeholder="0,00"
                     onChange={(e) => set('price', e.target.value)}
-                    className="h-9 text-right text-[length:var(--fs-13)] tabular-nums"
+                    className="h-9 text-right text-(length:--fs-13) tabular-nums"
                   />
                 </Field>
               )}
@@ -912,7 +912,7 @@ export function ItemPanel({
                   <select
                     id="ni-group" value={form.itemGroup} disabled={locked}
                     onChange={(e) => set('itemGroup', e.target.value)}
-                    className="h-9 w-full cursor-pointer rounded-md border border-border bg-background px-2 text-[length:var(--fs-13)] outline-none focus-visible:border-sisyphus-500 focus-visible:ring-2 focus-visible:ring-sisyphus-100"
+                    className="h-9 w-full cursor-pointer rounded-md border border-border bg-background px-2 text-(length:--fs-13) outline-hidden focus-visible:border-sisyphus-500 focus-visible:ring-2 focus-visible:ring-sisyphus-100"
                   >
                     <option value="">— καμία —</option>
                     {itemGroups.map((g) => <option key={g.code} value={g.code}>{g.label}</option>)}
@@ -924,7 +924,7 @@ export function ItemPanel({
                     <select
                       id="ni-cat" value={form.itemCategory} disabled={locked}
                       onChange={(e) => set('itemCategory', e.target.value)}
-                      className="h-9 flex-1 cursor-pointer rounded-md border border-border bg-background px-2 text-[length:var(--fs-13)] outline-none focus-visible:border-sisyphus-500 focus-visible:ring-2 focus-visible:ring-sisyphus-100"
+                      className="h-9 flex-1 cursor-pointer rounded-md border border-border bg-background px-2 text-(length:--fs-13) outline-hidden focus-visible:border-sisyphus-500 focus-visible:ring-2 focus-visible:ring-sisyphus-100"
                     >
                       <option value="">— καμία —</option>
                       {itemCategories.map((c) => <option key={c.code} value={c.code}>{c.label}</option>)}
@@ -953,7 +953,7 @@ export function ItemPanel({
                   <Input
                     id="ni-newcat-name" value={newCat.name} disabled={catBusy}
                     onChange={(e) => setNewCat({ ...newCat, name: e.target.value })}
-                    className="h-9 text-[length:var(--fs-13)]"
+                    className="h-9 text-(length:--fs-13)"
                   />
                 </Field>
                 <Field
@@ -963,7 +963,7 @@ export function ItemPanel({
                   <Input
                     id="ni-newcat-code" value={newCat.code} disabled={catBusy}
                     onChange={(e) => setNewCat({ ...newCat, code: e.target.value })}
-                    className="h-9 font-mono text-[length:var(--fs-13)]"
+                    className="h-9 font-mono text-(length:--fs-13)"
                   />
                 </Field>
                 {catError && (
@@ -988,7 +988,7 @@ export function ItemPanel({
               className="rounded-lg border border-border bg-neutral-4 px-2.5 py-1.5"
               onToggle={(e) => setDryOpen((e.currentTarget as HTMLDetailsElement).open)}
             >
-              <summary className="cursor-pointer text-caption font-medium text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-sisyphus-500">
+              <summary className="cursor-pointer text-caption font-medium text-muted-foreground outline-hidden focus-visible:ring-2 focus-visible:ring-sisyphus-500">
                 Προεπισκόπηση setData (dry-run)
               </summary>
               {dryError ? (
@@ -1001,7 +1001,7 @@ export function ItemPanel({
                 </p>
               ) : dryPayload != null ? (
                 <>
-                  <pre className="mt-1.5 max-h-56 overflow-auto rounded-md bg-[#0E1626] p-2.5 font-mono text-[length:var(--fs-11)] leading-relaxed text-[#d6e2f5]">
+                  <pre className="mt-1.5 max-h-56 overflow-auto rounded-md bg-[#0E1626] p-2.5 font-mono text-(length:--fs-11) leading-relaxed text-[#d6e2f5]">
                     {JSON.stringify(dryPayload, null, 2)}
                   </pre>
                   {dryLoading && (
@@ -1111,7 +1111,7 @@ function SuggestionRow({
     >
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <p className="truncate text-[length:var(--fs-13)] font-medium text-foreground">{s.name}</p>
+          <p className="truncate text-(length:--fs-13) font-medium text-foreground">{s.name}</p>
           <p className="mt-0.5 flex flex-wrap items-center gap-1 text-caption text-muted-foreground">
             <span className="font-mono">{s.code}</span>
             <span aria-hidden>·</span>

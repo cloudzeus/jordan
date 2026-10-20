@@ -89,16 +89,16 @@ export function TradersMap() {
       <div className="flex flex-wrap items-center gap-1.5">
         {TYPES.filter((t) => counts.get(t.sodtype)).map((t) => (
           <button key={t.sodtype} type="button" onClick={() => toggle(t.sodtype)} aria-pressed={!off.has(t.sodtype)}
-            className={cn('inline-flex h-7 cursor-pointer items-center gap-1.5 rounded-md border px-2.5 text-[length:var(--fs-11)] font-medium transition', off.has(t.sodtype) ? 'border-border bg-background text-muted-foreground opacity-60' : 'border-border bg-background text-foreground')}>
+            className={cn('inline-flex h-7 cursor-pointer items-center gap-1.5 rounded-md border px-2.5 text-(length:--fs-11) font-medium transition', off.has(t.sodtype) ? 'border-border bg-background text-muted-foreground opacity-60' : 'border-border bg-background text-foreground')}>
             <span className="size-2.5 rounded-full" style={{ background: t.color }} aria-hidden />{t.label}<span className="tabular-nums text-muted-foreground">{counts.get(t.sodtype)}</span>
           </button>
         ))}
-        <span className="ml-auto flex items-center gap-2 text-[length:var(--fs-12)] text-muted-foreground">
+        <span className="ml-auto flex items-center gap-2 text-(length:--fs-12) text-muted-foreground">
           <FiMapPin className="size-3.5" aria-hidden />{data ? `${data.points.length.toLocaleString('el-GR')} με θέση από ${data.total.toLocaleString('el-GR')} ενεργούς` : 'Φόρτωση…'}
           <button type="button" onClick={load} disabled={loading} className="inline-flex size-7 cursor-pointer items-center justify-center rounded-md hover:bg-muted" aria-label="Ανανέωση"><FiRefreshCw className={cn('size-3.5', loading && 'animate-spin')} aria-hidden /></button>
         </span>
       </div>
-      {error && <p className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-[length:var(--fs-12)] text-destructive">{error}</p>}
+      {error && <p className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-(length:--fs-12) text-destructive">{error}</p>}
       <div ref={el} className="h-[calc(100dvh-16rem)] min-h-[420px] w-full overflow-hidden rounded-lg border border-border" role="region" aria-label="Χάρτης συναλλασσομένων" />
     </div>
   );

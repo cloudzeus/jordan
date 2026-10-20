@@ -18,8 +18,8 @@ const TYPE_TONE = { COMPANY: '#0369A1', PERSON: '#7C3AED' } as const;
 
 function Count({ n, tone }: { n: number; tone: string }) {
   return n
-    ? <span className="inline-flex min-w-6 justify-center rounded-full px-1.5 text-[length:var(--fs-11)] font-semibold tabular-nums" style={{ color: tone, backgroundColor: soft(tone, 12) }}>{n}</span>
-    : <span className="tabular-nums text-[length:var(--fs-12)] text-muted-foreground">0</span>;
+    ? <span className="inline-flex min-w-6 justify-center rounded-full px-1.5 text-(length:--fs-11) font-semibold tabular-nums" style={{ color: tone, backgroundColor: soft(tone, 12) }}>{n}</span>
+    : <span className="tabular-nums text-(length:--fs-12) text-muted-foreground">0</span>;
 }
 
 type Filter = 'all' | 'COMPANY' | 'PERSON' | 'inactive';
@@ -56,8 +56,8 @@ export function PartnersTableClient({
               {r.type === 'COMPANY' ? <FiBriefcase /> : <FiUser />}
             </span>
             <div className="min-w-0">
-              <div className="truncate text-[length:var(--fs-12)] font-medium">{r.name}</div>
-              <div className="truncate text-[length:var(--fs-11)] text-muted-foreground">
+              <div className="truncate text-(length:--fs-12) font-medium">{r.name}</div>
+              <div className="truncate text-(length:--fs-11) text-muted-foreground">
                 <span className="sr-only">{r.type === 'COMPANY' ? 'Εταιρία' : 'Φυσικό πρόσωπο'} · </span>
                 {[r.tradeName, r.afm && `ΑΦΜ ${r.afm}`].filter(Boolean).join(' · ') || (r.type === 'COMPANY' ? 'Εταιρία' : 'Φυσικό πρόσωπο')}
               </div>
@@ -69,7 +69,7 @@ export function PartnersTableClient({
     {
       accessorKey: 'specialty', header: 'Ιδιότητα', size: 160,
       cell: ({ row }) => (row.original.specialty
-        ? <span className="inline-flex rounded-sm bg-muted px-1.5 py-0.5 text-[length:var(--fs-11)] font-medium">{row.original.specialty}</span>
+        ? <span className="inline-flex rounded-sm bg-muted px-1.5 py-0.5 text-(length:--fs-11) font-medium">{row.original.specialty}</span>
         : DASH),
     },
     {
@@ -78,18 +78,18 @@ export function PartnersTableClient({
         const r = row.original;
         const tel = r.mobile ?? r.phone;
         return tel || r.email ? (
-          <div className="min-w-0 text-[length:var(--fs-12)]">
+          <div className="min-w-0 text-(length:--fs-12)">
             {tel && <div className="tabular-nums">{tel}</div>}
-            {r.email && <div className="truncate text-[length:var(--fs-11)] text-muted-foreground">{r.email}</div>}
+            {r.email && <div className="truncate text-(length:--fs-11) text-muted-foreground">{r.email}</div>}
           </div>
         ) : DASH;
       },
     },
-    { accessorKey: 'city', header: 'Πόλη', size: 110, cell: ({ row }) => row.original.city ? <span className="text-[length:var(--fs-12)]">{row.original.city}</span> : DASH },
+    { accessorKey: 'city', header: 'Πόλη', size: 110, cell: ({ row }) => row.original.city ? <span className="text-(length:--fs-12)">{row.original.city}</span> : DASH },
     {
       accessorKey: 'customers', header: 'Πελάτες', size: 220,
       cell: ({ row }) => (row.original.customers
-        ? <span className="line-clamp-2 text-[length:var(--fs-12)]" title={row.original.customers}>{row.original.customers}</span>
+        ? <span className="line-clamp-2 text-(length:--fs-12)" title={row.original.customers}>{row.original.customers}</span>
         : DASH),
     },
     { accessorKey: 'contactCount', header: 'Πρόσωπα', size: 80, cell: ({ row }) => (row.original.type === 'COMPANY' ? <Count n={row.original.contactCount} tone="#7C3AED" /> : DASH) },
@@ -97,9 +97,9 @@ export function PartnersTableClient({
     {
       accessorKey: 'isActive', header: 'Ενεργός', size: 90,
       cell: ({ row }) => (row.original.isActive ? (
-        <span className="inline-flex items-center gap-1 text-[length:var(--fs-12)]" style={{ color: '#047857' }}><FiCheck className="size-3.5" aria-hidden /> Ναι</span>
+        <span className="inline-flex items-center gap-1 text-(length:--fs-12)" style={{ color: '#047857' }}><FiCheck className="size-3.5" aria-hidden /> Ναι</span>
       ) : (
-        <span className="inline-flex items-center gap-1 text-[length:var(--fs-12)] text-muted-foreground"><FiSlash className="size-3.5" aria-hidden /> Όχι</span>
+        <span className="inline-flex items-center gap-1 text-(length:--fs-12) text-muted-foreground"><FiSlash className="size-3.5" aria-hidden /> Όχι</span>
       )),
     },
     {
@@ -110,7 +110,7 @@ export function PartnersTableClient({
   ], [canManage]);
 
   const chip = (active: boolean) => cn(
-    'inline-flex h-7 cursor-pointer items-center gap-1 rounded-md border px-2.5 text-[length:var(--fs-11)] font-medium transition',
+    'inline-flex h-7 cursor-pointer items-center gap-1 rounded-md border px-2.5 text-(length:--fs-11) font-medium transition',
     active ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-background text-muted-foreground hover:text-foreground',
   );
   const FILTERS: { key: Filter; label: string }[] = [
@@ -148,7 +148,7 @@ export function PartnersTableClient({
         expandable={(r) => <PartnerExpandPanel row={r} canManage={canManage} />}
         emptyState={(
           <div className="space-y-2 py-8 text-center">
-            <p className="text-[length:var(--fs-13)] text-muted-foreground">{rows.length ? 'Κανένας συνεργάτης με αυτό το φίλτρο.' : 'Δεν υπάρχουν ακόμη συνεργάτες.'}</p>
+            <p className="text-(length:--fs-13) text-muted-foreground">{rows.length ? 'Κανένας συνεργάτης με αυτό το φίλτρο.' : 'Δεν υπάρχουν ακόμη συνεργάτες.'}</p>
             {canManage && !rows.length && <Button size="sm" onClick={() => setCreating(true)}><FiPlus className="mr-1.5 size-3.5" aria-hidden /> Νέος συνεργάτης</Button>}
           </div>
         )}

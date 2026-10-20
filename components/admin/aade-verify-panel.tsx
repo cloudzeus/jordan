@@ -33,12 +33,12 @@ const Row = ({ aade, softone, value, hint }: {
 }) => (
   <div className="grid grid-cols-[9rem_1fr] gap-x-2 gap-y-0 border-b border-border/50 py-1 last:border-0">
     <div className="min-w-0">
-      <div className="truncate text-[length:var(--fs-11)] font-semibold text-foreground">{aade}</div>
-      <div className="truncate font-mono text-[length:var(--fs-10)] text-muted-foreground">→ {softone}</div>
+      <div className="truncate text-(length:--fs-11) font-semibold text-foreground">{aade}</div>
+      <div className="truncate font-mono text-(length:--fs-10) text-muted-foreground">→ {softone}</div>
     </div>
     <div className="min-w-0 self-center">
-      <div className="break-words text-[length:var(--fs-12)] text-foreground">{value || <span className="text-muted-foreground">—</span>}</div>
-      {hint && <div className="text-[length:var(--fs-10)] text-muted-foreground">{hint}</div>}
+      <div className="wrap-break-word text-(length:--fs-12) text-foreground">{value || <span className="text-muted-foreground">—</span>}</div>
+      {hint && <div className="text-(length:--fs-10) text-muted-foreground">{hint}</div>}
     </div>
   </div>
 );
@@ -132,13 +132,13 @@ export function AadeVerifyPanel({ afm, kind, onCreated, contacts }: {
         type="button" onClick={verify} disabled={busy || !usable}
         title={usable ? 'Άντληση στοιχείων από το μητρώο της ΑΑΔΕ — δεν γράφεται τίποτα'
           : 'Χρειάζεται ελληνικός ΑΦΜ 9 ψηφίων'}
-        className="inline-flex w-full items-center justify-center gap-1.5 rounded bg-sisyphus-500 px-2.5 py-1.5 text-[length:var(--fs-12)] font-semibold text-white shadow-fluent-2 transition hover:bg-sisyphus-600 disabled:opacity-50"
+        className="inline-flex w-full items-center justify-center gap-1.5 rounded bg-sisyphus-500 px-2.5 py-1.5 text-(length:--fs-12) font-semibold text-white shadow-fluent-2 transition hover:bg-sisyphus-600 disabled:opacity-50"
       >
         <FiSearch className="size-3.5" /> {busy ? 'Εξακρίβωση…' : 'Εξακρίβωση στην ΑΑΔΕ'}
       </button>
 
       {error && (
-        <p className="flex items-start gap-1 rounded border border-dg-red-500/30 bg-dg-red-500/5 p-1.5 text-[length:var(--fs-11)] text-dg-red-600">
+        <p className="flex items-start gap-1 rounded border border-dg-red-500/30 bg-dg-red-500/5 p-1.5 text-(length:--fs-11) text-dg-red-600">
           <FiAlertTriangle className="mt-0.5 size-3 shrink-0" /> {error}
         </p>
       )}
@@ -147,9 +147,9 @@ export function AadeVerifyPanel({ afm, kind, onCreated, contacts }: {
         <div className="rounded border border-border bg-card p-2 shadow-fluent-2">
           <div className="mb-1 flex items-center gap-1.5">
             {data.isActive
-              ? <span className="inline-flex items-center gap-1 rounded bg-emerald-500/10 px-1.5 py-0.5 text-[length:var(--fs-10)] font-bold uppercase text-emerald-700 dark:text-emerald-300"><FiCheckCircle className="size-3" /> Ενεργός στην ΑΑΔΕ</span>
-              : <span className="inline-flex items-center gap-1 rounded bg-dg-red-500/10 px-1.5 py-0.5 text-[length:var(--fs-10)] font-bold uppercase text-dg-red-600"><FiSlash className="size-3" /> Ανενεργός στην ΑΑΔΕ</span>}
-            <span className="text-[length:var(--fs-10)] text-muted-foreground">Δεν έχει γραφτεί τίποτα στο SoftOne</span>
+              ? <span className="inline-flex items-center gap-1 rounded bg-emerald-500/10 px-1.5 py-0.5 text-(length:--fs-10) font-bold uppercase text-emerald-700 dark:text-emerald-300"><FiCheckCircle className="size-3" /> Ενεργός στην ΑΑΔΕ</span>
+              : <span className="inline-flex items-center gap-1 rounded bg-dg-red-500/10 px-1.5 py-0.5 text-(length:--fs-10) font-bold uppercase text-dg-red-600"><FiSlash className="size-3" /> Ανενεργός στην ΑΑΔΕ</span>}
+            <span className="text-(length:--fs-10) text-muted-foreground">Δεν έχει γραφτεί τίποτα στο SoftOne</span>
           </div>
 
           <Row aade="Επωνυμία" softone="NAME" value={data.name} />
@@ -169,8 +169,8 @@ export function AadeVerifyPanel({ afm, kind, onCreated, contacts }: {
           {data.softoneKad && (data.softoneKad.primary || data.softoneKad.secondary) && (
             <div className="grid grid-cols-[9rem_1fr] gap-x-2 border-b border-border/50 py-1">
               <div className="min-w-0">
-                <div className="truncate text-[length:var(--fs-11)] font-semibold text-foreground">ΚΑΔ</div>
-                <div className="truncate font-mono text-[length:var(--fs-10)] text-muted-foreground">→ KAD / KAD1</div>
+                <div className="truncate text-(length:--fs-11) font-semibold text-foreground">ΚΑΔ</div>
+                <div className="truncate font-mono text-(length:--fs-10) text-muted-foreground">→ KAD / KAD1</div>
               </div>
               <KadField kads={data.softoneKad} removed={kadRemoved} onToggle={toggleKad} />
             </div>
@@ -188,30 +188,30 @@ export function AadeVerifyPanel({ afm, kind, onCreated, contacts }: {
               type="button" onClick={() => setConfirming(true)} disabled={creating || !kind}
               title={kind ? 'Δημιουργία καρτέλας στο SoftOne με τα παραπάνω στοιχεία'
                 : 'Άγνωστη σειρά — δεν ξέρουμε τι ΤΥΠΟ καρτέλας δέχεται το παραστατικό'}
-              className="mt-2 inline-flex w-full items-center justify-center gap-1.5 rounded bg-sisyphus-500 px-2.5 py-1.5 text-[length:var(--fs-12)] font-semibold text-white shadow-fluent-2 transition hover:bg-sisyphus-600 disabled:opacity-50"
+              className="mt-2 inline-flex w-full items-center justify-center gap-1.5 rounded bg-sisyphus-500 px-2.5 py-1.5 text-(length:--fs-12) font-semibold text-white shadow-fluent-2 transition hover:bg-sisyphus-600 disabled:opacity-50"
             >
               <FiCheckCircle className="size-3.5" /> Καταχώριση στο SoftOne
             </button>
           ) : (
             <div className="mt-2 rounded border border-sisyphus-500/40 bg-sisyphus-500/10 p-2">
-              <p className="text-[length:var(--fs-11)] text-foreground">
+              <p className="text-(length:--fs-11) text-foreground">
                 Θα δημιουργηθεί <strong>νέα καρτέλα</strong> στο SoftOne με τα παραπάνω στοιχεία.
                 Δεν αναιρείται.
               </p>
               <div className="mt-1.5 flex gap-1.5">
                 <button type="button" onClick={create} disabled={creating}
-                  className="flex-1 rounded bg-sisyphus-500 px-2 py-1 text-[length:var(--fs-12)] font-semibold text-white transition hover:bg-sisyphus-600 disabled:opacity-50">
+                  className="flex-1 rounded bg-sisyphus-500 px-2 py-1 text-(length:--fs-12) font-semibold text-white transition hover:bg-sisyphus-600 disabled:opacity-50">
                   {creating ? 'Καταχώριση…' : 'Ναι, δημιούργησέ την'}
                 </button>
                 <button type="button" onClick={() => setConfirming(false)} disabled={creating}
-                  className="rounded border border-border px-2 py-1 text-[length:var(--fs-12)] font-medium transition hover:bg-muted disabled:opacity-50">
+                  className="rounded border border-border px-2 py-1 text-(length:--fs-12) font-medium transition hover:bg-muted disabled:opacity-50">
                   Άκυρο
                 </button>
               </div>
             </div>
           )}
           {!kind && (
-            <p className="mt-1 text-[length:var(--fs-11)] text-muted-foreground">
+            <p className="mt-1 text-(length:--fs-11) text-muted-foreground">
               Διάλεξε πρώτα σειρά παραστατικού — αυτή ορίζει αν χρειάζεται προμηθευτής, πιστωτής ή χρεώστης.
             </p>
           )}

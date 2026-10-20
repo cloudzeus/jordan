@@ -54,7 +54,7 @@ export function AfmRecover({ docId, onDone }: { docId: string; onDone?: (r: AfmR
   const weak = res?.status === 'confirmed' && !res.applied && res.evidence === 'reread';
   return (
     <div className="space-y-1.5 rounded-md border border-border bg-muted/30 p-2">
-      <p className="text-[length:var(--fs-11)] text-muted-foreground">
+      <p className="text-(length:--fs-11) text-muted-foreground">
         Το ΑΦΜ του εκδότη λείπει ή δεν περνά τον έλεγχο ψηφίου — σχεδόν πάντα λάθος ανάγνωσης. Το χαρτί έχει το σωστό.
       </p>
       {!res?.applied && !weak && (
@@ -67,7 +67,7 @@ export function AfmRecover({ docId, onDone }: { docId: string; onDone?: (r: AfmR
       {weak && (
         <div className="flex flex-wrap items-center gap-1.5">
           <a href={`/api/admin/ocr/${docId}/file`} target="_blank" rel="noreferrer"
-            className="inline-flex h-7 items-center gap-1 rounded-md border border-input bg-background px-2 text-[length:var(--fs-11)] font-semibold text-foreground hover:bg-muted">
+            className="inline-flex h-7 items-center gap-1 rounded-md border border-input bg-background px-2 text-(length:--fs-11) font-semibold text-foreground hover:bg-muted">
             <FiExternalLink className="size-3.5" /> Άνοιγμα αρχείου
           </a>
           <button type="button" onClick={() => go(true)} disabled={busy} className={BTN}>
@@ -85,7 +85,7 @@ export function Outcome({ r }: { r: AfmRecoveryResult }) {
   const Icon = ok ? FiCheck : weak ? FiAlertTriangle : FiAlertOctagon;
   const fg = ok ? '#047857' : weak ? '#B45309' : '#B91C1C';
   return (
-    <p className="flex items-start gap-1.5 text-[length:var(--fs-11)] text-foreground">
+    <p className="flex items-start gap-1.5 text-(length:--fs-11) text-foreground">
       <Icon className="mt-0.5 size-3.5 shrink-0" style={{ color: fg }} aria-hidden />
       <span>{r.message}</span>
     </p>
@@ -93,5 +93,5 @@ export function Outcome({ r }: { r: AfmRecoveryResult }) {
 }
 
 const BTN =
-  'inline-flex h-7 items-center gap-1 rounded-md bg-sisyphus-500 px-2.5 text-[length:var(--fs-11)] font-semibold text-white shadow-sm transition ' +
+  'inline-flex h-7 items-center gap-1 rounded-md bg-sisyphus-500 px-2.5 text-(length:--fs-11) font-semibold text-white shadow-xs transition ' +
   'hover:bg-sisyphus-600 disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground disabled:shadow-none';

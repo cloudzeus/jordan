@@ -53,18 +53,18 @@ export function SupplierSearch({ value, onChange, disabled, id = 'sup' }: { valu
           onKeyDown={(e) => { if (e.key === 'Escape' && (showList || showEmpty)) { e.stopPropagation(); setOpen(false); } }}
           role="combobox" aria-expanded={showList || showEmpty} aria-controls={listId} aria-autocomplete="list"
           placeholder="Αναζήτηση επωνυμίας / ΑΦΜ…" className="pl-8 pr-8" autoComplete="off" />
-        {value && !disabled && <button type="button" aria-label="Καθαρισμός προμηθευτή" onClick={() => { onChange(null); setQ(''); setOpen(false); }} className="absolute right-2 top-1/2 grid size-6 -translate-y-1/2 cursor-pointer place-items-center rounded-sm text-muted-foreground hover:bg-[var(--cx-hover)]"><FiX className="size-3.5" /></button>}
+        {value && !disabled && <button type="button" aria-label="Καθαρισμός προμηθευτή" onClick={() => { onChange(null); setQ(''); setOpen(false); }} className="absolute right-2 top-1/2 grid size-6 -translate-y-1/2 cursor-pointer place-items-center rounded-sm text-muted-foreground hover:bg-(--cx-hover)"><FiX className="size-3.5" /></button>}
       </div>
       {showList && (
         <ul id={listId} role="listbox" className="absolute z-20 mt-1 max-h-56 w-full overflow-auto rounded-md border border-border bg-white shadow-fluent-8">
           {results.map((s) => (
-            <li key={s.id} role="presentation"><button type="button" role="option" aria-selected={false} onClick={() => pick(s)} className="flex w-full cursor-pointer flex-col px-3 py-2 text-left hover:bg-[var(--cx-hover)]">
-              <span className="text-[length:var(--fs-13)] font-medium">{s.name}</span><span className="text-[length:var(--fs-11)] text-muted-foreground">{s.sub}</span></button></li>
+            <li key={s.id} role="presentation"><button type="button" role="option" aria-selected={false} onClick={() => pick(s)} className="flex w-full cursor-pointer flex-col px-3 py-2 text-left hover:bg-(--cx-hover)">
+              <span className="text-(length:--fs-13) font-medium">{s.name}</span><span className="text-(length:--fs-11) text-muted-foreground">{s.sub}</span></button></li>
           ))}
         </ul>
       )}
       {showEmpty && (
-        <div id={listId} className="absolute z-20 mt-1 w-full rounded-md border border-border bg-white px-3 py-2 text-[length:var(--fs-12)] text-muted-foreground shadow-fluent-8">Δεν βρέθηκαν</div>
+        <div id={listId} className="absolute z-20 mt-1 w-full rounded-md border border-border bg-white px-3 py-2 text-(length:--fs-12) text-muted-foreground shadow-fluent-8">Δεν βρέθηκαν</div>
       )}
     </div>
   );

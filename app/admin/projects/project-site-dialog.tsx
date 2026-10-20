@@ -164,15 +164,15 @@ export function ProjectSiteDialog({ prjc, projectLabel, open, onOpenChange, valu
   };
 
   const setField = (k: 'address' | 'zip' | 'district' | 'city', v: string) => setSite((s) => (s ? { ...s, [k]: v } : s));
-  const field = 'h-9 text-[length:var(--fs-13)]';
+  const field = 'h-9 text-(length:--fs-13)';
   const warn = site && site.source === 'geocode' && site.precision && site.precision !== 'exact';
 
   return (
     <Dialog open={open} onOpenChange={(o) => !busy && onOpenChange(o)}>
       <DialogContent className="flex max-h-[94dvh] flex-col gap-0 overflow-hidden p-0 sm:max-w-3xl">
         <DialogHeader className="px-5 pt-4 pb-3">
-          <DialogTitle className="text-[length:var(--fs-16)]">Τοποθεσία έργου</DialogTitle>
-          <DialogDescription className="text-[length:var(--fs-12)]">
+          <DialogTitle className="text-(length:--fs-16)">Τοποθεσία έργου</DialogTitle>
+          <DialogDescription className="text-(length:--fs-12)">
             <span className="font-medium text-foreground">{projectLabel}</span> · γράψε τη διεύθυνση του εργοταξίου· αν η πινέζα δεν είναι στο σωστό σημείο, σύρε την ή κάνε κλικ στον χάρτη.
           </DialogDescription>
         </DialogHeader>
@@ -194,9 +194,9 @@ export function ProjectSiteDialog({ prjc, projectLabel, open, onOpenChange, valu
               {candidates.map((c, i) => (
                 <li key={`${c.lat},${c.lng},${i}`}>
                   <button type="button" onClick={() => place(c)}
-                    className="flex w-full cursor-pointer items-center justify-between gap-2 px-3 py-1.5 text-left text-[length:var(--fs-12)] hover:bg-muted/50">
+                    className="flex w-full cursor-pointer items-center justify-between gap-2 px-3 py-1.5 text-left text-(length:--fs-12) hover:bg-muted/50">
                     <span className="min-w-0 truncate">{c.formatted}</span>
-                    <span className="shrink-0 text-[length:var(--fs-11)] text-muted-foreground">{c.precision === 'exact' ? 'ακριβής' : c.precision === 'street' ? 'οδός' : 'περιοχή'}</span>
+                    <span className="shrink-0 text-(length:--fs-11) text-muted-foreground">{c.precision === 'exact' ? 'ακριβής' : c.precision === 'street' ? 'οδός' : 'περιοχή'}</span>
                   </button>
                 </li>
               ))}
@@ -206,7 +206,7 @@ export function ProjectSiteDialog({ prjc, projectLabel, open, onOpenChange, valu
           <div className="relative overflow-hidden rounded-lg border border-border bg-muted">
             <div ref={mapEl} className="h-[280px] w-full sm:h-[360px]" role="region" aria-label="Χάρτης τοποθεσίας έργου" />
             {busy === 'reverse' && (
-              <span className="absolute right-2 top-2 z-[500] inline-flex items-center gap-1 rounded-md bg-background/90 px-2 py-1 text-[length:var(--fs-11)] shadow">
+              <span className="absolute right-2 top-2 z-500 inline-flex items-center gap-1 rounded-md bg-background/90 px-2 py-1 text-(length:--fs-11) shadow-sm">
                 <FiLoader className="size-3 animate-spin motion-reduce:animate-none" aria-hidden /> Εύρεση διεύθυνσης…
               </span>
             )}
@@ -214,7 +214,7 @@ export function ProjectSiteDialog({ prjc, projectLabel, open, onOpenChange, valu
 
           {site ? (
             <>
-              <p className={`flex items-start gap-1.5 text-[length:var(--fs-12)] ${warn ? 'text-amber-800 dark:text-amber-300' : 'text-muted-foreground'}`}>
+              <p className={`flex items-start gap-1.5 text-(length:--fs-12) ${warn ? 'text-amber-800 dark:text-amber-300' : 'text-muted-foreground'}`}>
                 {warn ? <FiAlertTriangle className="mt-0.5 size-3.5 shrink-0" aria-hidden />
                   : site.source === 'marker' ? <FiMove className="mt-0.5 size-3.5 shrink-0" aria-hidden />
                     : <FiCheckCircle className="mt-0.5 size-3.5 shrink-0" style={{ color: '#047857' }} aria-hidden />}
@@ -226,19 +226,19 @@ export function ProjectSiteDialog({ prjc, projectLabel, open, onOpenChange, valu
               <div className="grid gap-2.5 sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.2fr)]">
                 {([['address', 'Οδός & αριθμός'], ['zip', 'Τ.Κ.'], ['district', 'Περιοχή'], ['city', 'Πόλη']] as const).map(([k, label]) => (
                   <div key={k}>
-                    <Label htmlFor={`site-${k}`} className="mb-1 block text-[length:var(--fs-12)]">{label}</Label>
+                    <Label htmlFor={`site-${k}`} className="mb-1 block text-(length:--fs-12)">{label}</Label>
                     <Input id={`site-${k}`} value={site[k] ?? ''} onChange={(e) => setField(k, e.target.value)} className={field} />
                   </div>
                 ))}
               </div>
             </>
           ) : loaded && (
-            <p className="flex items-center gap-1.5 text-[length:var(--fs-12)] text-muted-foreground">
+            <p className="flex items-center gap-1.5 text-(length:--fs-12) text-muted-foreground">
               <FiMapPin className="size-3.5" aria-hidden /> Δεν έχει οριστεί τοποθεσία. Γράψε διεύθυνση ή κάνε κλικ στον χάρτη.
             </p>
           )}
 
-          {error && <p role="alert" className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-[length:var(--fs-12)] text-destructive">{error}</p>}
+          {error && <p role="alert" className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-(length:--fs-12) text-destructive">{error}</p>}
         </DialogBody>
 
         <DialogFooter className="m-0 flex-row items-center border-t border-border px-5 py-3">

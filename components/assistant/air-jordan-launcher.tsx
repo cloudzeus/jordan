@@ -36,7 +36,7 @@ export function AirJordanLauncher({ canMemory }: { canMemory: boolean }) {
           type="button"
           aria-label="Air Jordan — ρωτήστε τον βοηθό (Ctrl+J)"
           title="Air Jordan (Ctrl+J)"
-          className="fixed right-3 z-40 inline-flex size-12 cursor-pointer overflow-hidden lg:size-14 items-center justify-center shadow-lg shadow-blue-900/25 ring-1 ring-black/5 transition-transform duration-150 hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring bottom-[calc(4rem+env(safe-area-inset-bottom)+0.75rem)] lg:bottom-6 lg:right-6 rounded-[14px] lg:rounded-2xl"
+          className="fixed right-3 z-40 inline-flex size-12 cursor-pointer overflow-hidden lg:size-14 items-center justify-center shadow-lg shadow-blue-900/25 ring-1 ring-black/5 transition-transform duration-150 hover:scale-105 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring bottom-[calc(4rem+env(safe-area-inset-bottom)+0.75rem)] lg:bottom-6 lg:right-6 rounded-[14px] lg:rounded-2xl"
         >
           <AirJordanAvatar size={56} className="size-full" />
         </button>
@@ -47,7 +47,7 @@ export function AirJordanLauncher({ canMemory }: { canMemory: boolean }) {
           aria-describedby={undefined}
           // Η εστίαση πάει κατευθείαν στο πεδίο ερώτησης (όχι στο πρώτο κουμπί, το ⋮).
           onOpenAutoFocus={(e) => { e.preventDefault(); document.querySelector<HTMLTextAreaElement>('[data-aj-input]')?.focus(); }}
-          className="fixed inset-0 z-50 flex flex-col bg-background shadow-2xl outline-none sm:inset-y-0 sm:left-auto sm:right-0 sm:w-[min(460px,100vw)] sm:border-l sm:border-border data-[state=open]:animate-in data-[state=open]:slide-in-from-right-10"
+          className="fixed inset-0 z-50 flex flex-col bg-background shadow-2xl outline-hidden sm:inset-y-0 sm:left-auto sm:right-0 sm:w-[min(460px,100vw)] sm:border-l sm:border-border data-[state=open]:animate-in data-[state=open]:slide-in-from-right-10"
         >
           <DialogPrimitive.Title className="sr-only">Air Jordan</DialogPrimitive.Title>
           <AirJordanChat variant="panel" canMemory={canMemory} onClose={() => setOpen(false)} />

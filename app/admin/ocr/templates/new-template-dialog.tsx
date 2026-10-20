@@ -51,8 +51,8 @@ export function NewTemplateDialog() {
           <DialogHeader className="flex-row items-center gap-3 border-b border-border px-4 py-2.5 pr-12">
             <span aria-hidden className="grid size-8 shrink-0 place-items-center rounded-lg bg-sisyphus-50 text-sisyphus-600 dark:bg-sisyphus-500/15 [&_svg]:size-4"><FiFileText /></span>
             <div className="min-w-0 flex-1">
-              <DialogTitle className="text-[length:var(--fs-15)]">Νέο πρότυπο</DialogTitle>
-              <DialogDescription className="truncate text-[length:var(--fs-11)]" title="Δώσε ένα όνομα. Προμηθευτή ή τμήμα συνδέεις αργότερα, αν χρειάζεται.">
+              <DialogTitle className="text-(length:--fs-15)">Νέο πρότυπο</DialogTitle>
+              <DialogDescription className="truncate text-(length:--fs-11)" title="Δώσε ένα όνομα. Προμηθευτή ή τμήμα συνδέεις αργότερα, αν χρειάζεται.">
                 Δώσε ένα όνομα. Προμηθευτή ή τμήμα συνδέεις αργότερα, αν χρειάζεται.
               </DialogDescription>
             </div>

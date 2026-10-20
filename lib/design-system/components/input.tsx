@@ -74,7 +74,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
             ref={ref}
             id={inputId}
             className={cn(
-              'flex-1 px-3 py-2 bg-transparent outline-none text-sm',
+              'flex-1 px-3 py-2 bg-transparent outline-hidden text-sm',
               'placeholder:text-neutral-40',
               'disabled:opacity-50 disabled:cursor-not-allowed',
               className,
@@ -150,7 +150,7 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
           id={inputId}
           rows={rows}
           className={cn(
-            'w-full px-3 py-2 bg-white border rounded-sm outline-none transition-all duration-150',
+            'w-full px-3 py-2 bg-white border rounded-sm outline-hidden transition-all duration-150',
             'text-sm placeholder:text-neutral-40',
             'disabled:opacity-50 disabled:cursor-not-allowed',
             error 

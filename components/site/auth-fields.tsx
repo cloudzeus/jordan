@@ -18,7 +18,7 @@ export function PasswordInput({ id, name, autoComplete, describedBy, autoFocus, 
       />
       <button
         type="button" onClick={() => setShow((s) => !s)}
-        className="absolute right-0 top-0 grid size-12 cursor-pointer place-items-center text-[var(--s-mute)] transition-colors hover:text-[var(--s-ink)]"
+        className="absolute right-0 top-0 grid size-12 cursor-pointer place-items-center text-(--s-mute) transition-colors hover:text-(--s-ink)"
         aria-label={show ? 'Απόκρυψη κωδικού' : 'Εμφάνιση κωδικού'} aria-pressed={show} aria-controls={id}
       >
         {show ? <FiEyeOff className="size-4" aria-hidden /> : <FiEye className="size-4" aria-hidden />}

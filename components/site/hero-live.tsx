@@ -16,7 +16,7 @@ const Scene = React.memo(function Scene({ filled }: { filled: number }) {
   return (
     <ContainerScene pallets={CAP} perPallet={48} filled={filled} load="stones" labels={{ container: 'Container', pallet: 'ΠΑΛ', base: 'τ.μ.' }}
       heightClass="h-full" expandable={false} fitScale={0.86}
-      className="h-full [&>div>.pointer-events-none]:hidden [&>div]:rounded-none [&>div]:border-0 [&>div]:![background:transparent] [&_figcaption]:hidden" />
+      className="h-full [&>div>.pointer-events-none]:hidden [&>div]:rounded-none [&>div]:border-0 [&>div]:[background:transparent]! [&_figcaption]:hidden" />
   );
 });
 
@@ -74,27 +74,27 @@ export function HeroLive() {
     <div>
       <div ref={card} className="relative border border-white/20 bg-[#0B1620]/80 p-4 text-white shadow-[0_40px_120px_-30px_rgba(0,0,0,0.7)] sm:p-5">
         <div className="flex items-center justify-between gap-3">
-          <p className="text-[length:var(--fs-12)] uppercase tracking-[0.2em] text-white/75">Κοινό container · Τραβερτίνης Classic</p>
-          <span className="inline-flex items-center gap-1.5 text-[length:var(--fs-12)] font-medium uppercase tracking-[0.16em] text-[#FCA5A5]">
+          <p className="text-(length:--fs-12) uppercase tracking-[0.2em] text-white/75">Κοινό container · Τραβερτίνης Classic</p>
+          <span className="inline-flex items-center gap-1.5 text-(length:--fs-12) font-medium uppercase tracking-[0.16em] text-[#FCA5A5]">
             <span className="relative flex size-2"><span className="absolute inline-flex size-full animate-ping rounded-full bg-[#F87171] opacity-75 motion-reduce:hidden" /><span className="relative inline-flex size-2 rounded-full bg-[#EF4444]" /></span>Live
           </span>
         </div>
-        <div className="relative mt-2 aspect-[16/10] w-full">
+        <div className="relative mt-2 aspect-16/10 w-full">
           {wide && <Scene filled={filled} />}
           {last && (
-            <span key={last.k} className="s-pop absolute right-2 top-2 inline-flex items-center gap-1.5 bg-white px-2.5 py-1 text-[length:var(--fs-12)] font-medium text-[var(--s-ink)] shadow-lg">
+            <span key={last.k} className="s-pop absolute right-2 top-2 inline-flex items-center gap-1.5 bg-white px-2.5 py-1 text-(length:--fs-12) font-medium text-(--s-ink) shadow-lg">
               <span className="size-1.5 rounded-full bg-[#15803D]" aria-hidden />Νέα κράτηση · +{last.n} {last.n === 1 ? 'παλέτα' : 'παλέτες'}
             </span>
           )}
         </div>
         <div className="mt-2 flex items-end justify-between gap-4 border-t border-white/20 pt-3">
           <div>
-            <p className="text-[length:var(--fs-12)] uppercase tracking-[0.18em] text-white/70">Τιμή για όλους</p>
-            <p className="font-num text-[length:var(--fs-40)] font-light leading-none tabular-nums" style={{ color: idx ? '#BEF264' : '#fff' }}>{eur(TIERS[idx].price)}<span className="text-[length:var(--fs-14)] text-white/70"> /τ.μ.</span></p>
+            <p className="text-(length:--fs-12) uppercase tracking-[0.18em] text-white/70">Τιμή για όλους</p>
+            <p className="font-num text-(length:--fs-40) font-light leading-none tabular-nums" style={{ color: idx ? '#BEF264' : '#fff' }}>{eur(TIERS[idx].price)}<span className="text-(length:--fs-14) text-white/70"> /τ.μ.</span></p>
           </div>
           <div className="text-right">
-            {drop > 0 && <p className="inline-flex items-center gap-1 bg-white/15 px-2 py-0.5 text-[length:var(--fs-13)] font-medium text-[#BEF264]"><FiTrendingDown className="size-3.5" aria-hidden />−{drop.toLocaleString('el-GR', { maximumFractionDigits: 1 })}%</p>}
-            <p className="mt-1 text-[length:var(--fs-13)] tabular-nums text-white/80">{filled.toLocaleString('el-GR')} / {CAP} παλέτες</p>
+            {drop > 0 && <p className="inline-flex items-center gap-1 bg-white/15 px-2 py-0.5 text-(length:--fs-13) font-medium text-[#BEF264]"><FiTrendingDown className="size-3.5" aria-hidden />−{drop.toLocaleString('el-GR', { maximumFractionDigits: 1 })}%</p>}
+            <p className="mt-1 text-(length:--fs-13) tabular-nums text-white/80">{filled.toLocaleString('el-GR')} / {CAP} παλέτες</p>
           </div>
         </div>
         <div className="mt-3 h-1 bg-white/20"><div className="h-full transition-[width] duration-700 ease-out" style={{ width: `${(filled / CAP) * 100}%`, background: `linear-gradient(90deg, ${tierColor(0, 4)}, ${c})` }} /></div>

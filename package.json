@@ -99,6 +99,7 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.60.0",
+    "@tailwindcss/postcss": "^4.3.3",
     "@types/bcryptjs": "^2.4.6",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/leaflet": "^1.9.12",
@@ -110,14 +111,12 @@
     "@types/update-notifier": "^6.0.8",
     "@typescript-eslint/eslint-plugin": "^8.59.4",
     "@typescript-eslint/parser": "^8.59.4",
-    "autoprefixer": "^10.4.19",
     "eslint": "^9.0.0",
-    "eslint-config-next": "^16.4.2",
     "eslint-plugin-react": "^7.34.2",
     "eslint-plugin-react-hooks": "^7.1.1",
     "postcss": "^8.4.37",
     "prisma": "^7.10.1",
-    "tailwindcss": "^3.4.5",
+    "tailwindcss": "^4.3.3",
     "ts-node": "^10.9.2",
     "typescript": "^5.7.0",
     "vitest": "^4.1.7"
@@ -133,6 +132,9 @@
       "js-yaml": {
         "argparse": "^2.0.1"
       }
+    },
+    "@tailwindcss/typography": {
+      "postcss-selector-parser": "^7.1.6"
     }
   }
 }

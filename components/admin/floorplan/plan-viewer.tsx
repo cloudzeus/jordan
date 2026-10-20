@@ -357,7 +357,7 @@ export function PlanViewer(props: PlanViewerProps) {
             key={r.id}
             data-x={r.anchor.x}
             data-y={r.anchor.y}
-            className="absolute left-0 top-0 whitespace-nowrap rounded-md border px-2 py-1 text-center shadow-lg backdrop-blur-sm"
+            className="absolute left-0 top-0 whitespace-nowrap rounded-md border px-2 py-1 text-center shadow-lg backdrop-blur-xs"
             style={{ borderColor: r.color, background: 'rgba(11,18,32,0.82)', color: '#F8FAFC', outline: r.id === selectedId ? '2px solid #fff' : undefined }}
           >
             <div className="text-[11px] font-medium leading-tight opacity-80">{r.label}</div>
@@ -367,7 +367,7 @@ export function PlanViewer(props: PlanViewerProps) {
       </div>
       <div
         ref={tipEl}
-        className="pointer-events-none absolute left-0 top-0 rounded bg-amber-400 px-1.5 py-0.5 font-mono text-[11px] font-semibold text-slate-900 shadow transition-opacity"
+        className="pointer-events-none absolute left-0 top-0 rounded bg-amber-400 px-1.5 py-0.5 font-mono text-[11px] font-semibold text-slate-900 shadow-sm transition-opacity"
         style={{ opacity: 0 }}
         aria-hidden
       />

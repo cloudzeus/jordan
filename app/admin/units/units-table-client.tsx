@@ -27,7 +27,7 @@ import { inferUnitVisual, UnitThumb, UNIT_VISUAL_LABEL } from '@/components/admi
 const DASH = <span className="text-muted-foreground/40">—</span>;
 const soft = (hex: string, pct: number) => `color-mix(in srgb, ${hex} ${pct}%, var(--background))`;
 const TONE = '#0369A1';
-const ITEM = 'cursor-pointer gap-2 text-[length:var(--fs-12)]';
+const ITEM = 'cursor-pointer gap-2 text-(length:--fs-12)';
 const ROLE: Record<string, { label: string; tone: string }> = {
   base: { label: 'Βασική', tone: '#0369A1' }, buy: { label: 'Αγορών', tone: '#B45309' }, sell: { label: 'Πώλησης', tone: '#047857' },
 };
@@ -96,8 +96,8 @@ function UnitDialog({ open, onOpenChange, row, onSaved }: { open: boolean; onOpe
         <DialogHeader className="flex-row items-center gap-3 border-b border-border px-4 py-2.5 pr-12">
           <span aria-hidden className="grid size-8 shrink-0 place-items-center rounded-lg [&_svg]:size-4" style={{ color: TONE, backgroundColor: soft(TONE, 12) }}><FiMaximize2 /></span>
           <div className="min-w-0 flex-1 text-left">
-            <DialogTitle className="text-[length:var(--fs-15)]">{row ? 'Επεξεργασία μονάδας' : 'Νέα μονάδα μέτρησης'}</DialogTitle>
-            <DialogDescription className="truncate text-[length:var(--fs-11)]">{row ? `Κωδ. ${row.code} · ${row.name}` : 'Γράφεται απευθείας στο SoftOne'}</DialogDescription>
+            <DialogTitle className="text-(length:--fs-15)">{row ? 'Επεξεργασία μονάδας' : 'Νέα μονάδα μέτρησης'}</DialogTitle>
+            <DialogDescription className="truncate text-(length:--fs-11)">{row ? `Κωδ. ${row.code} · ${row.name}` : 'Γράφεται απευθείας στο SoftOne'}</DialogDescription>
           </div>
         </DialogHeader>
         <DialogBody className="space-y-3 bg-muted/20 px-4 py-3">
@@ -197,15 +197,15 @@ function UnitIconDialog({ row, onOpenChange, onChanged }: { row: UnitRow | null;
         <DialogHeader className="flex-row items-center gap-3 border-b border-border px-4 py-2.5 pr-12">
           <span aria-hidden className="grid size-8 shrink-0 place-items-center rounded-lg [&_svg]:size-4" style={{ color: TONE, backgroundColor: soft(TONE, 12) }}><FiImage /></span>
           <div className="min-w-0 flex-1 text-left">
-            <DialogTitle className="text-[length:var(--fs-15)]">Εικονίδιο μονάδας</DialogTitle>
-            <DialogDescription className="truncate text-[length:var(--fs-11)]">{row.shortcut} · {row.name} — αποθηκεύεται στην εφαρμογή, όχι στο SoftOne</DialogDescription>
+            <DialogTitle className="text-(length:--fs-15)">Εικονίδιο μονάδας</DialogTitle>
+            <DialogDescription className="truncate text-(length:--fs-11)">{row.shortcut} · {row.name} — αποθηκεύεται στην εφαρμογή, όχι στο SoftOne</DialogDescription>
           </div>
         </DialogHeader>
         <DialogBody className="space-y-3 bg-muted/20 px-4 py-3">
           <div className="flex items-center gap-3">
             <UnitThumb kind={inferUnitVisual(row)} src={iconUrl} size={112} className="relative" />
             <div className="min-w-0 flex-1 space-y-1.5">
-              <p className="text-[length:var(--fs-12)] text-muted-foreground">
+              <p className="text-(length:--fs-12) text-muted-foreground">
                 {iconUrl ? 'Δικό της εικονίδιο.' : 'Χωρίς εικονίδιο — φαίνεται η αυτόματη μικρογραφία.'}
               </p>
               {iconUrl && (
@@ -266,7 +266,7 @@ function MembersPanel({ row }: { row: UnitRow }) {
 
   if (error) {
     return (
-      <div role="alert" className="flex flex-wrap items-center gap-2 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-[length:var(--fs-12)]">
+      <div role="alert" className="flex flex-wrap items-center gap-2 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-(length:--fs-12)">
         <FiAlertTriangle className="size-4 text-destructive" aria-hidden /><span className="flex-1">{error}</span>
         <button type="button" onClick={load} className="inline-flex h-8 cursor-pointer items-center gap-1 rounded-md border border-border bg-background px-2.5 hover:bg-muted"><FiRefreshCw className="size-3.5" aria-hidden /> Δοκιμή ξανά</button>
       </div>
@@ -282,22 +282,22 @@ function MembersPanel({ row }: { row: UnitRow }) {
   return (
     <div className="space-y-2">
       <div className="flex flex-wrap items-center gap-1.5">
-        <span className="text-[length:var(--fs-12)] font-semibold">{items.length} ενεργά είδη/υπηρεσίες</span>
+        <span className="text-(length:--fs-12) font-semibold">{items.length} ενεργά είδη/υπηρεσίες</span>
         {Object.entries(ROLE).map(([k, r]) => counts[k] ? (
-          <span key={k} className="rounded-sm px-1.5 py-0.5 text-[length:var(--fs-11)] font-medium" style={{ color: r.tone, backgroundColor: soft(r.tone, 12) }}>{r.label}: {counts[k]}</span>
+          <span key={k} className="rounded-sm px-1.5 py-0.5 text-(length:--fs-11) font-medium" style={{ color: r.tone, backgroundColor: soft(r.tone, 12) }}>{r.label}: {counts[k]}</span>
         ) : null)}
         {items.length > 8 && <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Φίλτρο (κωδικός, περιγραφή)…" className={cn(fieldCls, 'ml-auto w-full sm:w-64')} aria-label="Φίλτρο ειδών" />}
       </div>
       {items.length === 0 ? (
-        <p className="rounded-md border border-dashed border-border px-3 py-5 text-center text-[length:var(--fs-12)] text-muted-foreground">Κανένα ενεργό είδος δεν χρησιμοποιεί αυτή τη μονάδα.</p>
+        <p className="rounded-md border border-dashed border-border px-3 py-5 text-center text-(length:--fs-12) text-muted-foreground">Κανένα ενεργό είδος δεν χρησιμοποιεί αυτή τη μονάδα.</p>
       ) : (
         <ul className="grid max-h-80 gap-x-4 overflow-y-auto rounded-md border border-border bg-card px-3 py-1 sm:grid-cols-2">
           {shown.slice(0, 300).map((i) => (
-            <li key={i.mtrl} className="flex min-w-0 items-center gap-2 border-b border-border/60 py-1.5 text-[length:var(--fs-12)] last:border-0">
+            <li key={i.mtrl} className="flex min-w-0 items-center gap-2 border-b border-border/60 py-1.5 text-(length:--fs-12) last:border-0">
               <span className="shrink-0 font-mono tabular-nums text-muted-foreground">{i.code}</span>
               <span className="min-w-0 flex-1 truncate" title={i.name}>{i.name}</span>
               <span className="flex shrink-0 gap-1">
-                {i.roles.map((r) => <span key={r} className="rounded-sm px-1 text-[length:var(--fs-10)] font-semibold" style={{ color: ROLE[r]?.tone, backgroundColor: soft(ROLE[r]?.tone ?? TONE, 12) }}>{ROLE[r]?.label}</span>)}
+                {i.roles.map((r) => <span key={r} className="rounded-sm px-1 text-(length:--fs-10) font-semibold" style={{ color: ROLE[r]?.tone, backgroundColor: soft(ROLE[r]?.tone ?? TONE, 12) }}>{ROLE[r]?.label}</span>)}
               </span>
             </li>
           ))}
@@ -331,13 +331,13 @@ function RowActions({ row, canManage, onEdit, onIcon, onChanged }: { row: UnitRo
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
-        className="inline-flex size-8 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors duration-150 hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring data-[state=open]:bg-muted data-[state=open]:text-foreground"
+        className="inline-flex size-8 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors duration-150 hover:bg-muted hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring data-[state=open]:bg-muted data-[state=open]:text-foreground"
         aria-label={`Ενέργειες για ${row.name}`} onClick={(e) => e.stopPropagation()}
       >
         <FiMoreVertical className="size-4" aria-hidden />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-60">
-        <DropdownMenuLabel className="truncate text-[length:var(--fs-11)] font-semibold text-muted-foreground">{row.shortcut} · {row.name}</DropdownMenuLabel>
+        <DropdownMenuLabel className="truncate text-(length:--fs-11) font-semibold text-muted-foreground">{row.shortcut} · {row.name}</DropdownMenuLabel>
         {canManage && (
           <>
             <DropdownMenuItem className={ITEM} onSelect={onEdit}><FiEdit3 className="size-3.5" style={{ color: TONE }} aria-hidden /> Επεξεργασία</DropdownMenuItem>
@@ -386,31 +386,31 @@ export function UnitsTableClient({ rows, usageError, canManage, lastSync }: { ro
         return (
           <div className={cn('flex min-w-0 items-center gap-2', !r.isActive && 'opacity-60')}>
             <UnitThumb kind={inferUnitVisual(r)} src={r.iconUrl} size={36} />
-            <span className="inline-flex h-7 min-w-11 shrink-0 items-center justify-center rounded-md px-1.5 font-mono text-[length:var(--fs-11)] font-semibold" style={{ color: TONE, backgroundColor: soft(TONE, 12) }}>{r.shortcut}</span>
-            <span className="truncate text-[length:var(--fs-12)] font-medium">{r.name}</span>
+            <span className="inline-flex h-7 min-w-11 shrink-0 items-center justify-center rounded-md px-1.5 font-mono text-(length:--fs-11) font-semibold" style={{ color: TONE, backgroundColor: soft(TONE, 12) }}>{r.shortcut}</span>
+            <span className="truncate text-(length:--fs-12) font-medium">{r.name}</span>
           </div>
         );
       },
     },
-    { accessorKey: 'code', header: 'Κωδ.', size: 70, cell: ({ row }) => <span className="font-mono tabular-nums text-[length:var(--fs-12)] text-muted-foreground">{row.original.code}</span> },
-    { accessorKey: 'interCode', header: 'Διεθνής', size: 90, cell: ({ row }) => (row.original.interCode ? <span className="font-mono text-[length:var(--fs-12)]">{row.original.interCode}</span> : DASH) },
-    { accessorKey: 'decimals', header: 'Δεκαδικά', size: 105, cell: ({ row }) => <span className="tabular-nums text-[length:var(--fs-12)]">{row.original.decimals}</span> },
+    { accessorKey: 'code', header: 'Κωδ.', size: 70, cell: ({ row }) => <span className="font-mono tabular-nums text-(length:--fs-12) text-muted-foreground">{row.original.code}</span> },
+    { accessorKey: 'interCode', header: 'Διεθνής', size: 90, cell: ({ row }) => (row.original.interCode ? <span className="font-mono text-(length:--fs-12)">{row.original.interCode}</span> : DASH) },
+    { accessorKey: 'decimals', header: 'Δεκαδικά', size: 105, cell: ({ row }) => <span className="tabular-nums text-(length:--fs-12)">{row.original.decimals}</span> },
     {
       id: 'myData', accessorFn: (r) => r.myDataLabel ?? '', header: 'myDATA', size: 170,
       cell: ({ row }) => (row.original.myDataCode != null
-        ? <span className="text-[length:var(--fs-12)]"><span className="tabular-nums text-muted-foreground">{row.original.myDataCode} · </span>{row.original.myDataLabel ?? '—'}</span>
+        ? <span className="text-(length:--fs-12)"><span className="tabular-nums text-muted-foreground">{row.original.myDataCode} · </span>{row.original.myDataLabel ?? '—'}</span>
         : DASH),
     },
     {
       accessorKey: 'itemCount', header: 'Είδη', size: 70,
       cell: ({ row }) => (row.original.itemCount == null ? DASH
-        : <span className={cn('tabular-nums text-[length:var(--fs-12)]', !row.original.itemCount && 'text-muted-foreground')}>{row.original.itemCount.toLocaleString('el-GR')}</span>),
+        : <span className={cn('tabular-nums text-(length:--fs-12)', !row.original.itemCount && 'text-muted-foreground')}>{row.original.itemCount.toLocaleString('el-GR')}</span>),
     },
     {
       accessorKey: 'isActive', header: 'Ενεργή', size: 95,
       cell: ({ row }) => (row.original.isActive
-        ? <span className="inline-flex items-center gap-1 text-[length:var(--fs-12)]" style={{ color: '#047857' }}><FiCheck className="size-3.5" aria-hidden /> Ναι</span>
-        : <span className="inline-flex items-center gap-1 text-[length:var(--fs-12)] text-muted-foreground"><FiSlash className="size-3.5" aria-hidden /> Όχι</span>),
+        ? <span className="inline-flex items-center gap-1 text-(length:--fs-12)" style={{ color: '#047857' }}><FiCheck className="size-3.5" aria-hidden /> Ναι</span>
+        : <span className="inline-flex items-center gap-1 text-(length:--fs-12) text-muted-foreground"><FiSlash className="size-3.5" aria-hidden /> Όχι</span>),
     },
     {
       id: 'actions', header: () => <span className="sr-only">Ενέργειες</span>, size: 44, enableSorting: false, enableHiding: false, enableResizing: false,
@@ -421,7 +421,7 @@ export function UnitsTableClient({ rows, usageError, canManage, lastSync }: { ro
   const toolbar = (
     <div className="flex flex-wrap items-center gap-1.5">
       {inactive > 0 && (
-        <label className="inline-flex h-7 cursor-pointer items-center gap-1.5 px-1 text-[length:var(--fs-11)] text-muted-foreground">
+        <label className="inline-flex h-7 cursor-pointer items-center gap-1.5 px-1 text-(length:--fs-11) text-muted-foreground">
           <input type="checkbox" className="size-3.5 accent-[#0369A1]" checked={showInactive} onChange={(e) => setShowInactive(e.target.checked)} />
           Ανενεργές ({inactive})
         </label>
@@ -440,7 +440,7 @@ export function UnitsTableClient({ rows, usageError, canManage, lastSync }: { ro
   return (
     <div className="space-y-2">
       {usageError && (
-        <p role="alert" className="rounded-md border border-amber-500/30 bg-amber-50/70 px-3 py-2 text-[length:var(--fs-12)] text-amber-900 dark:bg-amber-500/10 dark:text-amber-300">
+        <p role="alert" className="rounded-md border border-amber-500/30 bg-amber-50/70 px-3 py-2 text-(length:--fs-12) text-amber-900 dark:bg-amber-500/10 dark:text-amber-300">
           Δεν διαβάστηκαν τα είδη από το SoftOne ({usageError}) — η χρήση ανά μονάδα δεν εμφανίζεται.
         </p>
       )}
@@ -456,9 +456,9 @@ export function UnitsTableClient({ rows, usageError, canManage, lastSync }: { ro
         growColumnId="name"
         responsiveHide={['isActive', 'interCode', 'decimals', 'code', 'myData']}
         expandable={(r) => <MembersPanel row={r} />}
-        emptyState={<p className="py-8 text-center text-[length:var(--fs-13)] text-muted-foreground">Δεν υπάρχουν μονάδες. Πάτησε «Συγχρονισμός».</p>}
+        emptyState={<p className="py-8 text-center text-(length:--fs-13) text-muted-foreground">Δεν υπάρχουν μονάδες. Πάτησε «Συγχρονισμός».</p>}
       />
-      {lastSync && <p className="text-[length:var(--fs-11)] text-muted-foreground">Τελευταίος συγχρονισμός: {new Date(lastSync).toLocaleString('el-GR')}</p>}
+      {lastSync && <p className="text-(length:--fs-11) text-muted-foreground">Τελευταίος συγχρονισμός: {new Date(lastSync).toLocaleString('el-GR')}</p>}
       {canManage && <UnitIconDialog row={iconRow} onOpenChange={(o) => { if (!o) setIconRow(null); }} onChanged={() => router.refresh()} />}
       {canManage && <UnitDialog open={dialog != null} onOpenChange={(o) => { if (!o) setDialog(null); }} row={dialog?.row ?? null} onSaved={() => router.refresh()} />}
     </div>

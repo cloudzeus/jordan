@@ -50,17 +50,17 @@ export function SoftoneLinkDialog({ target, onClose }: { target: LinkTarget | nu
         </DialogHeader>
         <DialogBody className="space-y-2">
           <div className="flex items-end gap-2">
-            <label className="block flex-1 space-y-1 text-[length:var(--fs-12)] font-medium">
+            <label className="block flex-1 space-y-1 text-(length:--fs-12) font-medium">
               <span>Χρήστης SoftOne</span>
-              <select value={value} onChange={(e) => setValue(e.target.value)} disabled={!users} className="h-9 w-full rounded-md border border-input bg-background px-2 text-[length:var(--fs-13)] font-normal">
+              <select value={value} onChange={(e) => setValue(e.target.value)} disabled={!users} className="h-9 w-full rounded-md border border-input bg-background px-2 text-(length:--fs-13) font-normal">
                 <option value="">— Καμία σύνδεση —</option>
                 {(users ?? []).map((u) => <option key={u.id} value={u.id}>{u.name}{u.code !== u.name ? ` (${u.code})` : ''} · #{u.id}</option>)}
               </select>
             </label>
             <Button type="button" variant="outline" size="icon" className="size-9" onClick={() => load(true)} aria-label="Ανανέωση από SoftOne"><FiRefreshCw className="size-3.5" aria-hidden /></Button>
           </div>
-          {!users && <p className="text-[length:var(--fs-12)] text-muted-foreground">Φόρτωση από SoftOne…</p>}
-          {error && <p role="alert" className="text-[length:var(--fs-12)] text-destructive">{error}</p>}
+          {!users && <p className="text-(length:--fs-12) text-muted-foreground">Φόρτωση από SoftOne…</p>}
+          {error && <p role="alert" className="text-(length:--fs-12) text-destructive">{error}</p>}
         </DialogBody>
         <DialogFooter>
           <Button type="button" variant="outline" onClick={onClose}>Άκυρο</Button>

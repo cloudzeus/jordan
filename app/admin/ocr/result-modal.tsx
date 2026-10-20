@@ -242,7 +242,7 @@ export function OcrResultModal({ open, documentId, onClose }: ResultModalProps) 
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-4 animate-fade-in backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-4 animate-fade-in backdrop-blur-xs"
       onClick={onClose}
     >
       <div
@@ -250,7 +250,7 @@ export function OcrResultModal({ open, documentId, onClose }: ResultModalProps) 
         className="relative my-auto flex max-h-[calc(100dvh-2rem)] w-full max-w-6xl flex-col overflow-hidden rounded-xl bg-card shadow-fluent-16 ring-1 ring-border/60 animate-slide-up"
       >
         {/* HEADER — hero band */}
-        <header className="relative shrink-0 border-b border-border bg-gradient-to-br from-sisyphus-50 via-card to-card px-6 py-4">
+        <header className="relative shrink-0 border-b border-border bg-linear-to-br from-sisyphus-50 via-card to-card px-6 py-4">
           <div className="flex items-start gap-3">
             <span className="inline-flex size-10 shrink-0 items-center justify-center rounded-md bg-sisyphus-500 text-white shadow-fluent-2">
               <FiZap className="size-5" />
@@ -261,13 +261,13 @@ export function OcrResultModal({ open, documentId, onClose }: ResultModalProps) 
                   {doc?.fileName ?? 'Επεξεργασία…'}
                 </h2>
                 {doc && (
-                  <span className="inline-flex items-center gap-1 rounded-sm bg-emerald-500/15 px-1.5 py-0.5 text-[length:var(--fs-10)] font-bold uppercase tracking-wide text-emerald-700 dark:text-emerald-300">
+                  <span className="inline-flex items-center gap-1 rounded-sm bg-emerald-500/15 px-1.5 py-0.5 text-(length:--fs-10) font-bold uppercase tracking-wide text-emerald-700 dark:text-emerald-300">
                     <FiCheck className="size-3" /> Έτοιμο
                   </span>
                 )}
               </div>
               {doc && (
-                <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[length:var(--fs-12)] text-muted-foreground">
+                <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-(length:--fs-12) text-muted-foreground">
                   <span>{DOC_LABEL[doc.docType] ?? doc.docType}</span>
                   <span className="text-border">·</span>
                   <span>{doc.language.toUpperCase()}</span>
@@ -275,7 +275,7 @@ export function OcrResultModal({ open, documentId, onClose }: ResultModalProps) 
                   {doc.model && (<><span className="text-border">·</span><span className="font-mono">{doc.model}</span></>)}
                   {/* Auto-retry indicator: pro models are used by the auto-retry path */}
                   {doc.model?.includes('pro') && (
-                    <span className="inline-flex items-center gap-1 rounded-sm bg-amber-500/15 px-1.5 py-0.5 text-[length:var(--fs-10)] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-300">
+                    <span className="inline-flex items-center gap-1 rounded-sm bg-amber-500/15 px-1.5 py-0.5 text-(length:--fs-10) font-bold uppercase tracking-wider text-amber-700 dark:text-amber-300">
                       HQ retry
                     </span>
                   )}
@@ -310,7 +310,7 @@ export function OcrResultModal({ open, documentId, onClose }: ResultModalProps) 
                 {completeness}% συμπληρωμένο
               </span>
               {missingCount > 0 && (
-                <span className="inline-flex items-center gap-1 rounded-sm bg-amber-500/15 px-1.5 py-0.5 text-[length:var(--fs-10)] font-bold uppercase tracking-wide text-amber-700 dark:text-amber-300">
+                <span className="inline-flex items-center gap-1 rounded-sm bg-amber-500/15 px-1.5 py-0.5 text-(length:--fs-10) font-bold uppercase tracking-wide text-amber-700 dark:text-amber-300">
                   <FiAlertCircle className="size-3" /> {missingCount} λείπουν
                 </span>
               )}
@@ -322,7 +322,7 @@ export function OcrResultModal({ open, documentId, onClose }: ResultModalProps) 
         <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden lg:grid-cols-[42%_58%]">
           {/* LEFT — Preview */}
           <aside className="relative flex min-h-0 flex-col border-b border-border bg-neutral-6/60 dg-mica lg:border-b-0 lg:border-r">
-            <div className="flex items-center justify-between px-4 py-2.5 text-[length:var(--fs-11)] font-semibold uppercase tracking-wide text-muted-foreground">
+            <div className="flex items-center justify-between px-4 py-2.5 text-(length:--fs-11) font-semibold uppercase tracking-wide text-muted-foreground">
               <span>Πρωτότυπο</span>
               {doc && (
                 <a
@@ -376,7 +376,7 @@ export function OcrResultModal({ open, documentId, onClose }: ResultModalProps) 
                             : 'border-border bg-card',
                       )}
                     >
-                      <div className="text-[length:var(--fs-12)] font-medium text-muted-foreground">
+                      <div className="text-(length:--fs-12) font-medium text-muted-foreground">
                         {f.label}
                         {f.required && <span className="ml-0.5 text-dg-red-500">*</span>}
                       </div>
@@ -384,14 +384,14 @@ export function OcrResultModal({ open, documentId, onClose }: ResultModalProps) 
                         {f.present ? (
                           <div className="flex items-start gap-1.5">
                             <FiCheck className="mt-0.5 size-3.5 shrink-0 text-emerald-600" />
-                            <span className="break-words font-mono text-[length:var(--fs-12)] text-foreground">{f.value}</span>
+                            <span className="wrap-break-word font-mono text-(length:--fs-12) text-foreground">{f.value}</span>
                           </div>
                         ) : f.missing ? (
-                          <span className="inline-flex items-center gap-1 text-[length:var(--fs-12)] font-medium italic text-amber-700 dark:text-amber-400">
+                          <span className="inline-flex items-center gap-1 text-(length:--fs-12) font-medium italic text-amber-700 dark:text-amber-400">
                             <FiAlertCircle className="size-3.5" /> λείπει
                           </span>
                         ) : (
-                          <span className="text-[length:var(--fs-12)] italic text-muted-foreground">—</span>
+                          <span className="text-(length:--fs-12) italic text-muted-foreground">—</span>
                         )}
                       </div>
                     </div>
@@ -403,11 +403,11 @@ export function OcrResultModal({ open, documentId, onClose }: ResultModalProps) 
                       είχε διορθώσει. Κρύβονται μόνο σε γνήσιο ελεύθερο κείμενο χωρίς γραμμές. */}
                   {showLines && Array.isArray(doc?.items) && doc.items.length > 0 && (
                     <div className="mt-4 overflow-hidden rounded-md border border-border">
-                      <div className="border-b border-border bg-neutral-6/60 px-3 py-1.5 text-[length:var(--fs-11)] font-semibold uppercase tracking-wide text-muted-foreground">
+                      <div className="border-b border-border bg-neutral-6/60 px-3 py-1.5 text-(length:--fs-11) font-semibold uppercase tracking-wide text-muted-foreground">
                         Γραμμές ({doc.items.length})
                       </div>
-                      <table className="w-full text-[length:var(--fs-12)]">
-                        <thead className="border-b border-border bg-neutral-4 text-left text-[length:var(--fs-10)] uppercase tracking-wide text-muted-foreground">
+                      <table className="w-full text-(length:--fs-12)">
+                        <thead className="border-b border-border bg-neutral-4 text-left text-(length:--fs-10) uppercase tracking-wide text-muted-foreground">
                           <tr>
                             <th className="px-2 py-1.5">Κωδ.</th>
                             <th className="px-2 py-1.5">Περιγραφή</th>
@@ -421,7 +421,7 @@ export function OcrResultModal({ open, documentId, onClose }: ResultModalProps) 
                         <tbody className="divide-y divide-border">
                           {doc.items.map((it: any, idx: number) => (
                             <tr key={it.id} className="hover:bg-neutral-6/40">
-                              <td className="px-2 py-1.5 font-mono text-[length:var(--fs-11)]">{it.code ?? '-'}</td>
+                              <td className="px-2 py-1.5 font-mono text-(length:--fs-11)">{it.code ?? '-'}</td>
                               <td className="px-2 py-1.5">{it.name}</td>
                               <td className="px-2 py-1.5 text-right tabular-nums">{it.quantity ?? '-'}</td>
                               {/* Η μονάδα δεν έχει στήλη στη βάση — ζει στο κανονικό JSON (`lines.unit`),
@@ -442,17 +442,17 @@ export function OcrResultModal({ open, documentId, onClose }: ResultModalProps) 
                       {/* Totals footer — only when there are items + at least one money total */}
                       {(data.subtotal != null || data.vatAmount != null || data.totalAmount != null) && (
                         <div className="border-t border-border bg-neutral-6/40 px-3 py-2">
-                          <dl className="grid grid-cols-3 gap-2 text-[length:var(--fs-12)]">
+                          <dl className="grid grid-cols-3 gap-2 text-(length:--fs-12)">
                             <div>
-                              <dt className="text-[length:var(--fs-10)] uppercase tracking-wide text-muted-foreground">Καθαρή αξία</dt>
+                              <dt className="text-(length:--fs-10) uppercase tracking-wide text-muted-foreground">Καθαρή αξία</dt>
                               <dd className="font-semibold tabular-nums">{fmtMoney(data.subtotal)}</dd>
                             </div>
                             <div>
-                              <dt className="text-[length:var(--fs-10)] uppercase tracking-wide text-muted-foreground">ΦΠΑ</dt>
+                              <dt className="text-(length:--fs-10) uppercase tracking-wide text-muted-foreground">ΦΠΑ</dt>
                               <dd className="font-semibold tabular-nums">{fmtMoney(data.vatAmount)}</dd>
                             </div>
                             <div>
-                              <dt className="text-[length:var(--fs-10)] uppercase tracking-wide text-muted-foreground">Γενικό Σύνολο</dt>
+                              <dt className="text-(length:--fs-10) uppercase tracking-wide text-muted-foreground">Γενικό Σύνολο</dt>
                               <dd className="font-bold tabular-nums text-sisyphus-600">{fmtMoney(data.totalAmount)}</dd>
                             </div>
                           </dl>
@@ -465,7 +465,7 @@ export function OcrResultModal({ open, documentId, onClose }: ResultModalProps) 
 
               {/* JSON */}
               <TabsContent value="json" className="m-3 mt-2 flex-1 overflow-auto">
-                <pre className="rounded-md border border-border bg-neutral-4 p-3 text-[length:var(--fs-11)] font-mono leading-relaxed text-foreground">
+                <pre className="rounded-md border border-border bg-neutral-4 p-3 text-(length:--fs-11) font-mono leading-relaxed text-foreground">
 {JSON.stringify(data, null, 2)}
                 </pre>
               </TabsContent>
@@ -473,13 +473,13 @@ export function OcrResultModal({ open, documentId, onClose }: ResultModalProps) 
               {/* CATEGORIZE */}
               <TabsContent value="categorize" className="m-3 mt-2 flex-1 space-y-3 overflow-auto">
                 <label className="block">
-                  <span className="mb-1 block text-[length:var(--fs-11)] font-semibold uppercase tracking-wide text-muted-foreground">
+                  <span className="mb-1 block text-(length:--fs-11) font-semibold uppercase tracking-wide text-muted-foreground">
                     Κατηγορία
                   </span>
                   <select
                     value={category}
                     onChange={(e) => setCategory(e.target.value)}
-                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:border-sisyphus-500 focus:outline-none focus:ring-2 focus:ring-sisyphus-500/20"
+                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:border-sisyphus-500 focus:outline-hidden focus:ring-2 focus:ring-sisyphus-500/20"
                   >
                     <option value="">— Επιλογή —</option>
                     {CATEGORY_OPTIONS.map((o) => (
@@ -489,7 +489,7 @@ export function OcrResultModal({ open, documentId, onClose }: ResultModalProps) 
                 </label>
 
                 <label className="block">
-                  <span className="mb-1 block text-[length:var(--fs-11)] font-semibold uppercase tracking-wide text-muted-foreground">
+                  <span className="mb-1 block text-(length:--fs-11) font-semibold uppercase tracking-wide text-muted-foreground">
                     Σημειώσεις
                   </span>
                   <textarea
@@ -497,11 +497,11 @@ export function OcrResultModal({ open, documentId, onClose }: ResultModalProps) 
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
                     placeholder="Προαιρετικά σχόλια…"
-                    className="w-full resize-y rounded-md border border-input bg-background px-3 py-2 text-sm focus:border-sisyphus-500 focus:outline-none focus:ring-2 focus:ring-sisyphus-500/20"
+                    className="w-full resize-y rounded-md border border-input bg-background px-3 py-2 text-sm focus:border-sisyphus-500 focus:outline-hidden focus:ring-2 focus:ring-sisyphus-500/20"
                   />
                 </label>
 
-                <div className="rounded-md border border-sisyphus-500/30 bg-sisyphus-500/5 p-3 text-[length:var(--fs-12)] text-foreground">
+                <div className="rounded-md border border-sisyphus-500/30 bg-sisyphus-500/5 p-3 text-(length:--fs-12) text-foreground">
                   <p className="font-medium">Quick actions</p>
                   <p className="mt-0.5 text-muted-foreground">
                     Δημιούργησε αυτόματα προμηθευτή από το ΑΦΜ ή κάνε ανάρτηση του παραστατικού στο SoftOne.
@@ -519,7 +519,7 @@ export function OcrResultModal({ open, documentId, onClose }: ResultModalProps) 
               type="button"
               onClick={() => setReextractDialog(true)}
               disabled={!doc || reextracting}
-              className="inline-flex h-9 items-center gap-1.5 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 text-[length:var(--fs-13)] font-medium text-amber-900 dark:text-amber-200 transition hover:bg-amber-500/20 disabled:opacity-50"
+              className="inline-flex h-9 items-center gap-1.5 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 text-(length:--fs-13) font-medium text-amber-900 dark:text-amber-200 transition hover:bg-amber-500/20 disabled:opacity-50"
               title="Επανεκτέλεση με ισχυρότερο μοντέλο (gemini-2.5-pro) για θολά/δύσκολα scans"
             >
               <FiRefreshCw className={cn('size-4', reextracting && 'animate-spin')} />
@@ -529,7 +529,7 @@ export function OcrResultModal({ open, documentId, onClose }: ResultModalProps) 
               type="button"
               onClick={() => createCompany('SUPPLIER')}
               disabled={!doc || supplying || !(data?.vatNumber)}
-              className="inline-flex h-9 items-center gap-1.5 rounded-md border border-border bg-card px-3 text-[length:var(--fs-13)] font-medium text-foreground transition hover:bg-neutral-8 disabled:opacity-50"
+              className="inline-flex h-9 items-center gap-1.5 rounded-md border border-border bg-card px-3 text-(length:--fs-13) font-medium text-foreground transition hover:bg-neutral-8 disabled:opacity-50"
               title="Δημιουργία Προμηθευτή από το ΑΦΜ του Εκδότη"
             >
               <FiUserPlus className="size-4" />
@@ -539,7 +539,7 @@ export function OcrResultModal({ open, documentId, onClose }: ResultModalProps) 
               type="button"
               onClick={() => createCompany('CUSTOMER')}
               disabled={!doc || supplying || !(data?.customerVatNumber)}
-              className="inline-flex h-9 items-center gap-1.5 rounded-md border border-border bg-card px-3 text-[length:var(--fs-13)] font-medium text-foreground transition hover:bg-neutral-8 disabled:opacity-50"
+              className="inline-flex h-9 items-center gap-1.5 rounded-md border border-border bg-card px-3 text-(length:--fs-13) font-medium text-foreground transition hover:bg-neutral-8 disabled:opacity-50"
               title="Δημιουργία Πελάτη από το ΑΦΜ του Παραλήπτη"
             >
               <FiUserPlus className="size-4" />
@@ -551,7 +551,7 @@ export function OcrResultModal({ open, documentId, onClose }: ResultModalProps) 
               type="button"
               onClick={save}
               disabled={!doc || saving}
-              className="inline-flex h-9 items-center gap-1.5 rounded-md border border-border bg-card px-3 text-[length:var(--fs-13)] font-medium text-foreground transition hover:bg-neutral-8 disabled:opacity-50"
+              className="inline-flex h-9 items-center gap-1.5 rounded-md border border-border bg-card px-3 text-(length:--fs-13) font-medium text-foreground transition hover:bg-neutral-8 disabled:opacity-50"
             >
               <FiSave className="size-4" />
               {saving ? 'Αποθήκευση…' : 'Αποθήκευση'}
@@ -560,7 +560,7 @@ export function OcrResultModal({ open, documentId, onClose }: ResultModalProps) 
               type="button"
               onClick={post}
               disabled={!doc || posting || !category || doc?.postStatus === 'POSTED'}
-              className="inline-flex h-9 items-center gap-1.5 rounded-md bg-sisyphus-500 px-4 text-[length:var(--fs-13)] font-semibold text-white shadow-fluent-2 transition hover:bg-sisyphus-600 active:bg-sisyphus-700 disabled:opacity-50 disabled:hover:bg-sisyphus-500"
+              className="inline-flex h-9 items-center gap-1.5 rounded-md bg-sisyphus-500 px-4 text-(length:--fs-13) font-semibold text-white shadow-fluent-2 transition hover:bg-sisyphus-600 active:bg-sisyphus-700 disabled:opacity-50 disabled:hover:bg-sisyphus-500"
             >
               <FiSend className="size-4" />
               {posting ? 'Ανάρτηση…' : doc?.postStatus === 'POSTED' ? 'Αναρτήθηκε' : 'Ανάρτηση στο SoftOne'}

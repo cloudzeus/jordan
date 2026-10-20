@@ -20,7 +20,7 @@ const TONES: Record<string, string> = {
 };
 
 export function PaymentBadge({ p, reservationStatus }: { p: PaymentSummary | undefined; reservationStatus: string }) {
-  if (!p) return <span className="text-[length:var(--fs-11)] text-muted-foreground">{reservationStatus === 'ACTIVE' ? 'Χωρίς αίτημα' : '—'}</span>;
+  if (!p) return <span className="text-(length:--fs-11) text-muted-foreground">{reservationStatus === 'ACTIVE' ? 'Χωρίς αίτημα' : '—'}</span>;
   const title = [
     p.email ? `Email: ${p.email}${p.emailSentAt ? ` · ${new Date(p.emailSentAt).toLocaleString('el-GR')}` : ''}` : null,
     p.emailError ? `Email: ${p.emailError}` : null,
@@ -28,14 +28,14 @@ export function PaymentBadge({ p, reservationStatus }: { p: PaymentSummary | und
   ].filter(Boolean).join('\n');
   return (
     <span className="inline-flex flex-col items-start gap-0.5" title={title || undefined}>
-      <span className={cn('rounded-sm px-1.5 py-0.5 text-[length:var(--fs-10)] font-semibold', TONES[p.status] ?? TONES.CANCELLED)}>
+      <span className={cn('rounded-sm px-1.5 py-0.5 text-(length:--fs-10) font-semibold', TONES[p.status] ?? TONES.CANCELLED)}>
         {PAYMENT_LABELS[p.status] ?? p.status}{p.env === 'demo' ? ' · demo' : ''}
       </span>
-      <span className="text-[length:var(--fs-11)] tabular-nums text-muted-foreground">
+      <span className="text-(length:--fs-11) tabular-nums text-muted-foreground">
         {formatEur(p.paidCents ?? p.amountCents)}{p.refundedCents > 0 && ` · −${formatEur(p.refundedCents)}`}
       </span>
-      {p.refund && <span className="text-[length:var(--fs-11)] font-medium text-sky-700">Οφείλεται επιστροφή {formatEur(p.refund.cents)}</span>}
-      {(p.lastError || p.emailError) && <span className="max-w-44 truncate text-[length:var(--fs-11)] text-destructive">{p.lastError ?? p.emailError}</span>}
+      {p.refund && <span className="text-(length:--fs-11) font-medium text-sky-700">Οφείλεται επιστροφή {formatEur(p.refund.cents)}</span>}
+      {(p.lastError || p.emailError) && <span className="max-w-44 truncate text-(length:--fs-11) text-destructive">{p.lastError ?? p.emailError}</span>}
     </span>
   );
 }
@@ -56,7 +56,7 @@ export function paymentMenuItems(opts: {
     try { await fn(); toast.success(ok); onDone(); } catch (e) { toast.error((e as Error).message); }
   };
   const act = (action: string) => post(`/api/admin/dynamic-offers/${offerId}/payments/${p!.id}`, { action });
-  const cls = 'cursor-pointer gap-2 text-[length:var(--fs-12)]';
+  const cls = 'cursor-pointer gap-2 text-(length:--fs-12)';
   const items: React.ReactNode[] = [];
   if (caps.manage && r.status === 'ACTIVE' && (!p || p.status === 'CANCELLED')) {
     items.push(<DropdownMenuItem key="create" className={cls} onSelect={() => run(() => post(`/api/admin/dynamic-offers/${offerId}/payments`, { action: 'create', reservationId: r.id }), 'Το αίτημα πληρωμής δημιουργήθηκε')}><FiSend className="size-3.5 text-sky-600" aria-hidden /> Αίτημα πληρωμής</DropdownMenuItem>);
@@ -83,7 +83,7 @@ export function paymentMenuItems(opts: {
     }}><FiRotateCcw className="size-3.5 text-sky-600" aria-hidden /> {label}</DropdownMenuItem>);
   }
   if (!items.length) return [];
-  return [<DropdownMenuSeparator key="sep" />, <DropdownMenuLabel key="lbl" className="flex items-center gap-1.5 text-[length:var(--fs-10)] uppercase tracking-wide text-muted-foreground"><FiCreditCard className="size-3" aria-hidden /> Πληρωμή</DropdownMenuLabel>, ...items];
+  return [<DropdownMenuSeparator key="sep" />, <DropdownMenuLabel key="lbl" className="flex items-center gap-1.5 text-(length:--fs-10) uppercase tracking-wide text-muted-foreground"><FiCreditCard className="size-3" aria-hidden /> Πληρωμή</DropdownMenuLabel>, ...items];
 }
 
 /** Κλεισμένο container: επιστροφή όλων των διαφορών τιμής με ένα κουμπί. */
@@ -103,7 +103,7 @@ export function RefundDiffsButton({ offerId, payments, onDone }: { offerId: stri
     } catch (e) { toast.error((e as Error).message); } finally { setBusy(false); }
   };
   return (
-    <button type="button" onClick={go} disabled={busy} className="inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-md border border-sky-300 bg-sky-50 px-3 text-[length:var(--fs-12)] font-medium text-sky-800 hover:bg-sky-100 disabled:opacity-60 dark:border-sky-500/40 dark:bg-sky-500/10 dark:text-sky-200">
+    <button type="button" onClick={go} disabled={busy} className="inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-md border border-sky-300 bg-sky-50 px-3 text-(length:--fs-12) font-medium text-sky-800 hover:bg-sky-100 disabled:opacity-60 dark:border-sky-500/40 dark:bg-sky-500/10 dark:text-sky-200">
       <FiRotateCcw className="size-3.5" aria-hidden /> Επιστροφή διαφορών ({due.length}) · {formatEur(total)}
     </button>
   );

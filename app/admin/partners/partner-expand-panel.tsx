@@ -25,29 +25,29 @@ const soft = (hex: string, pct: number) => `color-mix(in srgb, ${hex} ${pct}%, v
 const TONE = { info: '#0369A1', contacts: '#7C3AED', customers: '#047857', projects: '#B45309' } as const;
 
 const TRIGGER = cn(
-  '!h-9 flex-none cursor-pointer gap-1 rounded-none px-2 text-[length:var(--fs-12)] text-muted-foreground sm:gap-1.5 sm:px-3',
-  'hover:text-foreground data-[state=active]:font-semibold data-[state=active]:!text-[color:var(--tab-tone)]',
-  'after:bg-[var(--tab-tone)] after:!h-[2px] after:!bottom-0',
+  'h-9! flex-none cursor-pointer gap-1 rounded-none px-2 text-(length:--fs-12) text-muted-foreground sm:gap-1.5 sm:px-3',
+  'hover:text-foreground data-[state=active]:font-semibold data-[state=active]:text-(--tab-tone)!',
+  'after:bg-(--tab-tone) after:h-[2px]! after:bottom-0!',
 );
-const TH = 'px-1.5 sm:px-2 py-1.5 text-left text-[length:var(--fs-10)] font-semibold uppercase tracking-wide text-muted-foreground whitespace-nowrap';
-const TD = 'px-1.5 sm:px-2 py-1.5 text-[length:var(--fs-12)] align-top';
-const ITEM = 'cursor-pointer gap-2 text-[length:var(--fs-12)]';
+const TH = 'px-1.5 sm:px-2 py-1.5 text-left text-(length:--fs-10) font-semibold uppercase tracking-wide text-muted-foreground whitespace-nowrap';
+const TD = 'px-1.5 sm:px-2 py-1.5 text-(length:--fs-12) align-top';
+const ITEM = 'cursor-pointer gap-2 text-(length:--fs-12)';
 const DASH = <span className="text-muted-foreground/40">—</span>;
 
 function Badge({ n, tone }: { n: number | null; tone: string }) {
   if (n == null) return null;
-  return <span className="rounded-full px-1.5 text-[length:var(--fs-10)] font-semibold tabular-nums leading-4" style={{ color: tone, backgroundColor: soft(tone, 14) }}>{n}</span>;
+  return <span className="rounded-full px-1.5 text-(length:--fs-10) font-semibold tabular-nums leading-4" style={{ color: tone, backgroundColor: soft(tone, 14) }}>{n}</span>;
 }
 
 function Empty({ children }: { children: React.ReactNode }) {
-  return <p className="rounded-md border border-dashed border-border px-3 py-5 text-center text-[length:var(--fs-12)] text-muted-foreground">{children}</p>;
+  return <p className="rounded-md border border-dashed border-border px-3 py-5 text-center text-(length:--fs-12) text-muted-foreground">{children}</p>;
 }
 
 function AddButton({ tone, onClick, children, disabled }: { tone: string; onClick: () => void; children: React.ReactNode; disabled?: boolean }) {
   return (
     <button
       type="button" onClick={onClick} disabled={disabled}
-      className="inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-md px-2.5 text-[length:var(--fs-12)] font-medium transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-50"
+      className="inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-md px-2.5 text-(length:--fs-12) font-medium transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-50"
       style={{ color: tone, backgroundColor: soft(tone, 10) }}
     >
       <FiPlus className="size-3.5" aria-hidden /> {children}
@@ -59,7 +59,7 @@ function RowMenu({ label, children }: { label: string; children: React.ReactNode
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
-        className="inline-flex size-8 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors duration-150 hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring data-[state=open]:bg-muted"
+        className="inline-flex size-8 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors duration-150 hover:bg-muted hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring data-[state=open]:bg-muted"
         aria-label={label}
       >
         <FiMoreVertical className="size-4" aria-hidden />
@@ -75,8 +75,8 @@ function Info({ icon, label, children }: { icon: React.ReactNode; label: string;
     <div className="flex min-w-0 items-start gap-2 py-1">
       <span aria-hidden className="mt-0.5 text-muted-foreground [&_svg]:size-3.5">{icon}</span>
       <div className="min-w-0">
-        <div className="text-[length:var(--fs-10)] font-semibold uppercase tracking-wide text-muted-foreground">{label}</div>
-        <div className="break-words text-[length:var(--fs-13)]">{children ?? DASH}</div>
+        <div className="text-(length:--fs-10) font-semibold uppercase tracking-wide text-muted-foreground">{label}</div>
+        <div className="wrap-break-word text-(length:--fs-13)">{children ?? DASH}</div>
       </div>
     </div>
   );
@@ -124,7 +124,7 @@ export function PartnerExpandPanel({ row, canManage }: { row: PartnerListRow; ca
 
   if (error && !data) {
     return (
-      <div role="alert" className="flex flex-wrap items-center gap-2 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-[length:var(--fs-12)]">
+      <div role="alert" className="flex flex-wrap items-center gap-2 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-(length:--fs-12)">
         <FiAlertTriangle className="size-4 text-destructive" aria-hidden /><span className="flex-1">{error}</span>
         <button type="button" onClick={load} className="inline-flex h-8 cursor-pointer items-center gap-1 rounded-md border border-border bg-background px-2.5 hover:bg-muted"><FiRefreshCw className="size-3.5" aria-hidden /> Δοκιμή ξανά</button>
       </div>
@@ -140,7 +140,7 @@ export function PartnerExpandPanel({ row, canManage }: { row: PartnerListRow; ca
     <>
       <Tabs defaultValue="details" className="gap-3">
         <div className="flex items-center gap-2 border-b border-border">
-          <TabsList variant="line" className="!h-auto min-h-9 flex-wrap min-w-0 flex-1 justify-start gap-0 p-0">
+          <TabsList variant="line" className="h-auto! min-h-9 flex-wrap min-w-0 flex-1 justify-start gap-0 p-0">
             <TabsTrigger value="details" className={TRIGGER} style={{ ['--tab-tone' as string]: TONE.info }}><FiInfo className="hidden size-3.5 sm:inline" aria-hidden /> Στοιχεία</TabsTrigger>
             {company && (
               <TabsTrigger value="contacts" className={TRIGGER} style={{ ['--tab-tone' as string]: TONE.contacts }}><FiUsers className="hidden size-3.5 sm:inline" aria-hidden /> Πρόσωπα <Badge n={data.contacts.length} tone={TONE.contacts} /></TabsTrigger>
@@ -153,18 +153,18 @@ export function PartnerExpandPanel({ row, canManage }: { row: PartnerListRow; ca
         {/* ── Στοιχεία ─────────────────────────────────────────────────────────────── */}
         <TabsContent value="details" className="space-y-3">
           <div className="flex flex-wrap items-center gap-2 rounded-lg border px-3 py-2" style={{ borderColor: soft(TONE.info, 30), backgroundColor: soft(TONE.info, 5) }}>
-            <span className="inline-flex items-center gap-1 rounded-sm px-1.5 py-0.5 text-[length:var(--fs-11)] font-semibold" style={{ color: company ? TONE.info : TONE.contacts, backgroundColor: soft(company ? TONE.info : TONE.contacts, 14) }}>
+            <span className="inline-flex items-center gap-1 rounded-sm px-1.5 py-0.5 text-(length:--fs-11) font-semibold" style={{ color: company ? TONE.info : TONE.contacts, backgroundColor: soft(company ? TONE.info : TONE.contacts, 14) }}>
               {company ? <FiBriefcase className="size-3" aria-hidden /> : <FiUsers className="size-3" aria-hidden />}
               {company ? 'Εταιρία' : 'Φυσικό πρόσωπο'}
             </span>
-            <span className="min-w-0 truncate text-[length:var(--fs-14)] font-semibold">{p.name}</span>
-            {p.tradeName && <span className="truncate text-[length:var(--fs-12)] text-muted-foreground">«{p.tradeName}»</span>}
-            {p.specialty && <span className="rounded-sm bg-muted px-1.5 py-0.5 text-[length:var(--fs-11)]">{p.specialty}</span>}
-            <span className={cn('ml-auto inline-flex items-center gap-1 text-[length:var(--fs-12)]', !p.isActive && 'text-muted-foreground')} style={p.isActive ? { color: '#047857' } : undefined}>
+            <span className="min-w-0 truncate text-(length:--fs-14) font-semibold">{p.name}</span>
+            {p.tradeName && <span className="truncate text-(length:--fs-12) text-muted-foreground">«{p.tradeName}»</span>}
+            {p.specialty && <span className="rounded-sm bg-muted px-1.5 py-0.5 text-(length:--fs-11)">{p.specialty}</span>}
+            <span className={cn('ml-auto inline-flex items-center gap-1 text-(length:--fs-12)', !p.isActive && 'text-muted-foreground')} style={p.isActive ? { color: '#047857' } : undefined}>
               {p.isActive ? <><FiCheck className="size-3.5" aria-hidden /> Ενεργός</> : <><FiSlash className="size-3.5" aria-hidden /> Ανενεργός</>}
             </span>
             {canManage && (
-              <button type="button" onClick={() => setDlg({ kind: 'edit' })} className="inline-flex h-8 cursor-pointer items-center gap-1 rounded-md px-2 text-[length:var(--fs-12)] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
+              <button type="button" onClick={() => setDlg({ kind: 'edit' })} className="inline-flex h-8 cursor-pointer items-center gap-1 rounded-md px-2 text-(length:--fs-12) text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
                 <FiEdit3 className="size-3.5" aria-hidden /> Επεξεργασία
               </button>
             )}
@@ -178,10 +178,10 @@ export function PartnerExpandPanel({ row, canManage }: { row: PartnerListRow; ca
             <Info icon={<FiGlobe />} label="Ιστότοπος">{p.website ? <a className="hover:underline" href={p.website} target="_blank" rel="noreferrer">{p.website.replace(/^https?:\/\//, '')}</a> : null}</Info>
             {company && <Info icon={<FiStar />} label="Κύριο πρόσωπο">{primary ? `${primary.name}${primary.role ? ` · ${primary.role}` : ''}` : null}</Info>}
           </div>
-          {p.notes && <p className="whitespace-pre-wrap rounded-md bg-muted/50 px-3 py-2 text-[length:var(--fs-12)]">{p.notes}</p>}
+          {p.notes && <p className="whitespace-pre-wrap rounded-md bg-muted/50 px-3 py-2 text-(length:--fs-12)">{p.notes}</p>}
           {!company && (
             <div className="flex flex-wrap items-center gap-3 rounded-md border border-border bg-card px-3 py-2">
-              <span className="text-[length:var(--fs-12)] font-semibold">Πρόσβαση στην πλατφόρμα</span>
+              <span className="text-(length:--fs-12) font-semibold">Πρόσβαση στην πλατφόρμα</span>
               <AccessStatus user={access?.self ?? null} />
               {canManage && (
                 <span className="ml-auto">
@@ -195,7 +195,7 @@ export function PartnerExpandPanel({ row, canManage }: { row: PartnerListRow; ca
               )}
             </div>
           )}
-          <p className="text-[length:var(--fs-11)] text-muted-foreground">
+          <p className="text-(length:--fs-11) text-muted-foreground">
             Καταχώριση {new Date(p.createdAt).toLocaleDateString('el-GR')} · τελευταία αλλαγή {new Date(p.updatedAt).toLocaleString('el-GR')}
           </p>
         </TabsContent>
@@ -220,9 +220,9 @@ export function PartnerExpandPanel({ row, canManage }: { row: PartnerListRow; ca
                             {c.isPrimary && <FiStar className="size-3.5 shrink-0 fill-current" style={{ color: TONE.projects }} aria-label="Κύριο πρόσωπο" />}
                             {c.name}
                           </span>
-                          {c.notes && <div className="text-[length:var(--fs-11)] text-muted-foreground">{c.notes}</div>}
+                          {c.notes && <div className="text-(length:--fs-11) text-muted-foreground">{c.notes}</div>}
                         </td>
-                        <td className={TD}>{c.role ? <span className="rounded-sm px-1.5 py-0.5 text-[length:var(--fs-11)] font-medium" style={{ color: TONE.contacts, backgroundColor: soft(TONE.contacts, 10) }}>{c.role}</span> : DASH}</td>
+                        <td className={TD}>{c.role ? <span className="rounded-sm px-1.5 py-0.5 text-(length:--fs-11) font-medium" style={{ color: TONE.contacts, backgroundColor: soft(TONE.contacts, 10) }}>{c.role}</span> : DASH}</td>
                         <td className={cn(TD, 'hidden tabular-nums md:table-cell')}>
                           {[c.phone, c.mobile].filter(Boolean).map((t) => <a key={t} href={`tel:${t}`} className="block hover:underline">{t}</a>)}
                           {!c.phone && !c.mobile && DASH}
@@ -314,7 +314,7 @@ export function PartnerExpandPanel({ row, canManage }: { row: PartnerListRow; ca
               </table>
             </div>
           )}
-          <p className="text-[length:var(--fs-11)] text-muted-foreground">«Έργα» = συνδεδεμένα με τον συνεργάτη / σύνολο έργων του πελάτη.</p>
+          <p className="text-(length:--fs-11) text-muted-foreground">«Έργα» = συνδεδεμένα με τον συνεργάτη / σύνολο έργων του πελάτη.</p>
         </TabsContent>
 
         {/* ── Έργα ─────────────────────────────────────────────────────────────────── */}
@@ -340,10 +340,10 @@ export function PartnerExpandPanel({ row, canManage }: { row: PartnerListRow; ca
                       <td className={cn(TD, 'hidden font-mono tabular-nums text-muted-foreground sm:table-cell')}>{x.code ?? DASH}</td>
                       <td className={TD}>
                         <Link href={`/admin/projects/${x.prjc}`} className="font-medium hover:text-primary hover:underline">{x.name}</Link>
-                        {!x.isActive && <span className="ml-1.5 text-[length:var(--fs-11)] text-muted-foreground">(ανενεργό)</span>}
+                        {!x.isActive && <span className="ml-1.5 text-(length:--fs-11) text-muted-foreground">(ανενεργό)</span>}
                       </td>
                       <td className={cn(TD, 'hidden md:table-cell')}>{x.customer ?? DASH}</td>
-                      <td className={TD}>{x.role ? <span className="rounded-sm px-1.5 py-0.5 text-[length:var(--fs-11)] font-medium" style={{ color: TONE.projects, backgroundColor: soft(TONE.projects, 10) }}>{x.role}</span> : DASH}</td>
+                      <td className={TD}>{x.role ? <span className="rounded-sm px-1.5 py-0.5 text-(length:--fs-11) font-medium" style={{ color: TONE.projects, backgroundColor: soft(TONE.projects, 10) }}>{x.role}</span> : DASH}</td>
                       {canManage && (
                         <td className={cn(TD, 'w-10 text-right')}>
                           <RowMenu label={`Ενέργειες για ${x.name}`}>

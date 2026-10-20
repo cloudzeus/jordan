@@ -26,15 +26,15 @@ export default async function SignInPage({ searchParams }: { searchParams: Promi
 
   const otp = sp.mode === 'otp';
   const err = sp.error ? ERRORS[sp.error] ?? 'Κάτι πήγε στραβά. Δοκιμάστε ξανά.' : null;
-  const tab = (on: boolean) => cn('inline-flex min-h-11 flex-1 items-center justify-center border-b-2 text-[length:var(--fs-14)] transition-colors', on ? 'border-[var(--s-ink)] font-medium text-[var(--s-ink)]' : 'border-transparent text-[var(--s-mute)] hover:text-[var(--s-ink)]');
+  const tab = (on: boolean) => cn('inline-flex min-h-11 flex-1 items-center justify-center border-b-2 text-(length:--fs-14) transition-colors', on ? 'border-(--s-ink) font-medium text-(--s-ink)' : 'border-transparent text-(--s-mute) hover:text-(--s-ink)');
 
   return (
     <div>
       <Eyebrow>B2B πύλη · μόνο για επαγγελματίες</Eyebrow>
-      <h1 className="font-display mt-4 text-[length:var(--fs-48)]">Είσοδος</h1>
-      <p className="mt-4 text-[length:var(--fs-15)] text-[var(--s-ink-2)]">Με τον λογαριασμό που σας δώσαμε. Θα σας οδηγήσουμε αυτόματα στη σωστή σελίδα.</p>
+      <h1 className="font-display mt-4 text-(length:--fs-48)">Είσοδος</h1>
+      <p className="mt-4 text-(length:--fs-15) text-(--s-ink-2)">Με τον λογαριασμό που σας δώσαμε. Θα σας οδηγήσουμε αυτόματα στη σωστή σελίδα.</p>
 
-      <nav aria-label="Τρόπος εισόδου" className="mt-8 flex border-b border-[var(--s-line)]">
+      <nav aria-label="Τρόπος εισόδου" className="mt-8 flex border-b border-(--s-line)">
         <Link href="/auth/signin" className={tab(!otp)} aria-current={!otp ? 'page' : undefined}>Με κωδικό</Link>
         <Link href="/auth/signin?mode=otp" className={tab(otp)} aria-current={otp ? 'page' : undefined}>Με κωδικό μέσω email</Link>
       </nav>
@@ -50,7 +50,7 @@ export default async function SignInPage({ searchParams }: { searchParams: Promi
             </Field>
             <Field
               label="Κωδικός" htmlFor="password"
-              aside={<Link href="/auth/lost-password" className="s-link text-[length:var(--fs-13)] text-[var(--s-ink-2)]">Ξεχάσατε τον κωδικό;</Link>}
+              aside={<Link href="/auth/lost-password" className="s-link text-(length:--fs-13) text-(--s-ink-2)">Ξεχάσατε τον κωδικό;</Link>}
             >
               <PasswordInput id="password" name="password" autoComplete="current-password" />
             </Field>
@@ -67,10 +67,10 @@ export default async function SignInPage({ searchParams }: { searchParams: Promi
         )}
       </div>
 
-      <div className="mt-10 space-y-3 border-t border-[var(--s-line)] pt-6 text-[length:var(--fs-14)] text-[var(--s-ink-2)]">
-        <p>Δεν έχετε λογαριασμό; <Link href="/auth/register" className="s-link font-medium text-[var(--s-ink)]">Ζητήστε πρόσβαση</Link></p>
+      <div className="mt-10 space-y-3 border-t border-(--s-line) pt-6 text-(length:--fs-14) text-(--s-ink-2)">
+        <p>Δεν έχετε λογαριασμό; <Link href="/auth/register" className="s-link font-medium text-(--s-ink)">Ζητήστε πρόσβαση</Link></p>
         {process.env.MICROSOFT_CLIENT_ID && (
-          <p>Προσωπικό: <a href="/api/auth/signin/microsoft-entra-id" className="s-link text-[var(--s-ink)]">είσοδος με Microsoft</a></p>
+          <p>Προσωπικό: <a href="/api/auth/signin/microsoft-entra-id" className="s-link text-(--s-ink)">είσοδος με Microsoft</a></p>
         )}
       </div>
     </div>

@@ -35,17 +35,17 @@ export function SiteHeader({ nav, account, signedIn }: { nav: NavItem[]; account
 
   return (
     <header className={cn('fixed inset-x-0 top-0 z-50 transition-[background-color,border-color,color] duration-300',
-      clear ? 'border-b border-transparent bg-transparent text-white' : 'border-b border-[var(--s-line)] bg-white text-[var(--s-ink)]')}>
+      clear ? 'border-b border-transparent bg-transparent text-white' : 'border-b border-(--s-line) bg-white text-(--s-ink)')}>
       <div className="mx-auto flex h-16 w-full max-w-[1440px] items-center gap-6 px-5 sm:px-8 md:h-20 lg:px-12">
         <Link href="/" aria-label="Atelier by Damask — αρχική" className="relative block h-10 w-[78px] shrink-0 md:h-12 md:w-[94px]">
           <Image src="/site/brand/logo-white.png" alt="" fill sizes="94px" priority className={cn('object-contain transition-opacity duration-300', clear ? 'opacity-100' : 'opacity-0')} />
           <Image src="/site/brand/logo-black.png" alt="" fill sizes="94px" priority className={cn('object-contain transition-opacity duration-300', clear ? 'opacity-0' : 'opacity-100')} />
         </Link>
-        <span className={cn('hidden border-l pl-4 text-[length:var(--fs-12)] uppercase leading-tight tracking-[0.22em] xl:block', clear ? 'border-white/30 text-white/80' : 'border-[var(--s-line)] text-[var(--s-mute)]')}>B2B πύλη<br />επαγγελματιών</span>
+        <span className={cn('hidden border-l pl-4 text-(length:--fs-12) uppercase leading-tight tracking-[0.22em] xl:block', clear ? 'border-white/30 text-white/80' : 'border-(--s-line) text-(--s-mute)')}>B2B πύλη<br />επαγγελματιών</span>
 
         <nav aria-label="Κύρια" className="ml-auto hidden items-center gap-8 lg:flex">
           {nav.map((n) => (
-            <Link key={n.href} href={n.href} className="group relative py-2 text-[length:var(--fs-14)]">
+            <Link key={n.href} href={n.href} className="group relative py-2 text-(length:--fs-14)">
               {n.label}
               <span aria-hidden className="absolute inset-x-0 bottom-0 h-px origin-left scale-x-0 bg-current transition-transform duration-300 group-hover:scale-x-100" />
             </Link>
@@ -54,10 +54,10 @@ export function SiteHeader({ nav, account, signedIn }: { nav: NavItem[]; account
 
         <div className="ml-auto flex items-center gap-3 lg:ml-6">
           {!signedIn && (
-            <Link href="/auth/register" className={cn('hidden min-h-11 items-center px-2 text-[length:var(--fs-14)] font-medium underline-offset-4 hover:underline xl:inline-flex', clear ? 'text-white' : 'text-[var(--s-ink)]')}>Αίτημα πρόσβασης</Link>
+            <Link href="/auth/register" className={cn('hidden min-h-11 items-center px-2 text-(length:--fs-14) font-medium underline-offset-4 hover:underline xl:inline-flex', clear ? 'text-white' : 'text-(--s-ink)')}>Αίτημα πρόσβασης</Link>
           )}
-          <Link href={account.href} className={cn('hidden min-h-11 items-center gap-2 border px-4 text-[length:var(--fs-14)] font-medium transition-colors sm:inline-flex',
-            clear ? 'border-white/60 hover:bg-white hover:text-[var(--s-ink)]' : 'border-[var(--s-ink)] hover:bg-[var(--s-ink)] hover:text-white')}>
+          <Link href={account.href} className={cn('hidden min-h-11 items-center gap-2 border px-4 text-(length:--fs-14) font-medium transition-colors sm:inline-flex',
+            clear ? 'border-white/60 hover:bg-white hover:text-(--s-ink)' : 'border-(--s-ink) hover:bg-(--s-ink) hover:text-white')}>
             <FiUser className="size-4" aria-hidden />{account.label}{signedIn && <FiArrowUpRight className="size-3.5" aria-hidden />}
           </Link>
           <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} aria-controls="site-menu" aria-label={open ? 'Κλείσιμο μενού' : 'Μενού'}
@@ -68,19 +68,19 @@ export function SiteHeader({ nav, account, signedIn }: { nav: NavItem[]; account
       </div>
 
       {/* Κινητό: μενού πλήρους οθόνης με μεγάλη τυπογραφία */}
-      <div id="site-menu" hidden={!open} className="fixed inset-x-0 bottom-0 top-16 overflow-y-auto bg-white px-5 pb-10 pt-6 text-[var(--s-ink)] lg:hidden">
+      <div id="site-menu" hidden={!open} className="fixed inset-x-0 bottom-0 top-16 overflow-y-auto bg-white px-5 pb-10 pt-6 text-(--s-ink) lg:hidden">
         <nav aria-label="Κύρια (κινητό)" className="flex flex-col">
           {nav.map((n, i) => (
-            <Link key={n.href} href={n.href} onClick={() => setOpen(false)} className="flex items-baseline gap-4 border-b border-[var(--s-line)] py-5">
-              <span className="font-num text-[length:var(--fs-14)] text-[var(--s-mute)]">0{i + 1}</span>
-              <span className="font-display text-[length:var(--fs-40)]">{n.label}</span>
+            <Link key={n.href} href={n.href} onClick={() => setOpen(false)} className="flex items-baseline gap-4 border-b border-(--s-line) py-5">
+              <span className="font-num text-(length:--fs-14) text-(--s-mute)">0{i + 1}</span>
+              <span className="font-display text-(length:--fs-40)">{n.label}</span>
             </Link>
           ))}
         </nav>
-        <Link href={account.href} className="mt-8 inline-flex min-h-12 w-full items-center justify-center gap-2 bg-[var(--s-ink)] px-6 text-[length:var(--fs-16)] font-medium text-white">
+        <Link href={account.href} className="mt-8 inline-flex min-h-12 w-full items-center justify-center gap-2 bg-(--s-ink) px-6 text-(length:--fs-16) font-medium text-white">
           <FiUser className="size-4" aria-hidden />{account.label}
         </Link>
-        {!signedIn && <Link href="/auth/register" className="mt-3 inline-flex min-h-12 w-full items-center justify-center border border-[var(--s-ink)] px-6 text-[length:var(--fs-16)] font-medium">Αίτημα πρόσβασης</Link>}
+        {!signedIn && <Link href="/auth/register" className="mt-3 inline-flex min-h-12 w-full items-center justify-center border border-(--s-ink) px-6 text-(length:--fs-16) font-medium">Αίτημα πρόσβασης</Link>}
       </div>
     </header>
   );

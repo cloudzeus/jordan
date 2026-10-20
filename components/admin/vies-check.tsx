@@ -71,14 +71,14 @@ export function ViesCheck({ vat, trader, onResult, className, autoRun = false }:
     <div className={className}>
       <button
         type="button" onClick={() => void run(false)} disabled={!vat || busy}
-        className="inline-flex cursor-pointer items-center gap-1.5 rounded border border-border px-2 py-1 text-[length:var(--fs-12)] font-medium text-foreground transition hover:bg-muted disabled:opacity-50"
+        className="inline-flex cursor-pointer items-center gap-1.5 rounded border border-border px-2 py-1 text-(length:--fs-12) font-medium text-foreground transition hover:bg-muted disabled:opacity-50"
         title="Έλεγχος του ΑΦΜ στην επίσημη αρχή της χώρας (VIES, HMRC, Brønnøysund, UID) — γίνεται μόνο όταν το πατάς"
       >
         {busy ? <FiLoader aria-hidden className="size-3.5 animate-spin motion-reduce:animate-none" /> : <FiShield aria-hidden className="size-3.5" />}
         {busy ? 'Έλεγχος…' : 'Έλεγχος ΑΦΜ (VIES)'}
       </button>
       {r && (
-        <div className="mt-1 space-y-1 text-[length:var(--fs-11)] leading-snug" role="status" aria-live="polite">
+        <div className="mt-1 space-y-1 text-(length:--fs-11) leading-snug" role="status" aria-live="polite">
           {r.valid === true ? (
             <p className="flex items-start gap-1 text-emerald-700 dark:text-emerald-300">
               <FiCheckCircle aria-hidden className="mt-0.5 size-3 shrink-0" />

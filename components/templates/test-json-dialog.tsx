@@ -51,8 +51,8 @@ export function TestJsonDialog({ open, onOpenChange, result, slug }: { open: boo
         <DialogHeader className="flex-row items-center gap-3 border-b border-border px-4 py-2.5 pr-12">
           <span aria-hidden className="grid size-8 shrink-0 place-items-center rounded-lg bg-sisyphus-50 text-sisyphus-600 dark:bg-sisyphus-500/15 [&_svg]:size-4"><FiCode /></span>
           <div className="min-w-0 flex-1">
-            <DialogTitle className="text-[length:var(--fs-15)]">Δοκιμή προτύπου — JSON</DialogTitle>
-            <DialogDescription className="truncate text-[length:var(--fs-11)] tabular-nums">
+            <DialogTitle className="text-(length:--fs-15)">Δοκιμή προτύπου — JSON</DialogTitle>
+            <DialogDescription className="truncate text-(length:--fs-11) tabular-nums">
               {result ? `${Object.keys(result.values).length} πεδία · ${result.model ?? '—'} · ${result.tokensUsed} tokens · ${result.durationMs} ms` : 'Ανάγνωση…'}
             </DialogDescription>
           </div>
@@ -63,7 +63,7 @@ export function TestJsonDialog({ open, onOpenChange, result, slug }: { open: boo
               <FormSection tone="emerald" icon={<FiList />} title="Πεδία" aside={<span className="tabular-nums">{Object.keys(result.fields).length}</span>}>
                 <ul className="flex flex-wrap gap-1.5">
                   {Object.entries(result.fields).map(([k, v]) => (
-                    <li key={k} className="inline-flex max-w-full items-center gap-1.5 rounded-full border px-2 py-0.5 text-[length:var(--fs-11)]" style={{ borderColor: v.color, color: v.color }}>
+                    <li key={k} className="inline-flex max-w-full items-center gap-1.5 rounded-full border px-2 py-0.5 text-(length:--fs-11)" style={{ borderColor: v.color, color: v.color }}>
                       <span className="font-mono">{k}</span>
                       <span className="truncate text-foreground">{v.value == null ? '∅' : Array.isArray(v.value) ? `${v.value.length} γραμμές` : String(v.value)}</span>
                     </li>
@@ -72,7 +72,7 @@ export function TestJsonDialog({ open, onOpenChange, result, slug }: { open: boo
                 {result.errors.length > 0 && <RowHint tone="bad">{result.errors.map((e) => `${e.fieldKey}: ${e.message}`).join(' · ')}</RowHint>}
               </FormSection>
               <FormSection tone="slate" icon={<FiCode />} title="JSON εξόδου" aside={<span className="font-mono">{slug}.json</span>}>
-                <pre ref={preRef} className="-mx-3 -my-2.5 max-h-[50vh] overflow-auto bg-neutral-4 px-3 py-2.5 font-mono text-[length:var(--fs-11)] leading-relaxed">{json}</pre>
+                <pre ref={preRef} className="-mx-3 -my-2.5 max-h-[50vh] overflow-auto bg-neutral-4 px-3 py-2.5 font-mono text-(length:--fs-11) leading-relaxed">{json}</pre>
               </FormSection>
             </div>
             <DialogFooter className="mx-0 mb-0 gap-2 border-t border-border bg-card px-4 py-2.5">

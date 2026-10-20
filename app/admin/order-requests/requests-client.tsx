@@ -21,7 +21,7 @@ const num = (n: number) => n.toLocaleString('el-GR', { maximumFractionDigits: 3 
 const day = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString('el-GR') : null);
 const TONE: Record<OrderRequestStatus, string> = { SUBMITTED: '#B45309', IN_REVIEW: '#0369A1', CONFIRMED: '#047857', REJECTED: '#BE123C', CANCELLED: '#475569' };
 const soft = (hex: string, pct: number) => `color-mix(in srgb, ${hex} ${pct}%, var(--background))`;
-const ITEM = 'cursor-pointer gap-2 text-[length:var(--fs-12)]';
+const ITEM = 'cursor-pointer gap-2 text-(length:--fs-12)';
 
 async function patch(id: string, body: unknown) {
   const res = await fetch(`/api/admin/order-requests/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
@@ -55,14 +55,14 @@ function DecisionDialog({ decision, onClose, onDone }: { decision: Decision | nu
           </DialogHeader>
           <DialogBody className="space-y-3">
             {confirm && (
-              <label className="block space-y-1 text-[length:var(--fs-12)] font-medium">
+              <label className="block space-y-1 text-(length:--fs-12) font-medium">
                 <span>Παραστατικό SoftOne (προαιρετικό)</span>
                 <Input name="fincode" placeholder="π.χ. ΠΑΡ0000057" maxLength={40} defaultValue={decision?.row.softoneFincode ?? ''} />
               </label>
             )}
-            <label className="block space-y-1 text-[length:var(--fs-12)] font-medium">
+            <label className="block space-y-1 text-(length:--fs-12) font-medium">
               <span>Σχόλιο προς τον πελάτη</span>
-              <textarea name="staffNote" rows={3} maxLength={1000} defaultValue={decision?.row.staffNote ?? ''} className="w-full rounded-md border border-input bg-background px-3 py-2 text-[length:var(--fs-13)] font-normal" placeholder={confirm ? 'π.χ. Παράδοση την Πέμπτη' : 'π.χ. Το υλικό δεν είναι διαθέσιμο'} />
+              <textarea name="staffNote" rows={3} maxLength={1000} defaultValue={decision?.row.staffNote ?? ''} className="w-full rounded-md border border-input bg-background px-3 py-2 text-(length:--fs-13) font-normal" placeholder={confirm ? 'π.χ. Παράδοση την Πέμπτη' : 'π.χ. Το υλικό δεν είναι διαθέσιμο'} />
             </label>
           </DialogBody>
           <DialogFooter>
@@ -77,7 +77,7 @@ function DecisionDialog({ decision, onClose, onDone }: { decision: Decision | nu
 
 function Lines({ r }: { r: Row }) {
   return (
-    <div className="space-y-3 px-2 py-3 text-[length:var(--fs-12)]">
+    <div className="space-y-3 px-2 py-3 text-(length:--fs-12)">
       <table className="w-full max-w-3xl">
         <thead><tr className="text-left text-muted-foreground"><th className="py-1 pr-3 font-medium">Κωδικός</th><th className="py-1 pr-3 font-medium">Υλικό</th><th className="py-1 text-right font-medium">Ποσότητα</th></tr></thead>
         <tbody>
@@ -113,7 +113,7 @@ export function RequestsClient({ rows, canManage }: { rows: Row[]; canManage: bo
     { accessorKey: 'code', header: 'Αίτημα', size: 110, cell: ({ row }) => <span className="font-medium tabular-nums">{row.original.code}</span> },
     { accessorKey: 'createdAt', header: 'Ημ/νία', size: 96, cell: ({ row }) => <span className="tabular-nums">{day(row.original.createdAt)}</span> },
     { id: 'customer', accessorFn: (r) => `${r.customer} ${r.customerCode ?? ''} ${r.customerRef ?? ''}`, header: 'Πελάτης', size: 260, cell: ({ row }) => (
-      <span className="min-w-0"><span className="block truncate font-medium">{row.original.customer}</span>{row.original.customerRef && <span className="block truncate text-[length:var(--fs-11)] text-muted-foreground">Αναφ.: {row.original.customerRef}</span>}</span>
+      <span className="min-w-0"><span className="block truncate font-medium">{row.original.customer}</span>{row.original.customerRef && <span className="block truncate text-(length:--fs-11) text-muted-foreground">Αναφ.: {row.original.customerRef}</span>}</span>
     ) },
     { id: 'project', accessorFn: (r) => r.project?.name ?? '', header: 'Έργο', size: 200, cell: ({ row }) => (row.original.project ? <span className="truncate">{row.original.project.name}</span> : DASH) },
     { id: 'lines', accessorFn: (r) => r.lines.length, header: 'Γραμμές', size: 80, cell: ({ row }) => <span className="tabular-nums">{row.original.lines.length}</span> },
@@ -122,8 +122,8 @@ export function RequestsClient({ rows, canManage }: { rows: Row[]; canManage: bo
       const s = row.original.status;
       return (
         <span className="inline-flex items-center gap-1.5">
-          <span className="rounded-md px-2 py-0.5 text-[length:var(--fs-11)] font-medium" style={{ color: TONE[s], background: soft(TONE[s], 12) }}>{row.original.statusLabel}</span>
-          {row.original.softoneFincode && <span className="text-[length:var(--fs-11)] tabular-nums text-muted-foreground">{row.original.softoneFincode}</span>}
+          <span className="rounded-md px-2 py-0.5 text-(length:--fs-11) font-medium" style={{ color: TONE[s], background: soft(TONE[s], 12) }}>{row.original.statusLabel}</span>
+          {row.original.softoneFincode && <span className="text-(length:--fs-11) tabular-nums text-muted-foreground">{row.original.softoneFincode}</span>}
         </span>
       );
     } },
@@ -149,7 +149,7 @@ export function RequestsClient({ rows, canManage }: { rows: Row[]; canManage: bo
     },
   ], [canManage]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const chip = (active: boolean) => cn('inline-flex h-7 cursor-pointer items-center gap-1 rounded-md border px-2.5 text-[length:var(--fs-11)] font-medium transition',
+  const chip = (active: boolean) => cn('inline-flex h-7 cursor-pointer items-center gap-1 rounded-md border px-2.5 text-(length:--fs-11) font-medium transition',
     active ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-background text-muted-foreground hover:text-foreground');
   const toolbar = (
     <div className="flex flex-wrap items-center gap-1.5">
@@ -176,7 +176,7 @@ export function RequestsClient({ rows, canManage }: { rows: Row[]; canManage: bo
         emptyState={(
           <div className="space-y-2 py-10 text-center">
             <FiShoppingCart className="mx-auto size-8 text-muted-foreground/50" aria-hidden />
-            <p className="text-[length:var(--fs-13)] text-muted-foreground">{rows.length ? 'Κανένα αίτημα με αυτό το φίλτρο.' : 'Δεν υπάρχουν ακόμη αιτήματα παραγγελίας από το portal.'}</p>
+            <p className="text-(length:--fs-13) text-muted-foreground">{rows.length ? 'Κανένα αίτημα με αυτό το φίλτρο.' : 'Δεν υπάρχουν ακόμη αιτήματα παραγγελίας από το portal.'}</p>
           </div>
         )}
       />

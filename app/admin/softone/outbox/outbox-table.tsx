@@ -59,8 +59,8 @@ export function OutboxTable({ initial }: { initial: OutboxRow[] }) {
   if (initial.length === 0) {
     return (
       <div className="rounded-lg border border-border bg-card p-8 text-center">
-        <p className="text-[length:var(--fs-13)] font-semibold text-foreground">Η ουρά είναι άδεια.</p>
-        <p className="mt-1 text-[length:var(--fs-12)] text-muted-foreground">
+        <p className="text-(length:--fs-13) font-semibold text-foreground">Η ουρά είναι άδεια.</p>
+        <p className="mt-1 text-(length:--fs-12) text-muted-foreground">
           Ό,τι στέλνουμε στο SoftOne φεύγει αμέσως. Εδώ θα εμφανιστεί μόνο ό,τι δεν μπόρεσε.
         </p>
       </div>
@@ -72,21 +72,21 @@ export function OutboxTable({ initial }: { initial: OutboxRow[] }) {
     <div className="space-y-3">
       {pending > 0 && (
         <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-muted/40 px-3 py-2">
-          <span className="text-[length:var(--fs-12)] text-foreground">{pending} σε αναμονή</span>
+          <span className="text-(length:--fs-12) text-foreground">{pending} σε αναμονή</span>
           <button type="button" onClick={drain} disabled={busy != null}
-            className="inline-flex h-7 items-center gap-1 rounded-md bg-sisyphus-500 px-2.5 text-[length:var(--fs-11)] font-semibold text-white shadow-sm transition hover:bg-sisyphus-600 disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground disabled:shadow-none">
+            className="inline-flex h-7 items-center gap-1 rounded-md bg-sisyphus-500 px-2.5 text-(length:--fs-11) font-semibold text-white shadow-xs transition hover:bg-sisyphus-600 disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground disabled:shadow-none">
             <FiSend className="size-3.5" /> Στείλε τώρα
           </button>
         </div>
       )}
       <div className="overflow-hidden rounded-lg border border-border bg-card">
         <table className="w-full table-fixed">
-          <thead className="border-b border-border bg-muted/50 text-left text-[length:var(--fs-11)] font-bold uppercase tracking-wide text-foreground">
+          <thead className="border-b border-border bg-muted/50 text-left text-(length:--fs-11) font-bold uppercase tracking-wide text-foreground">
             <tr>
               <th className="px-3 py-1.5">Εργασία</th>
-              <th className="w-[9rem] px-3 py-1.5">Κατάσταση</th>
-              <th className="w-[10rem] px-3 py-1.5">Πότε</th>
-              <th className="w-[11rem] px-3 py-1.5">Ενέργειες</th>
+              <th className="w-36 px-3 py-1.5">Κατάσταση</th>
+              <th className="w-40 px-3 py-1.5">Πότε</th>
+              <th className="w-44 px-3 py-1.5">Ενέργειες</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
@@ -97,19 +97,19 @@ export function OutboxTable({ initial }: { initial: OutboxRow[] }) {
               return (
                 <tr key={i.id} className="align-top">
                   <td className="min-w-0 px-3 py-2">
-                    <p className="truncate text-[length:var(--fs-12)] font-medium text-foreground" title={i.label}>{i.label}</p>
-                    <p className="text-[length:var(--fs-10)] text-muted-foreground">{i.kind}{i.attempts > 0 ? ` · ${i.attempts} προσπάθειες` : ''}</p>
+                    <p className="truncate text-(length:--fs-12) font-medium text-foreground" title={i.label}>{i.label}</p>
+                    <p className="text-(length:--fs-10) text-muted-foreground">{i.kind}{i.attempts > 0 ? ` · ${i.attempts} προσπάθειες` : ''}</p>
                     {i.lastError && (
-                      <p className="mt-0.5 text-[length:var(--fs-10)] text-muted-foreground">{i.lastError}</p>
+                      <p className="mt-0.5 text-(length:--fs-10) text-muted-foreground">{i.lastError}</p>
                     )}
                   </td>
                   <td className="px-3 py-2">
                     <span style={{ color: st.fg, backgroundColor: st.bg }} title={st.help}
-                      className="inline-flex items-center rounded-full px-2 py-0.5 text-[length:var(--fs-10)] font-bold">
+                      className="inline-flex items-center rounded-full px-2 py-0.5 text-(length:--fs-10) font-bold">
                       {st.label}
                     </span>
                   </td>
-                  <td className="px-3 py-2 text-[length:var(--fs-11)] tabular-nums text-muted-foreground">
+                  <td className="px-3 py-2 text-(length:--fs-11) tabular-nums text-muted-foreground">
                     {new Date(i.sentAt ?? i.createdAt).toLocaleString('el-GR')}
                   </td>
                   <td className="px-3 py-2">
@@ -139,5 +139,5 @@ export function OutboxTable({ initial }: { initial: OutboxRow[] }) {
 }
 
 const BTN =
-  'inline-flex h-6 items-center gap-1 rounded-md border px-2 text-[length:var(--fs-10)] font-semibold ' +
+  'inline-flex h-6 items-center gap-1 rounded-md border px-2 text-(length:--fs-10) font-semibold ' +
   'transition disabled:cursor-not-allowed disabled:opacity-60';

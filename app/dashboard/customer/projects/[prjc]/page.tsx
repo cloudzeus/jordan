@@ -52,7 +52,7 @@ export default async function CustomerProjectPage({ params }: { params: Promise<
     <PortalShell user={user} org={org?.name ?? null} active="projects">
       <Container className="py-14 md:py-20">
         <PageTitle eyebrow={`Έργο ${p.code}`} title={p.name} back={{ href: '/dashboard/customer/projects', label: 'Τα έργα μου' }} />
-        <div className="mt-6 flex flex-wrap items-center gap-x-8 gap-y-3 text-[length:var(--fs-14)] text-[var(--s-ink-2)]">
+        <div className="mt-6 flex flex-wrap items-center gap-x-8 gap-y-3 text-(length:--fs-14) text-(--s-ink-2)">
           <Status label={p.stateLabel} tone={projectTone[p.state]} />
           <span>Έναρξη {date(p.fromDate)}</span>
           {p.finalDate && <span>Προβλεπόμενη λήξη {date(p.finalDate)}</span>}
@@ -69,7 +69,7 @@ export default async function CustomerProjectPage({ params }: { params: Promise<
 
         <section className="mt-16" aria-labelledby="docs">
           <div className="flex flex-wrap items-end justify-between gap-4">
-            <h2 id="docs" className="font-site text-[length:var(--fs-24)] font-light">Παραγγελίες, δελτία & τιμολόγια</h2>
+            <h2 id="docs" className="font-site text-(length:--fs-24) font-light">Παραγγελίες, δελτία & τιμολόγια</h2>
             <Link href={`/dashboard/customer/orders/new?project=${p.prjc}`} className={btn.ghost}>Νέα παραγγελία για το έργο</Link>
           </div>
           <div className="mt-6">{sales.length ? <DocTable docs={sales} /> : <Empty title="Δεν υπάρχουν ακόμη παραστατικά" />}</div>
@@ -77,7 +77,7 @@ export default async function CustomerProjectPage({ params }: { params: Promise<
 
         {payments.length > 0 && (
           <section className="mt-16" aria-labelledby="payments">
-            <h2 id="payments" className="font-site text-[length:var(--fs-24)] font-light">Πληρωμές</h2>
+            <h2 id="payments" className="font-site text-(length:--fs-24) font-light">Πληρωμές</h2>
             <div className="mt-6"><DocTable docs={payments} link={false} /></div>
           </section>
         )}

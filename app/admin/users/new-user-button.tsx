@@ -63,8 +63,8 @@ export function NewUserButton({ roles }: { roles: { id: string; name: string }[]
         <DialogHeader className="flex-row items-center gap-3 border-b border-border px-4 py-2.5 pr-12">
           <span aria-hidden className="grid size-8 shrink-0 place-items-center rounded-lg bg-sisyphus-50 text-sisyphus-600 dark:bg-sisyphus-500/15"><FiUserPlus className="size-4" /></span>
           <div className="min-w-0 flex-1">
-            <DialogTitle className="text-[length:var(--fs-15)]">Νέος χρήστης</DialogTitle>
-            <DialogDescription className="truncate text-[length:var(--fs-11)]">Δημιούργησε λογαριασμό και όρισε ρόλο.</DialogDescription>
+            <DialogTitle className="text-(length:--fs-15)">Νέος χρήστης</DialogTitle>
+            <DialogDescription className="truncate text-(length:--fs-11)">Δημιούργησε λογαριασμό και όρισε ρόλο.</DialogDescription>
           </div>
         </DialogHeader>
         <div className="space-y-3 bg-muted/20 px-4 py-3">
@@ -89,7 +89,7 @@ export function NewUserButton({ roles }: { roles: { id: string; name: string }[]
             </div>
             <label className="flex w-fit cursor-pointer items-center gap-2">
               <Checkbox checked={active} onCheckedChange={(v) => setActive(!!v)} />
-              <span className="text-[length:var(--fs-13)] text-foreground">Ενεργός λογαριασμός</span>
+              <span className="text-(length:--fs-13) text-foreground">Ενεργός λογαριασμός</span>
             </label>
           </FormSection>
         </div>

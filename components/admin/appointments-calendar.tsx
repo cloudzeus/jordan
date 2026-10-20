@@ -74,12 +74,12 @@ export function AppointmentsCalendar({
           <Button variant="outline" size="icon" className="size-8" onClick={() => go(-1)} aria-label="Προηγούμενο"><FiChevronLeft className="size-4" aria-hidden /></Button>
           <Button variant="outline" size="icon" className="size-8" onClick={() => go(1)} aria-label="Επόμενο"><FiChevronRight className="size-4" aria-hidden /></Button>
           <Button variant="outline" size="sm" className="h-8" onClick={() => onNavigate(today)}>Σήμερα</Button>
-          <h2 className="ml-2 text-[length:var(--fs-14)] font-semibold capitalize">{calendarTitle(view, anchor)}</h2>
+          <h2 className="ml-2 text-(length:--fs-14) font-semibold capitalize">{calendarTitle(view, anchor)}</h2>
         </div>
         <div className="inline-flex rounded-md border border-border p-0.5" role="group" aria-label="Προβολή">
           {(['day', 'week', 'month'] as const).map((v) => (
             <button key={v} type="button" aria-pressed={view === v} onClick={() => onView(v)}
-              className={cn('h-7 cursor-pointer rounded px-3 text-[length:var(--fs-12)] font-medium', view === v ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground')}>
+              className={cn('h-7 cursor-pointer rounded px-3 text-(length:--fs-12) font-medium', view === v ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground')}>
               {v === 'day' ? 'Ημέρα' : v === 'week' ? 'Εβδομάδα' : 'Μήνας'}
             </button>
           ))}
@@ -112,20 +112,20 @@ function TimeGrid({ days, today, events, blocks, weekly, onSelectEvent, onSelect
 
   return (
     <div className="overflow-x-auto">
-      <div className={cn('grid', days.length > 1 && 'min-w-[46rem]')} style={{ gridTemplateColumns: `3.25rem repeat(${days.length}, minmax(0, 1fr))` }}>
+      <div className={cn('grid', days.length > 1 && 'min-w-184')} style={{ gridTemplateColumns: `3.25rem repeat(${days.length}, minmax(0, 1fr))` }}>
         <div className="sticky top-0 z-10 border-b border-border bg-card" />
         {days.map((d) => (
           <button key={d} type="button" onClick={() => onSelectDay?.(d)} disabled={!onSelectDay}
             className={cn('sticky top-0 z-10 flex cursor-pointer flex-col items-center border-b border-l border-border bg-card py-1.5 disabled:cursor-default', d === today && 'text-primary')}>
-            <span className="text-[length:var(--fs-11)] uppercase text-muted-foreground">{WEEKDAYS_SHORT_EL[weekdayOf(d)]}</span>
-            <span className={cn('grid size-7 place-items-center rounded-full text-[length:var(--fs-14)] font-semibold tabular-nums', d === today && 'bg-primary text-primary-foreground')}>{Number(d.slice(8))}</span>
+            <span className="text-(length:--fs-11) uppercase text-muted-foreground">{WEEKDAYS_SHORT_EL[weekdayOf(d)]}</span>
+            <span className={cn('grid size-7 place-items-center rounded-full text-(length:--fs-14) font-semibold tabular-nums', d === today && 'bg-primary text-primary-foreground')}>{Number(d.slice(8))}</span>
           </button>
         ))}
 
         <div className="relative">
           {hours.map((h) => (
             <div key={h} className="relative border-b border-transparent text-right" style={{ height: `${HOUR_REM}rem` }}>
-              <span className="absolute -top-2 right-1.5 text-[length:var(--fs-11)] tabular-nums text-muted-foreground">{h > minH ? `${String(h).padStart(2, '0')}:00` : ''}</span>
+              <span className="absolute -top-2 right-1.5 text-(length:--fs-11) tabular-nums text-muted-foreground">{h > minH ? `${String(h).padStart(2, '0')}:00` : ''}</span>
             </div>
           ))}
         </div>
@@ -151,7 +151,7 @@ function TimeGrid({ days, today, events, blocks, weekly, onSelectEvent, onSelect
                 const m = minH * 60 + Math.floor((((ev.clientY - r.top) / r.height) * hours.length * 60) / 15) * 15;
                 onSelectSlot(d, `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`);
               } : undefined}>
-              {hours.map((h) => <div key={h} className="pointer-events-none relative z-[1] border-b border-border/60" style={{ height: `${HOUR_REM}rem` }} />)}
+              {hours.map((h) => <div key={h} className="pointer-events-none relative z-1 border-b border-border/60" style={{ height: `${HOUR_REM}rem` }} />)}
               {ranges.map((r) => (
                 <div key={r.from} aria-hidden className="absolute inset-x-0 bg-card" style={{ top: top(Math.max(toMinutes(r.from), minH * 60)), height: height(Math.max(toMinutes(r.from), minH * 60), Math.min(toMinutes(r.to), maxH * 60)) }} />
               ))}
@@ -160,21 +160,21 @@ function TimeGrid({ days, today, events, blocks, weekly, onSelectEvent, onSelect
                 if (z <= a) return null;
                 return (
                   <div key={b.id} className="absolute inset-x-0 flex items-start justify-center overflow-hidden px-1 pt-1" style={{ top: top(a), height: height(a, z), backgroundImage: HATCH }} title={b.reason ?? 'Κλειστό'}>
-                    <span className="truncate rounded bg-background/90 px-1.5 text-[length:var(--fs-11)] text-muted-foreground">{b.reason ?? 'Κλειστό'}</span>
+                    <span className="truncate rounded bg-background/90 px-1.5 text-(length:--fs-11) text-muted-foreground">{b.reason ?? 'Κλειστό'}</span>
                   </div>
                 );
               })}
               {d === nowParts.date && nowParts.minutes >= minH * 60 && nowParts.minutes <= maxH * 60 && (
-                <div aria-hidden className="pointer-events-none absolute inset-x-0 z-[5] h-px bg-[#DC2626]" style={{ top: top(nowParts.minutes) }}><span className="absolute -left-1 -top-1 size-2 rounded-full bg-[#DC2626]" /></div>
+                <div aria-hidden className="pointer-events-none absolute inset-x-0 z-5 h-px bg-[#DC2626]" style={{ top: top(nowParts.minutes) }}><span className="absolute -left-1 -top-1 size-2 rounded-full bg-[#DC2626]" /></div>
               )}
               {dayEvents.map(({ e, span }) => {
                 const lane = laneOf.get(e.id) ?? 0;
                 return (
                   <button key={e.id} type="button" onClick={() => onSelectEvent(e.id)}
-                    className={cn('absolute z-[6] flex cursor-pointer flex-col overflow-hidden rounded-md border-l-[3px] px-1.5 py-1 text-left shadow-xs transition hover:brightness-95', e.muted && 'opacity-55')}
+                    className={cn('absolute z-6 flex cursor-pointer flex-col overflow-hidden rounded-md border-l-[3px] px-1.5 py-1 text-left shadow-2xs transition hover:brightness-95', e.muted && 'opacity-55')}
                     style={{ top: top(span.from), height: `max(1.6rem, ${height(span.from, span.to)})`, left: `calc(${(lane / laneCount) * 100}% + 2px)`, width: `calc(${100 / laneCount}% - 4px)`, borderColor: e.color, background: soft(e.color, 14), color: e.color }}>
-                    <span className="truncate text-[length:var(--fs-12)] font-semibold leading-tight">{e.title}</span>
-                    {e.subtitle && <span className="truncate text-[length:var(--fs-11)] leading-tight text-foreground/70">{e.subtitle}</span>}
+                    <span className="truncate text-(length:--fs-12) font-semibold leading-tight">{e.title}</span>
+                    {e.subtitle && <span className="truncate text-(length:--fs-11) leading-tight text-foreground/70">{e.subtitle}</span>}
                   </button>
                 );
               })}
@@ -194,7 +194,7 @@ function MonthGrid({ days, anchor, today, events, blocks, weekly, onSelectEvent,
   return (
     <div>
       <div className="grid grid-cols-7 border-b border-border">
-        {[1, 2, 3, 4, 5, 6, 0].map((w) => <div key={w} className="py-1.5 text-center text-[length:var(--fs-11)] font-medium uppercase text-muted-foreground">{WEEKDAYS_SHORT_EL[w]}</div>)}
+        {[1, 2, 3, 4, 5, 6, 0].map((w) => <div key={w} className="py-1.5 text-center text-(length:--fs-11) font-medium uppercase text-muted-foreground">{WEEKDAYS_SHORT_EL[w]}</div>)}
       </div>
       <div className="grid grid-cols-7">
         {days.map((d) => {
@@ -204,20 +204,20 @@ function MonthGrid({ days, anchor, today, events, blocks, weekly, onSelectEvent,
           const partial = !blocked && blocks.some((b) => onDay(d, b.start, b.end));
           const list = events.filter((e) => zonedParts(new Date(e.start)).date === d).sort((a, b) => a.start.localeCompare(b.start));
           return (
-            <div key={d} className={cn('flex min-h-[5.5rem] flex-col gap-0.5 border-b border-l border-border p-1 first:border-l-0 [&:nth-child(7n+1)]:border-l-0 sm:min-h-[7rem]', !inMonth && 'opacity-60')}
+            <div key={d} className={cn('flex min-h-22 flex-col gap-0.5 border-b border-l border-border p-1 first:border-l-0 nth-[7n+1]:border-l-0 sm:min-h-28', !inMonth && 'opacity-60')}
               style={{ ...(closed || !inMonth ? { background: CLOSED_BG } : {}), ...(blocked ? { backgroundImage: HATCH } : {}) }}>
               <button type="button" onClick={() => onSelectDay?.(d)} className="flex cursor-pointer items-center justify-between gap-1 rounded px-0.5 text-left hover:bg-muted" aria-label={`Ημέρα ${d}`}>
-                <span className={cn('grid size-6 place-items-center rounded-full text-[length:var(--fs-12)] tabular-nums', !inMonth && 'text-muted-foreground/60', d === today && 'bg-primary font-semibold text-primary-foreground')}>{Number(d.slice(8))}</span>
-                {(blocked || partial) && <span className="truncate text-[length:var(--fs-10)] text-muted-foreground">{blocked?.reason ?? (blocked ? 'Κλειστό' : 'μερικώς κλειστό')}</span>}
+                <span className={cn('grid size-6 place-items-center rounded-full text-(length:--fs-12) tabular-nums', !inMonth && 'text-muted-foreground/60', d === today && 'bg-primary font-semibold text-primary-foreground')}>{Number(d.slice(8))}</span>
+                {(blocked || partial) && <span className="truncate text-(length:--fs-10) text-muted-foreground">{blocked?.reason ?? (blocked ? 'Κλειστό' : 'μερικώς κλειστό')}</span>}
               </button>
               {list.slice(0, 3).map((e) => (
                 <button key={e.id} type="button" onClick={() => onSelectEvent(e.id)}
-                  className={cn('flex cursor-pointer items-center gap-1 truncate rounded px-1 py-0.5 text-left text-[length:var(--fs-11)] hover:brightness-95', e.muted && 'opacity-55 line-through')}
+                  className={cn('flex cursor-pointer items-center gap-1 truncate rounded px-1 py-0.5 text-left text-(length:--fs-11) hover:brightness-95', e.muted && 'opacity-55 line-through')}
                   style={{ background: soft(e.color, 14), color: e.color }}>
                   <span className="tabular-nums font-semibold">{zonedParts(new Date(e.start)).time}</span><span className="hidden truncate text-foreground/80 sm:inline">{e.title}</span>
                 </button>
               ))}
-              {list.length > 3 && <button type="button" onClick={() => onSelectDay?.(d)} className="cursor-pointer px-1 text-left text-[length:var(--fs-11)] text-muted-foreground hover:text-foreground">+{list.length - 3} ακόμη</button>}
+              {list.length > 3 && <button type="button" onClick={() => onSelectDay?.(d)} className="cursor-pointer px-1 text-left text-(length:--fs-11) text-muted-foreground hover:text-foreground">+{list.length - 3} ακόμη</button>}
             </div>
           );
         })}

@@ -25,7 +25,7 @@ async function api(url: string, init?: RequestInit) {
 }
 
 const fieldCls = 'space-y-1.5';
-const hint = 'text-[length:var(--fs-11)] text-muted-foreground';
+const hint = 'text-(length:--fs-11) text-muted-foreground';
 const sizeLabel = (n: number) => (n < 1024 * 1024 ? `${Math.max(1, Math.round(n / 1024))} KB` : `${(n / 1024 / 1024).toFixed(1)} MB`);
 
 /** Δημιουργία / επεξεργασία εργασίας. Αρχεία: σε νέα εργασία μπαίνουν σε ουρά και ανεβαίνουν μετά την αποθήκευση. */
@@ -136,12 +136,12 @@ export function TaskDialog({
               <Label htmlFor="task-name">Όνομα <span className="text-destructive" aria-hidden>*</span></Label>
               <Input id="task-name" ref={nameRef} value={name} onChange={(e) => setName(e.target.value)} onBlur={() => setTouched(true)} maxLength={200}
                 aria-invalid={!!nameErr} aria-describedby={nameErr ? 'task-name-err' : undefined} placeholder="π.χ. Αποτύπωση χώρου" />
-              {nameErr && <p id="task-name-err" role="alert" className="text-[length:var(--fs-11)] text-destructive">{nameErr}</p>}
+              {nameErr && <p id="task-name-err" role="alert" className="text-(length:--fs-11) text-destructive">{nameErr}</p>}
             </div>
             <div className={fieldCls}>
               <Label htmlFor="task-desc">Περιγραφή</Label>
               <textarea id="task-desc" value={description} onChange={(e) => setDescription(e.target.value)} rows={3} maxLength={5000}
-                className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-[length:var(--fs-13)] shadow-xs outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50" />
+                className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-(length:--fs-13) shadow-2xs outline-hidden focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50" />
             </div>
 
             <fieldset className="grid gap-4 sm:grid-cols-3">
@@ -166,11 +166,11 @@ export function TaskDialog({
             </fieldset>
 
             <fieldset className={fieldCls}>
-              <legend className="mb-1.5 text-[length:var(--fs-13)] font-medium">Ολοκλήρωση · <span style={{ color: phaseMeta(phase).color }}>{phaseMeta(phase).label}</span></legend>
+              <legend className="mb-1.5 text-(length:--fs-13) font-medium">Ολοκλήρωση · <span style={{ color: phaseMeta(phase).color }}>{phaseMeta(phase).label}</span></legend>
               <div role="radiogroup" aria-label="Ποσοστό ολοκλήρωσης" className="grid grid-cols-5 gap-1.5">
                 {PROGRESS_STEPS.map((p) => (
                   <button key={p} type="button" role="radio" aria-checked={progress === p} onClick={() => setProgress(p)}
-                    className={cn('min-h-11 cursor-pointer rounded-md border text-[length:var(--fs-13)] font-semibold tabular-nums transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                    className={cn('min-h-11 cursor-pointer rounded-md border text-(length:--fs-13) font-semibold tabular-nums transition-colors duration-150 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring',
                       progress === p ? 'border-transparent text-white' : 'border-border bg-background text-muted-foreground hover:text-foreground')}
                     style={progress === p ? { background: phaseMeta(phaseOf(p)).color } : undefined}>
                     {p}%
@@ -192,10 +192,10 @@ export function TaskDialog({
                   <ul className="max-h-40 space-y-0.5 overflow-auto rounded-md border border-border p-1.5">
                     {depMatches.map((t) => (
                       <li key={t.id}>
-                        <label className="flex min-h-9 cursor-pointer items-center gap-2 rounded px-2 text-[length:var(--fs-13)] hover:bg-muted">
+                        <label className="flex min-h-9 cursor-pointer items-center gap-2 rounded px-2 text-(length:--fs-13) hover:bg-muted">
                           <Checkbox checked={deps.includes(t.id)} onCheckedChange={(c) => setDeps((d) => (c ? [...d, t.id] : d.filter((x) => x !== t.id)))} />
                           <span className="min-w-0 flex-1 truncate">{t.name}</span>
-                          <span className="shrink-0 text-[length:var(--fs-11)] tabular-nums text-muted-foreground">{t.progress}%</span>
+                          <span className="shrink-0 text-(length:--fs-11) tabular-nums text-muted-foreground">{t.progress}%</span>
                         </label>
                       </li>
                     ))}
@@ -211,14 +211,14 @@ export function TaskDialog({
               <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-border p-3">
                 <Switch checked={customerVisible} onCheckedChange={setCustomerVisible} className="mt-0.5" />
                 <span className="min-w-0">
-                  <span className="flex items-center gap-1.5 text-[length:var(--fs-13)] font-medium"><FiEye className="size-3.5" aria-hidden /> Ορατή στον πελάτη</span>
+                  <span className="flex items-center gap-1.5 text-(length:--fs-13) font-medium"><FiEye className="size-3.5" aria-hidden /> Ορατή στον πελάτη</span>
                   <span className={cn('block', hint)}>Φαίνεται στο portal του πελάτη του έργου (όνομα, περιγραφή, ημερομηνίες, %, αρχεία).</span>
                 </span>
               </label>
               <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-border p-3">
                 <Switch checked={inCalendar} onCheckedChange={setInCalendar} className="mt-0.5" />
                 <span className="min-w-0">
-                  <span className="flex items-center gap-1.5 text-[length:var(--fs-13)] font-medium"><FiCalendar className="size-3.5" aria-hidden /> Στο ημερολόγιό μας</span>
+                  <span className="flex items-center gap-1.5 text-(length:--fs-13) font-medium"><FiCalendar className="size-3.5" aria-hidden /> Στο ημερολόγιό μας</span>
                   <span className={cn('block', hint)}>Εμφανίζεται στο ημερολόγιο ραντεβού και οι υπάλληλοι-εμπλεκόμενοι λαμβάνουν πρόσκληση .ics.</span>
                 </span>
               </label>
@@ -226,27 +226,27 @@ export function TaskDialog({
 
             {canFiles && (
               <div className={fieldCls}>
-                <span className="flex items-center gap-1.5 text-[length:var(--fs-13)] font-medium"><FiPaperclip className="size-3.5" aria-hidden /> Αρχεία</span>
+                <span className="flex items-center gap-1.5 text-(length:--fs-13) font-medium"><FiPaperclip className="size-3.5" aria-hidden /> Αρχεία</span>
                 <ul className="space-y-1">
                   {files.map((f) => (
                     <li key={f.id} className="flex min-h-9 items-center gap-2 rounded-md border border-border px-2.5">
                       <FiFile className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
-                      <a href={`/api/admin/entity-files/file/${f.id}${f.ext === 'pdf' ? '?inline=1' : ''}`} target="_blank" rel="noopener noreferrer" className="min-w-0 flex-1 truncate text-[length:var(--fs-12)] hover:underline">{f.name}</a>
-                      <span className="text-[length:var(--fs-11)] tabular-nums text-muted-foreground">{sizeLabel(f.size)}</span>
+                      <a href={`/api/admin/entity-files/file/${f.id}${f.ext === 'pdf' ? '?inline=1' : ''}`} target="_blank" rel="noopener noreferrer" className="min-w-0 flex-1 truncate text-(length:--fs-12) hover:underline">{f.name}</a>
+                      <span className="text-(length:--fs-11) tabular-nums text-muted-foreground">{sizeLabel(f.size)}</span>
                       <button type="button" onClick={() => void unlink(f.id)} className="inline-flex size-8 cursor-pointer items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-destructive" aria-label={`Αφαίρεση του ${f.name} από την εργασία`}><FiX className="size-3.5" /></button>
                     </li>
                   ))}
                   {queue.map((f, i) => (
                     <li key={`${f.name}-${i}`} className="flex min-h-9 items-center gap-2 rounded-md border border-dashed border-border px-2.5">
                       <FiUpload className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
-                      <span className="min-w-0 flex-1 truncate text-[length:var(--fs-12)]">{f.name}</span>
-                      <span className="text-[length:var(--fs-11)] text-muted-foreground">θα ανέβει</span>
+                      <span className="min-w-0 flex-1 truncate text-(length:--fs-12)">{f.name}</span>
+                      <span className="text-(length:--fs-11) text-muted-foreground">θα ανέβει</span>
                       <button type="button" onClick={() => setQueue((q) => q.filter((_, j) => j !== i))} className="inline-flex size-8 cursor-pointer items-center justify-center rounded text-muted-foreground hover:bg-muted" aria-label={`Να μην ανέβει το ${f.name}`}><FiX className="size-3.5" /></button>
                     </li>
                   ))}
                 </ul>
                 <div className="flex flex-wrap gap-2">
-                  <label className="inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-md border border-border px-3 text-[length:var(--fs-12)] font-medium hover:bg-muted focus-within:ring-2 focus-within:ring-ring">
+                  <label className="inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-md border border-border px-3 text-(length:--fs-12) font-medium hover:bg-muted focus-within:ring-2 focus-within:ring-ring">
                     <FiUpload className="size-3.5" aria-hidden /> Ανέβασμα…
                     <input type="file" multiple accept={ACCEPT_EXTENSIONS.join(',')} className="sr-only" onChange={(e) => { const fs = [...(e.target.files ?? [])]; setQueue((q) => [...q, ...fs]); e.target.value = ''; }} />
                   </label>
@@ -255,7 +255,7 @@ export function TaskDialog({
                 <p className={hint}>{ALLOWED_HINT}. Αποθηκεύονται στον φάκελο του έργου (υποφάκελος «Εργασίες»).</p>
               </div>
             )}
-            {error && <p role="alert" className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-[length:var(--fs-12)] text-destructive">{error}</p>}
+            {error && <p role="alert" className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-(length:--fs-12) text-destructive">{error}</p>}
           </form>
         </DialogBody>
         <DialogFooter>
@@ -295,12 +295,12 @@ function PartiesField({ prjc, value, onChange, options }: { prjc: number; value:
 
   return (
     <fieldset className="space-y-1.5">
-      <legend className="mb-1.5 text-[length:var(--fs-13)] font-medium">Εμπλεκόμενοι</legend>
+      <legend className="mb-1.5 text-(length:--fs-13) font-medium">Εμπλεκόμενοι</legend>
       {value.length > 0 && (
         <ul className="flex flex-wrap gap-1.5">
           {value.map((p) => (
-            <li key={`${p.kind}:${p.ref}`} className="inline-flex min-h-8 items-center gap-1.5 rounded-full border border-border bg-muted pl-2.5 pr-1 text-[length:var(--fs-12)]">
-              <span className="text-[length:var(--fs-10)] font-semibold uppercase text-muted-foreground">{PARTY_KINDS.find((k) => k.key === p.kind)?.label}</span>
+            <li key={`${p.kind}:${p.ref}`} className="inline-flex min-h-8 items-center gap-1.5 rounded-full border border-border bg-muted pl-2.5 pr-1 text-(length:--fs-12)">
+              <span className="text-(length:--fs-10) font-semibold uppercase text-muted-foreground">{PARTY_KINDS.find((k) => k.key === p.kind)?.label}</span>
               <span className="max-w-48 truncate">{p.label}</span>
               <button type="button" onClick={() => onChange(value.filter((v) => !(v.kind === p.kind && v.ref === p.ref)))} className="inline-flex size-7 cursor-pointer items-center justify-center rounded-full hover:bg-background" aria-label={`Αφαίρεση ${p.label}`}><FiX className="size-3" /></button>
             </li>
@@ -311,7 +311,7 @@ function PartiesField({ prjc, value, onChange, options }: { prjc: number; value:
         <div role="tablist" aria-label="Είδος εμπλεκομένου" className="flex flex-wrap gap-1 border-b border-border p-1">
           {PARTY_KINDS.map((k) => (
             <button key={k.key} type="button" role="tab" aria-selected={kind === k.key} onClick={() => { setKind(k.key); setQ(''); }}
-              className={cn('min-h-8 cursor-pointer rounded px-2.5 text-[length:var(--fs-12)] font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+              className={cn('min-h-8 cursor-pointer rounded px-2.5 text-(length:--fs-12) font-medium transition-colors duration-150 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring',
                 kind === k.key ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted hover:text-foreground')}>
               {k.label}
             </button>
@@ -320,17 +320,17 @@ function PartiesField({ prjc, value, onChange, options }: { prjc: number; value:
         <div className="p-1.5">
           <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder={isTrader ? 'Επωνυμία, κωδικός ή ΑΦΜ (2+ χαρακτήρες)…' : 'Αναζήτηση…'} aria-label="Αναζήτηση εμπλεκομένου" className="h-9" />
           <ul className="mt-1 max-h-36 overflow-auto" aria-live="polite">
-            {loading && <li className="px-2 py-1.5 text-[length:var(--fs-12)] text-muted-foreground"><FiLoader className="mr-1 inline size-3 animate-spin" aria-hidden />Αναζήτηση…</li>}
+            {loading && <li className="px-2 py-1.5 text-(length:--fs-12) text-muted-foreground"><FiLoader className="mr-1 inline size-3 animate-spin" aria-hidden />Αναζήτηση…</li>}
             {list.slice(0, 30).map((o) => (
               <li key={o.ref}>
-                <button type="button" onClick={() => { onChange([...value, o]); setQ(''); }} className="flex min-h-9 w-full cursor-pointer items-center gap-2 rounded px-2 text-left text-[length:var(--fs-12)] hover:bg-muted focus-visible:bg-muted focus-visible:outline-none">
+                <button type="button" onClick={() => { onChange([...value, o]); setQ(''); }} className="flex min-h-9 w-full cursor-pointer items-center gap-2 rounded px-2 text-left text-(length:--fs-12) hover:bg-muted focus-visible:bg-muted focus-visible:outline-hidden">
                   <span className="min-w-0 flex-1 truncate">{o.label}</span>
-                  {o.sub && <span className="shrink-0 truncate text-[length:var(--fs-11)] text-muted-foreground">{o.sub}</span>}
+                  {o.sub && <span className="shrink-0 truncate text-(length:--fs-11) text-muted-foreground">{o.sub}</span>}
                 </button>
               </li>
             ))}
             {!loading && list.length === 0 && (
-              <li className="px-2 py-1.5 text-[length:var(--fs-12)] text-muted-foreground">{isTrader && q.trim().length < 2 ? 'Πληκτρολογήστε για αναζήτηση.' : 'Κανένα αποτέλεσμα.'}</li>
+              <li className="px-2 py-1.5 text-(length:--fs-12) text-muted-foreground">{isTrader && q.trim().length < 2 ? 'Πληκτρολογήστε για αναζήτηση.' : 'Κανένα αποτέλεσμα.'}</li>
             )}
           </ul>
         </div>
@@ -369,15 +369,15 @@ function LinkExisting({ prjc, taskId, linked, onLinked }: { prjc: number; taskId
         <DialogContent className="sm:max-w-md">
           <DialogHeader><DialogTitle>Σύνδεση αρχείων έργου</DialogTitle><DialogDescription>Τα αρχεία μένουν στον φάκελο του έργου· η εργασία απλώς τα δείχνει.</DialogDescription></DialogHeader>
           <DialogBody>
-            {choices == null ? <p className="py-6 text-center text-[length:var(--fs-12)] text-muted-foreground"><FiLoader className="mr-1 inline size-3 animate-spin" aria-hidden />Φόρτωση…</p>
-              : avail.length === 0 ? <p className="py-6 text-center text-[length:var(--fs-12)] text-muted-foreground">Δεν υπάρχουν άλλα αρχεία στον φάκελο του έργου.</p> : (
+            {choices == null ? <p className="py-6 text-center text-(length:--fs-12) text-muted-foreground"><FiLoader className="mr-1 inline size-3 animate-spin" aria-hidden />Φόρτωση…</p>
+              : avail.length === 0 ? <p className="py-6 text-center text-(length:--fs-12) text-muted-foreground">Δεν υπάρχουν άλλα αρχεία στον φάκελο του έργου.</p> : (
                 <ul className="max-h-72 space-y-0.5 overflow-auto">
                   {avail.map((c) => (
                     <li key={c.id}>
-                      <label className="flex min-h-9 cursor-pointer items-center gap-2 rounded px-2 text-[length:var(--fs-12)] hover:bg-muted">
+                      <label className="flex min-h-9 cursor-pointer items-center gap-2 rounded px-2 text-(length:--fs-12) hover:bg-muted">
                         <Checkbox checked={picked.includes(c.id)} onCheckedChange={(v) => setPicked((p) => (v ? [...p, c.id] : p.filter((x) => x !== c.id)))} />
                         <span className="min-w-0 flex-1 truncate">{c.name}</span>
-                        {c.subfolder && <span className="shrink-0 text-[length:var(--fs-11)] text-muted-foreground">{c.subfolder}</span>}
+                        {c.subfolder && <span className="shrink-0 text-(length:--fs-11) text-muted-foreground">{c.subfolder}</span>}
                       </label>
                     </li>
                   ))}

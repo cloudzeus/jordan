@@ -20,7 +20,7 @@ import { crewTotal, docTitle, eur } from '@/lib/contracts/core';
 import type { ContractView } from '@/lib/contracts/service';
 
 type Doc = ContractView['documents'][number];
-const ITEM = 'cursor-pointer gap-2 text-[length:var(--fs-12)]';
+const ITEM = 'cursor-pointer gap-2 text-(length:--fs-12)';
 const pdfUrl = (d: Doc, inline = true) => `/api/admin/entity-files/file/${d.fileId}${inline ? '?inline=1' : ''}`;
 const when = (iso: string) => new Date(iso).toLocaleString('el-GR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 
@@ -53,11 +53,11 @@ export function DocumentsPanel({ contract: c, canManage }: { contract: ContractV
   };
 
   return (
-    <section className="overflow-hidden rounded-lg border border-border border-t-[3px] border-t-emerald-500 bg-card shadow-sm">
+    <section className="overflow-hidden rounded-lg border border-border border-t-[3px] border-t-emerald-500 bg-card shadow-xs">
       <header className="flex items-center justify-between gap-2 border-b border-border bg-emerald-50/70 px-4 py-2.5">
         <div>
-          <h2 className="flex items-center gap-2.5 text-[length:var(--fs-14)] font-semibold"><span className="inline-flex size-7 items-center justify-center rounded-md bg-emerald-600 text-white shadow-sm"><FiFileText className="size-3.5" /></span> Έγγραφα</h2>
-          <p className="text-[length:var(--fs-12)] text-muted-foreground">Προσφορά/σύμβαση πελάτη και μία σύμβαση για κάθε συνεργείο — PDF στα αρχεία {c.prjc ? 'του έργου' : 'του πελάτη (μέχρι να συνδεθεί έργο)'}</p>
+          <h2 className="flex items-center gap-2.5 text-(length:--fs-14) font-semibold"><span className="inline-flex size-7 items-center justify-center rounded-md bg-emerald-600 text-white shadow-xs"><FiFileText className="size-3.5" /></span> Έγγραφα</h2>
+          <p className="text-(length:--fs-12) text-muted-foreground">Προσφορά/σύμβαση πελάτη και μία σύμβαση για κάθε συνεργείο — PDF στα αρχεία {c.prjc ? 'του έργου' : 'του πελάτη (μέχρι να συνδεθεί έργο)'}</p>
         </div>
       </header>
       <ul className="divide-y divide-border">
@@ -69,14 +69,14 @@ export function DocumentsPanel({ contract: c, canManage }: { contract: ContractV
             <li key={t.key} className="flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3">
               <span className={cn('inline-flex size-9 shrink-0 items-center justify-center rounded-md ring-1', !last ? 'bg-muted text-muted-foreground ring-border' : t.partyId ? 'bg-orange-50 text-orange-700 ring-orange-200' : 'bg-indigo-50 text-indigo-700 ring-indigo-200')}><FiFileText className="size-4" /></span>
               <div className="min-w-0 flex-1 basis-[calc(100%-3rem)] sm:basis-auto">
-                <p className="truncate text-[length:var(--fs-13)] font-medium">{t.title} · {t.who}</p>
-                <p className="truncate text-[length:var(--fs-11)] text-muted-foreground">
+                <p className="truncate text-(length:--fs-13) font-medium">{t.title} · {t.who}</p>
+                <p className="truncate text-(length:--fs-11) text-muted-foreground">
                   {last ? <>Έκδοση {last.version} · {when(last.createdAt)}{sent.length ? <> · <FiMail className="inline size-3" /> {sent[sent.length - 1].to}</> : ' · δεν έχει σταλεί'}</> : 'Δεν έχει συνταχθεί'}
                   {' · '}{eur(t.amount)}
                 </p>
               </div>
               {last?.fileId && (
-                <a href={pdfUrl(last)} target="_blank" rel="noreferrer" className="inline-flex min-h-9 items-center gap-1.5 rounded-md border border-border px-2.5 text-[length:var(--fs-12)] hover:bg-muted"><FiEye className="size-3.5" />PDF</a>
+                <a href={pdfUrl(last)} target="_blank" rel="noreferrer" className="inline-flex min-h-9 items-center gap-1.5 rounded-md border border-border px-2.5 text-(length:--fs-12) hover:bg-muted"><FiEye className="size-3.5" />PDF</a>
               )}
               {canManage && (
                 <Button size="sm" variant={last ? 'secondary' : 'default'} disabled={!!busy || !t.ok} onClick={() => generate(t.partyId, t.key)} className="gap-1.5" title={!t.ok ? 'Δεν υπάρχουν γραμμές για αυτό το έγγραφο' : undefined}>
@@ -86,7 +86,7 @@ export function DocumentsPanel({ contract: c, canManage }: { contract: ContractV
               )}
               {last && (
                 <DropdownMenu>
-                  <DropdownMenuTrigger className="inline-flex size-9 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring data-[state=open]:bg-muted" aria-label={`Ενέργειες εγγράφου ${t.who}`}>
+                  <DropdownMenuTrigger className="inline-flex size-9 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring data-[state=open]:bg-muted" aria-label={`Ενέργειες εγγράφου ${t.who}`}>
                     <FiMoreVertical className="size-4" />
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="min-w-56">
@@ -96,7 +96,7 @@ export function DocumentsPanel({ contract: c, canManage }: { contract: ContractV
                     {docs.length > 1 && (
                       <>
                         <DropdownMenuSeparator />
-                        <DropdownMenuLabel className="text-[length:var(--fs-11)] text-muted-foreground">Προηγούμενες εκδόσεις</DropdownMenuLabel>
+                        <DropdownMenuLabel className="text-(length:--fs-11) text-muted-foreground">Προηγούμενες εκδόσεις</DropdownMenuLabel>
                         {docs.slice(1, 8).map((d) => (
                           <DropdownMenuItem key={d.id} className={ITEM} onSelect={() => d.fileId && window.open(pdfUrl(d), '_blank')}><FiClock className="size-3.5" />Έκδοση {d.version} · {when(d.createdAt)}</DropdownMenuItem>
                         ))}
@@ -151,7 +151,7 @@ function SendDialog({ doc, onClose, contract: c }: { doc: Doc | null; onClose: (
           {recipients.length > 0 && (
             <div className="flex flex-wrap gap-1.5">
               {recipients.map((r) => (
-                <button key={r.email + r.label} type="button" onClick={() => setTo(r.email)} className={cn('min-h-8 rounded-full border px-2.5 text-[length:var(--fs-11)]', to === r.email ? 'border-primary bg-primary text-primary-foreground' : 'border-border hover:bg-muted')}>{r.label}</button>
+                <button key={r.email + r.label} type="button" onClick={() => setTo(r.email)} className={cn('min-h-8 rounded-full border px-2.5 text-(length:--fs-11)', to === r.email ? 'border-primary bg-primary text-primary-foreground' : 'border-border hover:bg-muted')}>{r.label}</button>
               ))}
             </div>
           )}
@@ -161,7 +161,7 @@ function SendDialog({ doc, onClose, contract: c }: { doc: Doc | null; onClose: (
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="send-msg">Μήνυμα (προαιρετικό)</Label>
-            <textarea id="send-msg" value={message} onChange={(e) => setMessage(e.target.value)} rows={3} className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-[length:var(--fs-13)] outline-none focus-visible:ring-2 focus-visible:ring-ring" />
+            <textarea id="send-msg" value={message} onChange={(e) => setMessage(e.target.value)} rows={3} className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-(length:--fs-13) outline-hidden focus-visible:ring-2 focus-visible:ring-ring" />
           </div>
         </DialogBody>
         <DialogFooter>

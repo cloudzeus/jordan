@@ -16,8 +16,8 @@ const eur = (n: number) => `${n.toLocaleString('el-GR', { minimumFractionDigits:
 export interface AssetPick { mtrl: number; code: string; name: string }
 
 /** Native πεδία του παραθύρου στο ίδιο ύψος/κείμενο με τα `fieldCls` του form-kit. */
-const INPUT = cn('w-full rounded-md border border-input bg-background px-2.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring', fieldCls);
-const LABEL = 'text-[length:var(--fs-12)] font-medium text-muted-foreground';
+const INPUT = cn('w-full rounded-md border border-input bg-background px-2.5 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring', fieldCls);
+const LABEL = 'text-(length:--fs-12) font-medium text-muted-foreground';
 
 /** Αναζήτηση στο μητρώο παγίων (τοπικός καθρέφτης). */
 export function AssetSearch({ id, disabled, onPick }: { id: string; disabled?: boolean; onPick: (a: AssetPick) => void | Promise<void> }) {
@@ -48,7 +48,7 @@ export function AssetSearch({ id, disabled, onPick }: { id: string; disabled?: b
         <input
           id={id} value={q} onChange={(e) => setQ(e.target.value)} disabled={disabled}
           placeholder="Κωδικός ή περιγραφή παγίου…"
-          className="h-9 w-full rounded-lg border border-input bg-background pl-8 pr-2 text-[length:var(--fs-13)]"
+          className="h-9 w-full rounded-lg border border-input bg-background pl-8 pr-2 text-(length:--fs-13)"
         />
         {loading && <FiLoader aria-hidden className="absolute right-2.5 top-1/2 size-3.5 -translate-y-1/2 animate-spin text-muted-foreground motion-reduce:animate-none" />}
       </div>
@@ -58,9 +58,9 @@ export function AssetSearch({ id, disabled, onPick }: { id: string; disabled?: b
             <li key={r.mtrl}>
               <button
                 type="button" disabled={disabled} onClick={() => void onPick(r)}
-                className="flex min-h-9 w-full items-center gap-2 px-2.5 text-left text-[length:var(--fs-12)] hover:bg-[var(--cx-hover)] disabled:opacity-60"
+                className="flex min-h-9 w-full items-center gap-2 px-2.5 text-left text-(length:--fs-12) hover:bg-(--cx-hover) disabled:opacity-60"
               >
-                <span className="font-mono text-[length:var(--fs-11)] text-muted-foreground">{r.code}</span>
+                <span className="font-mono text-(length:--fs-11) text-muted-foreground">{r.code}</span>
                 <span className="min-w-0 truncate">{r.name}</span>
               </button>
             </li>
@@ -185,9 +185,9 @@ export function CreateAssetDialog({ open, onOpenChange, lineId, lineName, lineVa
             <FiBox className="size-4" />
           </span>
           <div className="min-w-0 flex-1">
-            <DialogTitle className="text-[length:var(--fs-15)]">Νέο πάγιο στο SoftOne</DialogTitle>
+            <DialogTitle className="text-(length:--fs-15)">Νέο πάγιο στο SoftOne</DialogTitle>
             <DialogDescription
-              className="truncate text-[length:var(--fs-11)]"
+              className="truncate text-(length:--fs-11)"
               title="Η γραμμή θα καταχωριστεί ως αγορά αυτού του παγίου (γραμμή παγίων του παραστατικού αγορών)."
             >
               Η γραμμή θα καταχωριστεί ως αγορά αυτού του παγίου (γραμμή παγίων του παραστατικού αγορών).
@@ -196,7 +196,7 @@ export function CreateAssetDialog({ open, onOpenChange, lineId, lineName, lineVa
         </DialogHeader>
 
         <div className="max-h-[66vh] space-y-3 overflow-auto bg-muted/20 px-4 py-3">
-          {!data && !error && <p className="flex items-center gap-2 text-[length:var(--fs-13)] text-muted-foreground"><FiLoader className="size-4 animate-spin motion-reduce:animate-none" aria-hidden />Φόρτωση κατηγοριών…</p>}
+          {!data && !error && <p className="flex items-center gap-2 text-(length:--fs-13) text-muted-foreground"><FiLoader className="size-4 animate-spin motion-reduce:animate-none" aria-hidden />Φόρτωση κατηγοριών…</p>}
           {data && (
             <>
               {/* ── 1. ΤΑΥΤΟΤΗΤΑ: περιγραφή, λογιστική + εμπορική κατηγορία σε μία σειρά. */}
@@ -245,7 +245,7 @@ export function CreateAssetDialog({ open, onOpenChange, lineId, lineName, lineVa
                 </div>
                 {gl?.acnmsk && <RowHint>Λογαριασμός αγορών: <span className="font-mono">{gl.acnmsk}</span>{data.whouse != null ? ` · αποθήκη παγίων ${data.whouse}` : ''}</RowHint>}
                 {data.whouse == null && (
-                  <p className="flex items-start gap-1.5 rounded-md border border-amber-300 bg-amber-50 px-2.5 py-1.5 text-[length:var(--fs-12)] text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
+                  <p className="flex items-start gap-1.5 rounded-md border border-amber-300 bg-amber-50 px-2.5 py-1.5 text-(length:--fs-12) text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
                     <FiAlertTriangle aria-hidden className="mt-0.5 size-3.5 shrink-0" />
                     <span>Δεν είναι γνωστή η αποθήκη παγίων — τρέξε τον συγχρονισμό «Πάγια» πριν την καταχώριση.</span>
                   </p>
@@ -255,7 +255,7 @@ export function CreateAssetDialog({ open, onOpenChange, lineId, lineName, lineVa
               {/* ── 3. ΑΠΟΣΒΕΣΗ: ο συντελεστής του ΝΟΜΟΥ, σε ευρώ και χρόνια, όχι μόνο ποσοστό ── */}
               <FormSection tone="emerald" icon={<FiTrendingDown />} title="Απόσβεση (φορολογική)" aside={<Term k="apostesi" />}>
                 {advice ? (
-                  <p className="text-[length:var(--fs-12)] leading-snug text-foreground">
+                  <p className="text-(length:--fs-12) leading-snug text-foreground">
                     Ο νόμος ορίζει <strong>{advice.rate}%</strong> τον χρόνο για «{advice.label}»
                     <span className="text-muted-foreground"> ({DEPRECIATION_SOURCE})</span>.
                     {advice.annual != null && advice.years != null && (
@@ -263,7 +263,7 @@ export function CreateAssetDialog({ open, onOpenChange, lineId, lineName, lineVa
                     )}
                   </p>
                 ) : (
-                  <p className="text-[length:var(--fs-12)] leading-snug text-muted-foreground">
+                  <p className="text-(length:--fs-12) leading-snug text-muted-foreground">
                     Δεν αναγνωρίσαμε την κατηγορία του νόμου — ισχύει ο συντελεστής της λογιστικής κατηγορίας. Ρώτα τον λογιστή αν δεν είσαι σίγουρος.
                   </p>
                 )}
@@ -274,23 +274,23 @@ export function CreateAssetDialog({ open, onOpenChange, lineId, lineName, lineVa
                         id="asset-rate" inputMode="decimal" value={rate}
                         onChange={(e) => { setRate(e.target.value); setRateTouched(true); }}
                         aria-invalid={!rateOk}
-                        className={cn(INPUT, 'pr-7 text-right font-mono tabular-nums aria-[invalid=true]:border-destructive')}
+                        className={cn(INPUT, 'pr-7 text-right font-mono tabular-nums aria-invalid:border-destructive')}
                       />
-                      <span aria-hidden className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-[length:var(--fs-13)] text-muted-foreground">%</span>
+                      <span aria-hidden className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-(length:--fs-13) text-muted-foreground">%</span>
                     </span>
                   </Field>
                   {advice && rateTouched && rateNum !== advice.rate && (
                     <div className="col-span-12 sm:col-span-7">
                       <button type="button" onClick={() => { setRate(String(advice.rate)); setRateTouched(false); }}
-                        className="h-8 cursor-pointer rounded-md px-2 text-[length:var(--fs-12)] font-semibold text-sisyphus-700 hover:bg-sisyphus-500/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:text-sisyphus-300">
+                        className="h-8 cursor-pointer rounded-md px-2 text-(length:--fs-12) font-semibold text-sisyphus-700 hover:bg-sisyphus-500/10 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring dark:text-sisyphus-300">
                         Επαναφορά στο {advice.rate}% του νόμου
                       </button>
                     </div>
                   )}
                 </div>
-                {!rateOk && <p role="alert" className="text-[length:var(--fs-11)] text-destructive">Γράψε ποσοστό από 0 έως 100.</p>}
+                {!rateOk && <p role="alert" className="text-(length:--fs-11) text-destructive">Γράψε ποσοστό από 0 έως 100.</p>}
                 {gl?.depreciation != null && rateNum != null && rateOk && gl.depreciation !== rateNum && (
-                  <p className="flex items-start gap-1.5 rounded-md border border-amber-300 bg-amber-50 px-2.5 py-1.5 text-[length:var(--fs-12)] text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
+                  <p className="flex items-start gap-1.5 rounded-md border border-amber-300 bg-amber-50 px-2.5 py-1.5 text-(length:--fs-12) text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
                     <FiAlertTriangle aria-hidden className="mt-0.5 size-3.5 shrink-0" />
                     <span>
                       Η κατηγορία «{gl.name}» στο SoftOne έχει <strong>{gl.depreciation}%</strong>
@@ -300,7 +300,7 @@ export function CreateAssetDialog({ open, onOpenChange, lineId, lineName, lineVa
                   </p>
                 )}
                 {lowValue && (
-                  <label className="flex cursor-pointer items-start gap-2 rounded-md bg-muted/50 px-2.5 py-1.5 text-[length:var(--fs-12)] text-foreground">
+                  <label className="flex cursor-pointer items-start gap-2 rounded-md bg-muted/50 px-2.5 py-1.5 text-(length:--fs-12) text-foreground">
                     <input type="checkbox" checked={immediate} onChange={(e) => setImmediate(e.target.checked)} className="mt-0.5 size-4 accent-sisyphus-600" />
                     <span>
                       <strong>Εφάπαξ απόσβεση φέτος.</strong> Η αξία είναι κάτω από {eur(LOW_VALUE_LIMIT)}: ο νόμος επιτρέπει να αποσβεστεί
@@ -311,7 +311,7 @@ export function CreateAssetDialog({ open, onOpenChange, lineId, lineName, lineVa
               </FormSection>
             </>
           )}
-          {error && <p role="alert" className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-[length:var(--fs-12)] text-rose-700 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-300">{error}</p>}
+          {error && <p role="alert" className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-(length:--fs-12) text-rose-700 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-300">{error}</p>}
         </div>
 
         {/* `mx-0 mb-0`: το DialogFooter έχει `-mx-4 -mb-4` για modal με padding· εδώ είναι `p-0`. */}

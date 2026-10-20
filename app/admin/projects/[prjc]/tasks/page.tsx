@@ -22,7 +22,7 @@ export default async function ProjectTasksPage({ params, searchParams }: { param
   ]);
   return (
     <div className="w-full">
-      <Link href={`/admin/projects/${p.prjc}`} className="mb-3 inline-flex min-h-8 items-center gap-1 text-[length:var(--fs-12)] text-muted-foreground hover:text-foreground">
+      <Link href={`/admin/projects/${p.prjc}`} className="mb-3 inline-flex min-h-8 items-center gap-1 text-(length:--fs-12) text-muted-foreground hover:text-foreground">
         <FiArrowLeft className="size-3.5" aria-hidden /> {p.code} · {p.name}
       </Link>
       <PageHeader icon={<FiTrello />} title="Εργασίες έργου" description={`${p.code} · ${p.name} · ${data.tasks.length} εργασίες`} helpAnchor="project-tasks" />

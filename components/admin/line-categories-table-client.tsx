@@ -58,15 +58,15 @@ export function LineCategoriesTableClient({
   const columns = React.useMemo<ColumnDef<LineCategoryRecord>[]>(() => [
     {
       accessorKey: 'code', header: 'Σύντμηση', size: 130,
-      cell: ({ row }) => <span className="font-mono text-[length:var(--fs-12)] tabular-nums text-foreground">{row.original.code || '—'}</span>,
+      cell: ({ row }) => <span className="font-mono text-(length:--fs-12) tabular-nums text-foreground">{row.original.code || '—'}</span>,
     },
     {
       accessorKey: 'name', header: 'Περιγραφή', size: 360,
       cell: ({ row }) => (
         <span className="inline-flex items-center gap-1.5">
-          <span className="text-[length:var(--fs-12)] font-medium text-foreground">{row.original.name || '—'}</span>
+          <span className="text-(length:--fs-12) font-medium text-foreground">{row.original.name || '—'}</span>
           {!row.original.sodtypeFiltered && (
-            <span className="inline-flex items-center gap-1 text-[length:var(--fs-11)]" style={{ color: '#B45309' }}
+            <span className="inline-flex items-center gap-1 text-(length:--fs-11)" style={{ color: '#B45309' }}
               title="Κατέβηκε χωρίς φίλτρο SODTYPE — μπορεί να μην είναι κατηγορία δαπάνης">
               <FiAlertTriangle className="h-3 w-3" aria-hidden /> αφιλτράριστη
             </span>
@@ -77,7 +77,7 @@ export function LineCategoriesTableClient({
     {
       accessorKey: 'lineItems', header: 'Χρεοπιστώσεις', size: 130,
       cell: ({ row }) => (
-        <span className="text-[length:var(--fs-12)] tabular-nums text-foreground/80">
+        <span className="text-(length:--fs-12) tabular-nums text-foreground/80">
           {row.original.lineItems.toLocaleString('el-GR')}
         </span>
       ),
@@ -85,23 +85,23 @@ export function LineCategoriesTableClient({
     {
       accessorKey: 'acnmsk', header: 'Λογ/σμός', size: 160,
       cell: ({ row }) => (row.original.acnmsk
-        ? <span className="font-mono text-[length:var(--fs-12)] text-muted-foreground">{row.original.acnmsk}</span>
+        ? <span className="font-mono text-(length:--fs-12) text-muted-foreground">{row.original.acnmsk}</span>
         : DASH),
     },
     {
       accessorKey: 'vat', header: 'ΦΠΑ', size: 80,
       cell: ({ row }) => (row.original.vat
-        ? <span className="whitespace-nowrap text-[length:var(--fs-12)] tabular-nums text-foreground" title={row.original.vatTitle ?? undefined}>{row.original.vat}</span>
+        ? <span className="whitespace-nowrap text-(length:--fs-12) tabular-nums text-foreground" title={row.original.vatTitle ?? undefined}>{row.original.vat}</span>
         : DASH),
     },
     {
       accessorKey: 'isActive', header: 'Ενεργή', size: 100,
       cell: ({ row }) => (row.original.isActive ? (
-        <span className="inline-flex items-center gap-1 text-[length:var(--fs-12)]" style={{ color: '#047857' }}>
+        <span className="inline-flex items-center gap-1 text-(length:--fs-12)" style={{ color: '#047857' }}>
           <FiCheck className="h-3.5 w-3.5" aria-hidden /> Ναι
         </span>
       ) : (
-        <span className="inline-flex items-center gap-1 text-[length:var(--fs-12)] text-muted-foreground">
+        <span className="inline-flex items-center gap-1 text-(length:--fs-12) text-muted-foreground">
           <FiSlash className="h-3.5 w-3.5" aria-hidden /> Όχι
         </span>
       )),
@@ -117,7 +117,7 @@ export function LineCategoriesTableClient({
 
   return (
     <div className="space-y-2">
-      <p className="text-[length:var(--fs-12)] text-muted-foreground">
+      <p className="text-(length:--fs-12) text-muted-foreground">
         Η κατηγορία δαπάνης είναι το φίλτρο της αναζήτησης χρεοπιστώσεων στην ουρά «Είδη &amp; έξοδα».
         {rows.some((r) => !r.sodtypeFiltered) && (
           <span style={{ color: '#B45309' }}>
@@ -136,7 +136,7 @@ export function LineCategoriesTableClient({
         pageSize={50}
       />
       {lastSync && (
-        <p className="text-[length:var(--fs-11)] text-muted-foreground">
+        <p className="text-(length:--fs-11) text-muted-foreground">
           Τελευταίος συγχρονισμός: {new Date(lastSync).toLocaleString('el-GR')}
         </p>
       )}

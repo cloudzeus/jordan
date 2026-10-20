@@ -26,7 +26,7 @@ export function TraderDocsPanel({ trdr, count }: { trdr: number; count: number }
     return () => { ignore = true; };
   }, [trdr]);
 
-  if (error) return <p className="flex items-center gap-1.5 px-3 py-2 text-[length:var(--fs-12)] text-destructive"><FiAlertTriangle className="size-3.5" /> {error}</p>;
+  if (error) return <p className="flex items-center gap-1.5 px-3 py-2 text-(length:--fs-12) text-destructive"><FiAlertTriangle className="size-3.5" /> {error}</p>;
   if (!docs) {
     return (
       <div className="space-y-1 px-3 py-2" role="status"><span className="sr-only">Φόρτωση παραστατικών…</span>
@@ -34,18 +34,18 @@ export function TraderDocsPanel({ trdr, count }: { trdr: number; count: number }
       </div>
     );
   }
-  if (docs.length === 0) return <p className="px-3 py-2 text-[length:var(--fs-12)] text-muted-foreground">Δεν υπάρχουν σκαναρισμένα παραστατικά από αυτόν.</p>;
+  if (docs.length === 0) return <p className="px-3 py-2 text-(length:--fs-12) text-muted-foreground">Δεν υπάρχουν σκαναρισμένα παραστατικά από αυτόν.</p>;
 
   const sum = docs.reduce((s, d) => s + (d.total ?? 0), 0);
   return (
     <div className="px-3 py-2">
-      <p className="mb-1.5 flex items-center gap-2 text-[length:var(--fs-11)] font-semibold uppercase tracking-wide text-sisyphus-700 dark:text-sisyphus-300">
+      <p className="mb-1.5 flex items-center gap-2 text-(length:--fs-11) font-semibold uppercase tracking-wide text-sisyphus-700 dark:text-sisyphus-300">
         <FiFileText aria-hidden className="size-3.5" /> Σκαναρισμένα παραστατικά · {docs.length}
         <span className="ml-auto font-normal normal-case tracking-normal text-muted-foreground">Σύνολο <strong className="tabular-nums text-foreground">{money(sum)}</strong></span>
       </p>
       <div className="overflow-hidden rounded-md border border-border bg-card">
-        <table className="w-full table-fixed text-[length:var(--fs-12)]">
-          <thead className="bg-muted/50 text-[length:var(--fs-10)] uppercase tracking-wide text-muted-foreground">
+        <table className="w-full table-fixed text-(length:--fs-12)">
+          <thead className="bg-muted/50 text-(length:--fs-10) uppercase tracking-wide text-muted-foreground">
             <tr>
               <th className="w-[38%] px-2 py-1.5 text-left font-semibold">Αρχείο</th>
               <th className="px-2 py-1.5 text-left font-semibold">Αριθμός</th>
@@ -63,13 +63,13 @@ export function TraderDocsPanel({ trdr, count }: { trdr: number; count: number }
                     <Link href={`/admin/ocr/${d.id}`} className="inline-flex max-w-full items-center gap-1 font-medium text-sisyphus-700 hover:underline dark:text-sisyphus-300" title={d.fileName}>
                       <span className="truncate">{d.fileName}</span><FiExternalLink aria-hidden className="size-3 shrink-0 opacity-60" />
                     </Link>
-                    {!d.linked && <span className="ml-1.5 inline-flex items-center gap-0.5 text-[length:var(--fs-10)] text-amber-800 dark:text-amber-300" title="Ίδιος ΑΦΜ, δεν έχει συνδεθεί ακόμη με την καρτέλα"><FiLink2 className="size-3" /> ίδιο ΑΦΜ</span>}
+                    {!d.linked && <span className="ml-1.5 inline-flex items-center gap-0.5 text-(length:--fs-10) text-amber-800 dark:text-amber-300" title="Ίδιος ΑΦΜ, δεν έχει συνδεθεί ακόμη με την καρτέλα"><FiLink2 className="size-3" /> ίδιο ΑΦΜ</span>}
                   </td>
                   <td className="truncate px-2 py-1 font-mono tabular-nums">{d.number ?? '—'}</td>
                   <td className="px-2 py-1 tabular-nums text-muted-foreground">{dateOf(d.date, d.createdAt)}</td>
                   <td className="px-2 py-1 text-right tabular-nums">{money(d.total)}</td>
                   <td className="px-2 py-1">
-                    <span className="inline-flex max-w-full truncate rounded-full border px-1.5 py-0.5 text-[length:var(--fs-10)] font-semibold" style={{ backgroundColor: m.tone.bg, color: m.tone.fg, borderColor: m.tone.bd }}>{m.label}</span>
+                    <span className="inline-flex max-w-full truncate rounded-full border px-1.5 py-0.5 text-(length:--fs-10) font-semibold" style={{ backgroundColor: m.tone.bg, color: m.tone.fg, borderColor: m.tone.bd }}>{m.label}</span>
                   </td>
                 </tr>
               );

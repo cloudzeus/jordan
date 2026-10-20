@@ -25,7 +25,7 @@ export async function HelpIcon({ anchor, className }: Props) {
       target="_blank"
       title={`Βοήθεια: ${page.frontmatter.title}`}
       aria-label={`Βοήθεια: ${page.frontmatter.title}`}
-      className={`inline-flex size-7 items-center justify-center rounded-sm text-muted-foreground transition hover:bg-[var(--cx-hover)] hover:text-foreground ${className ?? ''}`}
+      className={`inline-flex size-7 items-center justify-center rounded-sm text-muted-foreground transition hover:bg-(--cx-hover) hover:text-foreground ${className ?? ''}`}
     >
       <FiHelpCircle className="size-4" />
     </Link>

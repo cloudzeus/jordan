@@ -8,8 +8,8 @@ import { BTN_GHOST, BTN_PRIMARY } from '@/components/admin/bulk-ui';
 import type { IntegratorReport } from '@/lib/accounting/integrator';
 
 const SECTION = 'rounded-xl border border-border bg-card shadow-fluent-2';
-const H2 = 'text-[length:var(--fs-14)] font-semibold text-foreground';
-const MUTED = 'text-[length:var(--fs-12)] text-muted-foreground';
+const H2 = 'text-(length:--fs-14) font-semibold text-foreground';
+const MUTED = 'text-(length:--fs-12) text-muted-foreground';
 const SEVERITY: Record<string, { text: string; cls: string }> = {
   high: { text: 'Υψηλή', cls: 'bg-rose-50 text-rose-700 border-rose-200' },
   mid: { text: 'Μεσαία', cls: 'bg-amber-50 text-amber-800 border-amber-200' },
@@ -20,7 +20,7 @@ const fmt = (iso: string) => new Date(iso).toLocaleString('el-GR', { dateStyle: 
 
 function Severity({ s }: { s: string }) {
   const v = SEVERITY[s] ?? SEVERITY.mid;
-  return <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[length:var(--fs-12)] ${v.cls}`}>{v.text}</span>;
+  return <span className={`shrink-0 rounded-full border px-2 py-0.5 text-(length:--fs-12) ${v.cls}`}>{v.text}</span>;
 }
 
 /** Η αναφορά ως απλό κείμενο — για email ή ticket προς τον integrator. */
@@ -98,12 +98,12 @@ export function IntegratorClient({ report, canResolve, canAdd }: { report: Integ
       {adding && (
         <div className={`${SECTION} space-y-2 p-4`}>
           <label htmlFor="ii-title" className={MUTED}>Τίτλος</label>
-          <input id="ii-title" value={title} onChange={(e) => setTitle(e.target.value)} className="w-full rounded-md border border-border bg-background px-3 py-2 text-[length:var(--fs-13)]" />
+          <input id="ii-title" value={title} onChange={(e) => setTitle(e.target.value)} className="w-full rounded-md border border-border bg-background px-3 py-2 text-(length:--fs-13)" />
           <label htmlFor="ii-detail" className={MUTED}>Τι πρέπει να γίνει</label>
-          <textarea id="ii-detail" value={detail} onChange={(e) => setDetail(e.target.value)} rows={3} className="w-full rounded-md border border-border bg-background px-3 py-2 text-[length:var(--fs-13)]" />
+          <textarea id="ii-detail" value={detail} onChange={(e) => setDetail(e.target.value)} rows={3} className="w-full rounded-md border border-border bg-background px-3 py-2 text-(length:--fs-13)" />
           <div className="flex flex-wrap items-center gap-2">
             <label htmlFor="ii-sev" className={MUTED}>Προτεραιότητα</label>
-            <select id="ii-sev" value={severity} onChange={(e) => setSeverity(e.target.value as 'high' | 'mid' | 'low')} className="rounded-md border border-border bg-background px-2 py-1.5 text-[length:var(--fs-13)]">
+            <select id="ii-sev" value={severity} onChange={(e) => setSeverity(e.target.value as 'high' | 'mid' | 'low')} className="rounded-md border border-border bg-background px-2 py-1.5 text-(length:--fs-13)">
               <option value="high">Υψηλή</option><option value="mid">Μεσαία</option><option value="low">Χαμηλή</option>
             </select>
             <button type="button" className={BTN_PRIMARY} disabled={busy === 'add' || !title.trim() || !detail.trim()} onClick={() => void add()}>Προσθήκη</button>
@@ -121,9 +121,9 @@ export function IntegratorClient({ report, canResolve, canAdd }: { report: Integ
             {report.open.map((i) => (
               <li key={i.id} className="flex flex-wrap items-start gap-3 px-4 py-3">
                 <Severity s={i.severity} />
-                <div className="min-w-[15rem] flex-1">
-                  <p className="text-[length:var(--fs-13)] font-medium text-foreground">{i.title}</p>
-                  <p className="whitespace-pre-line text-[length:var(--fs-13)] text-foreground/90">{i.detail}</p>
+                <div className="min-w-60 flex-1">
+                  <p className="text-(length:--fs-13) font-medium text-foreground">{i.title}</p>
+                  <p className="whitespace-pre-line text-(length:--fs-13) text-foreground/90">{i.detail}</p>
                   <p className={MUTED}>{i.createdBy ?? '—'} · {fmt(i.createdAt)}</p>
                 </div>
                 {canResolve && (
@@ -148,10 +148,10 @@ export function IntegratorClient({ report, canResolve, canAdd }: { report: Integ
               <li key={c.key} className="px-4 py-3">
                 <div className="flex flex-wrap items-start gap-3">
                   <Severity s={c.severity} />
-                  <div className="min-w-[15rem] flex-1">
-                    <p className="text-[length:var(--fs-13)] font-medium text-foreground">{c.title} <span className={MUTED}>({c.rows.length})</span></p>
+                  <div className="min-w-60 flex-1">
+                    <p className="text-(length:--fs-13) font-medium text-foreground">{c.title} <span className={MUTED}>({c.rows.length})</span></p>
                     <p className={MUTED}>{c.detail}</p>
-                    <ul className="mt-1.5 list-disc space-y-0.5 pl-5 text-[length:var(--fs-13)] text-foreground/90">
+                    <ul className="mt-1.5 list-disc space-y-0.5 pl-5 text-(length:--fs-13) text-foreground/90">
                       {c.rows.slice(0, 30).map((x) => <li key={x}>{x}</li>)}
                       {c.rows.length > 30 && <li className={MUTED}>+{c.rows.length - 30} ακόμη</li>}
                     </ul>
@@ -169,8 +169,8 @@ export function IntegratorClient({ report, canResolve, canAdd }: { report: Integ
           <p className={MUTED}>Λογαριασμοί, έξοδα, χρεοπιστώσεις, είδη, καρτέλες και καταχωρίσεις που έγιναν στο SoftOne μέσα από την εφαρμογή{report.tenantSince ? ` — από τη σύνδεση με την τρέχουσα εγκατάσταση (${fmt(report.tenantSince)})` : ''}.</p>
         </div>
         {report.changes.length ? (
-          <div className="max-h-[32rem] overflow-auto">
-            <table className="w-full text-[length:var(--fs-13)]">
+          <div className="max-h-128 overflow-auto">
+            <table className="w-full text-(length:--fs-13)">
               <thead className="sticky top-0 bg-card text-left">
                 <tr className={MUTED}><th className="px-4 py-2 font-medium">Πότε</th><th className="px-4 py-2 font-medium">Ενέργεια</th><th className="px-4 py-2 font-medium">Τι</th><th className="hidden px-4 py-2 font-medium md:table-cell">Ποιος</th></tr>
               </thead>
@@ -191,12 +191,12 @@ export function IntegratorClient({ report, canResolve, canAdd }: { report: Integ
 
       {report.done.length > 0 && (
         <details className={SECTION}>
-          <summary className="cursor-pointer px-4 py-3 text-[length:var(--fs-13)] font-medium">Διευθετημένα ({report.done.length})</summary>
+          <summary className="cursor-pointer px-4 py-3 text-(length:--fs-13) font-medium">Διευθετημένα ({report.done.length})</summary>
           <ul className="divide-y divide-border border-t border-border">
             {report.done.map((i) => (
               <li key={i.id} className="flex flex-wrap items-center gap-3 px-4 py-2.5">
                 <FiCheckCircle className="size-4 text-emerald-600" aria-hidden />
-                <span className="min-w-0 flex-1 text-[length:var(--fs-13)]">{i.title}</span>
+                <span className="min-w-0 flex-1 text-(length:--fs-13)">{i.title}</span>
                 <span className={MUTED}>{i.resolvedBy ?? '—'}{i.resolvedAt ? ` · ${fmt(i.resolvedAt)}` : ''}</span>
                 {canResolve && (
                   <button type="button" className={BTN_GHOST} disabled={busy === i.id} onClick={() => void setStatus(i.id, 'OPEN')}>

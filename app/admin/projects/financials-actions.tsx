@@ -17,7 +17,7 @@ import { Label } from '@/components/ui/label';
 import { COST_CATEGORIES, COST_CATEGORY_LABEL, overheadKey } from '@/lib/project-profit/calc';
 import type { OverheadRateRow } from '@/lib/overheads';
 
-const ITEM = 'cursor-pointer gap-2 text-[length:var(--fs-12)]';
+const ITEM = 'cursor-pointer gap-2 text-(length:--fs-12)';
 const CATEGORY_LABEL: Record<string, string> = Object.fromEntries(COST_CATEGORIES.map((c) => [overheadKey(c), COST_CATEGORY_LABEL[c]]));
 const categoryLabel = (c: string | null) => (c == null ? 'Γενικό (όλες οι κατηγορίες)' : CATEGORY_LABEL[c] ?? c);
 const fmtDay = (d: string | null) => (d ? new Date(`${d}T00:00:00Z`).toLocaleDateString('el-GR', { timeZone: 'UTC' }) : 'ανοιχτό');
@@ -49,7 +49,7 @@ export function useFinancialsActions(canManage: boolean, prjc?: number) {
 
   const items = (
     <>
-      <DropdownMenuLabel className="text-[length:var(--fs-11)] font-semibold text-muted-foreground">Οικονομικά έργων</DropdownMenuLabel>
+      <DropdownMenuLabel className="text-(length:--fs-11) font-semibold text-muted-foreground">Οικονομικά έργων</DropdownMenuLabel>
       <DropdownMenuItem className={ITEM} disabled={busy} onSelect={() => void refresh()}>
         <FiRefreshCw className={`size-3.5 ${busy ? 'animate-spin motion-reduce:animate-none' : ''}`} aria-hidden /> Ανανέωση οικονομικών από SoftOne
       </DropdownMenuItem>
@@ -91,7 +91,7 @@ export function FinancialsMenu({ canManage }: { canManage: boolean }) {
     <>
       <DropdownMenu>
         <DropdownMenuTrigger
-          className="inline-flex size-8 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors duration-150 hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring data-[state=open]:bg-muted data-[state=open]:text-foreground"
+          className="inline-flex size-8 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors duration-150 hover:bg-muted hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring data-[state=open]:bg-muted data-[state=open]:text-foreground"
           aria-label="Ενέργειες οικονομικών"
         >
           {busy ? <FiLoader className="size-4 animate-spin motion-reduce:animate-none" aria-hidden /> : <FiMoreVertical className="size-4" aria-hidden />}
@@ -149,19 +149,19 @@ function OverheadRatesDialog({ open, onOpenChange }: { open: boolean; onOpenChan
     router.refresh();
   };
 
-  const field = 'h-9 w-full rounded-lg border border-input bg-transparent px-2.5 text-[length:var(--fs-13)] outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50';
+  const field = 'h-9 w-full rounded-lg border border-input bg-transparent px-2.5 text-(length:--fs-13) outline-hidden focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50';
   return (
     <Dialog open={open} onOpenChange={(o) => !busy && onOpenChange(o)}>
       <DialogContent className="flex max-h-[92dvh] flex-col gap-0 overflow-hidden p-0 sm:max-w-xl">
         <DialogHeader className="px-5 pt-4 pb-3">
-          <DialogTitle className="text-[length:var(--fs-16)]">Ποσοστά γενικών εξόδων</DialogTitle>
-          <DialogDescription className="text-[length:var(--fs-12)]">
+          <DialogTitle className="text-(length:--fs-16)">Ποσοστά γενικών εξόδων</DialogTitle>
+          <DialogDescription className="text-(length:--fs-12)">
             Ποσοστό επί του άμεσου κόστους, ανά περίοδο. Το γενικό ισχύει για όλες τις κατηγορίες· ένα ποσοστό κατηγορίας το παρακάμπτει. Ίδια ποσοστά χρησιμοποιεί και το «Πραγματικό κόστος».
           </DialogDescription>
         </DialogHeader>
         <DialogBody className="space-y-4">
           <div className="overflow-x-auto rounded-lg border border-border">
-            <table className="w-full text-[length:var(--fs-12)]">
+            <table className="w-full text-(length:--fs-12)">
               <thead className="bg-muted/50 text-left text-muted-foreground">
                 <tr><th className="px-2.5 py-1.5 font-medium">Περίοδος</th><th className="px-2.5 py-1.5 font-medium">Κατηγορία</th><th className="px-2.5 py-1.5 text-right font-medium">%</th><th className="w-10"><span className="sr-only">Ενέργειες</span></th></tr>
               </thead>
@@ -170,7 +170,7 @@ function OverheadRatesDialog({ open, onOpenChange }: { open: boolean; onOpenChan
                 {rates?.length === 0 && <tr><td colSpan={4} className="px-2.5 py-3 text-muted-foreground">Δεν έχει οριστεί ποσοστό — τα γενικά έξοδα μετρούν 0.</td></tr>}
                 {rates?.map((r) => (
                   <tr key={r.id} className="border-t border-border">
-                    <td className="px-2.5 py-1.5 tabular-nums">{fmtDay(r.validFrom)} – {fmtDay(r.validTo)}{r.note && <span className="block text-[length:var(--fs-11)] text-muted-foreground">{r.note}</span>}</td>
+                    <td className="px-2.5 py-1.5 tabular-nums">{fmtDay(r.validFrom)} – {fmtDay(r.validTo)}{r.note && <span className="block text-(length:--fs-11) text-muted-foreground">{r.note}</span>}</td>
                     <td className="px-2.5 py-1.5">{categoryLabel(r.category)}</td>
                     <td className="px-2.5 py-1.5 text-right font-medium tabular-nums">{r.percent.toLocaleString('el-GR')}%</td>
                     <td className="px-1 py-1 text-right">
@@ -186,19 +186,19 @@ function OverheadRatesDialog({ open, onOpenChange }: { open: boolean; onOpenChan
           </div>
 
           <form id="overhead-form" onSubmit={add} className="grid grid-cols-2 gap-3 sm:grid-cols-4" noValidate>
-            <div><Label htmlFor="oh-from" className="mb-1 block text-[length:var(--fs-12)]">Από</Label><input id="oh-from" type="date" required className={field} value={form.validFrom} onChange={(e) => setForm({ ...form, validFrom: e.target.value })} /></div>
-            <div><Label htmlFor="oh-to" className="mb-1 block text-[length:var(--fs-12)]">Έως</Label><input id="oh-to" type="date" className={field} value={form.validTo} onChange={(e) => setForm({ ...form, validTo: e.target.value })} /></div>
-            <div><Label htmlFor="oh-pct" className="mb-1 block text-[length:var(--fs-12)]">Ποσοστό %</Label><Input id="oh-pct" inputMode="decimal" className="tabular-nums" placeholder="π.χ. 12" value={form.percent} onChange={(e) => setForm({ ...form, percent: e.target.value })} /></div>
+            <div><Label htmlFor="oh-from" className="mb-1 block text-(length:--fs-12)">Από</Label><input id="oh-from" type="date" required className={field} value={form.validFrom} onChange={(e) => setForm({ ...form, validFrom: e.target.value })} /></div>
+            <div><Label htmlFor="oh-to" className="mb-1 block text-(length:--fs-12)">Έως</Label><input id="oh-to" type="date" className={field} value={form.validTo} onChange={(e) => setForm({ ...form, validTo: e.target.value })} /></div>
+            <div><Label htmlFor="oh-pct" className="mb-1 block text-(length:--fs-12)">Ποσοστό %</Label><Input id="oh-pct" inputMode="decimal" className="tabular-nums" placeholder="π.χ. 12" value={form.percent} onChange={(e) => setForm({ ...form, percent: e.target.value })} /></div>
             <div>
-              <Label htmlFor="oh-cat" className="mb-1 block text-[length:var(--fs-12)]">Κατηγορία</Label>
+              <Label htmlFor="oh-cat" className="mb-1 block text-(length:--fs-12)">Κατηγορία</Label>
               <select id="oh-cat" className={field} value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}>
                 <option value="">Γενικό</option>
                 {COST_CATEGORIES.map((c) => <option key={c} value={overheadKey(c)}>{COST_CATEGORY_LABEL[c]}</option>)}
               </select>
             </div>
-            <div className="col-span-2 sm:col-span-4"><Label htmlFor="oh-note" className="mb-1 block text-[length:var(--fs-12)]">Σημείωση</Label><Input id="oh-note" maxLength={300} placeholder="Προαιρετικά — π.χ. ενοίκια, μισθοδοσία γραφείου, λογιστής" value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} /></div>
+            <div className="col-span-2 sm:col-span-4"><Label htmlFor="oh-note" className="mb-1 block text-(length:--fs-12)">Σημείωση</Label><Input id="oh-note" maxLength={300} placeholder="Προαιρετικά — π.χ. ενοίκια, μισθοδοσία γραφείου, λογιστής" value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} /></div>
           </form>
-          {error && <p role="alert" className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-[length:var(--fs-12)] text-destructive">{error}</p>}
+          {error && <p role="alert" className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-(length:--fs-12) text-destructive">{error}</p>}
         </DialogBody>
         <DialogFooter className="m-0 border-t border-border px-5 py-3">
           <Button type="button" variant="ghost" onClick={() => onOpenChange(false)} disabled={busy}>Κλείσιμο</Button>

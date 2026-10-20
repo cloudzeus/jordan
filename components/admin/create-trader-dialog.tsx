@@ -309,11 +309,11 @@ export function CreateTraderDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="w-[95vw] gap-0 overflow-hidden p-0 sm:max-w-xl">
         <DialogHeader className="gap-1 border-b border-border px-5 pb-4 pt-5">
-          <DialogTitle className="flex items-center gap-2.5 text-[length:var(--fs-15)]">
+          <DialogTitle className="flex items-center gap-2.5 text-(length:--fs-15)">
             <span className="grid h-8 w-8 place-items-center rounded-lg bg-sisyphus-50 text-sisyphus-600"><FiUser className="h-4 w-4" /></span>
             Νέος {text.nom} {isGreek ? 'από ΑΑΔΕ' : isForeign ? `— ${countryLabel(country)}` : ''}
           </DialogTitle>
-          <DialogDescription className="text-[length:var(--fs-12)]">
+          <DialogDescription className="text-(length:--fs-12)">
             Ο τύπος καρτέλας δεν επιλέγεται: τον ορίζει η σειρά του παραστατικού.
             {reason ? ` ${reason}.` : ''}
           </DialogDescription>
@@ -327,7 +327,7 @@ export function CreateTraderDialog({
                 <div className="flex min-w-0 gap-1.5">
                   <Input id="ct-afm" value={afmInput} onChange={(e) => { setAfmInput(e.target.value); setError(null); }} placeholder="ξένο με πρόθεμα, π.χ. DE123456789" className={cn(fieldCls, 'min-w-0 flex-1 font-mono')} />
                   {!isForeign && (
-                    <Button variant="outline" className="h-8 shrink-0 px-2 text-[length:var(--fs-12)]" disabled={!isGreek || loading} onClick={() => runLookup(cleanAfm)}>
+                    <Button variant="outline" className="h-8 shrink-0 px-2 text-(length:--fs-12)" disabled={!isGreek || loading} onClick={() => runLookup(cleanAfm)}>
                       <FiDownloadCloud className="mr-1 size-3.5" /> {loading ? 'Άντληση…' : 'ΑΑΔΕ'}
                     </Button>
                   )}
@@ -384,7 +384,7 @@ export function CreateTraderDialog({
 
           {loading && <div className="space-y-1.5" role="status"><span className="sr-only">Άντληση από ΑΑΔΕ…</span>{[0, 1, 2].map((i) => <div key={i} className="h-6 animate-pulse rounded bg-muted motion-reduce:animate-none" />)}</div>}
           {error && (
-            <p className="flex items-start gap-1.5 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-[length:var(--fs-12)] text-amber-900 dark:bg-amber-500/10 dark:text-amber-200" role="alert">
+            <p className="flex items-start gap-1.5 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-(length:--fs-12) text-amber-900 dark:bg-amber-500/10 dark:text-amber-200" role="alert">
               <FiAlertTriangle className="mt-0.5 size-4 shrink-0" /> {error}
             </p>
           )}
@@ -395,13 +395,13 @@ export function CreateTraderDialog({
               tone="emerald" icon={<FiDownloadCloud />} title="Από την ΑΑΔΕ"
               aside={data.isActive ? <span className="text-emerald-800 dark:text-emerald-300">ενεργό ΑΦΜ</span> : <span className="font-semibold text-destructive">ανενεργό ΑΦΜ</span>}
             >
-              <dl className="grid grid-cols-[7rem_minmax(0,1fr)] gap-x-3 gap-y-1.5 text-[length:var(--fs-12)]">
+              <dl className="grid grid-cols-[7rem_minmax(0,1fr)] gap-x-3 gap-y-1.5 text-(length:--fs-12)">
                 <dt className="text-muted-foreground">Δ.Ο.Υ.</dt>
                 <dd className="min-w-0">
                   {data.doyDescr ? `${data.doyDescr}${data.doyCode ? ` (${data.doyCode})` : ''}` : '—'}
                   {data.softoneDoy?.office
-                    ? <span className="block text-[length:var(--fs-11)] text-emerald-700 dark:text-emerald-300">→ SoftOne: {data.softoneDoy.office.name} ({data.softoneDoy.office.code})</span>
-                    : data.softoneDoy?.note ? <span className="block text-[length:var(--fs-11)] text-amber-800 dark:text-amber-300">{data.softoneDoy.note} Θα μείνει κενή.</span> : null}
+                    ? <span className="block text-(length:--fs-11) text-emerald-700 dark:text-emerald-300">→ SoftOne: {data.softoneDoy.office.name} ({data.softoneDoy.office.code})</span>
+                    : data.softoneDoy?.note ? <span className="block text-(length:--fs-11) text-amber-800 dark:text-amber-300">{data.softoneDoy.note} Θα μείνει κενή.</span> : null}
                 </dd>
                 <dt className="text-muted-foreground">Επάγγελμα</dt><dd className="min-w-0">{data.profession || '—'}</dd>
                 <dt className="text-muted-foreground">Διεύθυνση</dt><dd className="min-w-0">{[data.address, data.zip, data.city].filter(Boolean).join(', ') || '—'}</dd>
@@ -421,7 +421,7 @@ export function CreateTraderDialog({
           {/* ── 3. ΑΠΟ ΤΟ ΠΑΡΑΣΤΑΤΙΚΟ: επικοινωνία (η ΑΑΔΕ δεν τη δίνει). */}
           {contacts && Object.values(contacts).some(Boolean) && (
             <FormSection tone="violet" icon={<FiPhone />} title="Επικοινωνία" aside="από το παραστατικό">
-              <dl className="grid grid-cols-[7rem_minmax(0,1fr)] gap-x-3 gap-y-1 text-[length:var(--fs-12)]">
+              <dl className="grid grid-cols-[7rem_minmax(0,1fr)] gap-x-3 gap-y-1 text-(length:--fs-12)">
                 {([['Τηλέφωνο', contacts.phone], ['Τηλέφωνο 2', contacts.phone2], ['Fax', contacts.fax], ['Email', contacts.email], ['Ιστοσελίδα', contacts.webpage]] as const)
                   .filter(([, v]) => v)
                   .map(([k, v]) => <React.Fragment key={k}><dt className="text-muted-foreground">{k}</dt><dd className="min-w-0 truncate">{v}</dd></React.Fragment>)}
@@ -431,15 +431,15 @@ export function CreateTraderDialog({
 
           {dryPayload != null && (
             <div className="space-y-1.5 pt-1">
-              <p className="text-[length:var(--fs-11)] font-medium text-emerald-700">Object από τον server (dry-run) — αυτό ακριβώς θα σταλεί στο SoftOne:</p>
-              <pre className="overflow-auto rounded-xl border border-border bg-[#0E1626] p-4 font-mono text-[length:var(--fs-11)] leading-relaxed text-[#d6e2f5]">{JSON.stringify(dryPayload, null, 2)}</pre>
+              <p className="text-(length:--fs-11) font-medium text-emerald-700">Object από τον server (dry-run) — αυτό ακριβώς θα σταλεί στο SoftOne:</p>
+              <pre className="overflow-auto rounded-xl border border-border bg-[#0E1626] p-4 font-mono text-(length:--fs-11) leading-relaxed text-[#d6e2f5]">{JSON.stringify(dryPayload, null, 2)}</pre>
             </div>
           )}
         </div>
 
         {/* `mx-0 mb-0`: το DialogFooter έχει `-mx-4 -mb-4` για modal με padding· εδώ είναι `p-0`. */}
         <DialogFooter className="mx-0 mb-0 flex-col gap-2 border-t border-border bg-muted/30 px-5 py-3 sm:flex-row sm:items-center sm:justify-between">
-          <label className={cn('flex items-center gap-2 text-[length:var(--fs-12)] text-muted-foreground',
+          <label className={cn('flex items-center gap-2 text-(length:--fs-12) text-muted-foreground',
             postingEnabled === false ? 'cursor-not-allowed' : 'cursor-pointer')}>
             <input
               type="checkbox" checked={dryRun} disabled={postingEnabled === false}

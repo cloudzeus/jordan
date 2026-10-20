@@ -155,14 +155,14 @@ function fmt2(v: unknown): string {
 /* High-contrast input primitives (12px, solid, dark text on white)   */
 /* ------------------------------------------------------------------ */
 
-const LABEL_CLS = 'text-[length:var(--fs-11)] font-semibold text-muted-foreground';
+const LABEL_CLS = 'text-(length:--fs-11) font-semibold text-muted-foreground';
 /** Ένα ανενεργό κουμπί δεν είναι «ξεθωριασμένο χρωματιστό» — είναι ουδέτερο. */
 const DISABLED_CLS =
   'disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground disabled:shadow-none ' +
   'disabled:hover:bg-muted';
 const INPUT_CLS =
-  'h-8 w-full rounded-md border border-input bg-background px-2 text-[length:var(--fs-12)] text-foreground ' +
-  'placeholder:text-muted-foreground transition focus:border-sisyphus-500 focus:outline-none ' +
+  'h-8 w-full rounded-md border border-input bg-background px-2 text-(length:--fs-12) text-foreground ' +
+  'placeholder:text-muted-foreground transition focus:border-sisyphus-500 focus:outline-hidden ' +
   'focus:ring-2 focus:ring-sisyphus-500/25 disabled:opacity-60';
 
 function CellInput({
@@ -217,7 +217,7 @@ const SOURCE_META: Record<AmountSource, { label: string; short: string; icon: Re
 function SourceChip({ source, className }: { source: AmountSource; className?: string }) {
   const m = SOURCE_META[source];
   return (
-    <span title={m.label} className={cn('inline-flex shrink-0 items-center gap-1 rounded-full border px-1.5 py-px text-[length:var(--fs-10)] font-semibold normal-case tracking-normal', m.chip, className)}>
+    <span title={m.label} className={cn('inline-flex shrink-0 items-center gap-1 rounded-full border px-1.5 py-px text-(length:--fs-10) font-semibold normal-case tracking-normal', m.chip, className)}>
       {m.icon}{m.short}
     </span>
   );
@@ -236,7 +236,7 @@ function SourcedAmount({ source, value }: { source: AmountSource; value: string 
 function CheckRow({ ok, label, got, exp }: { ok: boolean | null | undefined; label: string; got: string; exp: string }) {
   const style = ok == null ? BADGE_STYLE.neutral : ok ? BADGE_STYLE.ok : BADGE_STYLE.fail;
   return (
-    <div style={style} className="flex flex-wrap items-center justify-between gap-x-2 gap-y-0.5 rounded-md border px-2 py-0.5 text-[length:var(--fs-11)] font-semibold">
+    <div style={style} className="flex flex-wrap items-center justify-between gap-x-2 gap-y-0.5 rounded-md border px-2 py-0.5 text-(length:--fs-11) font-semibold">
       <span className="inline-flex items-center gap-1.5">
         {ok ? <FiCheck className="size-3.5" /> : <FiAlertCircle className={cn('size-3.5', ok == null && 'opacity-60')} />}
         {label}
@@ -264,7 +264,7 @@ function Section({
   return (
     <section className={cn('overflow-hidden rounded-lg border bg-card', accent ? 'border-sisyphus-500/40' : 'border-border', className)}>
       <header className={cn(
-        'flex min-h-[1.75rem] items-center justify-between gap-2 border-b px-3 py-1.5 text-[length:var(--fs-11)] font-bold uppercase tracking-wide',
+        'flex min-h-7 items-center justify-between gap-2 border-b px-3 py-1.5 text-(length:--fs-11) font-bold uppercase tracking-wide',
         accent ? 'border-sisyphus-500/30 bg-sisyphus-500/10 text-sisyphus-700 dark:text-sisyphus-300' : 'border-border bg-muted/50 text-foreground',
       )}>
         <span className="truncate">{title}</span>
@@ -279,7 +279,7 @@ function Section({
 function MissingBadge({ n }: { n: number }) {
   if (n <= 0) return null;
   return (
-    <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-amber-500/20 px-2 py-0.5 text-[length:var(--fs-10)] font-bold normal-case text-amber-700 dark:text-amber-300">
+    <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-amber-500/20 px-2 py-0.5 text-(length:--fs-10) font-bold normal-case text-amber-700 dark:text-amber-300">
       <FiAlertCircle className="size-3" aria-hidden />
       {n} υποχρεωτικ{n === 1 ? 'ό' : 'ά'}
     </span>
@@ -618,7 +618,7 @@ export function OcrRowDetail({
    */
   const totalsBox = byGroup('totals').length > 0 ? (
     <div className="flex flex-col overflow-hidden rounded-lg border border-border bg-card">
-      <header className="border-b border-border bg-muted/50 px-3 py-1 text-[length:var(--fs-11)] font-bold uppercase tracking-wide text-foreground">
+      <header className="border-b border-border bg-muted/50 px-3 py-1 text-(length:--fs-11) font-bold uppercase tracking-wide text-foreground">
         Σύνολα παραστατικού
       </header>
       <div className="grid grid-cols-[minmax(0,1fr)_auto_8.5rem] items-center gap-x-2 gap-y-1 px-3 py-2">
@@ -628,7 +628,7 @@ export function OcrRowDetail({
           return (
             <React.Fragment key={s.key}>
               {grand && <div className="col-span-3 my-0.5 border-t border-dotted border-muted-foreground/50" />}
-              <span className={cn('truncate text-[length:var(--fs-12)]', grand ? 'font-bold text-sisyphus-700 dark:text-sisyphus-300' : 'font-medium text-foreground')}>
+              <span className={cn('truncate text-(length:--fs-12)', grand ? 'font-bold text-sisyphus-700 dark:text-sisyphus-300' : 'font-medium text-foreground')}>
                 {s.label}
               </span>
               <span className="justify-self-end">{src && <SourceChip source={src} />}</span>
@@ -637,8 +637,8 @@ export function OcrRowDetail({
                 aria-label={`${s.label}${src ? ` — ${SOURCE_META[src].label}` : ''}`}
                 value={form[s.key] ?? ''} onChange={(e) => setField(s.key, e.target.value)} onBlur={() => blurFmt(s.key)}
                 className={cn(
-                  'h-7 w-full rounded-md border border-input border-l-4 bg-background px-2 text-right font-mono text-[length:var(--fs-12)] tabular-nums text-foreground transition',
-                  'focus:border-sisyphus-500 focus:outline-none focus:ring-2 focus:ring-sisyphus-500/25 disabled:opacity-60',
+                  'h-7 w-full rounded-md border border-input border-l-4 bg-background px-2 text-right font-mono text-(length:--fs-12) tabular-nums text-foreground transition',
+                  'focus:border-sisyphus-500 focus:outline-hidden focus:ring-2 focus:ring-sisyphus-500/25 disabled:opacity-60',
                   src ? SOURCE_META[src].bar : 'border-l-input',
                   grand && 'font-bold text-sisyphus-700 dark:text-sisyphus-300',
                 )}
@@ -648,7 +648,7 @@ export function OcrRowDetail({
         })}
         {totalsBothPresent && (
           <div style={totalsOk ? BADGE_STYLE.ok : BADGE_STYLE.fail}
-            className="col-span-3 mt-0.5 flex items-center justify-between gap-2 rounded-md px-2 py-0.5 text-[length:var(--fs-11)] font-semibold">
+            className="col-span-3 mt-0.5 flex items-center justify-between gap-2 rounded-md px-2 py-0.5 text-(length:--fs-11) font-semibold">
             <span className="inline-flex items-center gap-1">
               {totalsOk ? <FiCheck className="size-3.5" /> : <FiAlertCircle className="size-3.5" />}
               Καθαρή + ΦΠΑ{tFees ? ' + επιβαρ.' : ''} {totalsOk ? '= Σύνολο' : tTotal != null ? '≠ Σύνολο' : ''}
@@ -657,7 +657,7 @@ export function OcrRowDetail({
           </div>
         )}
         {[...fromLines].some((k) => sourceOf(k) === 'lines') && (
-          <p className="col-span-3 text-[length:var(--fs-11)] text-muted-foreground">
+          <p className="col-span-3 text-(length:--fs-11) text-muted-foreground">
             Με <SourceChip source="lines" className="mx-0.5 align-middle" />: δεν βρέθηκαν στο χαρτί — υπολογίστηκαν από τις γραμμές. Έλεγξέ τα με το πρωτότυπο.
           </p>
         )}
@@ -672,7 +672,7 @@ export function OcrRowDetail({
           <button
             type="button"
             onClick={onOpenFull}
-            className="inline-flex items-center gap-1.5 rounded-md border border-sisyphus-500/40 bg-sisyphus-500/10 px-3 py-1.5 text-[length:var(--fs-12)] font-semibold text-sisyphus-700 transition hover:bg-sisyphus-500/20 dark:text-sisyphus-300"
+            className="inline-flex items-center gap-1.5 rounded-md border border-sisyphus-500/40 bg-sisyphus-500/10 px-3 py-1.5 text-(length:--fs-12) font-semibold text-sisyphus-700 transition hover:bg-sisyphus-500/20 dark:text-sisyphus-300"
           >
             <FiMaximize2 className="size-3.5" />
             Πλήρης προβολή
@@ -682,9 +682,9 @@ export function OcrRowDetail({
       )}
 
       {row.status === 'FAILED' && row.errorMessage && (
-        <div className="mb-3 rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-[length:var(--fs-12)]">
+        <div className="mb-3 rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-(length:--fs-12)">
           <p className="mb-0.5 font-semibold text-destructive">Σφάλμα εκτέλεσης OCR</p>
-          <pre className="whitespace-pre-wrap break-words font-mono text-[length:var(--fs-11)] text-destructive/90">{row.errorMessage}</pre>
+          <pre className="whitespace-pre-wrap wrap-break-word font-mono text-(length:--fs-11) text-destructive/90">{row.errorMessage}</pre>
         </div>
       )}
 
@@ -700,7 +700,7 @@ export function OcrRowDetail({
       {!showPdf && (
         <button
           type="button" onClick={togglePdf}
-          className="mb-2 inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-[length:var(--fs-11)] font-semibold text-foreground shadow-sm transition hover:bg-muted"
+          className="mb-2 inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-(length:--fs-11) font-semibold text-foreground shadow-xs transition hover:bg-muted"
         >
           <FiChevronRight className="size-3.5" /> Εμφάνιση πρωτοτύπου
         </button>
@@ -719,20 +719,20 @@ export function OcrRowDetail({
         <aside
           aria-hidden={!showPdf}
           className={cn(
-            'flex flex-col overflow-hidden rounded-xl border border-border bg-card shadow-sm transition-opacity duration-200',
+            'flex flex-col overflow-hidden rounded-xl border border-border bg-card shadow-xs transition-opacity duration-200',
             !showPdf && 'pointer-events-none max-lg:hidden lg:h-0 lg:overflow-hidden lg:border-0 lg:opacity-0',
           )}
         >
           <div className="flex items-center justify-between border-b border-border bg-muted/40 px-3 py-2">
-            <span className="text-[length:var(--fs-11)] font-bold uppercase tracking-wide text-foreground">Πρωτότυπο</span>
+            <span className="text-(length:--fs-11) font-bold uppercase tracking-wide text-foreground">Πρωτότυπο</span>
             <div className="flex items-center gap-2">
               <a href={fileUrl} target="_blank" rel="noreferrer"
-                 className="inline-flex items-center gap-1 text-[length:var(--fs-11)] font-semibold text-sisyphus-600 hover:underline">
+                 className="inline-flex items-center gap-1 text-(length:--fs-11) font-semibold text-sisyphus-600 hover:underline">
                 <FiExternalLink className="size-3" /> Άνοιγμα
               </a>
               <button
                 type="button" onClick={togglePdf} title="Κλείσιμο πρωτοτύπου — περισσότερος χώρος για τη δουλειά"
-                className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[length:var(--fs-11)] font-semibold text-muted-foreground transition hover:bg-muted hover:text-foreground"
+                className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-(length:--fs-11) font-semibold text-muted-foreground transition hover:bg-muted hover:text-foreground"
               >
                 <FiChevronLeft className="size-3.5" /> Κλείσιμο
               </button>
@@ -763,7 +763,7 @@ export function OcrRowDetail({
             κατηγορία και τα «Αποθήκευση/Ανάρτηση» έφευγε 133px κάτω από το ορατό παράθυρο. Χωρίς
             αυτό, το sticky λύνεται σωστά πάνω στον πραγματικό scroller και η μπάρα μένει πάντα
             ορατή. Οι στρογγυλές γωνίες που έκοβε το overflow τις κρατούν τώρα τα ίδια τα άκρα. */}
-        <div className="flex min-w-0 flex-col rounded-xl border border-border bg-card shadow-sm">
+        <div className="flex min-w-0 flex-col rounded-xl border border-border bg-card shadow-xs">
           {/* ΕΝΑ ΣΥΝΕΧΕΣ ΦΥΛΛΟ, ΟΧΙ ΚΑΡΤΕΛΕΣ.
               Οι τρεις καρτέλες (Πεδία / Γραμμές / JSON) έσπαγαν ΕΝΑ παραστατικό σε τρία κομμάτια
               που δεν μπορούσες να δεις μαζί: για να συγκρίνεις το «Γενικό Σύνολο» με το άθροισμα
@@ -802,7 +802,7 @@ export function OcrRowDetail({
                 title={`Γραμμές (${items.length})`}
                 right={!ro && (
                   <button type="button" onClick={addLine}
-                    className="inline-flex shrink-0 items-center gap-1 rounded-md border border-sisyphus-500/40 bg-sisyphus-500/10 px-2 py-0.5 text-[length:var(--fs-11)] font-semibold normal-case text-sisyphus-700 transition hover:bg-sisyphus-500/20 dark:text-sisyphus-300">
+                    className="inline-flex shrink-0 items-center gap-1 rounded-md border border-sisyphus-500/40 bg-sisyphus-500/10 px-2 py-0.5 text-(length:--fs-11) font-semibold normal-case text-sisyphus-700 transition hover:bg-sisyphus-500/20 dark:text-sisyphus-300">
                     <FiPlus className="size-3.5" /> Προσθήκη γραμμής
                   </button>
                 )}
@@ -825,13 +825,13 @@ export function OcrRowDetail({
                       // Η ΠΕΡΙΓΡΑΦΗ ΠΑΙΡΝΕΙ ΤΟΝ ΧΩΡΟ: ποσότητα, έκπτωση και ΦΠΑ είναι 2–4 ψηφία.
                       ? (wide ? 'grid-cols-[6rem_minmax(0,1fr)_3.25rem_3.25rem_5.5rem_3.25rem_2.75rem_6rem]' : 'grid-cols-[4.5rem_minmax(0,1fr)_2.75rem_2.75rem_4.5rem_2.75rem_2.5rem_5rem]')
                       : (wide ? 'grid-cols-[minmax(0,1fr)_3.25rem_3.25rem_5.5rem_3.25rem_2.75rem_6rem]' : 'grid-cols-[minmax(0,1fr)_2.75rem_2.75rem_4.5rem_2.75rem_2.5rem_5rem]');
-                  const CAP = cn('block text-[length:var(--fs-10)] font-semibold uppercase tracking-wide text-muted-foreground', row && 'sr-only');
+                  const CAP = cn('block text-(length:--fs-10) font-semibold uppercase tracking-wide text-muted-foreground', row && 'sr-only');
                   const SMALL = row ? 'col-span-1 row-start-1' : cn(formW >= 384 ? 'col-span-1' : 'col-span-2', 'order-3');
                   // Ρητή στήλη για ΚΑΘΕ πεδίο στο φαρδύ — η αυτόματη τοποθέτηση του grid έβαζε τη μονάδα
                   // στη θέση της περιγραφής. Στατικές κλάσεις (ο JIT δεν βλέπει δυναμικές).
                   const COL = ['', 'col-start-1', 'col-start-2', 'col-start-3', 'col-start-4', 'col-start-5', 'col-start-6', 'col-start-7', 'col-start-8'];
                   const at = (n: number) => (row ? COL[showCode ? n : n - 1] : '');
-                  const ICON_BTN = 'inline-flex size-6 shrink-0 cursor-pointer items-center justify-center rounded text-muted-foreground outline-none hover:bg-sisyphus-500/10 hover:text-sisyphus-700 focus-visible:ring-2 focus-visible:ring-sisyphus-500 disabled:cursor-not-allowed disabled:opacity-40 dark:hover:text-sisyphus-300';
+                  const ICON_BTN = 'inline-flex size-6 shrink-0 cursor-pointer items-center justify-center rounded text-muted-foreground outline-hidden hover:bg-sisyphus-500/10 hover:text-sisyphus-700 focus-visible:ring-2 focus-visible:ring-sisyphus-500 disabled:cursor-not-allowed disabled:opacity-40 dark:hover:text-sisyphus-300';
                   const TEXT_BTN = 'inline-flex min-h-6 cursor-pointer items-center gap-0.5 rounded px-1 font-medium hover:bg-sisyphus-500/10 hover:text-sisyphus-700 disabled:cursor-not-allowed disabled:opacity-40 dark:hover:text-sisyphus-300';
                   /** Οι ενέργειες μιας γραμμής: εικονίδια (tablet/desktop) ή λέξεις (κινητό). */
                   const lineActions = (it: LineItem, i: number, iconOnly: boolean) => {
@@ -877,7 +877,7 @@ export function OcrRowDetail({
                   return (
                     <div>
                       {/* Κεφαλίδα μόνο στο φαρδύ — στο στενό κάθε πεδίο έχει τη δική του ετικέτα. */}
-                      <div className={cn('gap-1.5 border-b border-border bg-sisyphus-500/10 px-3 py-1.5 text-[length:var(--fs-11)] font-bold uppercase tracking-wide text-sisyphus-700 dark:text-sisyphus-300', row ? 'grid' : 'hidden', wideCols)}>
+                      <div className={cn('gap-1.5 border-b border-border bg-sisyphus-500/10 px-3 py-1.5 text-(length:--fs-11) font-bold uppercase tracking-wide text-sisyphus-700 dark:text-sisyphus-300', row ? 'grid' : 'hidden', wideCols)}>
                         {showCode && <span>Κωδ.</span>}
                         <span>Περιγραφή</span>
                         <span>Μον.</span>
@@ -888,11 +888,11 @@ export function OcrRowDetail({
                         <span className="text-right">Σύνολο</span>
                       </div>
                       {items.length === 0 ? (
-                        <p className="px-3 py-5 text-center text-[length:var(--fs-12)] text-muted-foreground">Δεν υπάρχουν γραμμές.</p>
+                        <p className="px-3 py-5 text-center text-(length:--fs-12) text-muted-foreground">Δεν υπάρχουν γραμμές.</p>
                       ) : (
                         <ol className={cn('divide-y divide-border [&_input]:px-1.5', row
-                          ? '[&_input]:h-6 [&_input]:text-[length:var(--fs-11-5)] [&_textarea]:text-[length:var(--fs-11-5)]'
-                          : '[&_input]:h-8 [&_input]:text-[length:var(--fs-12)] [&_textarea]:text-[length:var(--fs-12)]')}>
+                          ? '[&_input]:h-6 [&_input]:text-(length:--fs-11-5) [&_textarea]:text-(length:--fs-11-5)'
+                          : '[&_input]:h-8 [&_input]:text-(length:--fs-12) [&_textarea]:text-(length:--fs-12)')}>
                           {items.map((it, i) => {
                             const la = analyzeLine(it);
                             const dTitle = la.discountKind === 'percent' ? 'Έκπτωση επί τοις %' : la.discountKind === 'amount' ? 'Έκπτωση ως ποσό' : undefined;
@@ -908,7 +908,7 @@ export function OcrRowDetail({
                                         rows={1} value={it.name} disabled={ro}
                                         aria-label={`Περιγραφή γραμμής ${i + 1}`}
                                         onChange={(e) => setLine(i, 'name', e.target.value)}
-                                        className={cn(INPUT_CLS, 'h-auto min-w-0 flex-1 resize-none leading-snug [field-sizing:content]', row ? 'min-h-6 py-[0.15rem]' : 'min-h-8 py-[0.3rem]')}
+                                        className={cn(INPUT_CLS, 'h-auto min-w-0 flex-1 resize-none leading-snug field-sizing-content', row ? 'min-h-6 py-[0.15rem]' : 'min-h-8 py-[0.3rem]')}
                                       />
                                       {/* Tablet/desktop: οι ενέργειες ΣΤΗΝ ΙΔΙΑ ΣΕΙΡΑ, ως μικρά εικονίδια — μια
                                           δεύτερη σειρά κάτω από κάθε είδος διπλασίαζε το ύψος σε τιμολόγια 200 γραμμών. */}
@@ -950,7 +950,7 @@ export function OcrRowDetail({
                                   </label>
                                   {/* Κινητό: οι ενέργειες σε δική τους μικρή σειρά, με λέξεις. */}
                                   {!row && !ro && (
-                                    <div className="order-4 col-span-full flex flex-wrap items-center gap-x-1 text-[length:var(--fs-10)] text-muted-foreground">
+                                    <div className="order-4 col-span-full flex flex-wrap items-center gap-x-1 text-(length:--fs-10) text-muted-foreground">
                                       {lineActions(it, i, false)}
                                     </div>
                                   )}
@@ -972,7 +972,7 @@ export function OcrRowDetail({
                                   </div>
                                 )}
                                 {hasLineCustomFields(lineCf) && (
-                                  <div className="mt-1 rounded bg-sisyphus-500/5 px-2 py-1 text-[length:var(--fs-11)] text-muted-foreground">
+                                  <div className="mt-1 rounded bg-sisyphus-500/5 px-2 py-1 text-(length:--fs-11) text-muted-foreground">
                                     <LineCustomFields cf={lineCf} />
                                   </div>
                                 )}
@@ -981,7 +981,7 @@ export function OcrRowDetail({
                           })}
                         </ol>
                       )}
-                      <div className="flex items-center justify-end gap-2 border-t border-border bg-muted/50 px-3 py-1.5 text-[length:var(--fs-12)]">
+                      <div className="flex items-center justify-end gap-2 border-t border-border bg-muted/50 px-3 py-1.5 text-(length:--fs-12)">
                         <span className="inline-flex items-center gap-1.5 font-semibold text-foreground">Άθροισμα γραμμών (καθαρό) <SourceChip source="lines" /></span>
                         <span className="font-bold tabular-nums text-violet-800 dark:text-violet-200">{fmtMoney(linesNet)}</span>
                       </div>
@@ -998,7 +998,7 @@ export function OcrRowDetail({
                 Τώρα το κενό γεμίζει με αυτό ακριβώς που ελέγχει τα σύνολα. */}
             {/* Υπόμνημα: τα ίδια τα σήματα λένε την πηγή («από το χαρτί», «από τις γραμμές»), οπότε μία
                 γραμμή αρκεί — η πλήρης εξήγηση είναι στο tooltip του καθενός. */}
-            <p className="flex flex-wrap items-center gap-1.5 text-[length:var(--fs-11)] text-muted-foreground" aria-label="Υπόμνημα χρωμάτων">
+            <p className="flex flex-wrap items-center gap-1.5 text-(length:--fs-11) text-muted-foreground" aria-label="Υπόμνημα χρωμάτων">
               <span className="font-semibold text-foreground">Πηγή ποσών:</span>
               <SourceChip source="scan" /><SourceChip source="lines" /><SourceChip source="edited" />
             </p>
@@ -1008,12 +1008,12 @@ export function OcrRowDetail({
               <div className="space-y-3">
                 {recon.vatGroups.length > 0 && (
                   <div className="overflow-hidden rounded-lg border border-border">
-                    <header className="flex flex-wrap items-center justify-between gap-2 border-b border-border bg-muted/50 px-3 py-1 text-[length:var(--fs-11)] font-bold uppercase tracking-wide text-foreground">
+                    <header className="flex flex-wrap items-center justify-between gap-2 border-b border-border bg-muted/50 px-3 py-1 text-(length:--fs-11) font-bold uppercase tracking-wide text-foreground">
                       <span>ΦΠΑ ανά συντελεστή{recon.hasMultipleRates && <span className="ml-1.5 font-semibold text-sisyphus-600">• πολλαπλά</span>}</span>
                       <SourceChip source="lines" />
                     </header>
-                    <table className="w-full text-[length:var(--fs-12)]">
-                      <thead className="text-left text-[length:var(--fs-11)] text-muted-foreground">
+                    <table className="w-full text-(length:--fs-12)">
+                      <thead className="text-left text-(length:--fs-11) text-muted-foreground">
                         <tr><th className="px-3 py-0.5 font-semibold">Συντ/στής</th><th className="px-3 py-0.5 text-right font-semibold">Καθαρή</th><th className="px-3 py-0.5 text-right font-semibold">ΦΠΑ</th></tr>
                       </thead>
                       <tbody className="divide-y divide-border">
@@ -1051,7 +1051,7 @@ export function OcrRowDetail({
                   />
                 )}
                 {!ro && feesLeft != null && (
-                  <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-300 bg-amber-50/70 px-3 py-2 text-[length:var(--fs-12)] text-foreground dark:border-amber-700 dark:bg-amber-950/30">
+                  <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-300 bg-amber-50/70 px-3 py-2 text-(length:--fs-12) text-foreground dark:border-amber-700 dark:bg-amber-950/30">
                     <span className="min-w-0 flex-1">Οι επιβαρύνσεις (<strong>{fmtMoney(feesLeft)}</strong>, π.χ. μεταφορικά, ασφάλιστρα, τέλη) δεν είναι γραμμή — στο SoftOne στέλνονται μόνο γραμμές, οπότε θα χάνονταν.</span>
                     <button type="button" onClick={() => feesToLine(feesLeft)}
                       className="inline-flex min-h-8 shrink-0 cursor-pointer items-center gap-1 rounded-md bg-sisyphus-500 px-2.5 font-semibold text-white hover:bg-sisyphus-600">
@@ -1068,21 +1068,21 @@ export function OcrRowDetail({
                 Είναι εργαλείο ελέγχου, όχι δουλειά του λογιστή. Ως καρτέλα κατείχε ίσο βάρος με
                 τα πεδία και τις γραμμές· ως `<details>` είναι μία γραμμή όσο δεν το χρειάζεσαι. */}
             <details className="group overflow-hidden rounded-lg border border-border bg-card">
-              <summary className="flex cursor-pointer list-none items-center gap-2 bg-muted/50 px-3 py-1.5 text-[length:var(--fs-11)] font-bold uppercase tracking-wide text-foreground transition hover:bg-muted">
+              <summary className="flex cursor-pointer list-none items-center gap-2 bg-muted/50 px-3 py-1.5 text-(length:--fs-11) font-bold uppercase tracking-wide text-foreground transition hover:bg-muted">
                 <FiChevronRight className="size-3.5 shrink-0 transition-transform duration-200 group-open:rotate-90" aria-hidden />
                 JSON εξαγωγής
                 <span className="font-normal normal-case text-muted-foreground">— για έλεγχο</span>
               </summary>
               {/* Το JSON μπορεί να είναι τεράστιο: εδώ το `overflow-auto` είναι σωστό, αλλά χωρίς
                   ύψος-φυλακή — μέχρι 70vh, και μόνο όταν είναι ανοιχτό. */}
-              <pre className="max-h-[70vh] overflow-auto border-t border-border bg-muted p-3 text-[length:var(--fs-11)] font-mono leading-relaxed text-foreground">
+              <pre className="max-h-[70vh] overflow-auto border-t border-border bg-muted p-3 text-(length:--fs-11) font-mono leading-relaxed text-foreground">
 {JSON.stringify(buildExtractedData(), null, 2)}
               </pre>
             </details>
           </div>
 
           {/* ---- Footer (sticky action bar — always visible) ---- */}
-          <div className="sticky bottom-0 z-20 flex flex-col gap-2 rounded-b-xl border-t border-border bg-card/95 px-3 py-2.5 shadow-[0_-2px_10px_rgba(0,0,0,0.06)] backdrop-blur lg:flex-row lg:items-end lg:justify-between">
+          <div className="sticky bottom-0 z-20 flex flex-col gap-2 rounded-b-xl border-t border-border bg-card/95 px-3 py-2.5 shadow-[0_-2px_10px_rgba(0,0,0,0.06)] backdrop-blur-sm lg:flex-row lg:items-end lg:justify-between">
             {/* ΧΩΡΙΣ `lg:max-w-xl`: η μπάρα είχε χώρο, αλλά τα δύο combo ήταν κλεισμένα σε 36rem
                 και η επιλεγμένη σειρά («ΤΥΠΥΠ · Τιμολόγιο Παροχής Υπηρεσιών») κοβόταν στη μέση —
                 ο χρήστης δεν έβλεπε ΤΙ είχε διαλέξει. Η σειρά παίρνει διπλάσιο πλάτος από την
@@ -1125,7 +1125,7 @@ export function OcrRowDetail({
             <div className="flex flex-wrap items-center gap-2">
               {dirty && !ro && (
                 <button type="button" onClick={reset}
-                  className="inline-flex h-8 items-center gap-1.5 rounded-md border border-input bg-background px-2.5 text-[length:var(--fs-12)] font-semibold text-foreground transition hover:bg-muted">
+                  className="inline-flex h-8 items-center gap-1.5 rounded-md border border-input bg-background px-2.5 text-(length:--fs-12) font-semibold text-foreground transition hover:bg-muted">
                   <FiRotateCcw className="size-3.5" /> Επαναφορά
                 </button>
               )}
@@ -1134,13 +1134,13 @@ export function OcrRowDetail({
                   ούτε διαβαζόταν ούτε έλεγε «ανενεργό» — έμοιαζε με χαλασμένο κουμπί. Γκρι φόντο
                   και σβησμένο κείμενο το λένε καθαρά, και το ενεργό χρώμα μένει πλήρες. */}
               <button type="button" disabled={ro || saving || !dirty} onClick={save}
-                className={cn(DISABLED_CLS, 'inline-flex h-8 items-center gap-1.5 rounded-md bg-sisyphus-500 px-3.5 text-[length:var(--fs-12)] font-semibold text-white shadow-sm transition hover:bg-sisyphus-600 active:bg-sisyphus-700')}>
+                className={cn(DISABLED_CLS, 'inline-flex h-8 items-center gap-1.5 rounded-md bg-sisyphus-500 px-3.5 text-(length:--fs-12) font-semibold text-white shadow-xs transition hover:bg-sisyphus-600 active:bg-sisyphus-700')}>
                 <FiSave className="size-3.5" /> {saving ? 'Αποθήκευση…' : 'Αποθήκευση'}
               </button>
               <button type="button"
                 disabled={!canPost || posting || row.status !== 'COMPLETED' || !category || row.postStatus === 'POSTED'}
                 onClick={post}
-                className={cn(DISABLED_CLS, 'inline-flex h-8 items-center gap-1.5 rounded-md bg-emerald-600 px-2.5 text-[length:var(--fs-12)] font-semibold text-white shadow-sm transition hover:bg-emerald-700')}>
+                className={cn(DISABLED_CLS, 'inline-flex h-8 items-center gap-1.5 rounded-md bg-emerald-600 px-2.5 text-(length:--fs-12) font-semibold text-white shadow-xs transition hover:bg-emerald-700')}>
                 <FiSend className="size-3.5" /> {posting ? 'Ανάρτηση…' : row.postStatus === 'POSTED' ? 'Αναρτήθηκε' : 'Ανάρτηση'}
               </button>
             </div>

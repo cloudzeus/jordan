@@ -25,7 +25,7 @@ const STATUS: Record<string, { label: string; tone: string }> = {
   CANCELLED: { label: 'Ακυρωμένη', tone: '#BE123C' },
 };
 const soft = (hex: string, pct: number) => `color-mix(in srgb, ${hex} ${pct}%, var(--background))`;
-const ITEM = 'cursor-pointer gap-2 text-[length:var(--fs-12)]';
+const ITEM = 'cursor-pointer gap-2 text-(length:--fs-12)';
 
 async function call(url: string, body?: unknown) {
   const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body ?? {}) });
@@ -39,11 +39,11 @@ function RowActions({ o, onEdit, onChanged }: { o: OfferRow; onEdit: () => void;
   const setStatus = (status: string, ok: string) => act(() => call(`/api/admin/dynamic-offers/${o.id}/status`, { status }), ok);
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger className="inline-flex size-8 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring data-[state=open]:bg-muted" aria-label={`Ενέργειες για ${o.title}`} onClick={(e) => e.stopPropagation()}>
+      <DropdownMenuTrigger className="inline-flex size-8 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring data-[state=open]:bg-muted" aria-label={`Ενέργειες για ${o.title}`} onClick={(e) => e.stopPropagation()}>
         <FiMoreVertical className="size-4" aria-hidden />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-60">
-        <DropdownMenuLabel className="truncate text-[length:var(--fs-11)] font-semibold text-muted-foreground">{o.title}</DropdownMenuLabel>
+        <DropdownMenuLabel className="truncate text-(length:--fs-11) font-semibold text-muted-foreground">{o.title}</DropdownMenuLabel>
         {o.status !== 'CLOSED' && o.status !== 'CANCELLED' && (
           <DropdownMenuItem className={ITEM} onSelect={onEdit}><FiEdit3 className="size-3.5" style={{ color: '#0369A1' }} aria-hidden /> {o.status === 'DRAFT' || o.status === 'SCHEDULED' ? 'Συνέχεια στον οδηγό' : 'Επεξεργασία τιμών/στοιχείων'}</DropdownMenuItem>
         )}
@@ -95,8 +95,8 @@ export function OffersClient({ offers, canManage, canReserve }: { offers: OfferR
       accessorKey: 'name', header: 'Προσφορά', size: 300,
       cell: ({ row }) => (
         <div className="min-w-0">
-          <div className="truncate text-[length:var(--fs-12)] font-medium">{row.original.title}</div>
-          <div className="truncate text-[length:var(--fs-11)] text-muted-foreground" title={row.original.name}>
+          <div className="truncate text-(length:--fs-12) font-medium">{row.original.title}</div>
+          <div className="truncate text-(length:--fs-11) text-muted-foreground" title={row.original.name}>
             {row.original.items.length > 1 && <span className="mr-1 rounded-sm bg-sky-100 px-1 font-semibold text-sky-800">{row.original.items.length} προϊόντα</span>}
             {row.original.items.length === 1 ? `${row.original.code} · ${row.original.name}` : row.original.name}
           </div>
@@ -105,7 +105,7 @@ export function OffersClient({ offers, canManage, canReserve }: { offers: OfferR
     },
     {
       accessorKey: 'status', header: 'Κατάσταση', size: 130,
-      cell: ({ row }) => { const s = STATUS[row.original.status]; return <span className="inline-flex rounded-sm px-1.5 py-0.5 text-[length:var(--fs-11)] font-semibold" style={{ color: s.tone, backgroundColor: soft(s.tone, 12) }}>{s.label}</span>; },
+      cell: ({ row }) => { const s = STATUS[row.original.status]; return <span className="inline-flex rounded-sm px-1.5 py-0.5 text-(length:--fs-11) font-semibold" style={{ color: s.tone, backgroundColor: soft(s.tone, 12) }}>{s.label}</span>; },
     },
     {
       id: 'fill', accessorFn: (o) => o.percent, header: 'Γέμισμα', size: 170,
@@ -114,7 +114,7 @@ export function OffersClient({ offers, canManage, canReserve }: { offers: OfferR
         return (
           <div className="min-w-0">
             <div className="h-2 overflow-hidden rounded-full bg-muted"><div className="h-full rounded-full bg-emerald-600" style={{ width: `${o.percent}%` }} /></div>
-            <div className="mt-0.5 text-[length:var(--fs-11)] tabular-nums text-muted-foreground">{num(o.filled)}/{num(o.capacity)} παλ. · {Math.round(o.percent)}%</div>
+            <div className="mt-0.5 text-(length:--fs-11) tabular-nums text-muted-foreground">{num(o.filled)}/{num(o.capacity)} παλ. · {Math.round(o.percent)}%</div>
           </div>
         );
       },
@@ -125,27 +125,27 @@ export function OffersClient({ offers, canManage, canReserve }: { offers: OfferR
         const o = row.original; const it = o.items[0];
         if (!it?.current) return DASH;
         return o.items.length === 1
-          ? <span className="text-[length:var(--fs-13)] font-bold tabular-nums text-emerald-700">{eur(it.current.price)}<span className="text-[length:var(--fs-10)] font-normal text-muted-foreground">/{it.baseUnit ?? 'τ.μ.'}</span></span>
-          : <span className="text-[length:var(--fs-12)] tabular-nums"><strong className="text-emerald-700">W0{o.currentLevel}</strong> <span className="text-muted-foreground">από {o.levels.length}</span></span>;
+          ? <span className="text-(length:--fs-13) font-bold tabular-nums text-emerald-700">{eur(it.current.price)}<span className="text-(length:--fs-10) font-normal text-muted-foreground">/{it.baseUnit ?? 'τ.μ.'}</span></span>
+          : <span className="text-(length:--fs-12) tabular-nums"><strong className="text-emerald-700">W0{o.currentLevel}</strong> <span className="text-muted-foreground">από {o.levels.length}</span></span>;
       },
     },
     {
       id: 'next', accessorFn: (o) => o.nextLevel?.missing ?? 0, header: 'Επόμενη πτώση', size: 150,
       cell: ({ row }) => {
         const o = row.original; const it = o.items[0];
-        if (!o.nextLevel) return <span className="text-[length:var(--fs-12)] text-emerald-700">καλύτερη ✓</span>;
-        return <span className="text-[length:var(--fs-12)] tabular-nums">{o.items.length === 1 && it?.next ? eur(it.next.tier.price) : `W0${o.nextLevel.level}`} <span className="text-muted-foreground">σε {num(o.nextLevel.missing)} παλ.</span></span>;
+        if (!o.nextLevel) return <span className="text-(length:--fs-12) text-emerald-700">καλύτερη ✓</span>;
+        return <span className="text-(length:--fs-12) tabular-nums">{o.items.length === 1 && it?.next ? eur(it.next.tier.price) : `W0${o.nextLevel.level}`} <span className="text-muted-foreground">σε {num(o.nextLevel.missing)} παλ.</span></span>;
       },
     },
     { accessorKey: 'customers', header: 'Συμμετέχοντες', size: 110, cell: ({ row }) => (
-      <span className="inline-flex items-center gap-1.5 tabular-nums text-[length:var(--fs-12)]">
+      <span className="inline-flex items-center gap-1.5 tabular-nums text-(length:--fs-12)">
         {row.original.customers}
-        {row.original.pending > 0 && <span className="rounded-sm bg-amber-100 px-1.5 py-0.5 text-[length:var(--fs-10)] font-semibold text-amber-800" title="Αιτήματα κράτησης από το portal που περιμένουν έγκριση">{row.original.pending} παλ. σε αναμονή</span>}
+        {row.original.pending > 0 && <span className="rounded-sm bg-amber-100 px-1.5 py-0.5 text-(length:--fs-10) font-semibold text-amber-800" title="Αιτήματα κράτησης από το portal που περιμένουν έγκριση">{row.original.pending} παλ. σε αναμονή</span>}
       </span>
     ) },
     {
       accessorKey: 'closesAt', header: 'Λήξη', size: 100,
-      cell: ({ row }) => (row.original.closesAt ? <span className="tabular-nums text-[length:var(--fs-12)] text-muted-foreground">{new Date(row.original.closesAt).toLocaleDateString('el-GR')}</span> : DASH),
+      cell: ({ row }) => (row.original.closesAt ? <span className="tabular-nums text-(length:--fs-12) text-muted-foreground">{new Date(row.original.closesAt).toLocaleDateString('el-GR')}</span> : DASH),
     },
     {
       id: 'actions', header: () => <span className="sr-only">Ενέργειες</span>, size: 44, enableSorting: false, enableHiding: false, enableResizing: false,
@@ -153,7 +153,7 @@ export function OffersClient({ offers, canManage, canReserve }: { offers: OfferR
     },
   ], [canManage]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const chip = (active: boolean) => cn('inline-flex h-7 cursor-pointer items-center gap-1 rounded-md border px-2.5 text-[length:var(--fs-11)] font-medium transition',
+  const chip = (active: boolean) => cn('inline-flex h-7 cursor-pointer items-center gap-1 rounded-md border px-2.5 text-(length:--fs-11) font-medium transition',
     active ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-background text-muted-foreground hover:text-foreground');
   const toolbar = (
     <div className="flex flex-wrap items-center gap-1.5">
@@ -181,7 +181,7 @@ export function OffersClient({ offers, canManage, canReserve }: { offers: OfferR
         emptyState={(
           <div className="space-y-2 py-10 text-center">
             <FiSend className="mx-auto size-8 text-muted-foreground/50" aria-hidden />
-            <p className="text-[length:var(--fs-13)] text-muted-foreground">{offers.length ? 'Καμία προσφορά με αυτό το φίλτρο.' : 'Δεν υπάρχουν ακόμη δυναμικές προσφορές.'}</p>
+            <p className="text-(length:--fs-13) text-muted-foreground">{offers.length ? 'Καμία προσφορά με αυτό το φίλτρο.' : 'Δεν υπάρχουν ακόμη δυναμικές προσφορές.'}</p>
             {canManage && !offers.length && <Button size="sm" onClick={() => setWizard({ id: null })}><FiPlus className="mr-1.5 size-3.5" aria-hidden /> Δημιουργία της πρώτης</Button>}
           </div>
         )}

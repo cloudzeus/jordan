@@ -28,14 +28,14 @@ export default async function CustomerProjectsPage() {
         {projects.length === 0 ? (
           <div className="mt-12"><Empty title="Δεν υπάρχουν έργα στο όνομά σας">Όταν ανοίξει έργο για εσάς, θα εμφανιστεί εδώ.</Empty></div>
         ) : (
-          <ul className="mt-12 border-t border-[var(--s-line)]">
+          <ul className="mt-12 border-t border-(--s-line)">
             {projects.map((p) => (
-              <li key={p.prjc} className="border-b border-[var(--s-line)]">
+              <li key={p.prjc} className="border-b border-(--s-line)">
                 <Link href={`/dashboard/customer/projects/${p.prjc}`} className="group grid gap-x-6 gap-y-1 py-5 sm:grid-cols-[1fr_auto] sm:items-center">
                   <span className="min-w-0">
-                    <span className="block text-[length:var(--fs-13)] tabular-nums text-[var(--s-mute)]">{p.code}</span>
-                    <span className="font-site block text-[length:var(--fs-20)] font-light leading-snug group-hover:underline group-hover:underline-offset-4">{p.name}</span>
-                    <span className="mt-1 block text-[length:var(--fs-13)] text-[var(--s-ink-2)]">
+                    <span className="block text-(length:--fs-13) tabular-nums text-(--s-mute)">{p.code}</span>
+                    <span className="font-site block text-(length:--fs-20) font-light leading-snug group-hover:underline group-hover:underline-offset-4">{p.name}</span>
+                    <span className="mt-1 block text-(length:--fs-13) text-(--s-ink-2)">
                       Έναρξη {date(p.fromDate)}{p.finalDate ? ` · προβλεπόμενη λήξη ${date(p.finalDate)}` : ''}{p.closeDate ? ` · ολοκληρώθηκε ${date(p.closeDate)}` : ''}
                     </span>
                   </span>

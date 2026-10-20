@@ -137,7 +137,7 @@ export function OcrUploadForm() {
     <>
       <section className="overflow-hidden rounded-xl border border-border bg-card shadow-fluent-2">
         {/* Header band — και ο διακόπτης σύμπτυξης */}
-        <header className="border-b border-border bg-gradient-to-r from-sisyphus-50 via-card to-card">
+        <header className="border-b border-border bg-linear-to-r from-sisyphus-50 via-card to-card">
           <button
             type="button"
             onClick={() => toggle(!open)}
@@ -150,8 +150,8 @@ export function OcrUploadForm() {
                 <FiZap className="size-4" />
               </span>
               <span className="min-w-0">
-                <span className="block text-[length:var(--fs-14)] font-semibold tracking-tight text-foreground">Νέα ανάλυση εγγράφου</span>
-                <span className="block truncate text-[length:var(--fs-11)] text-muted-foreground">
+                <span className="block text-(length:--fs-14) font-semibold tracking-tight text-foreground">Νέα ανάλυση εγγράφου</span>
+                <span className="block truncate text-(length:--fs-11) text-muted-foreground">
                   {/* Κλειστή: ο χρήστης πρέπει να βλέπει ΜΕ ΤΙ θα τρέξει, χωρίς να την ανοίξει. */}
                   {open
                     ? 'DeepSeek για ψηφιακά PDF · Gemini Vision για εικόνες και σαρωμένα'
@@ -160,7 +160,7 @@ export function OcrUploadForm() {
               </span>
             </span>
             <span className="flex shrink-0 items-center gap-2.5">
-              <span className="hidden text-[length:var(--fs-10)] font-bold uppercase tracking-wider text-muted-foreground sm:inline">
+              <span className="hidden text-(length:--fs-10) font-bold uppercase tracking-wider text-muted-foreground sm:inline">
                 {open ? 'Σύμπτυξη' : 'Ρυθμίσεις'}
               </span>
               {open ? <FiChevronUp className="size-4 text-muted-foreground" /> : <FiChevronDown className="size-4 text-muted-foreground" />}
@@ -176,7 +176,7 @@ export function OcrUploadForm() {
             <select
               value={docType}
               onChange={(e) => setDocType(e.target.value as ExtractDocType)}
-              className="h-9 w-full rounded-md border border-input bg-background px-2.5 text-sm transition focus:border-sisyphus-500 focus:outline-none focus:ring-2 focus:ring-sisyphus-500/20"
+              className="h-9 w-full rounded-md border border-input bg-background px-2.5 text-sm transition focus:border-sisyphus-500 focus:outline-hidden focus:ring-2 focus:ring-sisyphus-500/20"
             >
               {UPLOAD_DOC_TYPES.map((key) => (
                 <option key={key} value={key}>{UPLOAD_DOC_TYPE_LABELS[key]}</option>
@@ -189,7 +189,7 @@ export function OcrUploadForm() {
             <select
               value={language}
               onChange={(e) => setLanguage(e.target.value as SupportedLang)}
-              className="h-9 w-full rounded-md border border-input bg-background px-2.5 text-sm transition focus:border-sisyphus-500 focus:outline-none focus:ring-2 focus:ring-sisyphus-500/20"
+              className="h-9 w-full rounded-md border border-input bg-background px-2.5 text-sm transition focus:border-sisyphus-500 focus:outline-hidden focus:ring-2 focus:ring-sisyphus-500/20"
             >
               {(Object.entries(SUPPORTED_LANGUAGES) as [SupportedLang, { label: string }][]).map(([key, l]) => (
                 <option key={key} value={key}>{l.label}</option>
@@ -199,7 +199,7 @@ export function OcrUploadForm() {
 
           {/* Mode segmented control */}
           <Field label="PDF Mode">
-            <div className="flex h-9 rounded-md border border-input bg-background p-0.5 text-[length:var(--fs-12)] font-medium">
+            <div className="flex h-9 rounded-md border border-input bg-background p-0.5 text-(length:--fs-12) font-medium">
               {(['auto', 'digital', 'scanned'] as const).map((m) => (
                 <button
                   key={m}
@@ -227,13 +227,13 @@ export function OcrUploadForm() {
               checked={multiDoc}
               onChange={(e) => setMultiDoc(e.target.checked)}
               disabled={busy}
-              className="mt-0.5 size-4 accent-[var(--sisyphus-500,#2563eb)]"
+              className="mt-0.5 size-4 accent-(--sisyphus-500,#2563eb)"
             />
             <span>
-              <span className="block text-[length:var(--fs-13)] font-medium text-foreground">
+              <span className="block text-(length:--fs-13) font-medium text-foreground">
                 Δείξε μου πάντα τις σελίδες πριν την ανάγνωση
               </span>
-              <span className="block text-[length:var(--fs-11)] text-muted-foreground">
+              <span className="block text-(length:--fs-11) text-muted-foreground">
                 Ένα PDF με πολλά παραστατικά εντοπίζεται αυτόματα και θα δεις τα κοψίματα. Άναψέ το για να
                 ορίζεις τα κοψίματα σε κάθε PDF (έως {MAX_SPLIT_MB} MB).
               </span>
@@ -275,11 +275,11 @@ export function OcrUploadForm() {
                   {phase === 'split' ? 'Έλεγχος αν το αρχείο έχει πολλά παραστατικά…' : 'Ανάλυση μέσω AI…'}
                 </p>
                 {phase === 'split' ? (
-                  <p className="text-[length:var(--fs-11)] text-muted-foreground">
+                  <p className="text-(length:--fs-11) text-muted-foreground">
                     Εντοπισμός του πού αρχίζει κάθε παραστατικό. Σε σαρωμένο PDF διαρκεί 20–60 δευτερόλεπτα.
                   </p>
                 ) : open && (
-                  <p className="text-[length:var(--fs-11)] text-muted-foreground">
+                  <p className="text-(length:--fs-11) text-muted-foreground">
                     Εξαγωγή πεδίων, line items, και σχηματισμός JSON. Διαρκεί 5-25 δευτερόλεπτα.
                   </p>
                 )}
@@ -296,7 +296,7 @@ export function OcrUploadForm() {
                   {multiDoc ? 'Σύρε το PDF εδώ — συνέχεια στον διαχωρισμό' : 'Σύρε αρχείο εδώ ή κάνε κλικ για επιλογή'}
                 </p>
                 {open && (
-                  <p className="text-[length:var(--fs-11)] text-muted-foreground">
+                  <p className="text-(length:--fs-11) text-muted-foreground">
                     {multiDoc
                       ? `PDF · έως ${MAX_SPLIT_MB} MB`
                       : `PDF, PNG, JPG, WebP, GIF, TIFF, BMP · έως ${MAX_OCR_MB} MB`}
@@ -320,9 +320,9 @@ export function OcrUploadForm() {
 function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
   return (
     <label className="flex flex-col gap-1.5">
-      <span className="text-[length:var(--fs-10)] font-bold uppercase tracking-wider text-muted-foreground">{label}</span>
+      <span className="text-(length:--fs-10) font-bold uppercase tracking-wider text-muted-foreground">{label}</span>
       {children}
-      {hint ? <span className="text-[length:var(--fs-11)] leading-snug text-muted-foreground">{hint}</span> : null}
+      {hint ? <span className="text-(length:--fs-11) leading-snug text-muted-foreground">{hint}</span> : null}
     </label>
   );
 }

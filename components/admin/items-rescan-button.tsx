@@ -52,7 +52,7 @@ export function ItemsRescanButton({ docId, onDone, className, label = 'Επαν�
     <button
       type="button" onClick={() => void run()} disabled={busy} aria-busy={busy || undefined}
       title="Ξαναψάχνει στο SoftOne είδη που καταχωρήθηκαν στο μεταξύ — μόνο για γραμμές χωρίς είδος"
-      className={cn('inline-flex min-h-8 cursor-pointer items-center gap-1.5 rounded-md border border-border bg-card px-2.5 py-1 text-[length:var(--fs-12)] font-medium text-foreground transition hover:bg-muted disabled:cursor-wait disabled:opacity-70', className)}
+      className={cn('inline-flex min-h-8 cursor-pointer items-center gap-1.5 rounded-md border border-border bg-card px-2.5 py-1 text-(length:--fs-12) font-medium text-foreground transition hover:bg-muted disabled:cursor-wait disabled:opacity-70', className)}
     >
       {busy ? <FiLoader aria-hidden className="size-3.5 animate-spin motion-reduce:animate-none" /> : <FiRefreshCw aria-hidden className="size-3.5" />}
       {busy ? 'Επανέλεγχος…' : label}

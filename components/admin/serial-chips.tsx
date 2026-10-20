@@ -12,11 +12,11 @@ export function SerialChips({ serials }: { serials: readonly string[] | null | u
   if (!serials?.length) return null;
   return (
     <span className="mt-1 flex flex-wrap items-center gap-1" aria-label={`Σειριακοί αριθμοί: ${serials.join(', ')}`}>
-      <span className="inline-flex items-center gap-0.5 text-[length:var(--fs-10)] font-bold uppercase tracking-wide text-muted-foreground">
+      <span className="inline-flex items-center gap-0.5 text-(length:--fs-10) font-bold uppercase tracking-wide text-muted-foreground">
         <FiHash className="size-3" aria-hidden /> S/N
       </span>
       {serials.map((sn) => (
-        <span key={sn} className="select-all rounded border border-border bg-muted/60 px-1.5 py-px font-mono text-[length:var(--fs-11)] text-foreground">
+        <span key={sn} className="select-all rounded border border-border bg-muted/60 px-1.5 py-px font-mono text-(length:--fs-11) text-foreground">
           {sn}
         </span>
       ))}

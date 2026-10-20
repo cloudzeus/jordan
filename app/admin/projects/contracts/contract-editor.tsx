@@ -55,9 +55,9 @@ const toPayload = (s: State) => ({
   milestones: s.milestones.map(({ uid: _u, ...m }) => m),
 });
 
-const ITEM = 'cursor-pointer gap-2 text-[length:var(--fs-12)]';
-const field = 'h-9 text-[length:var(--fs-12)]';
-const lbl = 'text-[length:var(--fs-11)] font-medium uppercase tracking-wide text-muted-foreground';
+const ITEM = 'cursor-pointer gap-2 text-(length:--fs-12)';
+const field = 'h-9 text-(length:--fs-12)';
+const lbl = 'text-(length:--fs-11) font-medium uppercase tracking-wide text-muted-foreground';
 const numVal = (v: string) => { const n = Number(v.replace(',', '.')); return Number.isFinite(n) ? n : 0; };
 
 /** Αριθμητικό πεδίο που κρατά το κείμενο όσο γράφεις («1,», «0.5») — δέχεται κόμμα ή τελεία. */
@@ -96,13 +96,13 @@ type Tone = keyof typeof TONES;
 function Section({ icon, title, hint, children, actions, id, tone = 'slate' }: { icon: React.ReactNode; title: string; hint?: string; children: React.ReactNode; actions?: React.ReactNode; id?: string; tone?: Tone }) {
   const t = TONES[tone];
   return (
-    <section id={id} className={cn('overflow-hidden rounded-lg border border-border border-t-[3px] bg-card shadow-sm', t.bar)}>
+    <section id={id} className={cn('overflow-hidden rounded-lg border border-border border-t-[3px] bg-card shadow-xs', t.bar)}>
       <header className={cn('flex flex-wrap items-start justify-between gap-2 border-b border-border px-4 py-2.5', t.head)}>
         <div className="flex min-w-0 items-start gap-2.5">
-          <span className={cn('mt-0.5 inline-flex size-7 shrink-0 items-center justify-center rounded-md shadow-sm [&_svg]:size-3.5', t.chip)}>{icon}</span>
+          <span className={cn('mt-0.5 inline-flex size-7 shrink-0 items-center justify-center rounded-md shadow-xs [&_svg]:size-3.5', t.chip)}>{icon}</span>
           <div className="min-w-0">
-            <h2 className="text-[length:var(--fs-14)] font-semibold text-foreground">{title}</h2>
-            {hint && <p className="text-[length:var(--fs-12)] text-muted-foreground">{hint}</p>}
+            <h2 className="text-(length:--fs-14) font-semibold text-foreground">{title}</h2>
+            {hint && <p className="text-(length:--fs-12) text-muted-foreground">{hint}</p>}
           </div>
         </div>
         {actions}
@@ -115,7 +115,7 @@ function Section({ icon, title, hint, children, actions, id, tone = 'slate' }: {
 function RowMenu({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger className="inline-flex size-9 shrink-0 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring data-[state=open]:bg-muted" aria-label={label}>
+      <DropdownMenuTrigger className="inline-flex size-9 shrink-0 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring data-[state=open]:bg-muted" aria-label={label}>
         <FiMoreVertical className="size-4" aria-hidden />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="min-w-44">{children}</DropdownMenuContent>
@@ -141,7 +141,7 @@ function CustomerPicker({ value, onPick, disabled }: { value: { trdr: number | n
   if (value.trdr && value.name) {
     return (
       <div className="flex min-h-9 items-center justify-between gap-2 rounded-md border border-border bg-muted/40 px-3">
-        <span className="flex min-w-0 items-center gap-2 text-[length:var(--fs-13)]"><FiUser className="size-3.5 shrink-0 text-muted-foreground" aria-hidden /><span className="truncate font-medium">{value.name}</span></span>
+        <span className="flex min-w-0 items-center gap-2 text-(length:--fs-13)"><FiUser className="size-3.5 shrink-0 text-muted-foreground" aria-hidden /><span className="truncate font-medium">{value.name}</span></span>
         {!disabled && <button type="button" onClick={() => onPick(null)} className="inline-flex size-7 items-center justify-center rounded hover:bg-muted" aria-label="Αλλαγή πελάτη"><FiX className="size-3.5" /></button>}
       </div>
     );
@@ -157,8 +157,8 @@ function CustomerPicker({ value, onPick, disabled }: { value: { trdr: number | n
             <li key={h.trdr}>
               <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => { onPick(h); setQ(''); setOpen(false); }}
                 className="flex w-full flex-col items-start rounded px-2 py-1.5 text-left hover:bg-muted">
-                <span className="text-[length:var(--fs-13)] font-medium">{h.name}</span>
-                <span className="text-[length:var(--fs-11)] text-muted-foreground">{[h.code, h.city, h.email].filter(Boolean).join(' · ')}</span>
+                <span className="text-(length:--fs-13) font-medium">{h.name}</span>
+                <span className="text-(length:--fs-11) text-muted-foreground">{[h.code, h.city, h.email].filter(Boolean).join(' · ')}</span>
               </button>
             </li>
           ))}
@@ -190,16 +190,16 @@ function CrewPicker({ onPick, exclude }: { onPick: (o: CrewOpt) => void; exclude
         placeholder="Προσθήκη συνεργείου / μάστορα…" className={cn(field, 'pl-8')} autoComplete="off" aria-label="Αναζήτηση συνεργείου" />
       {open && (
         <ul className="absolute right-0 z-30 mt-1 max-h-72 w-full overflow-auto rounded-md border border-border bg-popover p-1 shadow-lg sm:w-96">
-          {opts == null && <li className="px-2 py-2 text-[length:var(--fs-12)] text-muted-foreground"><FiLoader className="mr-1 inline size-3 animate-spin" />Φόρτωση…</li>}
-          {opts != null && !shown.length && <li className="px-2 py-2 text-[length:var(--fs-12)] text-muted-foreground">Κανένα αποτέλεσμα — γράψτε 2+ χαρακτήρες για όλους τους προμηθευτές.</li>}
+          {opts == null && <li className="px-2 py-2 text-(length:--fs-12) text-muted-foreground"><FiLoader className="mr-1 inline size-3 animate-spin" />Φόρτωση…</li>}
+          {opts != null && !shown.length && <li className="px-2 py-2 text-(length:--fs-12) text-muted-foreground">Κανένα αποτέλεσμα — γράψτε 2+ χαρακτήρες για όλους τους προμηθευτές.</li>}
           {shown.map((o, i) => (
             <li key={`${o.kind}:${o.ref}`}>
-              {i > 0 && !o.crew && shown[i - 1].crew && <div className="mx-2 my-1 border-t border-border pt-1 text-[length:var(--fs-10)] uppercase tracking-wide text-muted-foreground">Άλλοι προμηθευτές</div>}
+              {i > 0 && !o.crew && shown[i - 1].crew && <div className="mx-2 my-1 border-t border-border pt-1 text-(length:--fs-10) uppercase tracking-wide text-muted-foreground">Άλλοι προμηθευτές</div>}
               <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={() => { onPick(o); setQ(''); setOpen(false); }} className="flex w-full items-start gap-2 rounded px-2 py-1.5 text-left hover:bg-muted">
-                <span className={cn('mt-0.5 rounded px-1 text-[length:var(--fs-9)] font-semibold uppercase', o.kind === 'PARTNER' ? 'bg-violet-500/10 text-violet-700' : 'bg-sky-500/10 text-sky-700')}>{o.kind === 'PARTNER' ? 'Συνεργάτης' : 'Προμηθ.'}</span>
+                <span className={cn('mt-0.5 rounded px-1 text-(length:--fs-9) font-semibold uppercase', o.kind === 'PARTNER' ? 'bg-violet-500/10 text-violet-700' : 'bg-sky-500/10 text-sky-700')}>{o.kind === 'PARTNER' ? 'Συνεργάτης' : 'Προμηθ.'}</span>
                 <span className="min-w-0">
-                  <span className="block truncate text-[length:var(--fs-13)] font-medium">{o.name}</span>
-                  <span className="block truncate text-[length:var(--fs-11)] text-muted-foreground">{[o.sub, o.email, o.phone].filter(Boolean).join(' · ') || '—'}</span>
+                  <span className="block truncate text-(length:--fs-13) font-medium">{o.name}</span>
+                  <span className="block truncate text-(length:--fs-11) text-muted-foreground">{[o.sub, o.email, o.phone].filter(Boolean).join(' · ') || '—'}</span>
                 </span>
               </button>
             </li>
@@ -325,19 +325,19 @@ export function ContractEditor({ initial, staff, readOnly = false }: { initial: 
             <Input id="c-title" value={s.title} onChange={(e) => up({ title: e.target.value })} placeholder="π.χ. Ανακαίνιση μπάνιου — Κηφισιά" className={field} disabled={ro} />
           </div>
           <fieldset className="md:col-span-2" disabled={ro}>
-            <legend className="mb-1.5 text-[length:var(--fs-11)] font-medium uppercase tracking-wide text-muted-foreground">Τύπος</legend>
+            <legend className="mb-1.5 text-(length:--fs-11) font-medium uppercase tracking-wide text-muted-foreground">Τύπος</legend>
             <div className="grid gap-2 sm:grid-cols-3">
               {CONTRACT_KINDS.map((k) => (
-                <label key={k} className={cn('flex cursor-pointer flex-col gap-0.5 rounded-lg border p-3 transition-colors', s.kind === k ? 'border-primary bg-[var(--cx-accent-soft)] ring-1 ring-primary' : 'border-border hover:bg-muted/50')}>
-                  <span className="flex items-center gap-2 text-[length:var(--fs-13)] font-semibold">
-                    <input type="radio" name="c-kind" value={k} checked={s.kind === k} onChange={() => up({ kind: k })} className="accent-[var(--primary)]" />
+                <label key={k} className={cn('flex cursor-pointer flex-col gap-0.5 rounded-lg border p-3 transition-colors', s.kind === k ? 'border-primary bg-(--cx-accent-soft) ring-1 ring-primary' : 'border-border hover:bg-muted/50')}>
+                  <span className="flex items-center gap-2 text-(length:--fs-13) font-semibold">
+                    <input type="radio" name="c-kind" value={k} checked={s.kind === k} onChange={() => up({ kind: k })} className="accent-(--primary)" />
                     {KIND_LABEL[k]}
                   </span>
-                  <span className={cn('pl-5 text-[length:var(--fs-11)]', s.kind === k ? 'text-slate-700' : 'text-muted-foreground')}>{KIND_HINT[k]}</span>
+                  <span className={cn('pl-5 text-(length:--fs-11)', s.kind === k ? 'text-slate-700' : 'text-muted-foreground')}>{KIND_HINT[k]}</span>
                 </label>
               ))}
             </div>
-            {!crews && s.parties.length > 0 && <p role="alert" className="mt-1.5 text-[length:var(--fs-12)] text-destructive">Ο τύπος «Μόνο προϊόν» δεν έχει συνεργεία — αφαιρέστε τα ή αλλάξτε τύπο.</p>}
+            {!crews && s.parties.length > 0 && <p role="alert" className="mt-1.5 text-(length:--fs-12) text-destructive">Ο τύπος «Μόνο προϊόν» δεν έχει συνεργεία — αφαιρέστε τα ή αλλάξτε τύπο.</p>}
           </fieldset>
           <div className="space-y-1.5 md:col-span-2">
             <Label className={lbl} htmlFor="c-customer">Πελάτης</Label>
@@ -366,15 +366,15 @@ export function ContractEditor({ initial, staff, readOnly = false }: { initial: 
         actions={!ro ? <MicButton onText={(txt) => up((p) => ({ summary: p.summary ? `${p.summary.trimEnd()}\n${txt}` : txt }))} /> : undefined}>
         <textarea value={s.summary} onChange={(e) => up({ summary: e.target.value })} rows={6} disabled={ro} aria-label="Περίληψη έργου"
           placeholder="π.χ. Μπάνιο 8 m² στον 2ο όροφο. Αφαίρεση παλιών πλακιδίων, αδιαβροχοποίηση ντουζιέρας, μάρμαρο Βόλακα 60x120 σε δάπεδο και τοίχους έως το ταβάνι…"
-          className="w-full resize-y rounded-md border border-input bg-transparent px-3 py-2 text-[length:var(--fs-12)] leading-relaxed outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-70" />
+          className="w-full resize-y rounded-md border border-input bg-transparent px-3 py-2 text-(length:--fs-12) leading-relaxed outline-hidden focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-70" />
       </Section>
 
       {/* ── Τοποθεσία ── */}
       <Section icon={<FiMapPin />} tone="teal" title="Τοποθεσία" hint="Διεύθυνση εργοταξίου — αντιγράφεται στο έργο SoftOne όταν συνδεθεί"
         actions={!ro ? <Button type="button" variant="secondary" size="sm" onClick={() => setSiteOpen(true)} className="gap-1.5"><FiMapPin className="size-3.5" />{s.site ? 'Αλλαγή' : 'Ορισμός στον χάρτη'}</Button> : undefined}>
         {s.site
-          ? <p className="text-[length:var(--fs-13)]"><span className="font-medium">{siteLine(s.site)}</span> <span className="text-muted-foreground">· {s.site.lat.toFixed(5)}, {s.site.lng.toFixed(5)}</span></p>
-          : <p className="text-[length:var(--fs-13)] text-muted-foreground">Δεν έχει οριστεί.</p>}
+          ? <p className="text-(length:--fs-13)"><span className="font-medium">{siteLine(s.site)}</span> <span className="text-muted-foreground">· {s.site.lat.toFixed(5)}, {s.site.lng.toFixed(5)}</span></p>
+          : <p className="text-(length:--fs-13) text-muted-foreground">Δεν έχει οριστεί.</p>}
       </Section>
       <ProjectSiteDialog open={siteOpen} onOpenChange={setSiteOpen} prjc={null} projectLabel={s.title || 'Νέο έργο'} value={s.site} onSave={(site) => up({ site })} />
 
@@ -403,41 +403,41 @@ export function ContractEditor({ initial, staff, readOnly = false }: { initial: 
           </div>
         )}
         {s.lines.length === 0 ? (
-          <p className="py-6 text-center text-[length:var(--fs-13)] text-muted-foreground">Δεν υπάρχουν γραμμές. Πατήστε «Προσθήκη».</p>
+          <p className="py-6 text-center text-(length:--fs-13) text-muted-foreground">Δεν υπάρχουν γραμμές. Πατήστε «Προσθήκη».</p>
         ) : (
           <div className="space-y-2">
             {s.lines.map((l, i) => (
               <div key={l.uid} className={cn('rounded-md border border-border p-3', l.kind === 'SERVICE' ? 'border-l-[3px] border-l-orange-500' : 'border-l-[3px] border-l-sky-500')}>
                 <div className="flex items-start gap-2">
-                  <span className="mt-2 inline-flex shrink-0 items-center gap-1 text-[length:var(--fs-11)] font-medium text-muted-foreground">
+                  <span className="mt-2 inline-flex shrink-0 items-center gap-1 text-(length:--fs-11) font-medium text-muted-foreground">
                     {l.kind === 'SERVICE' ? <FiTool className="size-3.5" /> : <FiPackage className="size-3.5" />}{i + 1}
                   </span>
                   <div className="grid min-w-0 flex-1 gap-2 sm:grid-cols-12">
                     <div className="sm:col-span-12 lg:col-span-4">
                       <Input value={l.name} onChange={(e) => setLine(l.uid, { name: e.target.value })} placeholder="Περιγραφή" className={field} disabled={ro} aria-label={`Περιγραφή γραμμής ${i + 1}`} />
-                      {l.code && <p className="mt-0.5 font-mono text-[length:var(--fs-10)] text-muted-foreground">{l.code}</p>}
+                      {l.code && <p className="mt-0.5 font-mono text-(length:--fs-10) text-muted-foreground">{l.code}</p>}
                     </div>
                     <NumInput value={l.qty} onValue={(n) => setLine(l.uid, { qty: n ?? 0 })} className={cn(field, 'sm:col-span-3 lg:col-span-2')} disabled={ro} aria-label="Ποσότητα" />
                     <Input value={l.unit ?? ''} onChange={(e) => setLine(l.uid, { unit: e.target.value || null })} placeholder="μον." title={l.unit ?? undefined} className={cn(field, 'sm:col-span-2 lg:col-span-2')} disabled={ro} aria-label="Μονάδα" />
                     <NumInput value={l.unitPrice} onValue={(n) => setLine(l.uid, { unitPrice: n ?? 0 })} className={cn(field, 'sm:col-span-3 lg:col-span-2')} disabled={ro} aria-label="Τιμή μονάδας" />
                     <NumInput value={l.discount} onValue={(n) => setLine(l.uid, { discount: n ?? 0 })} className={cn(field, 'sm:col-span-2 lg:col-span-1')} disabled={ro} aria-label="Έκπτωση %" title="Έκπτωση %" />
-                    <span className="flex items-center justify-end text-[length:var(--fs-13)] font-semibold tabular-nums sm:col-span-2 lg:col-span-1">{eur(lineNet(l))}</span>
+                    <span className="flex items-center justify-end text-(length:--fs-13) font-semibold tabular-nums sm:col-span-2 lg:col-span-1">{eur(lineNet(l))}</span>
                     {crews && (
                       <div className="flex flex-wrap items-center gap-2 sm:col-span-12">
                         <select value={l.partyKey ?? ''} onChange={(e) => setLine(l.uid, { partyKey: e.target.value || null, crewFee: e.target.value ? l.crewFee : null })} disabled={ro || !s.parties.length}
-                          className="h-9 min-w-0 flex-1 rounded-md border border-input bg-transparent px-2 text-[length:var(--fs-12)] sm:max-w-xs" aria-label="Εκτελεί">
+                          className="h-9 min-w-0 flex-1 rounded-md border border-input bg-transparent px-2 text-(length:--fs-12) sm:max-w-xs" aria-label="Εκτελεί">
                           <option value="">{s.parties.length ? '— Χωρίς συνεργείο (εμείς) —' : 'Προσθέστε πρώτα συνεργεία'}</option>
                           {s.parties.map((p) => <option key={p.key} value={p.key}>{p.name}</option>)}
                         </select>
                         {l.partyKey && (
-                          <label className="flex items-center gap-1.5 text-[length:var(--fs-12)] text-muted-foreground">
+                          <label className="flex items-center gap-1.5 text-(length:--fs-12) text-muted-foreground">
                             Αμοιβή συνεργείου
                             <NumInput nullable value={l.crewFee} onValue={(n) => setLine(l.uid, { crewFee: n })} className={cn(field, 'w-28')} disabled={ro} placeholder="€" />
                           </label>
                         )}
                       </div>
                     )}
-                    <Input value={l.notes ?? ''} onChange={(e) => setLine(l.uid, { notes: e.target.value || null })} placeholder="Σημειώσεις (προαιρετικά)" className={cn(field, 'sm:col-span-12 text-[length:var(--fs-12)]')} disabled={ro} aria-label="Σημειώσεις γραμμής" />
+                    <Input value={l.notes ?? ''} onChange={(e) => setLine(l.uid, { notes: e.target.value || null })} placeholder="Σημειώσεις (προαιρετικά)" className={cn(field, 'sm:col-span-12 text-(length:--fs-12)')} disabled={ro} aria-label="Σημειώσεις γραμμής" />
                   </div>
                   {!ro && (
                     <RowMenu label={`Ενέργειες γραμμής ${i + 1}`}>
@@ -450,7 +450,7 @@ export function ContractEditor({ initial, staff, readOnly = false }: { initial: 
                 </div>
               </div>
             ))}
-            <dl className="ml-auto grid w-full max-w-xs grid-cols-2 gap-y-1 pt-2 text-[length:var(--fs-13)]">
+            <dl className="ml-auto grid w-full max-w-xs grid-cols-2 gap-y-1 pt-2 text-(length:--fs-13)">
               <dt className="text-muted-foreground">Καθαρή αξία</dt><dd className="text-right tabular-nums">{eur(t.net)}</dd>
               <dt className="text-muted-foreground">ΦΠΑ {s.vatRate}%</dt><dd className="text-right tabular-nums">{eur(t.vat)}</dd>
               <dt className="border-t border-border pt-1 font-semibold">Σύνολο</dt><dd className="border-t border-border pt-1 text-right font-semibold tabular-nums">{eur(t.gross)}</dd>
@@ -464,7 +464,7 @@ export function ContractEditor({ initial, staff, readOnly = false }: { initial: 
         <Section icon={<FiUsers />} tone="orange" title="Συνεργεία & τεχνικές εταιρίες" hint="Προμηθευτές «Οικοδομικών Εργασιών» και Συνεργάτες — καθένας παίρνει δική του σύμβαση με οδηγίες εγκατάστασης"
           actions={!ro ? <CrewPicker onPick={addParty} exclude={new Set(s.parties.map((p) => `${p.kind}:${p.kind === 'SUPPLIER' ? p.trdr : p.partnerId}`))} /> : undefined}>
           {s.parties.length === 0 ? (
-            <p className="py-4 text-center text-[length:var(--fs-13)] text-muted-foreground">Κανένα συνεργείο ακόμη.</p>
+            <p className="py-4 text-center text-(length:--fs-13) text-muted-foreground">Κανένα συνεργείο ακόμη.</p>
           ) : (
             <div className="grid gap-3 lg:grid-cols-2">
               {s.parties.map((p) => {
@@ -474,8 +474,8 @@ export function ContractEditor({ initial, staff, readOnly = false }: { initial: 
                   <div key={p.key} className="rounded-md border border-border p-3">
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
-                        <p className="truncate text-[length:var(--fs-14)] font-semibold">{p.name}</p>
-                        <p className="truncate text-[length:var(--fs-11)] text-muted-foreground">{[p.kind === 'PARTNER' ? 'Συνεργάτης' : 'Προμηθευτής', p.specialty, p.afm ? `ΑΦΜ ${p.afm}` : null].filter(Boolean).join(' · ')}</p>
+                        <p className="truncate text-(length:--fs-14) font-semibold">{p.name}</p>
+                        <p className="truncate text-(length:--fs-11) text-muted-foreground">{[p.kind === 'PARTNER' ? 'Συνεργάτης' : 'Προμηθευτής', p.specialty, p.afm ? `ΑΦΜ ${p.afm}` : null].filter(Boolean).join(' · ')}</p>
                       </div>
                       {!ro && (
                         <RowMenu label={`Ενέργειες για ${p.name}`}>
@@ -490,9 +490,9 @@ export function ContractEditor({ initial, staff, readOnly = false }: { initial: 
                       <Input type="email" value={p.email ?? ''} onChange={(e) => setParty(p.key, { email: e.target.value || null })} placeholder="Email" className={field} disabled={ro} aria-label={`Email ${p.name}`} />
                       <Input value={p.phone ?? ''} onChange={(e) => setParty(p.key, { phone: e.target.value || null })} placeholder="Τηλέφωνο" className={field} disabled={ro} aria-label={`Τηλέφωνο ${p.name}`} />
                       <textarea value={p.scope ?? ''} onChange={(e) => setParty(p.key, { scope: e.target.value || null })} rows={2} disabled={ro} placeholder="Τι αναλαμβάνει (πέρα από τις γραμμές)…" aria-label={`Αντικείμενο ${p.name}`}
-                        className="col-span-2 resize-y rounded-md border border-input bg-transparent px-3 py-2 text-[length:var(--fs-12)] outline-none focus-visible:ring-2 focus-visible:ring-ring" />
+                        className="col-span-2 resize-y rounded-md border border-input bg-transparent px-3 py-2 text-(length:--fs-12) outline-hidden focus-visible:ring-2 focus-visible:ring-ring" />
                     </div>
-                    <p className="mt-2 text-[length:var(--fs-12)] text-muted-foreground">{assigned} γραμμές · αμοιβή <span className="font-semibold text-foreground tabular-nums">{eur(fee)}</span></p>
+                    <p className="mt-2 text-(length:--fs-12) text-muted-foreground">{assigned} γραμμές · αμοιβή <span className="font-semibold text-foreground tabular-nums">{eur(fee)}</span></p>
                   </div>
                 );
               })}
@@ -508,7 +508,7 @@ export function ContractEditor({ initial, staff, readOnly = false }: { initial: 
             const on = s.members.includes(u.id);
             return (
               <button key={u.id} type="button" disabled={ro} aria-pressed={on} onClick={() => up((p) => ({ members: on ? p.members.filter((x) => x !== u.id) : [...p.members, u.id] }))}
-                className={cn('min-h-9 rounded-full border px-3 text-[length:var(--fs-12)] transition-colors', on ? 'border-primary bg-primary text-primary-foreground' : 'border-border hover:bg-muted')}>
+                className={cn('min-h-9 rounded-full border px-3 text-(length:--fs-12) transition-colors', on ? 'border-primary bg-primary text-primary-foreground' : 'border-border hover:bg-muted')}>
                 {u.label}
               </button>
             );
@@ -530,7 +530,7 @@ export function ContractEditor({ initial, staff, readOnly = false }: { initial: 
           </DropdownMenu>
         ) : undefined}>
         {s.milestones.length === 0 ? (
-          <p className="py-4 text-center text-[length:var(--fs-13)] text-muted-foreground">Κανένα milestone. Ξεκινήστε από το «Πρόγραμμα πελάτη 30/40/30».</p>
+          <p className="py-4 text-center text-(length:--fs-13) text-muted-foreground">Κανένα milestone. Ξεκινήστε από το «Πρόγραμμα πελάτη 30/40/30».</p>
         ) : (
           <div className="space-y-4">
             {[{ key: null as string | null, label: 'Πελάτης → εμάς', total: t.gross }, ...s.parties.map((p) => ({ key: p.key as string | null, label: `Εμείς → ${p.name}`, total: feeOf(p.key) }))]
@@ -541,8 +541,8 @@ export function ContractEditor({ initial, staff, readOnly = false }: { initial: 
                 return (
                   <div key={g.key ?? 'customer'}>
                     <div className="mb-1.5 flex flex-wrap items-baseline justify-between gap-2">
-                      <h3 className="text-[length:var(--fs-12)] font-semibold uppercase tracking-wide text-muted-foreground">{g.label}</h3>
-                      <span className={cn('text-[length:var(--fs-12)] tabular-nums', cov.ok ? 'rounded bg-emerald-50 px-1.5 text-emerald-800' : 'rounded bg-rose-50 px-1.5 text-rose-800')}>
+                      <h3 className="text-(length:--fs-12) font-semibold uppercase tracking-wide text-muted-foreground">{g.label}</h3>
+                      <span className={cn('text-(length:--fs-12) tabular-nums', cov.ok ? 'rounded bg-emerald-50 px-1.5 text-emerald-800' : 'rounded bg-rose-50 px-1.5 text-rose-800')}>
                         {eur(cov.sum)} / {eur(g.total)}{cov.ok ? ' ✓' : ` · διαφορά ${eur(cov.diff)}`}
                       </span>
                     </div>
@@ -559,7 +559,7 @@ export function ContractEditor({ initial, staff, readOnly = false }: { initial: 
                               </RowMenu>
                             </div>
                           ) : <span className="sm:col-span-1" />}
-                          <Input value={m.deliverables ?? ''} onChange={(e) => setMs(m.uid, { deliverables: e.target.value || null })} placeholder="Παραδοτέα (π.χ. πρωτόκολλο παραλαβής, φωτογραφίες)" className={cn(field, 'text-[length:var(--fs-12)] sm:col-span-12')} disabled={ro} aria-label="Παραδοτέα" />
+                          <Input value={m.deliverables ?? ''} onChange={(e) => setMs(m.uid, { deliverables: e.target.value || null })} placeholder="Παραδοτέα (π.χ. πρωτόκολλο παραλαβής, φωτογραφίες)" className={cn(field, 'text-(length:--fs-12) sm:col-span-12')} disabled={ro} aria-label="Παραδοτέα" />
                         </div>
                       ))}
                     </div>
@@ -574,15 +574,15 @@ export function ContractEditor({ initial, staff, readOnly = false }: { initial: 
       <Section icon={<FiEdit3 />} tone="slate" title="Ειδικοί όροι" hint="Ό,τι γράψετε εδώ ενσωματώνεται υποχρεωτικά στα έγγραφα">
         <textarea value={s.terms ?? ''} onChange={(e) => up({ terms: e.target.value || null })} rows={3} disabled={ro} aria-label="Ειδικοί όροι"
           placeholder="π.χ. Η μεταφορά υλικών μέχρι τον 2ο όροφο γίνεται από εμάς. Εγγύηση τοποθέτησης 2 έτη."
-          className="w-full resize-y rounded-md border border-input bg-transparent px-3 py-2 text-[length:var(--fs-12)] outline-none focus-visible:ring-2 focus-visible:ring-ring" />
+          className="w-full resize-y rounded-md border border-input bg-transparent px-3 py-2 text-(length:--fs-12) outline-hidden focus-visible:ring-2 focus-visible:ring-ring" />
       </Section>
 
       {!ro && <RecipeLinesDialog open={fromRecipe} onOpenChange={setFromRecipe} onAdd={addFromRecipe} />}
 
       {!ro && (
-        <div className="sticky bottom-0 z-30 -mx-1 rounded-t-lg border border-b-0 border-border bg-background/95 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 shadow-[0_-6px_16px_-10px_rgb(0_0_0/0.25)] backdrop-blur">
+        <div className="sticky bottom-0 z-30 -mx-1 rounded-t-lg border border-b-0 border-border bg-background/95 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 shadow-[0_-6px_16px_-10px_rgb(0_0_0/0.25)] backdrop-blur-sm">
           <div className="flex items-center justify-between gap-3">
-            <p className="text-[length:var(--fs-12)] text-muted-foreground">{dirty ? 'Μη αποθηκευμένες αλλαγές' : initial ? 'Όλα αποθηκευμένα' : 'Νέο έργο'} · Σύνολο <span className="font-semibold text-foreground tabular-nums">{eur(t.gross)}</span></p>
+            <p className="text-(length:--fs-12) text-muted-foreground">{dirty ? 'Μη αποθηκευμένες αλλαγές' : initial ? 'Όλα αποθηκευμένα' : 'Νέο έργο'} · Σύνολο <span className="font-semibold text-foreground tabular-nums">{eur(t.gross)}</span></p>
             <Button type="button" onClick={save} disabled={saving || (!dirty && !!initial)} className="min-h-10 gap-1.5">
               {saving ? <FiLoader className="size-4 animate-spin" /> : <FiSave className="size-4" />}{initial ? 'Αποθήκευση' : 'Δημιουργία'}
             </Button>

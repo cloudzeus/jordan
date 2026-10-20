@@ -14,8 +14,8 @@ export interface MemoryRow { id: string; kind: string; text: string; refKey: str
 export interface KnowledgeStat { source: string; label: string; count: number }
 interface Conv { id: string; title: string; updatedAt: string }
 
-const ITEM = 'cursor-pointer gap-2 text-[length:var(--fs-12)]';
-const TRIGGER = 'inline-flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors duration-150 hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring data-[state=open]:bg-muted data-[state=open]:text-foreground';
+const ITEM = 'cursor-pointer gap-2 text-(length:--fs-12)';
+const TRIGGER = 'inline-flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors duration-150 hover:bg-muted hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring data-[state=open]:bg-muted data-[state=open]:text-foreground';
 const KIND_LABEL: Record<string, string> = { alias: 'Συνώνυμο', fact: 'Γεγονός', preference: 'Προτίμηση', answer: 'Επιβεβαιωμένη απάντηση' };
 const KIND_COLOR: Record<string, string> = { alias: '#2563EB', fact: '#0F766E', preference: '#7C3AED', answer: '#B45309' };
 
@@ -68,7 +68,7 @@ export function AssistantWorkspace(props: {
           {([['chat', 'Συνομιλία', FiMessageSquare], ['memory', 'Μνήμη', FiDatabase]] as const).map(([k, label, Icon]) => (
             <button
               key={k} role="tab" type="button" aria-selected={tab === k} onClick={() => switchTab(k)}
-              className={cn('inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-md px-3 text-[length:var(--fs-13)] font-medium transition-colors', tab === k ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground')}
+              className={cn('inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-md px-3 text-(length:--fs-13) font-medium transition-colors', tab === k ? 'bg-background text-foreground shadow-xs' : 'text-muted-foreground hover:text-foreground')}
             >
               <Icon className="size-3.5" aria-hidden /> {label}
             </button>
@@ -81,20 +81,20 @@ export function AssistantWorkspace(props: {
           <aside className="order-2 min-w-0 lg:order-1">
             <div className="rounded-lg border border-border bg-card">
               <div className="flex items-center justify-between border-b border-border px-3 py-2">
-                <p className="text-[length:var(--fs-12)] font-semibold text-muted-foreground">Ιστορικό</p>
-                <button type="button" onClick={() => router.push('/admin/assistant')} className="inline-flex min-h-8 cursor-pointer items-center gap-1 rounded-md px-2 text-[length:var(--fs-12)] text-primary hover:bg-[var(--cx-accent-soft)]">
+                <p className="text-(length:--fs-12) font-semibold text-muted-foreground">Ιστορικό</p>
+                <button type="button" onClick={() => router.push('/admin/assistant')} className="inline-flex min-h-8 cursor-pointer items-center gap-1 rounded-md px-2 text-(length:--fs-12) text-primary hover:bg-(--cx-accent-soft)">
                   <FiPlus className="size-3.5" aria-hidden /> Νέα
                 </button>
               </div>
               {convs.length === 0 ? (
-                <p className="px-3 py-4 text-[length:var(--fs-12)] text-muted-foreground">Καμία συνομιλία ακόμη.</p>
+                <p className="px-3 py-4 text-(length:--fs-12) text-muted-foreground">Καμία συνομιλία ακόμη.</p>
               ) : (
                 <ul className="max-h-[50vh] overflow-y-auto py-1 lg:max-h-[calc(100dvh-14rem)]">
                   {convs.map((c) => (
-                    <li key={c.id} className={cn('group flex items-center gap-1 px-1.5', active === c.id && 'bg-[var(--cx-accent-soft)]')}>
+                    <li key={c.id} className={cn('group flex items-center gap-1 px-1.5', active === c.id && 'bg-(--cx-accent-soft)')}>
                       <button type="button" onClick={() => router.push(`/admin/assistant?c=${c.id}`)} className="min-h-11 min-w-0 flex-1 cursor-pointer px-1.5 py-1.5 text-left">
-                        <span className={cn('block truncate text-[length:var(--fs-13)]', active === c.id ? 'font-medium text-primary' : 'text-foreground/85')}>{c.title}</span>
-                        <span className="block text-[length:var(--fs-11)] text-muted-foreground">{when(c.updatedAt)}</span>
+                        <span className={cn('block truncate text-(length:--fs-13)', active === c.id ? 'font-medium text-primary' : 'text-foreground/85')}>{c.title}</span>
+                        <span className="block text-(length:--fs-11) text-muted-foreground">{when(c.updatedAt)}</span>
                       </button>
                       <DropdownMenu>
                         <DropdownMenuTrigger className={TRIGGER} aria-label={`Ενέργειες για «${c.title}»`}>
@@ -178,9 +178,9 @@ function MemoryPanel({ memories: initial, knowledge, indexedAt }: { memories: Me
     <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
       <section className="min-w-0 space-y-3">
         <form onSubmit={add} className="rounded-lg border border-border bg-card p-3">
-          <p className="mb-2 text-[length:var(--fs-13)] font-semibold text-foreground">Μάθε στον Air Jordan</p>
+          <p className="mb-2 text-(length:--fs-13) font-semibold text-foreground">Μάθε στον Air Jordan</p>
           <div className="flex flex-col gap-2 sm:flex-row">
-            <select value={kind} onChange={(e) => setKind(e.target.value)} aria-label="Είδος" className="min-h-11 rounded-md sm:w-56 border border-input bg-background px-2 text-[length:var(--fs-13)]">
+            <select value={kind} onChange={(e) => setKind(e.target.value)} aria-label="Είδος" className="min-h-11 rounded-md sm:w-56 border border-input bg-background px-2 text-(length:--fs-13)">
               <option value="alias">Συνώνυμο / παρατσούκλι</option>
               <option value="fact">Γεγονός</option>
               <option value="preference">Προτίμηση απάντησης</option>
@@ -188,29 +188,29 @@ function MemoryPanel({ memories: initial, knowledge, indexedAt }: { memories: Me
             <input
               value={text} onChange={(e) => setText(e.target.value)}
               placeholder="π.χ. «Πορσελάνες» = ο προμηθευτής Porcelanosa (κωδ. 0012)"
-              className="min-h-11 min-w-0 flex-1 rounded-md border border-input bg-background px-3 text-[length:var(--fs-13)] outline-none focus:border-primary"
+              className="min-h-11 min-w-0 flex-1 rounded-md border border-input bg-background px-3 text-(length:--fs-13) outline-hidden focus:border-primary"
             />
-            <button type="submit" disabled={busy === 'add' || text.trim().length < 3} className="inline-flex min-h-11 cursor-pointer items-center justify-center gap-1.5 rounded-md bg-primary px-4 text-[length:var(--fs-13)] font-medium text-primary-foreground disabled:opacity-50">
+            <button type="submit" disabled={busy === 'add' || text.trim().length < 3} className="inline-flex min-h-11 cursor-pointer items-center justify-center gap-1.5 rounded-md bg-primary px-4 text-(length:--fs-13) font-medium text-primary-foreground disabled:opacity-50">
               <FiPlus className="size-4" aria-hidden /> Αποθήκευση
             </button>
           </div>
-          <p className="mt-2 text-[length:var(--fs-11)] text-muted-foreground">Μαθαίνει και μόνος του στη συνομιλία («όταν λέω Χ εννοώ Υ») και από τις απαντήσεις που σημειώνετε «Σωστό — να το θυμάσαι».</p>
+          <p className="mt-2 text-(length:--fs-11) text-muted-foreground">Μαθαίνει και μόνος του στη συνομιλία («όταν λέω Χ εννοώ Υ») και από τις απαντήσεις που σημειώνετε «Σωστό — να το θυμάσαι».</p>
         </form>
 
         <div className="rounded-lg border border-border bg-card">
-          <p className="border-b border-border px-3 py-2 text-[length:var(--fs-12)] font-semibold text-muted-foreground">Τι έχει μάθει ({memories.length})</p>
+          <p className="border-b border-border px-3 py-2 text-(length:--fs-12) font-semibold text-muted-foreground">Τι έχει μάθει ({memories.length})</p>
           {memories.length === 0 ? (
-            <p className="px-3 py-6 text-center text-[length:var(--fs-13)] text-muted-foreground">Τίποτα ακόμη.</p>
+            <p className="px-3 py-6 text-center text-(length:--fs-13) text-muted-foreground">Τίποτα ακόμη.</p>
           ) : (
             <ul className="divide-y divide-border">
               {memories.map((m) => (
                 <li key={m.id} className="flex items-start gap-2 px-3 py-2.5">
-                  <span className="mt-0.5 shrink-0 rounded-full px-2 py-0.5 text-[length:var(--fs-10)] font-semibold" style={{ color: KIND_COLOR[m.kind] ?? '#475569', background: `${KIND_COLOR[m.kind] ?? '#475569'}14` }}>
+                  <span className="mt-0.5 shrink-0 rounded-full px-2 py-0.5 text-(length:--fs-10) font-semibold" style={{ color: KIND_COLOR[m.kind] ?? '#475569', background: `${KIND_COLOR[m.kind] ?? '#475569'}14` }}>
                     {KIND_LABEL[m.kind] ?? m.kind}
                   </span>
                   <div className="min-w-0 flex-1">
-                    <p className="whitespace-pre-line text-[length:var(--fs-13)] text-foreground/90 [overflow-wrap:anywhere]">{m.text}</p>
-                    <p className="mt-0.5 text-[length:var(--fs-11)] text-muted-foreground">{when(m.updatedAt)} · χρησιμοποιήθηκε {m.uses}×{m.refKey ? ` · ${m.refKey}` : ''}</p>
+                    <p className="whitespace-pre-line text-(length:--fs-13) text-foreground/90 wrap-anywhere">{m.text}</p>
+                    <p className="mt-0.5 text-(length:--fs-11) text-muted-foreground">{when(m.updatedAt)} · χρησιμοποιήθηκε {m.uses}×{m.refKey ? ` · ${m.refKey}` : ''}</p>
                   </div>
                   <DropdownMenu>
                     <DropdownMenuTrigger className={TRIGGER} aria-label="Ενέργειες μνήμης">
@@ -230,23 +230,23 @@ function MemoryPanel({ memories: initial, knowledge, indexedAt }: { memories: Me
       <aside className="space-y-3">
         <div className="rounded-lg border border-border bg-card">
           <div className="flex items-center justify-between border-b border-border px-3 py-2">
-            <p className="text-[length:var(--fs-12)] font-semibold text-muted-foreground">Γνώση (pgvector)</p>
+            <p className="text-(length:--fs-12) font-semibold text-muted-foreground">Γνώση (pgvector)</p>
             <DropdownMenu>
               <DropdownMenuTrigger className={TRIGGER} aria-label="Ενέργειες γνώσης">
                 <FiMoreVertical className="size-4" aria-hidden />
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-60">
-                <DropdownMenuLabel className="text-[length:var(--fs-11)] font-semibold text-muted-foreground">{total.toLocaleString('el-GR')} εγγραφές</DropdownMenuLabel>
+                <DropdownMenuLabel className="text-(length:--fs-11) font-semibold text-muted-foreground">{total.toLocaleString('el-GR')} εγγραφές</DropdownMenuLabel>
                 <DropdownMenuItem className={ITEM} disabled={busy === 'reindex'} onSelect={() => void reindex()}><FiRefreshCw className="size-3.5" aria-hidden /> Επανευρετηρίαση τώρα</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
-          <ul className="px-3 py-2 text-[length:var(--fs-12)]">
+          <ul className="px-3 py-2 text-(length:--fs-12)">
             {knowledge.map((k) => (
               <li key={k.source} className="flex justify-between py-0.5"><span className="text-foreground/80">{k.label}</span><span className="tabular-nums text-muted-foreground">{k.count.toLocaleString('el-GR')}</span></li>
             ))}
           </ul>
-          <p className="border-t border-border px-3 py-2 text-[length:var(--fs-11)] text-muted-foreground">
+          <p className="border-t border-border px-3 py-2 text-(length:--fs-11) text-muted-foreground">
             Τελευταία ευρετηρίαση: {indexedAt ? when(indexedAt) : '—'}. Ανανεώνεται αυτόματα κάθε 6 ώρες (μόνο ό,τι άλλαξε).
           </p>
         </div>

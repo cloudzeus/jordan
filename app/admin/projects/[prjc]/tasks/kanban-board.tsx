@@ -15,7 +15,7 @@ import { PHASES, PHASE_KEYS, adjacentPhase, beforeInScope, boardColumns, duratio
 import type { TaskView } from '@/lib/project-tasks';
 import { cn } from '@/lib/utils';
 
-const ITEM = 'cursor-pointer gap-2 text-[length:var(--fs-12)]';
+const ITEM = 'cursor-pointer gap-2 text-(length:--fs-12)';
 const fmt = (d: string) => new Date(`${d}T00:00:00Z`).toLocaleDateString('el-GR', { timeZone: 'UTC', day: 'numeric', month: 'short' });
 const initials = (s: string) => s.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join('').toUpperCase();
 
@@ -153,18 +153,18 @@ function Column({ phase, count, canManage, onNew, children }: { phase: PhaseKey;
     <section aria-label={`${m.label}: ${count} εργασίες`} className={cn('flex min-h-40 flex-col rounded-xl border border-border bg-muted transition-colors duration-150', isOver && 'border-primary ring-1 ring-primary')}>
       <header className="flex items-center gap-2 px-3 pb-2 pt-3">
         <span className="size-2.5 rounded-full" style={{ background: m.color }} aria-hidden />
-        <h3 className="text-[length:var(--fs-13)] font-semibold">{m.label}</h3>
-        <span className="text-[length:var(--fs-11)] tabular-nums text-muted-foreground">{m.steps.map((s) => `${s}%`).join('–')}</span>
-        <span className="ml-auto rounded-full bg-background px-2 text-[length:var(--fs-11)] font-medium tabular-nums text-muted-foreground">{count}</span>
+        <h3 className="text-(length:--fs-13) font-semibold">{m.label}</h3>
+        <span className="text-(length:--fs-11) tabular-nums text-muted-foreground">{m.steps.map((s) => `${s}%`).join('–')}</span>
+        <span className="ml-auto rounded-full bg-background px-2 text-(length:--fs-11) font-medium tabular-nums text-muted-foreground">{count}</span>
         {canManage && onNew && (
-          <button type="button" onClick={onNew} className="inline-flex size-8 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-background hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" aria-label={`Νέα εργασία στο «${m.label}»`}>
+          <button type="button" onClick={onNew} className="inline-flex size-8 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-background hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring" aria-label={`Νέα εργασία στο «${m.label}»`}>
             <FiPlus className="size-4" />
           </button>
         )}
       </header>
       <div ref={setNodeRef} className="flex flex-1 flex-col gap-2 px-2 pb-2">
         {children}
-        {count === 0 && <p className="rounded-lg border border-dashed border-border px-3 py-6 text-center text-[length:var(--fs-11)] text-muted-foreground">{canManage ? 'Σύρετε εδώ μια κάρτα' : 'Καμία εργασία'}</p>}
+        {count === 0 && <p className="rounded-lg border border-dashed border-border px-3 py-6 text-center text-(length:--fs-11) text-muted-foreground">{canManage ? 'Σύρετε εδώ μια κάρτα' : 'Καμία εργασία'}</p>}
       </div>
     </section>
   );
@@ -176,7 +176,7 @@ function SortableCard({ task, disabled, names, actions, canManage, dimmed, proje
     <div ref={setNodeRef} style={{ transform: CSS.Translate.toString(transform), transition }} className={cn('group relative', (isDragging || dimmed) && 'opacity-40')}>
       <div {...attributes} {...listeners} role="button" tabIndex={0} aria-roledescription="κάρτα εργασίας" aria-label={`${task.name}${project ? ` (${project.code})` : ''}, ${task.progress}%`}
         onClick={() => actions.onOpen(task.id)} onKeyDown={(e) => { if (e.key === 'Enter') actions.onOpen(task.id); listeners?.onKeyDown?.(e); }}
-        className={cn('cursor-pointer rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring', !disabled && 'touch-manipulation')}>
+        className={cn('cursor-pointer rounded-lg focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring', !disabled && 'touch-manipulation')}>
         <CardBody task={task} names={names} project={project} />
       </div>
       {(canManage || actions.onProject) && (
@@ -193,16 +193,16 @@ function CardBody({ task, names, project = null, overlay = false }: { task: Task
   const waiting = task.dependsOn.filter((d) => names.has(d) && !names.get(d)!.done);
   const people = task.parties.slice(0, 3);
   return (
-    <article className={cn('rounded-lg border border-border bg-card p-3 pr-10 shadow-sm transition-shadow duration-150 hover:shadow-md', overlay && 'rotate-1 shadow-lg ring-2 ring-primary')}>
+    <article className={cn('rounded-lg border border-border bg-card p-3 pr-10 shadow-xs transition-shadow duration-150 hover:shadow-md', overlay && 'rotate-1 shadow-lg ring-2 ring-primary')}>
       {project && (
-        <p className="mb-1 flex min-w-0 items-center gap-1 text-[length:var(--fs-11)] text-muted-foreground" title={`${project.code} · ${project.name}`}>
+        <p className="mb-1 flex min-w-0 items-center gap-1 text-(length:--fs-11) text-muted-foreground" title={`${project.code} · ${project.name}`}>
           <FiBriefcase className="size-3 shrink-0" aria-hidden />
           <span className="font-mono tabular-nums">{project.code}</span>
           <span className="truncate">{project.name}</span>
         </p>
       )}
-      <h4 className="text-[length:var(--fs-13)] font-medium leading-snug">{task.name}</h4>
-      <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[length:var(--fs-11)] tabular-nums text-muted-foreground">
+      <h4 className="text-(length:--fs-13) font-medium leading-snug">{task.name}</h4>
+      <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-(length:--fs-11) tabular-nums text-muted-foreground">
         <span>{fmt(task.sched.start)}{task.sched.end !== task.sched.start ? ` – ${fmt(task.sched.end)}` : ''}</span>
         <span className="inline-flex items-center gap-1"><FiClock className="size-3" aria-hidden />{durationLabel(task.durationValue, task.durationUnit)}</span>
       </p>
@@ -219,9 +219,9 @@ function CardBody({ task, names, project = null, overlay = false }: { task: Task
         {people.length > 0 && (
           <span className="ml-auto flex -space-x-1.5">
             {people.map((p) => (
-              <span key={`${p.kind}:${p.ref}`} title={`${p.label}`} className="inline-flex size-6 items-center justify-center rounded-full border-2 border-card bg-muted text-[length:var(--fs-10)] font-semibold text-foreground">{initials(p.label)}</span>
+              <span key={`${p.kind}:${p.ref}`} title={`${p.label}`} className="inline-flex size-6 items-center justify-center rounded-full border-2 border-card bg-muted text-(length:--fs-10) font-semibold text-foreground">{initials(p.label)}</span>
             ))}
-            {task.parties.length > 3 && <span className="inline-flex size-6 items-center justify-center rounded-full border-2 border-card bg-muted text-[length:var(--fs-10)]">+{task.parties.length - 3}</span>}
+            {task.parties.length > 3 && <span className="inline-flex size-6 items-center justify-center rounded-full border-2 border-card bg-muted text-(length:--fs-10)">+{task.parties.length - 3}</span>}
           </span>
         )}
       </div>
@@ -231,7 +231,7 @@ function CardBody({ task, names, project = null, overlay = false }: { task: Task
 
 function Chip({ children, icon, tone }: { children: React.ReactNode; icon?: React.ReactNode; tone?: 'warn' | 'danger' }) {
   return (
-    <span className={cn('inline-flex max-w-full items-center gap-1 truncate rounded px-1.5 py-0.5 text-[length:var(--fs-10)] font-medium',
+    <span className={cn('inline-flex max-w-full items-center gap-1 truncate rounded px-1.5 py-0.5 text-(length:--fs-10) font-medium',
       tone === 'danger' ? 'bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-300' : tone === 'warn' ? 'bg-amber-50 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300' : 'bg-muted text-muted-foreground')}>
       {icon}<span className="truncate">{children}</span>
     </span>
@@ -241,11 +241,11 @@ function Chip({ children, icon, tone }: { children: React.ReactNode; icon?: Reac
 function CardMenu({ task, actions, canManage }: { task: TaskView; actions: BoardActions; canManage: boolean }) {
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger className="inline-flex size-8 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors duration-150 hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring data-[state=open]:bg-muted" aria-label={`Ενέργειες για «${task.name}»`}>
+      <DropdownMenuTrigger className="inline-flex size-8 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors duration-150 hover:bg-muted hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring data-[state=open]:bg-muted" aria-label={`Ενέργειες για «${task.name}»`}>
         <FiMoreVertical className="size-4" aria-hidden />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">
-        <DropdownMenuLabel className="truncate text-[length:var(--fs-11)] font-semibold text-muted-foreground">{task.name}</DropdownMenuLabel>
+        <DropdownMenuLabel className="truncate text-(length:--fs-11) font-semibold text-muted-foreground">{task.name}</DropdownMenuLabel>
         {canManage && (<>
         <DropdownMenuItem className={ITEM} onSelect={() => actions.onOpen(task.id)}><FiEdit2 className="size-3.5" aria-hidden /> Επεξεργασία</DropdownMenuItem>
         <DropdownMenuSub>

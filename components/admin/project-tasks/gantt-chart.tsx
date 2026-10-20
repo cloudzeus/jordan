@@ -73,13 +73,13 @@ export function GanttChart({ rows, today, onSelect, onToggle, showArrows = true,
   });
 
   if (!rows.length) {
-    return <p className="rounded-lg border border-dashed border-border px-4 py-10 text-center text-[length:var(--fs-13)] text-muted-foreground">Δεν υπάρχουν εργασίες για διάγραμμα.</p>;
+    return <p className="rounded-lg border border-dashed border-border px-4 py-10 text-center text-(length:--fs-13) text-muted-foreground">Δεν υπάρχουν εργασίες για διάγραμμα.</p>;
   }
 
   return (
     <div className={cn('rounded-xl border border-border bg-card', className)}>
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-3 py-2">
-        <div className="flex flex-wrap items-center gap-3 text-[length:var(--fs-11)] text-muted-foreground">
+        <div className="flex flex-wrap items-center gap-3 text-(length:--fs-11) text-muted-foreground">
           {(['TODO', 'IN_PROGRESS', 'REVIEW', 'DONE'] as const).map((k) => (
             <span key={k} className="inline-flex items-center gap-1.5"><span className="size-2.5 rounded-sm" style={{ background: phaseMeta(k).color }} aria-hidden />{phaseMeta(k).label}</span>
           ))}
@@ -88,7 +88,7 @@ export function GanttChart({ rows, today, onSelect, onToggle, showArrows = true,
         <div role="group" aria-label="Κλίμακα" className="inline-flex rounded-md border border-border p-0.5">
           {(['day', 'week'] as const).map((z) => (
             <button key={z} type="button" aria-pressed={zoom === z} onClick={() => setZoom(z)}
-              className={cn('min-h-8 cursor-pointer rounded px-2.5 text-[length:var(--fs-11)] font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+              className={cn('min-h-8 cursor-pointer rounded px-2.5 text-(length:--fs-11) font-medium transition-colors duration-150 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring',
                 zoom === z ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground')}>
               {z === 'day' ? 'Ημέρες' : 'Εβδομάδες'}
             </button>
@@ -99,24 +99,24 @@ export function GanttChart({ rows, today, onSelect, onToggle, showArrows = true,
       <div className="flex">
         {/* Ονόματα — σταθερά αριστερά */}
         <div className="w-36 shrink-0 border-r border-border sm:w-56">
-          <div className="flex items-end border-b border-border px-3 pb-1.5 text-[length:var(--fs-11)] font-medium uppercase tracking-wide text-muted-foreground" style={{ height: HEAD_H }}>{label}</div>
+          <div className="flex items-end border-b border-border px-3 pb-1.5 text-(length:--fs-11) font-medium uppercase tracking-wide text-muted-foreground" style={{ height: HEAD_H }}>{label}</div>
           {rows.map((r) => r.group ? (
             <div key={r.id} className="flex items-center gap-1 border-b border-border bg-muted px-1.5" style={{ height: ROW_H }}>
               <button type="button" onClick={() => onToggle?.(r.id)} aria-expanded={!r.group.collapsed} aria-label={`${r.group.collapsed ? 'Ανάπτυξη' : 'Σύμπτυξη'} ${r.name}`}
-                className="inline-flex size-8 shrink-0 cursor-pointer items-center justify-center rounded text-muted-foreground hover:bg-background hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                className="inline-flex size-8 shrink-0 cursor-pointer items-center justify-center rounded text-muted-foreground hover:bg-background hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring">
                 {r.group.collapsed ? <FiChevronRight className="size-4" /> : <FiChevronDown className="size-4" />}
               </button>
               <span className="flex min-w-0 flex-col">
-                {r.group.href ? <Link href={r.group.href} className="truncate text-[length:var(--fs-12)] font-semibold hover:underline">{r.name}</Link> : <span className="truncate text-[length:var(--fs-12)] font-semibold">{r.name}</span>}
-                <span className="truncate text-[length:var(--fs-10)] tabular-nums text-muted-foreground">{r.group.count} εργασίες · {r.progress}%{r.sub ? ` · ${r.sub}` : ''}</span>
+                {r.group.href ? <Link href={r.group.href} className="truncate text-(length:--fs-12) font-semibold hover:underline">{r.name}</Link> : <span className="truncate text-(length:--fs-12) font-semibold">{r.name}</span>}
+                <span className="truncate text-(length:--fs-10) tabular-nums text-muted-foreground">{r.group.count} εργασίες · {r.progress}%{r.sub ? ` · ${r.sub}` : ''}</span>
               </span>
             </div>
           ) : (
             <div key={r.id} className={cn('flex flex-col justify-center border-b border-border pr-3', r.nested ? 'pl-10' : 'pl-3')} style={{ height: ROW_H }}>
               {onSelect ? (
-                <button type="button" onClick={() => onSelect(r.id)} className="cursor-pointer truncate text-left text-[length:var(--fs-12)] font-medium hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">{r.name}</button>
-              ) : <span className="truncate text-[length:var(--fs-12)] font-medium">{r.name}</span>}
-              <span className="truncate text-[length:var(--fs-10)] tabular-nums text-muted-foreground">{fmtRange(r.start, r.end)}{r.sub ? ` · ${r.sub}` : ''}</span>
+                <button type="button" onClick={() => onSelect(r.id)} className="cursor-pointer truncate text-left text-(length:--fs-12) font-medium hover:underline focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring">{r.name}</button>
+              ) : <span className="truncate text-(length:--fs-12) font-medium">{r.name}</span>}
+              <span className="truncate text-(length:--fs-10) tabular-nums text-muted-foreground">{fmtRange(r.start, r.end)}{r.sub ? ` · ${r.sub}` : ''}</span>
             </div>
           ))}
         </div>
@@ -127,7 +127,7 @@ export function GanttChart({ rows, today, onSelect, onToggle, showArrows = true,
             {/* μήνες + ημέρες */}
             <div className="absolute inset-x-0 top-0 border-b border-border" style={{ height: HEAD_H }}>
               {months.map((m) => (
-                <div key={m.label} className="absolute top-0 truncate border-l border-border px-1.5 pt-1 text-[length:var(--fs-11)] font-medium capitalize text-foreground" style={{ left: m.x, width: m.w }}>
+                <div key={m.label} className="absolute top-0 truncate border-l border-border px-1.5 pt-1 text-(length:--fs-11) font-medium capitalize text-foreground" style={{ left: m.x, width: m.w }}>
                   {m.w >= 48 ? fmt(`${m.label}-01`, { month: 'long', year: 'numeric' }) : ''}
                 </div>
               ))}
@@ -135,7 +135,7 @@ export function GanttChart({ rows, today, onSelect, onToggle, showArrows = true,
                 const mon = new Date(`${d}T00:00:00Z`).getUTCDay() === 1;
                 const show = zoom === 'day' || mon;
                 return show ? (
-                  <div key={d} className={cn('absolute bottom-1 text-center text-[length:var(--fs-10)] tabular-nums', d === today ? 'font-semibold text-red-600' : isWorkday(d) ? 'text-muted-foreground' : 'text-muted-foreground opacity-50')}
+                  <div key={d} className={cn('absolute bottom-1 text-center text-(length:--fs-10) tabular-nums', d === today ? 'font-semibold text-red-600' : isWorkday(d) ? 'text-muted-foreground' : 'text-muted-foreground opacity-50')}
                     style={{ left: i * px, width: zoom === 'day' ? px : px * 7, textAlign: zoom === 'day' ? 'center' : 'left' }}>
                     {Number(d.slice(8))}
                   </div>
@@ -191,12 +191,12 @@ export function GanttChart({ rows, today, onSelect, onToggle, showArrows = true,
               const Tag = onSelect ? 'button' : 'div';
               return (
                 <Tag key={r.id} type={onSelect ? 'button' : undefined} onClick={onSelect ? () => onSelect(r.id) : undefined} aria-label={label} title={label}
-                  className={cn('absolute flex items-center overflow-hidden rounded-md text-left shadow-sm', onSelect && 'cursor-pointer transition-[filter] duration-150 hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',
+                  className={cn('absolute flex items-center overflow-hidden rounded-md text-left shadow-xs', onSelect && 'cursor-pointer transition-[filter] duration-150 hover:brightness-95 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1',
                     r.conflict && 'ring-2 ring-red-500 ring-offset-1')}
                   style={{ left, width: w, top: HEAD_H + i * ROW_H + 9, height: ROW_H - 18, background: `color-mix(in srgb, ${color} 22%, transparent)` }}>
                   <span className="absolute inset-y-0 left-0" style={{ width: `${r.progress}%`, background: color }} aria-hidden />
                   {w > 44 && (
-                    <span className="relative ml-1 flex items-center gap-1 truncate rounded bg-background px-1 text-[length:var(--fs-10)] font-semibold tabular-nums text-foreground">
+                    <span className="relative ml-1 flex items-center gap-1 truncate rounded bg-background px-1 text-(length:--fs-10) font-semibold tabular-nums text-foreground">
                       {r.conflict && <FiAlertTriangle className="size-3 shrink-0" aria-hidden />}{r.progress}%
                     </span>
                   )}

@@ -101,19 +101,19 @@ export function ApplyRecipeDialog({ open, onOpenChange, prjc, projectLabel }: {
       <DialogContent className="flex max-h-[92dvh] flex-col gap-0 overflow-hidden p-0 sm:max-w-xl">
         <form onSubmit={submit} className="flex min-h-0 flex-1 flex-col" noValidate>
           <DialogHeader className="px-5 pt-4 pb-3">
-            <DialogTitle className="text-[length:var(--fs-16)]">Προσθήκη από συνταγή</DialogTitle>
-            <DialogDescription className="text-[length:var(--fs-12)]">
+            <DialogTitle className="text-(length:--fs-16)">Προσθήκη από συνταγή</DialogTitle>
+            <DialogDescription className="text-(length:--fs-12)">
               Έργο <span className="font-medium text-foreground">{projectLabel}</span>. Τα υλικά και τα εργατικά της συνταγής μπαίνουν στον προϋπολογισμό — το SoftOne δεν αλλάζει.
             </DialogDescription>
           </DialogHeader>
 
           <DialogBody className="space-y-4">
             {loadError ? (
-              <p role="alert" className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-[length:var(--fs-12)] text-destructive">{loadError}</p>
+              <p role="alert" className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-(length:--fs-12) text-destructive">{loadError}</p>
             ) : !recipes ? (
-              <p className="flex items-center gap-2 text-[length:var(--fs-12)] text-muted-foreground"><FiLoader className="size-3.5 animate-spin motion-reduce:animate-none" aria-hidden /> Φόρτωση συνταγών…</p>
+              <p className="flex items-center gap-2 text-(length:--fs-12) text-muted-foreground"><FiLoader className="size-3.5 animate-spin motion-reduce:animate-none" aria-hidden /> Φόρτωση συνταγών…</p>
             ) : recipes.length === 0 ? (
-              <div className="rounded-lg border border-dashed px-4 py-6 text-center text-[length:var(--fs-12)] text-muted-foreground">
+              <div className="rounded-lg border border-dashed px-4 py-6 text-center text-(length:--fs-12) text-muted-foreground">
                 <FiLayers className="mx-auto mb-2 size-6 opacity-60" aria-hidden />
                 Δεν υπάρχουν συνταγές. <Link href="/admin/recipes/new" className="font-medium text-foreground underline">Δημιουργία συνταγής</Link>
               </div>
@@ -121,10 +121,10 @@ export function ApplyRecipeDialog({ open, onOpenChange, prjc, projectLabel }: {
               <>
                 <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_140px]">
                   <div>
-                    <Label htmlFor="apply-recipe" className="mb-1 block text-[length:var(--fs-12)]">Συνταγή <span className="text-destructive">*</span></Label>
+                    <Label htmlFor="apply-recipe" className="mb-1 block text-(length:--fs-12)">Συνταγή <span className="text-destructive">*</span></Label>
                     <select
                       id="apply-recipe" value={recipeId} onChange={(e) => choose(e.target.value)}
-                      className="h-9 w-full cursor-pointer rounded-lg border border-input bg-background px-2 text-[length:var(--fs-13)] outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                      className="h-9 w-full cursor-pointer rounded-lg border border-input bg-background px-2 text-(length:--fs-13) outline-hidden focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
                     >
                       <option value="">— Διαλέξτε —</option>
                       {(['TILE', 'STONE', 'CEMENT_MORTAR'] as const).map((k) => {
@@ -138,20 +138,20 @@ export function ApplyRecipeDialog({ open, onOpenChange, prjc, projectLabel }: {
                     </select>
                   </div>
                   <div>
-                    <Label htmlFor="apply-sqm" className="mb-1 block text-[length:var(--fs-12)]">Τετραγωνικά (m²) <span className="text-destructive">*</span></Label>
+                    <Label htmlFor="apply-sqm" className="mb-1 block text-(length:--fs-12)">Τετραγωνικά (m²) <span className="text-destructive">*</span></Label>
                     <Input id="apply-sqm" inputMode="decimal" autoComplete="off" value={sqm} onChange={(e) => setSqm(e.target.value)} placeholder="π.χ. 85" className="tabular-nums" aria-invalid={sqm.trim() !== '' && !sqmOk} />
                   </div>
                 </div>
 
                 {recipe && recipe.laborCostPerSqm > 0 && (
                   <div>
-                    <Label htmlFor="apply-labor" className="mb-1 block text-[length:var(--fs-12)]">Υπηρεσία εργατικών ({eur.format(recipe.laborCostPerSqm)}/m²)</Label>
+                    <Label htmlFor="apply-labor" className="mb-1 block text-(length:--fs-12)">Υπηρεσία εργατικών ({eur.format(recipe.laborCostPerSqm)}/m²)</Label>
                     {labor ? (
                       <div className="flex min-h-10 items-center gap-2 rounded-lg border border-border px-2.5 py-1.5">
                         <FiTool className="size-4 shrink-0" style={{ color: '#7C3AED' }} aria-hidden />
                         <div className="min-w-0 flex-1">
-                          <p className="truncate text-[length:var(--fs-13)] font-medium">{labor.name}</p>
-                          <p className="font-mono text-[length:var(--fs-11)] text-muted-foreground">{labor.code}</p>
+                          <p className="truncate text-(length:--fs-13) font-medium">{labor.name}</p>
+                          <p className="font-mono text-(length:--fs-11) text-muted-foreground">{labor.code}</p>
                         </div>
                         <button type="button" onClick={() => setLabor(null)} className="inline-flex size-8 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground" aria-label="Χωρίς εργατικά / αλλαγή υπηρεσίας">
                           <FiX className="size-4" aria-hidden />
@@ -160,12 +160,12 @@ export function ApplyRecipeDialog({ open, onOpenChange, prjc, projectLabel }: {
                     ) : (
                       <RegistrySearch id="apply-labor" kind="service" onPick={(p) => setLabor({ mtrl: p.id, code: p.code, name: p.name })} label="" />
                     )}
-                    {laborSkipped && <p className="mt-1 text-[length:var(--fs-11)] text-amber-700 dark:text-amber-400">Χωρίς υπηρεσία τα εργατικά δεν μπαίνουν στον προϋπολογισμό.</p>}
+                    {laborSkipped && <p className="mt-1 text-(length:--fs-11) text-amber-700 dark:text-amber-400">Χωρίς υπηρεσία τα εργατικά δεν μπαίνουν στον προϋπολογισμό.</p>}
                   </div>
                 )}
 
                 {recipe && !isSqmUnit(recipe.mtrlUnit) && (
-                  <p className="flex gap-2 rounded-md border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-[length:var(--fs-12)] text-amber-800 dark:text-amber-300">
+                  <p className="flex gap-2 rounded-md border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-(length:--fs-12) text-amber-800 dark:text-amber-300">
                     <FiAlertTriangle className="mt-0.5 size-3.5 shrink-0" aria-hidden />
                     Το κύριο υλικό μετριέται σε «{recipe.mtrlUnit}», ενώ η ποσότητα υπολογίζεται σε m². Ελέγξτε τη γραμμή μετά την προσθήκη.
                   </p>
@@ -173,8 +173,8 @@ export function ApplyRecipeDialog({ open, onOpenChange, prjc, projectLabel }: {
 
                 {rows.length > 0 && (
                   <div className="overflow-hidden rounded-lg border" style={{ borderColor: `color-mix(in srgb, ${TONE} 30%, var(--border))` }}>
-                    <table className="w-full text-[length:var(--fs-12)]">
-                      <thead className="bg-muted/40 text-left text-[length:var(--fs-11)] text-muted-foreground">
+                    <table className="w-full text-(length:--fs-12)">
+                      <thead className="bg-muted/40 text-left text-(length:--fs-11) text-muted-foreground">
                         <tr><th className="px-2.5 py-1.5 font-medium">Γραμμή</th><th className="px-2.5 py-1.5 text-right font-medium">Ποσότητα</th><th className="px-2.5 py-1.5 text-right font-medium">Αξία</th></tr>
                       </thead>
                       <tbody className="divide-y divide-border">
@@ -192,11 +192,11 @@ export function ApplyRecipeDialog({ open, onOpenChange, prjc, projectLabel }: {
                     </table>
                   </div>
                 )}
-                {recipe && !recipe.mtrl && <p className="text-[length:var(--fs-11)] text-muted-foreground">Γενική συνταγή: το κύριο υλικό δεν μπαίνει — προσθέστε το χωριστά με «Προσθήκη υλικού».</p>}
-                {recipe && <p className="text-[length:var(--fs-11)] text-muted-foreground">Οι ποσότητες περιλαμβάνουν τη φύρα. Κάθε γραμμή σημειώνεται «Συνταγή … · m²» και αφαιρείται όπως κάθε γραμμή προϋπολογισμού.</p>}
+                {recipe && !recipe.mtrl && <p className="text-(length:--fs-11) text-muted-foreground">Γενική συνταγή: το κύριο υλικό δεν μπαίνει — προσθέστε το χωριστά με «Προσθήκη υλικού».</p>}
+                {recipe && <p className="text-(length:--fs-11) text-muted-foreground">Οι ποσότητες περιλαμβάνουν τη φύρα. Κάθε γραμμή σημειώνεται «Συνταγή … · m²» και αφαιρείται όπως κάθε γραμμή προϋπολογισμού.</p>}
               </>
             )}
-            {error && <p role="alert" className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-[length:var(--fs-12)] text-destructive">{error}</p>}
+            {error && <p role="alert" className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-(length:--fs-12) text-destructive">{error}</p>}
           </DialogBody>
 
           <DialogFooter className="m-0 border-t border-border px-5 py-3">

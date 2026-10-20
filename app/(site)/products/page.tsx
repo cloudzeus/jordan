@@ -31,12 +31,12 @@ export default async function ProductsPage({ searchParams }: { searchParams: SP 
     <Container className="py-14 md:py-20">
       <Eyebrow>Κατάλογος</Eyebrow>
       <div className="mt-6 flex flex-wrap items-end justify-between gap-8">
-        <h1 className="font-site text-[length:var(--fs-36)] font-light leading-none">{active?.name ?? 'Υλικά'}</h1>
+        <h1 className="font-site text-(length:--fs-36) font-light leading-none">{active?.name ?? 'Υλικά'}</h1>
         <form action="/products" role="search" className="relative w-full max-w-sm">
           {category != null && <input type="hidden" name="category" value={category} />}
           <label htmlFor="q" className="sr-only">Αναζήτηση υλικού</label>
           <input id="q" name="q" type="search" defaultValue={q} placeholder="Αναζήτηση — όνομα ή κωδικός" className={cn(inputCls, 'pr-12')} />
-          <button type="submit" className="absolute right-0 top-0 grid size-12 cursor-pointer place-items-center text-[var(--s-ink-2)] hover:text-[var(--s-ink)]" aria-label="Αναζήτηση">
+          <button type="submit" className="absolute right-0 top-0 grid size-12 cursor-pointer place-items-center text-(--s-ink-2) hover:text-(--s-ink)" aria-label="Αναζήτηση">
             <FiSearch className="size-4" aria-hidden />
           </button>
         </form>
@@ -53,11 +53,11 @@ export default async function ProductsPage({ searchParams }: { searchParams: SP 
                     href={href({ q, category: c.code })}
                     aria-current={on ? 'page' : undefined}
                     className={cn(
-                      'inline-flex min-h-11 items-center gap-2 border px-4 text-[length:var(--fs-14)] transition-colors',
-                      on ? 'border-[var(--s-ink)] bg-[var(--s-ink)] text-white' : 'border-[var(--s-line)] text-[var(--s-ink-2)] hover:border-[var(--s-ink)] hover:text-[var(--s-ink)]',
+                      'inline-flex min-h-11 items-center gap-2 border px-4 text-(length:--fs-14) transition-colors',
+                      on ? 'border-(--s-ink) bg-(--s-ink) text-white' : 'border-(--s-line) text-(--s-ink-2) hover:border-(--s-ink) hover:text-(--s-ink)',
                     )}
                   >
-                    {c.name}{c.count != null && <span className={on ? 'text-white/70' : 'text-[var(--s-mute)]'}>{c.count}</span>}
+                    {c.name}{c.count != null && <span className={on ? 'text-white/70' : 'text-(--s-mute)'}>{c.count}</span>}
                   </Link>
                 </li>
               );
@@ -66,15 +66,15 @@ export default async function ProductsPage({ searchParams }: { searchParams: SP 
         </nav>
       )}
 
-      <p className="mt-10 border-t border-[var(--s-line)] pt-5 text-[length:var(--fs-14)] text-[var(--s-mute)]" aria-live="polite">
+      <p className="mt-10 border-t border-(--s-line) pt-5 text-(length:--fs-14) text-(--s-mute)" aria-live="polite">
         {res.total === 0 ? 'Κανένα αποτέλεσμα' : `${res.total.toLocaleString('el-GR')} ${res.total === 1 ? 'είδος' : 'είδη'}`}
-        {q && <> για «{q}» · <Link href={href({ category })} className="s-link text-[var(--s-ink)]">καθαρισμός</Link></>}
+        {q && <> για «{q}» · <Link href={href({ category })} className="s-link text-(--s-ink)">καθαρισμός</Link></>}
       </p>
 
       {res.items.length === 0 ? (
         <div className="py-24 text-center">
-          <p className="font-site text-[length:var(--fs-24)] font-light">Δεν βρέθηκε κάτι εδώ.</p>
-          <p className="mt-3 text-[length:var(--fs-15)] text-[var(--s-ink-2)]">Δοκιμάστε άλλη λέξη ή <Link href="/products" className="s-link text-[var(--s-ink)]">δείτε όλα τα υλικά</Link>.</p>
+          <p className="font-site text-(length:--fs-24) font-light">Δεν βρέθηκε κάτι εδώ.</p>
+          <p className="mt-3 text-(length:--fs-15) text-(--s-ink-2)">Δοκιμάστε άλλη λέξη ή <Link href="/products" className="s-link text-(--s-ink)">δείτε όλα τα υλικά</Link>.</p>
         </div>
       ) : (
         <ul className="mt-8 grid grid-cols-2 gap-x-4 gap-y-10 md:grid-cols-3 md:gap-x-6 lg:grid-cols-4">
@@ -83,9 +83,9 @@ export default async function ProductsPage({ searchParams }: { searchParams: SP 
       )}
 
       {res.pages > 1 && (
-        <nav aria-label="Σελίδες" className="mt-16 flex items-center justify-between border-t border-[var(--s-line)] pt-6 text-[length:var(--fs-15)]">
+        <nav aria-label="Σελίδες" className="mt-16 flex items-center justify-between border-t border-(--s-line) pt-6 text-(length:--fs-15)">
           {page > 1 ? <Link href={href({ q, category }, page - 1)} className="inline-flex min-h-11 items-center s-link">← Προηγούμενη</Link> : <span />}
-          <span className="tabular-nums text-[var(--s-mute)]">{page} / {res.pages}</span>
+          <span className="tabular-nums text-(--s-mute)">{page} / {res.pages}</span>
           {page < res.pages ? <Link href={href({ q, category }, page + 1)} className="inline-flex min-h-11 items-center s-link">Επόμενη →</Link> : <span />}
         </nav>
       )}

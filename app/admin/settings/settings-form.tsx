@@ -165,7 +165,7 @@ export function SettingsForm({ items, categories, vivaUrls, vivaHelp }: { items:
             checked={!!v}
             onCheckedChange={(checked) => update(item.key, !!checked)}
           />
-          <span className="text-[length:var(--fs-13)] text-foreground">Ενεργοποιημένο</span>
+          <span className="text-(length:--fs-13) text-foreground">Ενεργοποιημένο</span>
         </label>
       );
     }
@@ -206,7 +206,7 @@ export function SettingsForm({ items, categories, vivaUrls, vivaHelp }: { items:
           rows={3}
           value={(v as string) ?? ''}
           onChange={(e) => update(item.key, e.target.value)}
-          className="w-full rounded-md border border-input bg-card px-2.5 py-1.5 text-[length:var(--fs-13)] focus:border-primary focus:outline-none focus:ring-2 focus:ring-ring/20"
+          className="w-full rounded-md border border-input bg-card px-2.5 py-1.5 text-(length:--fs-13) focus:border-primary focus:outline-hidden focus:ring-2 focus:ring-ring/20"
         />
       );
     }
@@ -246,18 +246,18 @@ export function SettingsForm({ items, categories, vivaUrls, vivaHelp }: { items:
         const isI18n = cat.id === 'i18n';
         return (
           <div key={cat.id} className="bg-card border border-border rounded-xl shadow-card p-5">
-            <h3 className="text-[length:var(--fs-14)] font-semibold mb-4 text-foreground">{cat.label}</h3>
+            <h3 className="text-(length:--fs-14) font-semibold mb-4 text-foreground">{cat.label}</h3>
             <div className={isI18n ? 'grid gap-4' : 'grid gap-4 sm:grid-cols-2'}>
               {catItems.map((item) => (
                 <div key={item.key} className="grid gap-1.5">
-                  <Label htmlFor={item.key} className="flex items-center gap-2 text-[length:var(--fs-12)] font-semibold">
+                  <Label htmlFor={item.key} className="flex items-center gap-2 text-(length:--fs-12) font-semibold">
                     {item.label}
                     {item.isSecret && item.hasValue && (
-                      <span className="text-[length:var(--fs-10)] uppercase tracking-wider text-muted-foreground font-semibold">Αποθ.</span>
+                      <span className="text-(length:--fs-10) uppercase tracking-wider text-muted-foreground font-semibold">Αποθ.</span>
                     )}
                   </Label>
                   {item.description && (
-                    <p className="text-[length:var(--fs-11)] text-muted-foreground leading-tight -mt-0.5 mb-1">{item.description}</p>
+                    <p className="text-(length:--fs-11) text-muted-foreground leading-tight -mt-0.5 mb-1">{item.description}</p>
                   )}
                   {renderField(item)}
                 </div>
@@ -286,8 +286,8 @@ export function SettingsForm({ items, categories, vivaUrls, vivaHelp }: { items:
               <div className="mt-5 border-t border-border pt-4">
                 <div className="flex items-center justify-between gap-3 flex-wrap">
                   <div>
-                    <p className="text-[length:var(--fs-13)] font-semibold text-foreground">Δοκιμή σύνδεσης SoftOne</p>
-                    <p className="text-[length:var(--fs-11)] text-muted-foreground leading-tight">
+                    <p className="text-(length:--fs-13) font-semibold text-foreground">Δοκιμή σύνδεσης SoftOne</p>
+                    <p className="text-(length:--fs-11) text-muted-foreground leading-tight">
                       Εκτελεί login → authenticate με τις αποθηκευμένες ρυθμίσεις και εμφανίζει το token (clientID).
                     </p>
                   </div>
@@ -298,7 +298,7 @@ export function SettingsForm({ items, categories, vivaUrls, vivaHelp }: { items:
 
                 {s1Result && (
                   <div
-                    className={`mt-3 rounded-lg border p-3 text-[length:var(--fs-12)] ${
+                    className={`mt-3 rounded-lg border p-3 text-(length:--fs-12) ${
                       s1Result.ok
                         ? 'border-emerald-500/30 bg-emerald-500/5'
                         : 'border-destructive/30 bg-destructive/5'
@@ -323,11 +323,11 @@ export function SettingsForm({ items, categories, vivaUrls, vivaHelp }: { items:
 
                     {s1Result.clientID && (
                       <div className="mt-2">
-                        <Label className="text-[length:var(--fs-10)] uppercase tracking-wider text-muted-foreground">
+                        <Label className="text-(length:--fs-10) uppercase tracking-wider text-muted-foreground">
                           Token (clientID)
                         </Label>
                         <div className="mt-1 flex items-center gap-2">
-                          <code className="flex-1 break-all rounded bg-muted px-2 py-1 font-mono text-[length:var(--fs-12)] text-foreground">
+                          <code className="flex-1 break-all rounded bg-muted px-2 py-1 font-mono text-(length:--fs-12) text-foreground">
                             {s1Result.clientID}
                           </code>
                           <button
@@ -346,7 +346,7 @@ export function SettingsForm({ items, categories, vivaUrls, vivaHelp }: { items:
                     )}
 
                     {(s1Result.endpoint || s1Result.ver || s1Result.sn) && (
-                      <div className="mt-2 grid gap-0.5 text-[length:var(--fs-11)] text-muted-foreground">
+                      <div className="mt-2 grid gap-0.5 text-(length:--fs-11) text-muted-foreground">
                         {s1Result.endpoint && <span>Endpoint: {s1Result.endpoint}</span>}
                         {s1Result.ver && <span>Version: {s1Result.ver}</span>}
                         {s1Result.sn && <span>Serial: {s1Result.sn}</span>}
@@ -355,11 +355,11 @@ export function SettingsForm({ items, categories, vivaUrls, vivaHelp }: { items:
 
                     {!s1Result.authenticated && s1Result.companies && s1Result.companies.length > 0 && (
                       <div className="mt-2">
-                        <Label className="text-[length:var(--fs-10)] uppercase tracking-wider text-muted-foreground">
+                        <Label className="text-(length:--fs-10) uppercase tracking-wider text-muted-foreground">
                           Διαθέσιμες εταιρίες (συμπλήρωσε Company/Branch/Module/RefID)
                         </Label>
                         <div className="mt-1 max-h-40 overflow-auto rounded border border-border">
-                          <table className="w-full text-[length:var(--fs-11)]">
+                          <table className="w-full text-(length:--fs-11)">
                             <thead className="bg-muted/50 text-muted-foreground">
                               <tr>
                                 <th className="px-2 py-1 text-left font-semibold">Company</th>

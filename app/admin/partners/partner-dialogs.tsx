@@ -49,8 +49,8 @@ function DialogShell({
             {icon}
           </span>
           <div className="min-w-0 flex-1 text-left">
-            <DialogTitle className="text-[length:var(--fs-15)]">{title}</DialogTitle>
-            <DialogDescription className="truncate text-[length:var(--fs-11)]">{description}</DialogDescription>
+            <DialogTitle className="text-(length:--fs-15)">{title}</DialogTitle>
+            <DialogDescription className="truncate text-(length:--fs-11)">{description}</DialogDescription>
           </div>
         </DialogHeader>
         <DialogBody className="space-y-3 bg-muted/20 px-4 py-3">{children}</DialogBody>
@@ -156,7 +156,7 @@ export function PartnerFormDialog({
       description={loading ? 'Φόρτωση…' : company ? 'Εταιρία — τα πρόσωπα επικοινωνίας προστίθενται μετά την αποθήκευση' : 'Φυσικό πρόσωπο'}
       footer={(
         <>
-          <span className="mr-auto text-[length:var(--fs-11)] text-muted-foreground">Τοπικό μητρώο — δεν γράφεται στο SoftOne</span>
+          <span className="mr-auto text-(length:--fs-11) text-muted-foreground">Τοπικό μητρώο — δεν γράφεται στο SoftOne</span>
           <Button variant="ghost" size="sm" onClick={() => onOpenChange(false)} disabled={busy}>Άκυρο</Button>
           <Button size="sm" onClick={save} disabled={busy || loading}>
             {busy ? <FiLoader className="mr-1.5 size-3.5 animate-spin" /> : <FiCheck className="mr-1.5 size-3.5" />}
@@ -172,7 +172,7 @@ export function PartnerFormDialog({
               ariaLabel="Τύπος συνεργάτη" value={f.type} onChange={set('type')}
               options={[{ value: 'COMPANY', label: 'Εταιρία' }, { value: 'PERSON', label: 'Φυσικό πρόσωπο' }]}
             />
-            <label className="ml-auto inline-flex cursor-pointer items-center gap-2 text-[length:var(--fs-12)]">
+            <label className="ml-auto inline-flex cursor-pointer items-center gap-2 text-(length:--fs-12)">
               <input type="checkbox" className="size-4 accent-[#0369A1]" checked={f.isActive} onChange={(e) => set('isActive')(e.target.checked)} />
               Ενεργός
             </label>
@@ -228,7 +228,7 @@ export function PartnerFormDialog({
           <FormSection tone="slate" icon={<FiFileText />} title="Σημειώσεις">
             <textarea
               id="partner-notes" value={f.notes} onChange={(e) => set('notes')(e.target.value)} rows={3} aria-label="Σημειώσεις"
-              className="w-full rounded-md border border-input bg-background px-3 py-2 text-[length:var(--fs-13)] shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+              className="w-full rounded-md border border-input bg-background px-3 py-2 text-(length:--fs-13) shadow-2xs outline-hidden focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
             />
           </FormSection>
         </>
@@ -295,7 +295,7 @@ export function ContactDialog({
           <Field label="Ονοματεπώνυμο" required htmlFor="contact-name" error={errors.name}><Input {...inp('name')} autoFocus /></Field>
           <Field label="Ιδιότητα" htmlFor="contact-role"><Input {...inp('role')} placeholder="π.χ. Διευθυντής έργου" /></Field>
         </div>
-        <label className="inline-flex cursor-pointer items-center gap-2 text-[length:var(--fs-12)]">
+        <label className="inline-flex cursor-pointer items-center gap-2 text-(length:--fs-12)">
           <input type="checkbox" className="size-4 accent-[#7C3AED]" checked={f.isPrimary} onChange={(e) => setF((s) => ({ ...s, isPrimary: e.target.checked }))} />
           Κύριο πρόσωπο επικοινωνίας
         </label>
@@ -357,7 +357,7 @@ export function LinkCustomersDialog({
       title="Σύνδεση με πελάτες" description={partnerName}
       footer={(
         <>
-          <span className="mr-auto text-[length:var(--fs-11)] text-muted-foreground" aria-live="polite">{picked.size ? `${picked.size} επιλεγμένοι` : 'Επίλεξε έναν ή περισσότερους'}</span>
+          <span className="mr-auto text-(length:--fs-11) text-muted-foreground" aria-live="polite">{picked.size ? `${picked.size} επιλεγμένοι` : 'Επίλεξε έναν ή περισσότερους'}</span>
           <Button variant="ghost" size="sm" onClick={() => onOpenChange(false)} disabled={busy}>Άκυρο</Button>
           <Button size="sm" onClick={save} disabled={busy || picked.size === 0}>
             {busy ? <FiLoader className="mr-1.5 size-3.5 animate-spin" /> : <FiLink className="mr-1.5 size-3.5" />}
@@ -371,7 +371,7 @@ export function LinkCustomersDialog({
         <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Αναζήτηση (επωνυμία, κωδικός, ΑΦΜ, πόλη)…" className={cn(fieldCls, 'pl-8')} autoFocus aria-label="Αναζήτηση πελάτη" />
       </div>
       <ul className="max-h-[50dvh] divide-y divide-border overflow-y-auto rounded-md border border-border bg-card" aria-busy={linked == null}>
-        {shown.length === 0 && <li className="px-3 py-6 text-center text-[length:var(--fs-12)] text-muted-foreground">Κανένας πελάτης</li>}
+        {shown.length === 0 && <li className="px-3 py-6 text-center text-(length:--fs-12) text-muted-foreground">Κανένας πελάτης</li>}
         {shown.map((c) => {
           const already = linked?.has(c.trdr) ?? false;
           const on = picked.has(c.trdr);
@@ -380,13 +380,13 @@ export function LinkCustomersDialog({
               <label className={cn('flex min-h-11 cursor-pointer items-center gap-2.5 px-3 py-1.5 transition-colors hover:bg-muted/50', already && 'cursor-default opacity-60', on && 'bg-emerald-50/60 dark:bg-emerald-500/10')}>
                 <input type="checkbox" className="size-4 shrink-0 accent-[#047857]" checked={already || on} disabled={already || linked == null} onChange={() => toggle(c.trdr)} />
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[length:var(--fs-13)] font-medium">{c.name}</span>
-                  <span className="block truncate text-[length:var(--fs-11)] text-muted-foreground">
+                  <span className="block truncate text-(length:--fs-13) font-medium">{c.name}</span>
+                  <span className="block truncate text-(length:--fs-11) text-muted-foreground">
                     {[c.code, c.afm && `ΑΦΜ ${c.afm}`, c.city].filter(Boolean).join(' · ')}
                   </span>
                 </span>
-                {already && <span className="shrink-0 text-[length:var(--fs-11)] font-medium text-emerald-700 dark:text-emerald-300">Συνδεδεμένος</span>}
-                {!c.isActive && !already && <span className="shrink-0 text-[length:var(--fs-11)] text-muted-foreground">Ανενεργός</span>}
+                {already && <span className="shrink-0 text-(length:--fs-11) font-medium text-emerald-700 dark:text-emerald-300">Συνδεδεμένος</span>}
+                {!c.isActive && !already && <span className="shrink-0 text-(length:--fs-11) text-muted-foreground">Ανενεργός</span>}
               </label>
             </li>
           );
@@ -458,7 +458,7 @@ export function LinkProjectDialog({
       )}
     >
       {detail == null ? <div className="h-32 animate-pulse rounded-md bg-muted motion-reduce:animate-none" /> : noCustomers ? (
-        <p role="alert" className="rounded-md border border-amber-500/30 bg-amber-50/70 px-3 py-3 text-[length:var(--fs-12)] text-amber-900 dark:bg-amber-500/10 dark:text-amber-300">
+        <p role="alert" className="rounded-md border border-amber-500/30 bg-amber-50/70 px-3 py-3 text-(length:--fs-12) text-amber-900 dark:bg-amber-500/10 dark:text-amber-300">
           Ο συνεργάτης δεν έχει πελάτες. Σύνδεσε πρώτα πελάτη — τα έργα επιλέγονται από τους πελάτες του.
         </p>
       ) : (
