@@ -3819,3 +3819,53 @@ model ContractDocument {
 
   @@index([contractId, audience, partyId])
 }
+
+// ── Συνταγές τοποθέτησης — ΔΙΚΑ ΜΑΣ δεδομένα (όχι SoftOne) ─────────────────────────────────────────
+// Ανά τετραγωνικό: κύριο υλικό (πλακάκι / πέτρα / τσιμεντοκονία) με φύρα, βοηθητικά υλικά (κόλλα,
+// αρμόστοκος, αστάρι…) με ποσότητα/m² και φύρα, και εργατικό κόστος/m². Οι υπολογισμοί: `lib/install-recipes-core.ts`.
+// Κωδικός, όνομα και μονάδα των ειδών κρατιούνται ως στιγμιότυπο από τον καθρέφτη (`SoftoneItem`).
+enum RecipeMaterialKind {
+  TILE // πλακάκι
+  STONE // πέτρα
+  CEMENT_MORTAR // τσιμεντοκονία
+}
+
+model InstallRecipe {
+  id              String              @id @default(cuid())
+  name            String
+  kind            RecipeMaterialKind
+  description     String?
+  // Κύριο υλικό (MTRL) — null = γενική συνταγή για όλη την κατηγορία
+  mtrl            Int?
+  mtrlCode        String?
+  mtrlName        String?
+  mtrlUnit        String?
+  materialPrice   Float               @default(0) // τιμή κύριου υλικού ανά m²
+  wastePct        Float               @default(0) // φύρα κύριου υλικού (%)
+  laborCostPerSqm Float               @default(0) // εργατικό κόστος ανά m²
+  copiedFromId    String? // συνταγή-πηγή όταν φτιάχτηκε με αντιγραφή
+  createdById     String?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  lines           InstallRecipeLine[]
+
+  @@index([kind, name])
+  @@index([mtrl])
+}
+
+model InstallRecipeLine {
+  id        String        @id @default(cuid())
+  recipeId  String
+  recipe    InstallRecipe @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  mtrl      Int // SoftOne MTRL (βοηθητικό υλικό)
+  code      String
+  name      String
+  unit      String?
+  qtyPerSqm Float // ποσότητα ανά m² (στη βασική μονάδα του είδους)
+  wastePct  Float         @default(0) // φύρα (%)
+  unitPrice Float         @default(0) // τιμή ανά μονάδα
+  notes     String?
+  sortOrder Int           @default(0)
+
+  @@index([recipeId, sortOrder])
+}
