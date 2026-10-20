@@ -94,7 +94,10 @@ export async function portalOffer(user: PortalUser, offerId: string) {
     })
     .reverse()
     .slice(0, 8);
-  return { org: data.org, offer, activity, products: offer.items.map((i, k) => ({ itemId: i.id, detail: products[k], media: mediaOf(i.mtrl) })) };
+  // Ενεργές παλέτες ανά προϊόν (όλων των πελατών, ανώνυμα) — για το «ποιανού» προϊόντος είναι κάθε παλέτα στο 3D.
+  const itemPallets: Record<string, number> = Object.fromEntries(offer.items.map((i) => [i.id, 0]));
+  for (const r of active) if (r.offerItemId in itemPallets) itemPallets[r.offerItemId] += r.pallets;
+  return { org: data.org, offer, activity, itemPallets, products: offer.items.map((i, k) => ({ itemId: i.id, detail: products[k], media: mediaOf(i.mtrl) })) };
 }
 
 export type PortalOffer = Awaited<ReturnType<typeof portalData>>['offers'][number];

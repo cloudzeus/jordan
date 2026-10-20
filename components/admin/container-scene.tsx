@@ -50,9 +50,40 @@ export type ContainerSceneProps = {
   selectedSlots?: number;
   /** Πόσες άδειες θέσεις μπορούν να επιλεγούν (π.χ. μείον τα εκκρεμή αιτήματα άλλων). */
   maxSelectable?: number;
+  /**
+   * Κοινό container με πολλά προϊόντα: οι γεμάτες θέσεις μοιράζονται με τη σειρά στα τμήματα, το καθένα
+   * με το δικό του φορτίο και χρώμα. Λείπει ⇒ όλες οι γεμάτες με το `load` (όπως πάντα).
+   */
+  segments?: SceneSegment[];
+  /** Δείκτης τμήματος που τονίζεται (π.χ. το επιλεγμένο προϊόν) — χωρίς να ξαναχτιστεί η σκηνή. */
+  highlightSegment?: number | null;
 };
 
 type Slab = { l: number; w: number; t: number };
+type Slot = { x: number; y: number; z: number };
+export type SceneSegment = {
+  /** Ενεργές παλέτες του προϊόντος (μπορεί μισή). */
+  pallets: number;
+  load: 'boxes' | 'stones' | 'sacks';
+  /** Χρώμα (hex) για απόχρωση φορτίου + γωνιακά προστατευτικά. */
+  color?: string;
+  label?: string;
+  /** Μονάδες ανά παλέτα για το μοντέλο της πέτρας (προεπιλογή: της σκηνής). */
+  perPallet?: number;
+};
+
+/**
+ * Μοιράζει `full` γεμάτες θέσεις στα τμήματα με τη σειρά: το τμήμα i παίρνει [⌊Σ_{<i}⌋, ⌊Σ_{≤i}⌋) —
+ * οι μισές παλέτες «συμπληρώνονται» με την επόμενη, και κανένα τμήμα δεν ξεπερνά τις διαθέσιμες θέσεις.
+ */
+export function segmentRanges(full: number, pallets: number[]): [number, number][] {
+  let cum = 0;
+  return pallets.map((n) => {
+    const a = Math.min(full, Math.floor(cum + 1e-9));
+    cum += Math.max(0, n);
+    return [a, Math.min(full, Math.floor(cum + 1e-9))];
+  });
+}
 type Load = { kind: 'boxes' | 'stones' | 'sacks'; slab: Slab; perPallet: number };
 const DEFAULT_SLAB: Slab = { l: 0.6, w: 0.4, t: 0.02 };
 
@@ -200,7 +231,7 @@ function cscPlate() {
 }
 
 // ── Σκηνή ───────────────────────────────────────────────────────────────────────────────────
-export function buildScene(scene: THREE.Scene, pallets: number, filled: number, load: Load) {
+export function buildScene(scene: THREE.Scene, pallets: number, filled: number, load: Load, segments?: { pallets: number; load: Load; color?: string }[]) {
   const { c, slots } = containerLayout(pallets);
   const R = rng(1234);
   const disposables: { dispose: () => void }[] = [];
@@ -379,104 +410,151 @@ export function buildScene(scene: THREE.Scene, pallets: number, filled: number, 
   for (const im of [decks, stringers]) { im.castShadow = true; im.receiveShadow = true; group.add(im); }
 
   // ── Φορτίο ──
+  // Ανά ομάδα θέσεων (ένα προϊόν = μία ομάδα): δικό της μοντέλο φορτίου και — αν δοθεί — απαλή απόχρωση.
   const loaded: THREE.InstancedMesh[] = [];
-  if (load.kind === 'sacks') {
-    // Σακιά (κόλλες, τσιμέντο, κονιάματα): 4 ανά στρώση, 7 στρώσεις, εναλλάξ «δέσιμο» (κάθε δεύτερη
-    // στρώση μετατοπισμένη/καθρεφτισμένη) όπως στοιβάζονται στην πράξη.
-    const sackMat = track(new THREE.MeshStandardMaterial({ map: track(sackTexture()), roughness: 0.78 }));
-    const geo = track(sackGeometry());
-    const LAYERS = 7;
-    const sacks = new THREE.InstancedMesh(geo, sackMat, Math.max(1, full.length * 4 * LAYERS));
-    sacks.count = full.length * 4 * LAYERS;
-    let k = 0;
-    const lift = SACK.y * 0.82; // τα σακιά «κάθονται» το ένα μέσα στο άλλο
-    for (const p of full) {
-      for (let ly = 0; ly < LAYERS; ly++) {
-        const flip = ly % 2 ? 1 : -1;
-        for (let ix = 0; ix < 2; ix++) for (let iz = 0; iz < 2; iz++) {
-          q.setFromAxisAngle(yAxis, (R() - 0.5) * 0.06 + (ly % 2 ? Math.PI : 0));
-          pos.set(p.x + (ix - 0.5) * SACK.x + (R() - 0.5) * 0.015, p.y + PALLET.h + ly * lift, p.z + (iz - 0.5) * (SACK.z + 0.02) + flip * 0.03);
-          sacks.setMatrixAt(k++, m.compose(pos, q, one));
+  const addLoad = (full: Slot[], load: Load, tint: THREE.Color | null) => {
+    const startAt = loaded.length;
+    if (load.kind === 'sacks') {
+      // Σακιά (κόλλες, τσιμέντο, κονιάματα): 4 ανά στρώση, 7 στρώσεις, εναλλάξ «δέσιμο» (κάθε δεύτερη
+      // στρώση μετατοπισμένη/καθρεφτισμένη) όπως στοιβάζονται στην πράξη.
+      const sackMat = track(new THREE.MeshStandardMaterial({ map: track(sackTexture()), roughness: 0.78 }));
+      const geo = track(sackGeometry());
+      const LAYERS = 7;
+      const sacks = new THREE.InstancedMesh(geo, sackMat, Math.max(1, full.length * 4 * LAYERS));
+      sacks.count = full.length * 4 * LAYERS;
+      let k = 0;
+      const lift = SACK.y * 0.82; // τα σακιά «κάθονται» το ένα μέσα στο άλλο
+      for (const p of full) {
+        for (let ly = 0; ly < LAYERS; ly++) {
+          const flip = ly % 2 ? 1 : -1;
+          for (let ix = 0; ix < 2; ix++) for (let iz = 0; iz < 2; iz++) {
+            q.setFromAxisAngle(yAxis, (R() - 0.5) * 0.06 + (ly % 2 ? Math.PI : 0));
+            pos.set(p.x + (ix - 0.5) * SACK.x + (R() - 0.5) * 0.015, p.y + PALLET.h + ly * lift, p.z + (iz - 0.5) * (SACK.z + 0.02) + flip * 0.03);
+            sacks.setMatrixAt(k++, m.compose(pos, q, one));
+          }
         }
       }
-    }
-    loaded.push(sacks);
-  } else if (load.kind === 'boxes') {
-    const side = track(new THREE.MeshStandardMaterial({ map: track(boxSideTexture()), roughness: 0.92 }));
-    const top = track(new THREE.MeshStandardMaterial({ map: track(boxTopTexture()), roughness: 0.85 }));
-    const boxGeo = track(new RoundedBoxGeometry(BOX.x - 0.008, BOX.y - 0.004, BOX.z - 0.008, 2, 0.008));
-    // RoundedBoxGeometry: ίδια σειρά ομάδων με το BoxGeometry (±x, ±y, ±z).
-    const PER = BOX_GRID.x * BOX_GRID.y * BOX_GRID.z;
-    const boxes = new THREE.InstancedMesh(boxGeo, [side, side, top, top, side, side], Math.max(1, full.length * PER));
-    boxes.count = full.length * PER;
-    let x = 0;
-    for (const p of full) {
-      const ox = p.x - (BOX_GRID.x * BOX.x) / 2 + BOX.x / 2;
-      const oz = p.z - (BOX_GRID.z * BOX.z) / 2 + BOX.z / 2;
-      for (let iy = 0; iy < BOX_GRID.y; iy++) for (let ix = 0; ix < BOX_GRID.x; ix++) for (let iz = 0; iz < BOX_GRID.z; iz++) {
-        q.setFromAxisAngle(yAxis, (R() - 0.5) * 0.035);
-        pos.set(ox + ix * BOX.x + (R() - 0.5) * 0.008, p.y + PALLET.h + BOX.y / 2 + iy * BOX.y, oz + iz * BOX.z + (R() - 0.5) * 0.008);
-        boxes.setMatrixAt(x++, m.compose(pos, q, one));
+      loaded.push(sacks);
+    } else if (load.kind === 'boxes') {
+      const side = track(new THREE.MeshStandardMaterial({ map: track(boxSideTexture()), roughness: 0.92 }));
+      const top = track(new THREE.MeshStandardMaterial({ map: track(boxTopTexture()), roughness: 0.85 }));
+      const boxGeo = track(new RoundedBoxGeometry(BOX.x - 0.008, BOX.y - 0.004, BOX.z - 0.008, 2, 0.008));
+      // RoundedBoxGeometry: ίδια σειρά ομάδων με το BoxGeometry (±x, ±y, ±z).
+      const PER = BOX_GRID.x * BOX_GRID.y * BOX_GRID.z;
+      const boxes = new THREE.InstancedMesh(boxGeo, [side, side, top, top, side, side], Math.max(1, full.length * PER));
+      boxes.count = full.length * PER;
+      let x = 0;
+      for (const p of full) {
+        const ox = p.x - (BOX_GRID.x * BOX.x) / 2 + BOX.x / 2;
+        const oz = p.z - (BOX_GRID.z * BOX.z) / 2 + BOX.z / 2;
+        for (let iy = 0; iy < BOX_GRID.y; iy++) for (let ix = 0; ix < BOX_GRID.x; ix++) for (let iz = 0; iz < BOX_GRID.z; iz++) {
+          q.setFromAxisAngle(yAxis, (R() - 0.5) * 0.035);
+          pos.set(ox + ix * BOX.x + (R() - 0.5) * 0.008, p.y + PALLET.h + BOX.y / 2 + iy * BOX.y, oz + iz * BOX.z + (R() - 0.5) * 0.008);
+          boxes.setMatrixAt(x++, m.compose(pos, q, one));
+        }
       }
-    }
-    loaded.push(boxes);
-  } else {
-    // Πέτρα: 4 παραλλαγές υφής τραβερτίνη + απόχρωση ανά πλάκα· δύο ιμάντες και γωνιακά προστατευτικά.
-    const st = stoneStack(load.slab, load.perPallet);
-    const slabGeo = track(new RoundedBoxGeometry(st.a - 0.005, load.slab.t, st.b - 0.005, 2, Math.min(0.003, load.slab.t / 4)));
-    const tones: [number, number, number][] = [[201, 178, 140], [188, 163, 124], [212, 192, 157], [178, 152, 114]];
-    const variants = tones.map((tone, i) => {
-      const t = travertineTextures(100 + i * 17, tone);
-      track(t.map); track(t.bump);
-      return track(new THREE.MeshStandardMaterial({ map: t.map, bumpMap: t.bump, bumpScale: 2.2, roughness: 0.93, color: '#ffffff' }));
-    });
-    const total = full.length * st.perLayer * st.layers;
-    const per = variants.map((mat) => { const im = new THREE.InstancedMesh(slabGeo, mat, Math.max(1, total)); im.count = 0; return im; });
-    const tint = new THREE.Color();
-    const stackH = st.layers * (load.slab.t + 0.003);
-    for (const p of full) {
-      const sx0 = p.x - (st.nx * st.a) / 2 + st.a / 2;
-      const sz0 = p.z - (st.nz * st.b) / 2 + st.b / 2;
-      for (let iy = 0; iy < st.layers; iy++) for (let ix = 0; ix < st.nx; ix++) for (let iz = 0; iz < st.nz; iz++) {
-        const im = per[Math.floor(R() * per.length)];
-        q.setFromAxisAngle(yAxis, (R() - 0.5) * 0.012);
-        pos.set(sx0 + ix * st.a + (R() - 0.5) * 0.004, p.y + PALLET.h + load.slab.t / 2 + iy * (load.slab.t + 0.003), sz0 + iz * st.b + (R() - 0.5) * 0.004);
-        im.setMatrixAt(im.count, m.compose(pos, q, one));
-        im.setColorAt(im.count, tint.setRGB(1, 1, 1).offsetHSL(0, (R() - 0.5) * 0.04, (R() - 0.5) * 0.06));
-        im.count++;
+      loaded.push(boxes);
+    } else {
+      // Πέτρα: 4 παραλλαγές υφής τραβερτίνη + απόχρωση ανά πλάκα· δύο ιμάντες και γωνιακά προστατευτικά.
+      const st = stoneStack(load.slab, load.perPallet);
+      const slabGeo = track(new RoundedBoxGeometry(st.a - 0.005, load.slab.t, st.b - 0.005, 2, Math.min(0.003, load.slab.t / 4)));
+      const tones: [number, number, number][] = [[201, 178, 140], [188, 163, 124], [212, 192, 157], [178, 152, 114]];
+      const variants = tones.map((tone, i) => {
+        const t = travertineTextures(100 + i * 17, tone);
+        track(t.map); track(t.bump);
+        return track(new THREE.MeshStandardMaterial({ map: t.map, bumpMap: t.bump, bumpScale: 2.2, roughness: 0.93, color: '#ffffff' }));
+      });
+      const total = full.length * st.perLayer * st.layers;
+      const per = variants.map((mat) => { const im = new THREE.InstancedMesh(slabGeo, mat, Math.max(1, total)); im.count = 0; return im; });
+      const stoneTint = new THREE.Color();
+      const stackH = st.layers * (load.slab.t + 0.003);
+      for (const p of full) {
+        const sx0 = p.x - (st.nx * st.a) / 2 + st.a / 2;
+        const sz0 = p.z - (st.nz * st.b) / 2 + st.b / 2;
+        for (let iy = 0; iy < st.layers; iy++) for (let ix = 0; ix < st.nx; ix++) for (let iz = 0; iz < st.nz; iz++) {
+          const im = per[Math.floor(R() * per.length)];
+          q.setFromAxisAngle(yAxis, (R() - 0.5) * 0.012);
+          pos.set(sx0 + ix * st.a + (R() - 0.5) * 0.004, p.y + PALLET.h + load.slab.t / 2 + iy * (load.slab.t + 0.003), sz0 + iz * st.b + (R() - 0.5) * 0.004);
+          im.setMatrixAt(im.count, m.compose(pos, q, one));
+          stoneTint.setRGB(1, 1, 1).offsetHSL(0, (R() - 0.5) * 0.04, (R() - 0.5) * 0.06);
+          im.setColorAt(im.count, tint ? stoneTint.multiply(tint) : stoneTint);
+          im.count++;
+        }
       }
-    }
-    for (const im of per) if (im.instanceColor) im.instanceColor.needsUpdate = true;
-    loaded.push(...per);
+      loaded.push(...per);
 
-    // Ξύλινο κλουβί (crate) όπως ταξιδεύει η φυσική πέτρα: 4 ορθοστάτες, 3 οριζόντιες σανίδες ανά
-    // πλευρά (κάτω/μέση/πάνω), και μεταλλικοί ιμάντες πάνω από τις σανίδες.
-    const sx2 = (st.nx * st.a) / 2 + 0.012; const sz2 = (st.nz * st.b) / 2 + 0.012;
-    const crateMat = track(new THREE.MeshStandardMaterial({ map: woodSide.map, bumpMap: woodSide.bump, bumpScale: 0.6, roughness: 0.9, color: '#e8d5b8' }));
-    const postGeo = track(new RoundedBoxGeometry(0.045, stackH + 0.02, 0.045, 2, 0.004));
-    const slatX = track(new RoundedBoxGeometry(2 * sx2 + 0.045, 0.07, 0.018, 2, 0.003));
-    const slatZ = track(new RoundedBoxGeometry(0.018, 0.07, 2 * sz2 + 0.045, 2, 0.003));
-    const posts = new THREE.InstancedMesh(postGeo, crateMat, Math.max(1, full.length * 4));
-    const slatsX = new THREE.InstancedMesh(slatX, crateMat, Math.max(1, full.length * 6));
-    const slatsZ = new THREE.InstancedMesh(slatZ, crateMat, Math.max(1, full.length * 6));
-    posts.count = full.length * 4; slatsX.count = full.length * 6; slatsZ.count = full.length * 6;
-    const strapMat = track(new THREE.MeshStandardMaterial({ color: '#39424e', roughness: 0.35, metalness: 0.6 }));
-    const strapGeo = track(new THREE.BoxGeometry(0.02, stackH + 0.03, 2 * sz2 + 0.05));
-    const straps = new THREE.InstancedMesh(strapGeo, strapMat, Math.max(1, full.length * 2));
-    straps.count = full.length * 2;
-    let pp = 0; let px = 0; let pz = 0; let sp = 0;
-    for (const p of full) {
-      const y0 = p.y + PALLET.h;
-      for (const sx of [-1, 1]) for (const sz of [-1, 1]) posts.setMatrixAt(pp++, m.makeTranslation(p.x + sx * sx2, y0 + (stackH + 0.02) / 2, p.z + sz * sz2));
-      for (const h of [0.05, stackH / 2, stackH - 0.03]) {
-        for (const sz of [-1, 1]) slatsX.setMatrixAt(px++, m.makeTranslation(p.x, y0 + h, p.z + sz * (sz2 + 0.03)));
-        for (const sx of [-1, 1]) slatsZ.setMatrixAt(pz++, m.makeTranslation(p.x + sx * (sx2 + 0.03), y0 + h, p.z));
+      // Ξύλινο κλουβί (crate) όπως ταξιδεύει η φυσική πέτρα: 4 ορθοστάτες, 3 οριζόντιες σανίδες ανά
+      // πλευρά (κάτω/μέση/πάνω), και μεταλλικοί ιμάντες πάνω από τις σανίδες.
+      const sx2 = (st.nx * st.a) / 2 + 0.012; const sz2 = (st.nz * st.b) / 2 + 0.012;
+      const crateMat = track(new THREE.MeshStandardMaterial({ map: woodSide.map, bumpMap: woodSide.bump, bumpScale: 0.6, roughness: 0.9, color: '#e8d5b8' }));
+      const postGeo = track(new RoundedBoxGeometry(0.045, stackH + 0.02, 0.045, 2, 0.004));
+      const slatX = track(new RoundedBoxGeometry(2 * sx2 + 0.045, 0.07, 0.018, 2, 0.003));
+      const slatZ = track(new RoundedBoxGeometry(0.018, 0.07, 2 * sz2 + 0.045, 2, 0.003));
+      const posts = new THREE.InstancedMesh(postGeo, crateMat, Math.max(1, full.length * 4));
+      const slatsX = new THREE.InstancedMesh(slatX, crateMat, Math.max(1, full.length * 6));
+      const slatsZ = new THREE.InstancedMesh(slatZ, crateMat, Math.max(1, full.length * 6));
+      posts.count = full.length * 4; slatsX.count = full.length * 6; slatsZ.count = full.length * 6;
+      const strapMat = track(new THREE.MeshStandardMaterial({ color: '#39424e', roughness: 0.35, metalness: 0.6 }));
+      const strapGeo = track(new THREE.BoxGeometry(0.02, stackH + 0.03, 2 * sz2 + 0.05));
+      const straps = new THREE.InstancedMesh(strapGeo, strapMat, Math.max(1, full.length * 2));
+      straps.count = full.length * 2;
+      let pp = 0; let px = 0; let pz = 0; let sp = 0;
+      for (const p of full) {
+        const y0 = p.y + PALLET.h;
+        for (const sx of [-1, 1]) for (const sz of [-1, 1]) posts.setMatrixAt(pp++, m.makeTranslation(p.x + sx * sx2, y0 + (stackH + 0.02) / 2, p.z + sz * sz2));
+        for (const h of [0.05, stackH / 2, stackH - 0.03]) {
+          for (const sz of [-1, 1]) slatsX.setMatrixAt(px++, m.makeTranslation(p.x, y0 + h, p.z + sz * (sz2 + 0.03)));
+          for (const sx of [-1, 1]) slatsZ.setMatrixAt(pz++, m.makeTranslation(p.x + sx * (sx2 + 0.03), y0 + h, p.z));
+        }
+        for (const fx of [-0.32, 0.32]) straps.setMatrixAt(sp++, m.makeTranslation(p.x + fx * 2 * sx2, y0 + stackH / 2, p.z));
       }
-      for (const fx of [-0.32, 0.32]) straps.setMatrixAt(sp++, m.makeTranslation(p.x + fx * 2 * sx2, y0 + stackH / 2, p.z));
+      loaded.push(posts, slatsX, slatsZ, straps);
     }
-    loaded.push(posts, slatsX, slatsZ, straps);
+    for (const im of loaded.slice(startAt)) {
+      if (tint && !im.instanceColor) { for (let i = 0; i < im.count; i++) im.setColorAt(i, tint); }
+      if (im.instanceColor) im.instanceColor.needsUpdate = true;
+      im.castShadow = true; im.receiveShadow = true; group.add(im);
+    }
+    return load.kind === 'sacks' ? PALLET.h + 6 * SACK.y * 0.82 + SACK.y
+      : load.kind === 'boxes' ? LOAD_H
+      : PALLET.h + stoneStack(load.slab, load.perPallet).layers * (load.slab.t + 0.003) + 0.02;
+  };
+
+  // Γωνιακά προστατευτικά στο χρώμα του προϊόντος: «ποιανού είναι» κάθε γεμάτη παλέτα.
+  const segMats: THREE.MeshStandardMaterial[] = [];
+  const cornerGeo = track(new THREE.BoxGeometry(0.05, 1, 0.05));
+  const addCorners = (full: Slot[], color: string, h: number) => {
+    const mat = track(new THREE.MeshStandardMaterial({ color, roughness: 0.6, emissive: color, emissiveIntensity: 0, transparent: true }));
+    segMats.push(mat);
+    const posts = new THREE.InstancedMesh(cornerGeo, mat, Math.max(1, full.length * 4));
+    posts.count = full.length * 4;
+    const sc = new THREE.Vector3(1, h - PALLET.h + 0.02, 1);
+    let k = 0;
+    for (const p of full) for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
+      pos.set(p.x + sx * (PALLET.x / 2 - 0.01), p.y + PALLET.h + (h - PALLET.h + 0.02) / 2, p.z + sz * (PALLET.z / 2 - 0.01));
+      posts.setMatrixAt(k++, m.compose(pos, q.identity(), sc));
+    }
+    posts.castShadow = true;
+    loaded.push(posts);
+    group.add(posts);
+  };
+
+  if (!segments?.length) addLoad(full, load, null);
+  else {
+    const white = new THREE.Color('#ffffff');
+    const ranges = segmentRanges(full.length, segments.map((g) => g.pallets));
+    ranges.forEach(([a, b], i) => {
+      const g = segments[i];
+      const part = full.slice(a, b);
+      if (!part.length) return;
+      const tint = g.color ? white.clone().lerp(new THREE.Color(g.color), 0.2) : null;
+      const h = addLoad(part, g.load, tint);
+      addCorners(part, g.color ?? '#64748b', h);
+    });
+    // Ό,τι περισσεύει (άθροισμα τμημάτων < γεμάτες) σχεδιάζεται με το βασικό φορτίο.
+    const covered = ranges.at(-1)?.[1] ?? 0;
+    if (covered < full.length) addLoad(full.slice(covered), load, null);
   }
-  for (const im of loaded) { im.castShadow = true; im.receiveShadow = true; group.add(im); }
 
   // Κενές θέσεις: διάφανος όγκος με περίγραμμα — «εδώ χωράει ακόμα μία παλέτα».
   const ghostGeo = track(new THREE.BoxGeometry(PALLET.x - 0.02, LOAD_H, PALLET.z - 0.02));
@@ -514,6 +592,11 @@ export function buildScene(scene: THREE.Scene, pallets: number, filled: number, 
     emptyCount: empty.length,
     setPicked: (n: number) => place(picked, n),
     setHovered: (n: number) => place(hovered, n),
+    /** Τονίζει το τμήμα `i` (λάμψη) και «σβήνει» λίγο τα υπόλοιπα· null = όλα ίσα. */
+    setHighlight: (i: number | null) => segMats.forEach((mt, k) => {
+      mt.emissiveIntensity = i === k ? 0.45 : 0;
+      mt.opacity = i == null || i === k ? 1 : 0.45;
+    }),
     dispose() {
       scene.remove(group);
       for (const im of instanced) im.dispose();
@@ -524,6 +607,7 @@ export function buildScene(scene: THREE.Scene, pallets: number, filled: number, 
 
 export default function ContainerScene({
   pallets, perPallet, labels, filled, load = 'boxes', slab, heightClass = 'h-72 sm:h-80', expandable = true, className, fitScale = 0.92, onPickSlots, selectedSlots = 0, maxSelectable,
+  segments, highlightSegment = null,
 }: ContainerSceneProps) {
   const host = React.useRef<HTMLDivElement>(null);
   const [failed, setFailed] = React.useState(false);
@@ -536,8 +620,8 @@ export default function ContainerScene({
   const [ready, setReady] = React.useState(false);
   const fitRef = React.useRef<(() => void) | null>(null);
   const builtRef = React.useRef<ReturnType<typeof buildScene> | null>(null);
-  const pickRef = React.useRef({ onPickSlots, maxSelectable, selectedSlots });
-  pickRef.current = { onPickSlots, maxSelectable, selectedSlots };
+  const pickRef = React.useRef({ onPickSlots, maxSelectable, selectedSlots, highlightSegment });
+  pickRef.current = { onPickSlots, maxSelectable, selectedSlots, highlightSegment };
   const info = containerLayout(pallets);
   const fill = filled ?? pallets;
   const fmt = (n: number) => n.toLocaleString('el-GR', { maximumFractionDigits: 2 });
@@ -670,14 +754,19 @@ export default function ContainerScene({
 
   // Περιεχόμενο: ξαναχτίζεται όταν αλλάζουν οι παλέτες, το γέμισμα ή το φορτίο (ίδιος renderer).
   const slabKey = slab ? `${slab.l}:${slab.w}:${slab.t}` : '';
+  const segKey = segments?.map((g) => `${g.pallets}:${g.load}:${g.color ?? ''}:${g.perPallet ?? ''}`).join('|') ?? '';
   React.useEffect(() => {
     const st = stage.current;
     if (!ready || !st) return;
-    const built = buildScene(st.scene, pallets, fill, { kind: load, slab: slab ?? DEFAULT_SLAB, perPallet });
+    const loadOf = (kind: SceneSegment['load'], per = perPallet) => ({ kind, slab: slab ?? DEFAULT_SLAB, perPallet: per });
+    const built = buildScene(st.scene, pallets, fill, loadOf(load), segments?.map((g) => ({ pallets: g.pallets, load: loadOf(g.load, g.perPallet), color: g.color })));
     builtRef.current = built;
     built.setPicked(pickRef.current.selectedSlots);
+    built.setHighlight(pickRef.current.highlightSegment);
     return () => { builtRef.current = null; built.dispose(); };
-  }, [ready, pallets, fill, load, slabKey, perPallet]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [ready, pallets, fill, load, slabKey, perPallet, segKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  React.useEffect(() => { builtRef.current?.setHighlight(highlightSegment); }, [highlightSegment]);
 
   // Πόσο «κοντά» κάθεται η κάμερα (0.92 = ολόκληρο με αέρα· μικρότερο = πιο κοντινό κάδρο).
   const fitScaleRef = React.useRef(fitScale);
@@ -752,6 +841,7 @@ export default function ContainerScene({
             <DialogTitle className="sr-only">3D προβολή φόρτωσης</DialogTitle>
             <ContainerScene
               pallets={pallets} perPallet={perPallet} labels={labels} filled={filled} load={load} slab={slab}
+              segments={segments} highlightSegment={highlightSegment}
               heightClass="h-dvh" expandable={false} className="h-dvh [&_figcaption]:hidden [&>div]:rounded-none [&>div]:border-0"
             />
             <button

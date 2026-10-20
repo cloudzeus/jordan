@@ -28,14 +28,14 @@ export default async function OfferPage({ params, searchParams }: { params: Prom
   const [{ id }, sp] = await Promise.all([params, searchParams]);
   const data = await portalOffer(user, id);
   if (!data) notFound();
-  const { offer: o, products, org, activity } = data;
+  const { offer: o, products, org, activity, itemPallets } = data;
 
   const items: AuctionItem[] = o.items.map((it) => {
     const pr = products.find((p) => p.itemId === it.id);
     const d = pr?.detail ?? null;
     return {
       id: it.id, mtrl: it.mtrl, name: it.name, code: it.code, load: loadOf(it.name),
-      unit: it.baseUnit ?? 'τ.μ.', perPallet: it.sqmPerPallet, prices: it.prices, mine: it.mine,
+      unit: it.baseUnit ?? 'τ.μ.', perPallet: it.sqmPerPallet, prices: it.prices, mine: it.mine, active: itemPallets[it.id] ?? 0,
       detail: {
         name2: d?.name2 ?? null, category: d?.category?.name ?? null, group: d?.group ?? null, unitName: d?.unit ?? null,
         attributes: (d?.attributes ?? []).map((a) => ({ name: a.name, value: a.value, unit: a.unit ?? null })),

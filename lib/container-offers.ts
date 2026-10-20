@@ -6,6 +6,7 @@ import {
   checkLevels, checkPrices, checkReservation, fillState, isStep, itemTiers, MAX_TIERS, nextTier, offerState, PALLET_STEP,
   roundStep, sortTiers, tierAt, type Level, type Tier,
 } from '@/lib/container-pricing';
+import { appUrl } from '@/lib/app-url';
 
 /**
  * Κοινό container (Operations): ο διαχειριστής επιλέγει ΕΝΑ ή ΠΕΡΙΣΣΟΤΕΡΑ προϊόντα, δίνει τη
@@ -462,14 +463,14 @@ async function emailContext(offerId: string) {
   ]);
   const company = { name: (name ?? 'ATELIER').trim(), phone, email, address, logoUrl: logoUrl || null };
   const subject = `Κράτηση — ${row.title}`;
-  const appUrl = (process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || '').replace(/\/$/, '');
+  const base = appUrl();
   return {
     row, o, company,
     base: {
       company, title: row.title, minOrder: row.minOrder, closesAt: row.closesAt, capacity: row.capacity, filled: row.filled,
       levels: row.levels, currentLevel: row.currentLevel, snapshotUrl: o.snapshotUrl, photoUrl: photo?.publicUrl ?? null,
       products: row.items.map((i) => ({ name: i.name, code: i.code, baseUnit: i.baseUnit ?? 'τ.μ.', sqmPerPallet: i.sqmPerPallet, prices: i.prices })),
-      ctaUrl: appUrl ? `${appUrl}/dashboard/offers/${offerId}` : email ? `mailto:${email}?subject=${encodeURIComponent(subject)}` : 'mailto:',
+      ctaUrl: base ? `${base}/dashboard/offers/${offerId}` : email ? `mailto:${email}?subject=${encodeURIComponent(subject)}` : 'mailto:',
     },
   };
 }

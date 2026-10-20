@@ -6,6 +6,8 @@ export type MediaItem = { kind: 'IMAGE' | 'VIDEO' | 'PANORAMA'; url: string; thu
 export type AuctionItem = {
   id: string; mtrl: number; name: string; code: string; load: 'stones' | 'boxes' | 'sacks'; unit: string; perPallet: number;
   prices: number[]; mine: number;
+  /** Ενεργές παλέτες του προϊόντος από όλους — το «τμήμα» του στο 3D container. */
+  active: number;
   /** Για το modal προϊόντος. */
   detail: {
     name2: string | null; category: string | null; group: string | null; unitName: string | null;

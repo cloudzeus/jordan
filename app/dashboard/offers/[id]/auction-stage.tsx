@@ -18,6 +18,10 @@ import { ProductModal } from './product-modal';
 
 const ContainerScene = dynamic(() => import('@/components/admin/container-scene'), { ssr: false, loading: () => null });
 
+// Χρώματα προϊόντων στο κοινό container (όχι πράσινα/τιρκουάζ: αυτά είναι οι ελεύθερες/επιλεγμένες θέσεις).
+const SEG_COLORS = ['#C2410C', '#1D4ED8', '#7E22CE', '#BE185D', '#A16207', '#334155'];
+const segColor = (i: number) => SEG_COLORS[i % SEG_COLORS.length];
+
 const STONES = 9;
 const stoneFor = (mtrl: number) => `/site/stones/stone-${(Math.abs(Math.imul(mtrl, 2654435761)) % STONES) + 1}.jpg`;
 
@@ -51,6 +55,12 @@ export function AuctionStage(p: AuctionProps) {
   const free = Math.max(0, step(p.capacity - p.filled - p.pendingAll));
   const canBook = p.open && free >= p.minOrder;
   const pct = p.capacity > 0 ? Math.min(100, (p.filled / p.capacity) * 100) : 0;
+  // Πολλά προϊόντα: κάθε γεμάτη παλέτα στο 3D με το χρώμα/φορτίο του προϊόντος της.
+  const segments = React.useMemo(
+    () => (multi ? p.items.map((it, i) => ({ pallets: it.active, load: it.load, color: segColor(i), label: it.name, perPallet: it.perPallet })) : undefined),
+    [multi, p.items],
+  );
+  const selIdx = p.items.findIndex((i) => i.id === sel.id);
 
   // Κράτηση / modal προϊόντος
   const [booking, setBooking] = React.useState(false);
@@ -125,14 +135,17 @@ export function AuctionStage(p: AuctionProps) {
                   labels={{ container: 'Container', pallet: 'ΠΑΛ', base: sel.unit }}
                   heightClass="h-full" expandable={false} fitScale={0.78}
                   onPickSlots={canBook ? (n) => openBooking(n) : undefined} selectedSlots={booking ? Math.ceil(pallets) : 0} maxSelectable={Math.ceil(free)}
+                  segments={segments} highlightSegment={multi ? selIdx : null}
                   className="h-full [&>div>.pointer-events-none]:hidden [&>div]:rounded-none [&>div]:border-0 [&>div]:![background:transparent] [&_figcaption]:hidden"
                 />
+                {multi && <SegmentLegend items={p.items} selId={sel.id} onChoose={choose} className="absolute left-0 top-2 hidden w-[22rem] max-w-full flex-col xl:flex" />}
                 <div className="pointer-events-none absolute bottom-3 left-0 flex flex-wrap gap-2">
                   <span className="inline-flex items-center gap-2 border border-[var(--s-line)] bg-white/90 px-3 py-1.5 text-[length:var(--fs-13)] backdrop-blur-sm"><span className="size-2 rounded-full bg-[var(--s-ink)]" aria-hidden />Γεμάτες <b className="font-num font-normal">{num(p.filled)}</b></span>
                   <span className="inline-flex items-center gap-2 border border-[var(--s-line)] bg-white/90 px-3 py-1.5 text-[length:var(--fs-13)] backdrop-blur-sm"><span className="size-2 rounded-full ring-1 ring-[var(--s-mute)]" aria-hidden />Ελεύθερες <b className="font-num font-normal">{num(Math.max(0, p.capacity - p.filled))}</b></span>
                   {canBook && <span className="hidden items-center gap-2 border border-[#0F766E]/40 bg-white/90 px-3 py-1.5 text-[length:var(--fs-13)] text-[#0F766E] backdrop-blur-sm sm:inline-flex"><FiMaximize2 className="size-3.5" aria-hidden />Πατήστε σε ελεύθερη θέση</span>}
                 </div>
               </div>
+              {multi && <SegmentLegend items={p.items} selId={sel.id} onChoose={choose} className="mt-3 grid grid-cols-1 sm:grid-cols-2 xl:hidden" />}
             </div>
 
             {/* Ζωντανό πάνελ τιμής */}
@@ -336,5 +349,27 @@ export function AuctionStage(p: AuctionProps) {
         levels={levels} filled={p.filled} canBook={canBook} onBook={() => productItem && openBooking(Math.max(p.minOrder, 1), productItem.id)}
       />
     </>
+  );
+}
+
+/** Υπόμνημα του 3D: χρώμα + προϊόν + ενεργές παλέτες· πάτημα = επιλογή προϊόντος (τονίζεται και στο 3D). */
+function SegmentLegend({ items, selId, onChoose, className }: { items: AuctionItem[]; selId: string; onChoose: (id: string) => void; className?: string }) {
+  return (
+    <ul aria-label="Παλέτες ανά προϊόν" className={cn('gap-1', className)}>
+      {items.map((it, i) => {
+        const on = it.id === selId;
+        return (
+          <li key={it.id} className="min-w-0">
+            <button type="button" onClick={() => onChoose(it.id)} aria-pressed={on}
+              className={cn('flex min-h-11 w-full cursor-pointer items-center gap-2 border bg-white/90 px-2.5 py-1 text-left text-[length:var(--fs-12)] backdrop-blur-sm transition-colors motion-reduce:transition-none xl:min-h-9',
+                on ? 'border-[var(--s-ink)] text-[var(--s-ink)]' : 'border-[var(--s-line)] text-[var(--s-ink-2)] hover:border-[var(--s-ink)]')}>
+              <span className="size-2.5 shrink-0" style={{ background: segColor(i), boxShadow: on ? `0 0 0 2px #fff, 0 0 0 3px ${segColor(i)}` : undefined }} aria-hidden />
+              <span className={cn('min-w-0 flex-1 truncate', on && 'font-medium')} title={it.name}>{it.name}</span>
+              <b className="font-num shrink-0 font-normal">{num(it.active)} παλ.</b>
+            </button>
+          </li>
+        );
+      })}
+    </ul>
   );
 }
