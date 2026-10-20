@@ -18,7 +18,10 @@ export const authOptions: AuthConfig = {
       clientId: process.env.MICROSOFT_CLIENT_ID,
       clientSecret: process.env.MICROSOFT_CLIENT_SECRET,
       // Optional: lock to a single tenant. Defaults to "common" if unset.
-      tenantId: process.env.MICROSOFT_TENANT_ID,
+      // (@auth/core ≥0.41: το tenant δίνεται ως issuer — ίδια μεταβλητή περιβάλλοντος με πριν.)
+      issuer: process.env.MICROSOFT_TENANT_ID
+        ? `https://login.microsoftonline.com/${process.env.MICROSOFT_TENANT_ID}/v2.0`
+        : undefined,
       authorization: {
         params: { scope: 'openid profile email offline_access User.Read' },
       },

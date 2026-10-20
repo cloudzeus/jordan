@@ -14,13 +14,14 @@ export async function extractPdfTextItems(buffer: Buffer, page: number): Promise
   const pdfjs = await getPdfjs();
   const { Util } = pdfjs;
 
-  const doc = await pdfjs.getDocument({
+  // pdfjs ≥6: το έγγραφο κλείνει από το loading task (το `doc.destroy()` αφαιρέθηκε).
+  const loadingTask = pdfjs.getDocument({
     data: new Uint8Array(buffer),
     useWorkerFetch: false,
-    isEvalSupported: false,
     disableFontFace: true,
     verbosity: 0,
-  }).promise;
+  });
+  const doc = await loadingTask.promise;
   try {
     if (page < 0 || page >= doc.numPages) return [];
     const p = await doc.getPage(page + 1);
@@ -65,6 +66,6 @@ export async function extractPdfTextItems(buffer: Buffer, page: number): Promise
     }
     return items;
   } finally {
-    await doc.destroy().catch(() => {});
+    await loadingTask.destroy().catch(() => {});
   }
 }
