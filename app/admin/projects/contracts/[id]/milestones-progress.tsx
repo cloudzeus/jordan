@@ -23,9 +23,9 @@ export function MilestonesProgress({ contract: c, canManage }: { contract: Contr
   };
   const done = c.milestones.filter((m) => m.status !== 'PENDING').length;
   return (
-    <section className="rounded-lg border border-border bg-card p-4">
+    <section className="rounded-lg border border-border border-t-[3px] border-t-rose-500 bg-card p-4 shadow-sm">
       <div className="mb-3 flex items-center justify-between gap-2">
-        <h2 className="flex items-center gap-2 text-[length:var(--fs-14)] font-semibold"><FiFlag className="size-4 text-primary" /> Πρόοδος</h2>
+        <h2 className="flex items-center gap-2 text-[length:var(--fs-14)] font-semibold"><span className="inline-flex size-7 items-center justify-center rounded-md bg-rose-600 text-white shadow-sm"><FiFlag className="size-3.5" /></span> Πρόοδος</h2>
         <span className="text-[length:var(--fs-12)] text-muted-foreground">{done}/{c.milestones.length} milestones</span>
       </div>
       <div className="mb-3 h-1.5 overflow-hidden rounded-full bg-muted"><div className="h-full rounded-full bg-primary transition-all" style={{ width: `${c.milestones.length ? (done / c.milestones.length) * 100 : 0}%` }} /></div>

@@ -53,10 +53,10 @@ export function DocumentsPanel({ contract: c, canManage }: { contract: ContractV
   };
 
   return (
-    <section className="rounded-lg border border-border bg-card">
-      <header className="flex items-center justify-between gap-2 border-b border-border px-4 py-3">
+    <section className="overflow-hidden rounded-lg border border-border border-t-[3px] border-t-emerald-500 bg-card shadow-sm">
+      <header className="flex items-center justify-between gap-2 border-b border-border bg-emerald-50/70 px-4 py-2.5">
         <div>
-          <h2 className="flex items-center gap-2 text-[length:var(--fs-14)] font-semibold"><FiFileText className="size-4 text-primary" /> Έγγραφα</h2>
+          <h2 className="flex items-center gap-2.5 text-[length:var(--fs-14)] font-semibold"><span className="inline-flex size-7 items-center justify-center rounded-md bg-emerald-600 text-white shadow-sm"><FiFileText className="size-3.5" /></span> Έγγραφα</h2>
           <p className="text-[length:var(--fs-12)] text-muted-foreground">Προσφορά/σύμβαση πελάτη και μία σύμβαση για κάθε συνεργείο — PDF στα αρχεία {c.prjc ? 'του έργου' : 'του πελάτη (μέχρι να συνδεθεί έργο)'}</p>
         </div>
       </header>
@@ -67,7 +67,7 @@ export function DocumentsPanel({ contract: c, canManage }: { contract: ContractV
           const sent = last?.sends.filter((s) => s.result === 'sent') ?? [];
           return (
             <li key={t.key} className="flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3">
-              <span className={cn('inline-flex size-9 shrink-0 items-center justify-center rounded-md', last ? 'bg-[var(--cx-accent-soft)] text-primary' : 'bg-muted text-muted-foreground')}><FiFileText className="size-4" /></span>
+              <span className={cn('inline-flex size-9 shrink-0 items-center justify-center rounded-md ring-1', !last ? 'bg-muted text-muted-foreground ring-border' : t.partyId ? 'bg-orange-50 text-orange-700 ring-orange-200' : 'bg-indigo-50 text-indigo-700 ring-indigo-200')}><FiFileText className="size-4" /></span>
               <div className="min-w-0 flex-1 basis-[calc(100%-3rem)] sm:basis-auto">
                 <p className="truncate text-[length:var(--fs-13)] font-medium">{t.title} · {t.who}</p>
                 <p className="truncate text-[length:var(--fs-11)] text-muted-foreground">

@@ -22,6 +22,11 @@ const FILTERS: { key: string; label: string; test: (r: ContractListRow) => boole
   { key: 'all', label: 'Όλες', test: () => true },
 ];
 
+const STRIPE: Record<string, string> = {
+  DRAFT: 'border-l-slate-300', SENT: 'border-l-sky-500', ACCEPTED: 'border-l-violet-500',
+  ACTIVE: 'border-l-indigo-500', COMPLETED: 'border-l-emerald-500', CANCELLED: 'border-l-rose-400',
+};
+
 export function ContractsList({ rows, canManage }: { rows: ContractListRow[]; canManage: boolean }) {
   const router = useRouter();
   const [q, setQ] = React.useState('');
@@ -65,7 +70,7 @@ export function ContractsList({ rows, canManage }: { rows: ContractListRow[]; ca
       ) : (
         <ul className="divide-y divide-border overflow-hidden rounded-lg border border-border bg-card">
           {shown.map((r) => (
-            <li key={r.id} className="group relative flex items-center gap-3 px-3 py-3 transition-colors hover:bg-muted/40 sm:px-4">
+            <li key={r.id} className={cn('group relative flex items-center gap-3 border-l-[3px] px-3 py-3 transition-colors hover:bg-muted/40 sm:px-4', STRIPE[r.status] ?? 'border-l-slate-300')}>
               <Link href={`/admin/projects/contracts/${r.id}`} className="absolute inset-0" aria-label={`Άνοιγμα ${r.ref} ${r.title}`} />
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-x-2 gap-y-1">

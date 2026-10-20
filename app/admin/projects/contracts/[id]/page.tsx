@@ -33,7 +33,7 @@ export default async function ContractPage({ params }: { params: Promise<{ id: s
         <StatusBadge stage={c.stage} status={c.status as ContractStatus} />
         {c.project
           ? <Link href={`/admin/projects/${c.prjc}`} className="rounded bg-muted px-1.5 py-0.5 font-medium hover:underline">Έργο SoftOne {c.project.code}</Link>
-          : <span className="rounded bg-amber-500/10 px-1.5 py-0.5 text-amber-800 dark:text-amber-300">Χωρίς έργο SoftOne — συνδέστε ή δημιουργήστε το από το μενού ⋮</span>}
+          : <span className="rounded bg-orange-50 px-1.5 py-0.5 text-orange-900 ring-1 ring-orange-200">Χωρίς έργο SoftOne — συνδέστε ή δημιουργήστε το από το μενού ⋮</span>}
       </div>
       <div className="space-y-4">
         <DocumentsPanel contract={c} canManage={canManage} />

@@ -2,12 +2,12 @@ import { cn } from '@/lib/utils';
 import { STAGE_LABEL, STATUS_LABEL, type ContractStatus } from '@/lib/contracts/core';
 
 const TONE: Record<ContractStatus, string> = {
-  DRAFT: 'bg-muted text-muted-foreground',
-  SENT: 'bg-sky-500/10 text-sky-700 dark:text-sky-300',
-  ACCEPTED: 'bg-violet-500/10 text-violet-700 dark:text-violet-300',
-  ACTIVE: 'bg-amber-500/15 text-amber-800 dark:text-amber-300',
-  COMPLETED: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
-  CANCELLED: 'bg-destructive/10 text-destructive',
+  DRAFT: 'bg-slate-100 text-slate-700 ring-1 ring-slate-200',
+  SENT: 'bg-sky-50 text-sky-800 ring-1 ring-sky-200',
+  ACCEPTED: 'bg-violet-50 text-violet-800 ring-1 ring-violet-200',
+  ACTIVE: 'bg-indigo-50 text-indigo-800 ring-1 ring-indigo-200',
+  COMPLETED: 'bg-emerald-50 text-emerald-800 ring-1 ring-emerald-200',
+  CANCELLED: 'bg-rose-50 text-rose-800 ring-1 ring-rose-200',
 };
 
 export function StatusBadge({ stage, status, className }: { stage: string; status: ContractStatus; className?: string }) {

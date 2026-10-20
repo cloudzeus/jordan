@@ -54,7 +54,8 @@ const toPayload = (s: State) => ({
 });
 
 const ITEM = 'cursor-pointer gap-2 text-[length:var(--fs-12)]';
-const field = 'h-9 text-[length:var(--fs-13)]';
+const field = 'h-9 text-[length:var(--fs-12)]';
+const lbl = 'text-[length:var(--fs-11)] font-medium uppercase tracking-wide text-muted-foreground';
 const numVal = (v: string) => { const n = Number(v.replace(',', '.')); return Number.isFinite(n) ? n : 0; };
 
 /** Αριθμητικό πεδίο που κρατά το κείμενο όσο γράφεις («1,», «0.5») — δέχεται κόμμα ή τελεία. */
@@ -73,14 +74,32 @@ function NumInput({ value, onValue, nullable = false, ...rest }: Omit<React.Comp
   );
 }
 
-function Section({ icon, title, hint, children, actions, id }: { icon: React.ReactNode; title: string; hint?: string; children: React.ReactNode; actions?: React.ReactNode; id?: string }) {
+/**
+ * Χρώμα ανά ενότητα για γρήγορο προσανατολισμό: λωρίδα + λευκό εικονίδιο σε συμπαγές χρώμα και
+ * απαλή απόχρωση στην κεφαλίδα. Το κείμενο μένει πάντα σκούρο (αντίθεση ≥ 4.5:1) — ΠΟΤΕ κίτρινο/amber.
+ * Οι κλάσεις είναι γραμμένες ολόκληρες ώστε να τις βρίσκει ο Tailwind.
+ */
+const TONES = {
+  indigo: { bar: 'border-t-indigo-500', head: 'bg-indigo-50/70', chip: 'bg-indigo-600 text-white' },
+  violet: { bar: 'border-t-violet-500', head: 'bg-violet-50/70', chip: 'bg-violet-600 text-white' },
+  teal: { bar: 'border-t-teal-500', head: 'bg-teal-50/70', chip: 'bg-teal-600 text-white' },
+  sky: { bar: 'border-t-sky-500', head: 'bg-sky-50/70', chip: 'bg-sky-600 text-white' },
+  orange: { bar: 'border-t-orange-500', head: 'bg-orange-50/70', chip: 'bg-orange-600 text-white' },
+  cyan: { bar: 'border-t-cyan-500', head: 'bg-cyan-50/70', chip: 'bg-cyan-700 text-white' },
+  rose: { bar: 'border-t-rose-500', head: 'bg-rose-50/70', chip: 'bg-rose-600 text-white' },
+  slate: { bar: 'border-t-slate-500', head: 'bg-slate-50', chip: 'bg-slate-700 text-white' },
+} as const;
+type Tone = keyof typeof TONES;
+
+function Section({ icon, title, hint, children, actions, id, tone = 'slate' }: { icon: React.ReactNode; title: string; hint?: string; children: React.ReactNode; actions?: React.ReactNode; id?: string; tone?: Tone }) {
+  const t = TONES[tone];
   return (
-    <section id={id} className="rounded-lg border border-border bg-card">
-      <header className="flex flex-wrap items-start justify-between gap-2 border-b border-border px-4 py-3">
+    <section id={id} className={cn('overflow-hidden rounded-lg border border-border border-t-[3px] bg-card shadow-sm', t.bar)}>
+      <header className={cn('flex flex-wrap items-start justify-between gap-2 border-b border-border px-4 py-2.5', t.head)}>
         <div className="flex min-w-0 items-start gap-2.5">
-          <span className="mt-0.5 inline-flex size-7 shrink-0 items-center justify-center rounded-md bg-[var(--cx-accent-soft)] text-primary [&_svg]:size-3.5">{icon}</span>
+          <span className={cn('mt-0.5 inline-flex size-7 shrink-0 items-center justify-center rounded-md shadow-sm [&_svg]:size-3.5', t.chip)}>{icon}</span>
           <div className="min-w-0">
-            <h2 className="text-[length:var(--fs-14)] font-semibold">{title}</h2>
+            <h2 className="text-[length:var(--fs-14)] font-semibold text-foreground">{title}</h2>
             {hint && <p className="text-[length:var(--fs-12)] text-muted-foreground">{hint}</p>}
           </div>
         </div>
@@ -292,14 +311,14 @@ export function ContractEditor({ initial, staff, readOnly = false }: { initial: 
   return (
     <div className="space-y-4">
       {/* ── Βασικά ── */}
-      <Section icon={<FiEdit3 />} title="Έργο & πελάτης" hint="Τίτλος, τύπος σύμβασης, πελάτης και διάρκεια">
+      <Section icon={<FiEdit3 />} tone="indigo" title="Έργο & πελάτης" hint="Τίτλος, τύπος σύμβασης, πελάτης και διάρκεια">
         <div className="grid gap-4 md:grid-cols-2">
           <div className="space-y-1.5 md:col-span-2">
-            <Label htmlFor="c-title">Τίτλος έργου</Label>
+            <Label className={lbl} htmlFor="c-title">Τίτλος έργου</Label>
             <Input id="c-title" value={s.title} onChange={(e) => up({ title: e.target.value })} placeholder="π.χ. Ανακαίνιση μπάνιου — Κηφισιά" className={field} disabled={ro} />
           </div>
           <fieldset className="md:col-span-2" disabled={ro}>
-            <legend className="mb-1.5 text-[length:var(--fs-13)] font-medium">Τύπος</legend>
+            <legend className="mb-1.5 text-[length:var(--fs-11)] font-medium uppercase tracking-wide text-muted-foreground">Τύπος</legend>
             <div className="grid gap-2 sm:grid-cols-3">
               {CONTRACT_KINDS.map((k) => (
                 <label key={k} className={cn('flex cursor-pointer flex-col gap-0.5 rounded-lg border p-3 transition-colors', s.kind === k ? 'border-primary bg-[var(--cx-accent-soft)] ring-1 ring-primary' : 'border-border hover:bg-muted/50')}>
@@ -307,44 +326,44 @@ export function ContractEditor({ initial, staff, readOnly = false }: { initial: 
                     <input type="radio" name="c-kind" value={k} checked={s.kind === k} onChange={() => up({ kind: k })} className="accent-[var(--primary)]" />
                     {KIND_LABEL[k]}
                   </span>
-                  <span className="pl-5 text-[length:var(--fs-11)] text-muted-foreground">{KIND_HINT[k]}</span>
+                  <span className={cn('pl-5 text-[length:var(--fs-11)]', s.kind === k ? 'text-slate-700' : 'text-muted-foreground')}>{KIND_HINT[k]}</span>
                 </label>
               ))}
             </div>
             {!crews && s.parties.length > 0 && <p role="alert" className="mt-1.5 text-[length:var(--fs-12)] text-destructive">Ο τύπος «Μόνο προϊόν» δεν έχει συνεργεία — αφαιρέστε τα ή αλλάξτε τύπο.</p>}
           </fieldset>
           <div className="space-y-1.5 md:col-span-2">
-            <Label htmlFor="c-customer">Πελάτης</Label>
+            <Label className={lbl} htmlFor="c-customer">Πελάτης</Label>
             <CustomerPicker disabled={ro} value={{ trdr: s.trdr, name: s.customerName }}
               onPick={(h) => up(h ? { trdr: h.trdr, customerName: h.name, customerEmail: h.email, customerPhone: h.phone } : { trdr: null, customerName: null })} />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="c-email">Email πελάτη</Label>
+            <Label className={lbl} htmlFor="c-email">Email πελάτη</Label>
             <Input id="c-email" type="email" value={s.customerEmail ?? ''} onChange={(e) => up({ customerEmail: e.target.value || null })} className={field} disabled={ro} />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="c-phone">Τηλέφωνο</Label>
+            <Label className={lbl} htmlFor="c-phone">Τηλέφωνο</Label>
             <Input id="c-phone" value={s.customerPhone ?? ''} onChange={(e) => up({ customerPhone: e.target.value || null })} className={field} disabled={ro} />
           </div>
           <div className="grid grid-cols-2 gap-3 md:col-span-2 md:grid-cols-4">
-            <div className="space-y-1.5"><Label htmlFor="c-start">Έναρξη</Label><Input id="c-start" type="date" value={s.startDate ?? ''} onChange={(e) => up({ startDate: e.target.value || null })} className={field} disabled={ro} /></div>
-            <div className="space-y-1.5"><Label htmlFor="c-end">Λήξη</Label><Input id="c-end" type="date" value={s.endDate ?? ''} onChange={(e) => up({ endDate: e.target.value || null })} className={field} disabled={ro} /></div>
-            <div className="space-y-1.5"><Label htmlFor="c-valid">Ισχύς προσφοράς</Label><Input id="c-valid" type="date" value={s.validUntil ?? ''} onChange={(e) => up({ validUntil: e.target.value || null })} className={field} disabled={ro} /></div>
-            <div className="space-y-1.5"><Label htmlFor="c-vat">ΦΠΑ %</Label><NumInput id="c-vat" value={s.vatRate} onValue={(n) => up({ vatRate: n ?? 0 })} className={field} disabled={ro} /></div>
+            <div className="space-y-1.5"><Label className={lbl} htmlFor="c-start">Έναρξη</Label><Input id="c-start" type="date" value={s.startDate ?? ''} onChange={(e) => up({ startDate: e.target.value || null })} className={field} disabled={ro} /></div>
+            <div className="space-y-1.5"><Label className={lbl} htmlFor="c-end">Λήξη</Label><Input id="c-end" type="date" value={s.endDate ?? ''} onChange={(e) => up({ endDate: e.target.value || null })} className={field} disabled={ro} /></div>
+            <div className="space-y-1.5"><Label className={lbl} htmlFor="c-valid">Ισχύς προσφοράς</Label><Input id="c-valid" type="date" value={s.validUntil ?? ''} onChange={(e) => up({ validUntil: e.target.value || null })} className={field} disabled={ro} /></div>
+            <div className="space-y-1.5"><Label className={lbl} htmlFor="c-vat">ΦΠΑ %</Label><NumInput id="c-vat" value={s.vatRate} onValue={(n) => up({ vatRate: n ?? 0 })} className={field} disabled={ro} /></div>
           </div>
         </div>
       </Section>
 
       {/* ── Περίληψη ── */}
-      <Section icon={<FiMic />} title="Περίληψη έργου" hint="Γράψτε ή υπαγορεύστε τι θα γίνει — το AI τη χρησιμοποιεί για τις συμβάσεις"
+      <Section icon={<FiMic />} tone="violet" title="Περίληψη έργου" hint="Γράψτε ή υπαγορεύστε τι θα γίνει — το AI τη χρησιμοποιεί για τις συμβάσεις"
         actions={!ro ? <MicButton onText={(txt) => up((p) => ({ summary: p.summary ? `${p.summary.trimEnd()}\n${txt}` : txt }))} /> : undefined}>
         <textarea value={s.summary} onChange={(e) => up({ summary: e.target.value })} rows={6} disabled={ro} aria-label="Περίληψη έργου"
           placeholder="π.χ. Μπάνιο 8 m² στον 2ο όροφο. Αφαίρεση παλιών πλακιδίων, αδιαβροχοποίηση ντουζιέρας, μάρμαρο Βόλακα 60x120 σε δάπεδο και τοίχους έως το ταβάνι…"
-          className="w-full resize-y rounded-md border border-input bg-transparent px-3 py-2 text-[length:var(--fs-13)] leading-relaxed outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-70" />
+          className="w-full resize-y rounded-md border border-input bg-transparent px-3 py-2 text-[length:var(--fs-12)] leading-relaxed outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-70" />
       </Section>
 
       {/* ── Τοποθεσία ── */}
-      <Section icon={<FiMapPin />} title="Τοποθεσία" hint="Διεύθυνση εργοταξίου — αντιγράφεται στο έργο SoftOne όταν συνδεθεί"
+      <Section icon={<FiMapPin />} tone="teal" title="Τοποθεσία" hint="Διεύθυνση εργοταξίου — αντιγράφεται στο έργο SoftOne όταν συνδεθεί"
         actions={!ro ? <Button type="button" variant="secondary" size="sm" onClick={() => setSiteOpen(true)} className="gap-1.5"><FiMapPin className="size-3.5" />{s.site ? 'Αλλαγή' : 'Ορισμός στον χάρτη'}</Button> : undefined}>
         {s.site
           ? <p className="text-[length:var(--fs-13)]"><span className="font-medium">{siteLine(s.site)}</span> <span className="text-muted-foreground">· {s.site.lat.toFixed(5)}, {s.site.lng.toFixed(5)}</span></p>
@@ -353,7 +372,7 @@ export function ContractEditor({ initial, staff, readOnly = false }: { initial: 
       <ProjectSiteDialog open={siteOpen} onOpenChange={setSiteOpen} prjc={null} projectLabel={s.title || 'Νέο έργο'} value={s.site} onSave={(site) => up({ site })} />
 
       {/* ── Υλικά & υπηρεσίες ── */}
-      <Section icon={<FiPackage />} title="Υλικά & υπηρεσίες" hint={crews ? 'Ορίστε ποιο συνεργείο εκτελεί κάθε εργασία και την αμοιβή του — φαίνεται ΜΟΝΟ στη δική του σύμβαση' : 'Από το μητρώο ειδών/υπηρεσιών ή ελεύθερη γραμμή'}
+      <Section icon={<FiPackage />} tone="sky" title="Υλικά & υπηρεσίες" hint={crews ? 'Ορίστε ποιο συνεργείο εκτελεί κάθε εργασία και την αμοιβή του — φαίνεται ΜΟΝΟ στη δική του σύμβαση' : 'Από το μητρώο ειδών/υπηρεσιών ή ελεύθερη γραμμή'}
         actions={!ro ? (
           <DropdownMenu>
             <DropdownMenuTrigger asChild><Button type="button" size="sm" className="gap-1.5"><FiPlus className="size-3.5" />Προσθήκη</Button></DropdownMenuTrigger>
@@ -379,18 +398,18 @@ export function ContractEditor({ initial, staff, readOnly = false }: { initial: 
         ) : (
           <div className="space-y-2">
             {s.lines.map((l, i) => (
-              <div key={l.uid} className={cn('rounded-md border border-border p-3', l.kind === 'SERVICE' && 'border-l-[3px] border-l-amber-500/70')}>
+              <div key={l.uid} className={cn('rounded-md border border-border p-3', l.kind === 'SERVICE' ? 'border-l-[3px] border-l-orange-500' : 'border-l-[3px] border-l-sky-500')}>
                 <div className="flex items-start gap-2">
                   <span className="mt-2 inline-flex shrink-0 items-center gap-1 text-[length:var(--fs-11)] font-medium text-muted-foreground">
                     {l.kind === 'SERVICE' ? <FiTool className="size-3.5" /> : <FiPackage className="size-3.5" />}{i + 1}
                   </span>
                   <div className="grid min-w-0 flex-1 gap-2 sm:grid-cols-12">
-                    <div className="sm:col-span-12 lg:col-span-5">
+                    <div className="sm:col-span-12 lg:col-span-4">
                       <Input value={l.name} onChange={(e) => setLine(l.uid, { name: e.target.value })} placeholder="Περιγραφή" className={field} disabled={ro} aria-label={`Περιγραφή γραμμής ${i + 1}`} />
                       {l.code && <p className="mt-0.5 font-mono text-[length:var(--fs-10)] text-muted-foreground">{l.code}</p>}
                     </div>
                     <NumInput value={l.qty} onValue={(n) => setLine(l.uid, { qty: n ?? 0 })} className={cn(field, 'sm:col-span-3 lg:col-span-2')} disabled={ro} aria-label="Ποσότητα" />
-                    <Input value={l.unit ?? ''} onChange={(e) => setLine(l.uid, { unit: e.target.value || null })} placeholder="μον." className={cn(field, 'sm:col-span-2 lg:col-span-1')} disabled={ro} aria-label="Μονάδα" />
+                    <Input value={l.unit ?? ''} onChange={(e) => setLine(l.uid, { unit: e.target.value || null })} placeholder="μον." title={l.unit ?? undefined} className={cn(field, 'sm:col-span-2 lg:col-span-2')} disabled={ro} aria-label="Μονάδα" />
                     <NumInput value={l.unitPrice} onValue={(n) => setLine(l.uid, { unitPrice: n ?? 0 })} className={cn(field, 'sm:col-span-3 lg:col-span-2')} disabled={ro} aria-label="Τιμή μονάδας" />
                     <NumInput value={l.discount} onValue={(n) => setLine(l.uid, { discount: n ?? 0 })} className={cn(field, 'sm:col-span-2 lg:col-span-1')} disabled={ro} aria-label="Έκπτωση %" title="Έκπτωση %" />
                     <span className="flex items-center justify-end text-[length:var(--fs-13)] font-semibold tabular-nums sm:col-span-2 lg:col-span-1">{eur(lineNet(l))}</span>
@@ -433,7 +452,7 @@ export function ContractEditor({ initial, staff, readOnly = false }: { initial: 
 
       {/* ── Συνεργεία ── */}
       {crews && (
-        <Section icon={<FiUsers />} title="Συνεργεία & τεχνικές εταιρίες" hint="Προμηθευτές «Οικοδομικών Εργασιών» και Συνεργάτες — καθένας παίρνει δική του σύμβαση με οδηγίες εγκατάστασης"
+        <Section icon={<FiUsers />} tone="orange" title="Συνεργεία & τεχνικές εταιρίες" hint="Προμηθευτές «Οικοδομικών Εργασιών» και Συνεργάτες — καθένας παίρνει δική του σύμβαση με οδηγίες εγκατάστασης"
           actions={!ro ? <CrewPicker onPick={addParty} exclude={new Set(s.parties.map((p) => `${p.kind}:${p.kind === 'SUPPLIER' ? p.trdr : p.partnerId}`))} /> : undefined}>
           {s.parties.length === 0 ? (
             <p className="py-4 text-center text-[length:var(--fs-13)] text-muted-foreground">Κανένα συνεργείο ακόμη.</p>
@@ -474,7 +493,7 @@ export function ContractEditor({ initial, staff, readOnly = false }: { initial: 
       )}
 
       {/* ── Προσωπικό ── */}
-      <Section icon={<FiUser />} title="Προσωπικό έργου" hint="Παίρνουν τις εργασίες και τις εγγραφές ημερολογίου των milestones (με πρόσκληση .ics)">
+      <Section icon={<FiUser />} tone="cyan" title="Προσωπικό έργου" hint="Παίρνουν τις εργασίες και τις εγγραφές ημερολογίου των milestones (με πρόσκληση .ics)">
         <div className="flex flex-wrap gap-1.5">
           {staff.map((u) => {
             const on = s.members.includes(u.id);
@@ -489,7 +508,7 @@ export function ContractEditor({ initial, staff, readOnly = false }: { initial: 
       </Section>
 
       {/* ── Milestones ── */}
-      <Section icon={<FiFlag />} title="Milestones: παραδοτέα & πληρωμές" hint="Με την ενεργοποίηση γίνονται εργασίες του έργου και μπαίνουν στο ημερολόγιο"
+      <Section icon={<FiFlag />} tone="rose" title="Milestones: παραδοτέα & πληρωμές" hint="Με την ενεργοποίηση γίνονται εργασίες του έργου και μπαίνουν στο ημερολόγιο"
         actions={!ro ? (
           <DropdownMenu>
             <DropdownMenuTrigger asChild><Button type="button" size="sm" variant="secondary" className="gap-1.5"><FiPlus className="size-3.5" />Milestone</Button></DropdownMenuTrigger>
@@ -514,7 +533,7 @@ export function ContractEditor({ initial, staff, readOnly = false }: { initial: 
                   <div key={g.key ?? 'customer'}>
                     <div className="mb-1.5 flex flex-wrap items-baseline justify-between gap-2">
                       <h3 className="text-[length:var(--fs-12)] font-semibold uppercase tracking-wide text-muted-foreground">{g.label}</h3>
-                      <span className={cn('text-[length:var(--fs-12)] tabular-nums', cov.ok ? 'text-emerald-700 dark:text-emerald-400' : 'text-amber-700 dark:text-amber-400')}>
+                      <span className={cn('text-[length:var(--fs-12)] tabular-nums', cov.ok ? 'rounded bg-emerald-50 px-1.5 text-emerald-800' : 'rounded bg-rose-50 px-1.5 text-rose-800')}>
                         {eur(cov.sum)} / {eur(g.total)}{cov.ok ? ' ✓' : ` · διαφορά ${eur(cov.diff)}`}
                       </span>
                     </div>
@@ -543,10 +562,10 @@ export function ContractEditor({ initial, staff, readOnly = false }: { initial: 
       </Section>
 
       {/* ── Ειδικοί όροι ── */}
-      <Section icon={<FiEdit3 />} title="Ειδικοί όροι" hint="Ό,τι γράψετε εδώ ενσωματώνεται υποχρεωτικά στα έγγραφα">
+      <Section icon={<FiEdit3 />} tone="slate" title="Ειδικοί όροι" hint="Ό,τι γράψετε εδώ ενσωματώνεται υποχρεωτικά στα έγγραφα">
         <textarea value={s.terms ?? ''} onChange={(e) => up({ terms: e.target.value || null })} rows={3} disabled={ro} aria-label="Ειδικοί όροι"
           placeholder="π.χ. Η μεταφορά υλικών μέχρι τον 2ο όροφο γίνεται από εμάς. Εγγύηση τοποθέτησης 2 έτη."
-          className="w-full resize-y rounded-md border border-input bg-transparent px-3 py-2 text-[length:var(--fs-13)] outline-none focus-visible:ring-2 focus-visible:ring-ring" />
+          className="w-full resize-y rounded-md border border-input bg-transparent px-3 py-2 text-[length:var(--fs-12)] outline-none focus-visible:ring-2 focus-visible:ring-ring" />
       </Section>
 
       {!ro && (
