@@ -62,6 +62,7 @@ const NAV_GROUPS: NavGroup[] = [
       { href: '/admin/projects', label: 'Έργα', icon: FiBriefcase, permissions: ['projects.read'] },
       { href: '/admin/projects/contracts', label: 'Συμβάσεις & Προσφορές', icon: FiFileText, permissions: ['projects.read'] },
       { href: '/admin/tasks', label: 'Εργασίες & Gantt', icon: FiCheckSquare, permissions: ['projects.read'] },
+      { href: '/admin/recipes', label: 'Συνταγές τοποθέτησης', icon: FiLayers, permissions: ['recipes.read'] },
       { href: '/admin/dynamic-offers', label: 'Δυναμικές προσφορές', icon: FiTrendingDown, permissions: ['dynamic_offers.read'] },
       { href: '/admin/order-requests', label: 'Αιτήματα παραγγελίας', icon: FiShoppingCart, permissions: ['order_requests.read'], badgeKey: 'orderRequests' },
       { href: '/admin/appointments', label: 'Ραντεβού atelier', icon: FiCalendar, permissions: ['appointments.read'], badgeKey: 'appointments' },
