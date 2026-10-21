@@ -1,5 +1,9 @@
 # DGEspa — Project Rules
 
+## Git — απευθείας στο master (επιλογή του ιδιοκτήτη)
+
+Οι αλλαγές γίνονται commit και **push απευθείας στο `master`** — χωρίς feature branch και χωρίς PR, εκτός αν ζητηθεί ρητά. Πριν από κάθε push: `npx tsc --noEmit`, `npm test`, `npm run lint` (0 errors), `npm audit` (0 high/critical) και, για αλλαγές εμφάνισης, έλεγχος με screenshots. Μετά το push ο ιδιοκτήτης κάνει `git pull` στον φάκελό του και Redeploy στο Coolify.
+
 ## Εκδόσεις εξαρτήσεων (ΥΠΟΧΡΕΩΤΙΚΟ)
 
 **Πάντα η τελευταία σταθερή έκδοση.** Κάθε νέο πακέτο μπαίνει στην τελευταία σταθερή έκδοση (`npm view <pkg> version`) — ποτέ παλιά major «επειδή έτσι το ξέραμε». Στοίβα: Next.js 16.2+, Tailwind CSS 4, Prisma (τελευταία 7.x, CLI και `@prisma/client` ΙΔΙΑ έκδοση), shadcn/ui, Auth.js (`@auth/core`), GSAP.
