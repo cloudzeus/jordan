@@ -11,7 +11,7 @@ screenshots:
     route: /admin/projects/70
     caption: "Καρτέλα έργου — το εργαλείο ανοίγει από το μενού ⋮ → «Διαστασιολόγηση κάτοψης…»"
 related: [operations/projects, operations/files, operations/contracts, operations/recipes]
-helpAnchors: [floor-plan, floor-plan-measure, floor-plan-walls, floor-plan-wall-tiles, floor-plan-offer, floor-plan-saved, floor-plan-ai]
+helpAnchors: [floor-plan, floor-plan-measure, floor-plan-walls, floor-plan-wall-tiles, floor-plan-offer, floor-plan-saved, floor-plan-ai, floor-plan-edit]
 ---
 
 ## Επισκόπηση
@@ -66,6 +66,22 @@ helpAnchors: [floor-plan, floor-plan-measure, floor-plan-walls, floor-plan-wall-
   Το AI μπορεί να διαβάσει λάθος έναν αριθμό διάστασης (π.χ. 695 αντί 655). Σύγκρινε τα εμβαδά με το σχέδιο πριν από την προσφορά. Η εικόνα στέλνεται στον πάροχο AI της εφαρμογής (OpenRouter, ή Google ως εφεδρεία). Το μοντέλο ορίζεται στις Ρυθμίσεις → AI → «Κάτοψη — μοντέλο αναγνώρισης χώρων».
 </Callout>
 
+## Διόρθωση περιγράμματος (σπασίματα, μετακίνηση)
+
+Με το εργαλείο <strong>Επεξεργασία</strong> (<kbd>E</kbd>, ή το κουμπί στο βήμα «Μέτρηση χώρων») διορθώνεις το περίγραμμα οποιουδήποτε χώρου — από κλικ, πολύγωνο ή αναγνώριση AI. Μετά την αναγνώριση με AI ενεργοποιείται αυτόματα.
+
+<Steps>
+  <li>Κάνε κλικ σε έναν χώρο (στο σχέδιο ή στη λίστα): εμφανίζονται <strong>κουκίδες</strong> στις γωνίες και <strong>«+»</strong> στη μέση κάθε πλευράς.</li>
+  <li><strong>Σύρε μια κουκίδα</strong> για να μετακινήσεις τη γωνία. Ευθυγραμμίζεται αυτόματα με τις διπλανές γωνίες· με <kbd>Shift</kbd> κινείται μόνο οριζόντια ή κάθετα. Δίπλα φαίνονται ζωντανά τα μήκη των δύο πλευρών.</li>
+  <li><strong>Σύρε ένα «+»</strong> για να δημιουργήσεις νέο σπάσιμο (νέα γωνία) σε εκείνη την πλευρά — π.χ. για εσοχή ή χώρο σε σχήμα Γ.</li>
+  <li><strong>Σύρε μέσα στον χώρο</strong> για να τον μετακινήσεις ολόκληρο, ή πάτα τα <strong>βελάκια</strong> (1 cm, με <kbd>Shift</kbd> 10 cm) για λεπτή επανατοποθέτηση.</li>
+  <li><strong>Διπλό κλικ σε κουκίδα</strong> σβήνει τη γωνία. <kbd>⌘</kbd>/<kbd>Ctrl</kbd>+<kbd>Z</kbd> ή το κουμπί <strong>Αναίρεση</strong> γυρίζει πίσω ένα βήμα κάθε φορά.</li>
+</Steps>
+
+<Callout type="info">
+  Κάθε διόρθωση ξαναϋπολογίζει εμβαδό και περίμετρο από το νέο σχήμα και βγάζει την ένδειξη «κατά προσέγγιση». Πάτησε <strong>Ενημέρωση χαρτογράφησης</strong> για να κρατηθούν οι αλλαγές.
+</Callout>
+
 ## Αποθήκευση και ξανάνοιγμα της χαρτογράφησης
 
 Με δικαίωμα επεξεργασίας έργων, η χαρτογράφηση (σχέδιο, τοίχοι, κλίμακα, χώροι με ονόματα, υλικά, πλακάκι τοίχων) κρατιέται μόνιμα στο έργο.
@@ -106,7 +122,7 @@ helpAnchors: [floor-plan, floor-plan-measure, floor-plan-walls, floor-plan-wall-
 </Callout>
 
 <Callout type="info">
-  Συντομεύσεις: <kbd>V</kbd> μετακίνηση, <kbd>R</kbd> χώρος με κλικ, <kbd>P</kbd> πολύγωνο, <kbd>W</kbd> τοίχος, <kbd>D</kbd> διαχωριστικό, <kbd>K</kbd> κλίμακα, <kbd>Esc</kbd> ακύρωση σχεδίου, <kbd>Backspace</kbd> αφαίρεση τελευταίου σημείου ή του επιλεγμένου χώρου.
+  Συντομεύσεις: <kbd>V</kbd> μετακίνηση, <kbd>R</kbd> χώρος με κλικ, <kbd>P</kbd> πολύγωνο, <kbd>E</kbd> επεξεργασία περιγράμματος, <kbd>W</kbd> τοίχος, <kbd>D</kbd> διαχωριστικό, <kbd>K</kbd> κλίμακα, <kbd>Esc</kbd> ακύρωση σχεδίου, <kbd>Backspace</kbd> αφαίρεση τελευταίου σημείου ή του επιλεγμένου χώρου.
 </Callout>
 
 <Callout type="warning">

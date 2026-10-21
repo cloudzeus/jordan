@@ -17,7 +17,7 @@ import {
   FiUploadCloud, FiLoader, FiCheck, FiMove, FiMousePointer, FiEdit3, FiScissors, FiMaximize, FiSquare, FiGrid, FiRotateCcw,
   FiEye, FiEyeOff, FiTrash2, FiCopy, FiDownload, FiSave, FiRefreshCw, FiHelpCircle, FiChevronLeft, FiChevronRight, FiFileText,
 } from 'react-icons/fi';
-import { BrickWall, Ruler } from 'lucide-react';
+import { BrickWall, Ruler, Spline } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -26,7 +26,7 @@ import {
   type Mask, type Pt, type WallResult,
 } from '@/lib/floorplan/core';
 import { blankPlan, loadPlan, type LoadedPlan } from './load-plan';
-import { PlanViewer, WALL_DRAW, type ViewerRoom, type ViewerTool } from './plan-viewer';
+import { PlanViewer, WALL_DRAW, type EditPhase, type ViewerRoom, type ViewerTool } from './plan-viewer';
 import { annotatedPng, download, fmtM, fmtM2, roomsCsv, roomsText, type ExportRoom } from './export';
 import { MaterialChip, OfferStepBody, RoomMaterialEditor, type RoomMaterial } from './offer-panel';
 import { FloorPlanOfferDialog, type OfferRoom, type OfferSubmit } from './offer-dialog';
@@ -64,6 +64,7 @@ const TOOLS: Array<{ key: ViewerTool; label: string; hint: string; kbd: string; 
   { key: 'polygon', label: 'Πολύγωνο', kbd: 'P', icon: <FiEdit3 />, hint: 'Κλικ στις γωνίες· διπλό κλικ, Enter ή κλικ στο πρώτο σημείο κλείνει. Shift = ορθές γωνίες.' },
   { key: 'wall', label: 'Τοίχος', kbd: 'W', icon: <BrickWall className="size-4" />, hint: 'Κλικ σε κάθε γωνία του τοίχου· διπλό κλικ ή Enter τελειώνει. Shift = οριζόντια/κάθετα· κουμπώνει στα άκρα άλλων τοίχων.' },
   { key: 'divider', label: 'Διαχωριστικό', kbd: 'D', icon: <FiScissors />, hint: 'Δύο κλικ: μια νοητή γραμμή που κλείνει πόρτες ή χωρίζει ενιαίους χώρους.' },
+  { key: 'edit', label: 'Επεξεργασία', kbd: 'E', icon: <Spline className="size-4" />, hint: 'Κλικ σε χώρο· σύρε κορυφές, σύρε το «+» για νέο σπάσιμο, σύρε μέσα για μετακίνηση (ή βελάκια). Διπλό κλικ σε κορυφή = διαγραφή · ⌘/Ctrl+Z αναίρεση.' },
   { key: 'calibrate', label: 'Κλίμακα', kbd: 'K', icon: <Ruler className="size-4" />, hint: 'Δύο κλικ στα άκρα μιας γνωστής απόστασης (π.χ. μια διάσταση του σχεδίου).' },
 ];
 
@@ -413,7 +414,7 @@ export function FloorPlanDialog({ prjc, projectLabel, open, onOpenChange, canSav
       }
       setRooms((rs) => [...rs, ...added]);
       if (added[0]) setSelected(added[0].id);
-      setTool('room');
+      setTool('edit');
       toast.success(`Βρέθηκαν ${found.length} χώροι · ${traced} με περίγραμμα από το σχέδιο${approx ? `, ${approx} κατά προσέγγιση (ορθογώνιο — έλεγξέ τους)` : ''}${skipped ? `, ${skipped} υπήρχαν ήδη` : ''}.${scaleNote}`, { duration: 9000 });
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Η αναγνώριση απέτυχε.');
@@ -451,6 +452,11 @@ export function FloorPlanDialog({ prjc, projectLabel, open, onOpenChange, canSav
   };
 
   const onPick = (p: Pt) => {
+    if (tool === 'edit') {
+      const hit = [...rooms].reverse().find((r) => pointInPolygon(p, r.polygon));
+      setSelected(hit?.id ?? null);
+      return;
+    }
     if (!blocked) return;
     if (tool === 'room') {
       const hit = [...rooms].reverse().find((r) => pointInPolygon(p, r.polygon));
@@ -510,6 +516,38 @@ export function FloorPlanDialog({ prjc, projectLabel, open, onOpenChange, canSav
 
   const changeTool = (t: ViewerTool) => { setTool(t); setDraft([]); };
 
+  // ── Επεξεργασία περιγράμματος (εργαλείο «Επεξεργασία») ─────────────────────────────────
+  // Κάθε αλλαγή κάνει τον χώρο «χειροκίνητο» (εμβαδό από το πολύγωνο) και βγάζει το «κατά προσέγγιση».
+  const history = React.useRef<Array<{ id: string; polygon: Pt[] }>>([]);
+  const applyPolygon = (id: string, polygon: Pt[]) => setRooms((rs) => rs.map((x) => (x.id === id
+    ? { ...x, polygon, areaPx: polygonArea(polygon), perimeterPx: polygonPerimeter(polygon), manual: true, approx: false }
+    : x)));
+  const onEdit = (id: string, polygon: Pt[], phase: EditPhase) => {
+    if (phase === 'start') {
+      const cur = rooms.find((x) => x.id === id);
+      if (cur) history.current = [...history.current.slice(-49), { id, polygon: cur.polygon }];
+      return;
+    }
+    applyPolygon(id, polygon);
+  };
+  const undoEdit = () => {
+    const last = history.current.pop();
+    if (!last) return false;
+    if (!rooms.some((x) => x.id === last.id)) return undoEdit();
+    applyPolygon(last.id, last.polygon);
+    setSelected(last.id);
+    return true;
+  };
+  /** Μετακίνηση του επιλεγμένου χώρου κατά (dx, dy) px· διαδοχικά πατήματα = μία εγγραφή αναίρεσης. */
+  const nudgeAt = React.useRef(0);
+  const nudge = (dx: number, dy: number) => {
+    const r = rooms.find((x) => x.id === selected);
+    if (!r) return;
+    if (Date.now() - nudgeAt.current > 800) history.current = [...history.current.slice(-49), { id: r.id, polygon: r.polygon }];
+    nudgeAt.current = Date.now();
+    applyPolygon(r.id, r.polygon.map((q) => ({ x: Math.max(0, Math.min(w, q.x + dx)), y: Math.max(0, Math.min(h, q.y + dy)) })));
+  };
+
   // Πλήκτρα συντόμευσης (μόνο όταν το modal έχει κάτοψη και δεν γράφουμε σε πεδίο).
   React.useEffect(() => {
     if (!open || !plan || offerOpen) return;
@@ -519,6 +557,15 @@ export function FloorPlanDialog({ prjc, projectLabel, open, onOpenChange, canSav
       if (e.key === 'Escape' && draft.length) { e.preventDefault(); e.stopPropagation(); setDraft([]); return; }
       if (e.key === 'Enter') { finish(); return; }
       if (e.key === 'Backspace' && draft.length) { e.preventDefault(); setDraft((d) => d.slice(0, -1)); return; }
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z') { if (undoEdit()) e.preventDefault(); return; }
+      if (tool === 'edit' && selected && e.key.startsWith('Arrow')) {
+        e.preventDefault();
+        // 1 px ανάλυσης· Shift ×10. Με κλίμακα: 1 cm / 10 cm.
+        const stepPx = (mPerPx ? 0.01 / mPerPx : 1) * (e.shiftKey ? 10 : 1);
+        const d = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[e.key as 'ArrowLeft'];
+        if (d) nudge(d[0] * stepPx, d[1] * stepPx);
+        return;
+      }
       if ((e.key === 'Delete' || e.key === 'Backspace') && selected) { setRooms((rs) => rs.filter((r) => r.id !== selected)); setSelected(null); return; }
       const t = TOOLS.find((x) => x.kbd.toLowerCase() === e.key.toLowerCase());
       if (t && !e.metaKey && !e.ctrlKey) changeTool(t.key);
@@ -853,17 +900,32 @@ export function FloorPlanDialog({ prjc, projectLabel, open, onOpenChange, canSav
 
               {/* raised: το dropdown αναζήτησης είδους να περνά πάνω από το βήμα «Προσφορά» */}
               <Step n={3} title="Μέτρηση χώρων" done={rooms.length > 0} active={step === 3} raised>
-                <div className="grid grid-cols-3 gap-1.5">
-                  {TOOLS.filter((t) => t.key === 'room' || t.key === 'polygon' || t.key === 'divider').map((t) => (
+                <div className="grid grid-cols-2 gap-1.5">
+                  {TOOLS.filter((t) => t.key === 'room' || t.key === 'polygon' || t.key === 'edit' || t.key === 'divider').map((t) => (
                     <button
                       key={t.key} type="button" onClick={() => changeTool(t.key)} aria-pressed={tool === t.key}
-                      className="flex cursor-pointer flex-col items-center gap-1 rounded-lg border px-1 py-2 text-(length:--fs-11) font-medium transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring [&_svg]:size-4"
+                      className="flex cursor-pointer items-center justify-center gap-1.5 rounded-lg border px-1.5 py-2 text-(length:--fs-12) font-medium transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring [&_svg]:size-4"
                       style={tool === t.key ? { borderColor: 'var(--primary)', background: 'color-mix(in oklab, var(--primary) 10%, transparent)', color: 'var(--primary)' } : { borderColor: 'var(--border)' }}
                     >
                       {t.icon}{t.label}
                     </button>
                   ))}
                 </div>
+                {tool === 'edit' && (
+                  <div className="rounded-lg border border-border bg-background p-2 text-(length:--fs-11) text-muted-foreground">
+                    {selected ? (
+                      <ul className="list-disc space-y-0.5 pl-4">
+                        <li><b className="text-foreground">Σύρε μια κορυφή</b> για να μετακινήσεις τη γωνία (κουμπώνει σε ευθεία με τις διπλανές· Shift = οριζόντια/κάθετα).</li>
+                        <li><b className="text-foreground">Σύρε το «+»</b> στη μέση μιας πλευράς για νέο σπάσιμο.</li>
+                        <li><b className="text-foreground">Σύρε μέσα στον χώρο</b> ή πάτα τα βελάκια (1 cm, Shift 10 cm) για να τον μετακινήσεις.</li>
+                        <li><b className="text-foreground">Διπλό κλικ σε κορυφή</b> για διαγραφή της.</li>
+                      </ul>
+                    ) : 'Κάνε κλικ σε έναν χώρο (στο σχέδιο ή στη λίστα) για να εμφανιστούν οι λαβές του.'}
+                    <Button size="xs" variant="outline" className="mt-2" onClick={() => { if (!undoEdit()) toast.message('Δεν υπάρχει αλλαγή για αναίρεση.'); }}>
+                      <FiRotateCcw aria-hidden /> Αναίρεση (⌘/Ctrl+Z)
+                    </Button>
+                  </div>
+                )}
                 {tool === 'polygon' && (
                   <label className="flex cursor-pointer items-start gap-2 rounded-lg border border-border bg-background p-2">
                     <input type="checkbox" checked={polyWalls} onChange={(e) => setPolyWalls(e.target.checked)} className="mt-0.5 size-4 cursor-pointer accent-(--primary)" />
@@ -1029,7 +1091,7 @@ export function FloorPlanDialog({ prjc, projectLabel, open, onOpenChange, canSav
                 rooms={viewerRooms} selectedId={selected} dividers={dividers}
                 calibration={calibLine ?? (calib && !blankScale ? [calib.a, calib.b] : null)}
                 draft={draft} tool={tool} formatLength={fmtLen}
-                onPick={onPick} onFinish={finish} fitKey={fitKey}
+                onPick={onPick} onFinish={finish} onEdit={onEdit} fitKey={fitKey}
               />
 
               {/* Εργαλειοθήκη (αριστερά) */}

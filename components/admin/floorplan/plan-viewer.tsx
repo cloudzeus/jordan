@@ -3,7 +3,8 @@
 // Προβολή κάτοψης (2D) με three.js: η εικόνα ως υφή σε επίπεδο, οι τοίχοι ως διαφανής μάσκα, οι
 // χώροι ως γεμισμένα πολύγωνα με περίγραμμα, ετικέτες σε HTML (καθαρό κείμενο σε κάθε zoom).
 // Ορθογραφική κάμερα από πάνω: σύρσιμο = μετακίνηση, ροδέλα = zoom. «Κλικ» θεωρείται πάτημα χωρίς
-// μετακίνηση > 5px.
+// μετακίνηση > 5px. Εργαλείο «edit»: λαβές στις κορυφές του επιλεγμένου χώρου (σύρσιμο), «+» στη μέση
+// κάθε πλευράς (σύρσιμο = νέα κορυφή), σύρσιμο μέσα στον χώρο = μετακίνηση, διπλό κλικ σε κορυφή = διαγραφή.
 // Συντεταγμένες: εικόνα (x δεξιά, y κάτω) ↔ κόσμος (x − w/2, h/2 − y, z).
 import * as React from 'react';
 import * as THREE from 'three';
@@ -15,7 +16,9 @@ import { LineMaterial } from 'three/examples/jsm/lines/LineMaterial.js';
 import type { Pt } from '@/lib/floorplan/core';
 
 export type ViewerRoom = { id: string; color: string; polygon: Pt[]; label: string; sub: string; anchor: Pt };
-export type ViewerTool = 'room' | 'polygon' | 'wall' | 'divider' | 'calibrate' | 'pan';
+export type ViewerTool = 'room' | 'polygon' | 'wall' | 'divider' | 'calibrate' | 'pan' | 'edit';
+/** Φάση επεξεργασίας περιγράμματος: start (πριν την πρώτη αλλαγή — για αναίρεση), move, end. */
+export type EditPhase = 'start' | 'move' | 'end';
 
 export type PlanViewerProps = {
   image: HTMLCanvasElement;
@@ -36,6 +39,8 @@ export type PlanViewerProps = {
   formatLength: (px: number) => string;
   onPick: (p: Pt) => void;
   onFinish: () => void;
+  /** Αλλαγή περιγράμματος με το εργαλείο «edit». */
+  onEdit?: (id: string, polygon: Pt[], phase: EditPhase) => void;
   fitKey: number;
 };
 
@@ -44,13 +49,34 @@ const BG = '#0B1220';
 /** Χρώμα τοίχων που σχεδιάζει ο χρήστης (και στη μάσκα, βλ. floor-plan-dialog). */
 export const WALL_DRAW = '#FB923C';
 
-function circleTexture() {
+function circleTexture(inner = '#F59E0B') {
   const c = document.createElement('canvas');
   c.width = c.height = 64;
   const g = c.getContext('2d')!;
   g.fillStyle = '#fff'; g.beginPath(); g.arc(32, 32, 28, 0, Math.PI * 2); g.fill();
-  g.fillStyle = '#F59E0B'; g.beginPath(); g.arc(32, 32, 18, 0, Math.PI * 2); g.fill();
+  g.fillStyle = inner; g.beginPath(); g.arc(32, 32, 18, 0, Math.PI * 2); g.fill();
   return new THREE.CanvasTexture(c);
+}
+/** Λαβή «+» στη μέση πλευράς: νέα κορυφή (σπάσιμο). */
+function plusTexture() {
+  const c = document.createElement('canvas');
+  c.width = c.height = 64;
+  const g = c.getContext('2d')!;
+  g.fillStyle = 'rgba(11,18,32,0.85)'; g.beginPath(); g.arc(32, 32, 28, 0, Math.PI * 2); g.fill();
+  g.strokeStyle = '#22D3EE'; g.lineWidth = 5; g.stroke();
+  g.strokeStyle = '#fff'; g.lineWidth = 7; g.lineCap = 'round';
+  g.beginPath(); g.moveTo(32, 18); g.lineTo(32, 46); g.moveTo(18, 32); g.lineTo(46, 32); g.stroke();
+  return new THREE.CanvasTexture(c);
+}
+
+const mid = (a: Pt, b: Pt): Pt => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
+function inside(p: Pt, pts: Pt[]) {
+  let r = false;
+  for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+    const a = pts[i], b = pts[j];
+    if ((a.y > p.y) !== (b.y > p.y) && p.x < ((b.x - a.x) * (p.y - a.y)) / (b.y - a.y) + a.x) r = !r;
+  }
+  return r;
 }
 
 export function PlanViewer(props: PlanViewerProps) {
@@ -65,7 +91,9 @@ export function PlanViewer(props: PlanViewerProps) {
   type Ctx = {
     renderer: THREE.WebGLRenderer; scene: THREE.Scene; camera: THREE.OrthographicCamera; controls: OrbitControls;
     plane: THREE.Mesh; layers: Record<'walls' | 'rooms' | 'lines' | 'draft', THREE.Group>;
-    lineMats: Set<LineMaterial>; dot: THREE.Texture; hover: Pt | null; shift: boolean;
+    lineMats: Set<LineMaterial>; dot: THREE.Texture; vdot: THREE.Texture; plus: THREE.Texture; hover: Pt | null; shift: boolean;
+    /** Τρέχον σύρσιμο επεξεργασίας (κορυφή ή ολόκληρος χώρος). */
+    drag: { id: string; kind: 'vertex' | 'move'; i: number; base: Pt[]; from: Pt; moved: boolean } | null;
   };
   const ctx = React.useRef<Ctx | null>(null);
   const toWorld = React.useCallback((p: Pt, z: number) => new THREE.Vector3(p.x - w / 2, h / 2 - p.y, z), [w, h]);
@@ -98,10 +126,10 @@ export function PlanViewer(props: PlanViewerProps) {
     l.renderOrder = 10;
     return l;
   }, [toWorld]);
-  const dots = React.useCallback((pts: Pt[], z: number, size = 11) => {
+  const dots = React.useCallback((pts: Pt[], z: number, size = 11, tex?: THREE.Texture) => {
     const c = ctx.current!;
     const g = new THREE.BufferGeometry().setFromPoints(pts.map((p) => toWorld(p, z)));
-    const m = new THREE.PointsMaterial({ size, sizeAttenuation: false, map: c.dot.clone(), transparent: true, alphaTest: 0.4, depthTest: false });
+    const m = new THREE.PointsMaterial({ size, sizeAttenuation: false, map: (tex ?? c.dot).clone(), transparent: true, alphaTest: 0.4, depthTest: false });
     m.map!.needsUpdate = true;
     const o = new THREE.Points(g, m);
     o.renderOrder = 12;
@@ -166,7 +194,10 @@ export function PlanViewer(props: PlanViewerProps) {
     const layers = { walls: new THREE.Group(), rooms: new THREE.Group(), lines: new THREE.Group(), draft: new THREE.Group() };
     Object.values(layers).forEach((g) => scene.add(g));
 
-    const c: Ctx = { renderer, scene, camera, controls, plane, layers, lineMats: new Set(), dot: circleTexture(), hover: null, shift: false };
+    const c: Ctx = {
+      renderer, scene, camera, controls, plane, layers, lineMats: new Set(), dot: circleTexture(), vdot: circleTexture('#22D3EE'), plus: plusTexture(),
+      hover: null, shift: false, drag: null,
+    };
     ctx.current = c;
 
     const resize = () => {
@@ -204,23 +235,127 @@ export function PlanViewer(props: PlanViewerProps) {
       if (!shift || !last) return p;
       return Math.abs(p.x - last.x) > Math.abs(p.y - last.y) ? { x: p.x, y: last.y } : { x: last.x, y: p.y };
     };
+    // ── Επεξεργασία περιγράμματος ────────────────────────────────────────────────────────
+    const screen = (p: Pt) => {
+      const r = renderer.domElement.getBoundingClientRect();
+      const q = new THREE.Vector3(p.x - w / 2, h / 2 - p.y, 0).project(camera);
+      return { x: r.left + ((q.x + 1) / 2) * r.width, y: r.top + ((1 - q.y) / 2) * r.height };
+    };
+    const selectedRoom = () => cbs.current.rooms.find((r) => r.id === cbs.current.selectedId) ?? null;
+    /** Τι βρίσκεται κάτω από τον δείκτη: κορυφή, μέση πλευράς ή το εσωτερικό του επιλεγμένου χώρου. */
+    const editHit = (e: PointerEvent | MouseEvent): { kind: 'vertex' | 'mid' | 'inside'; i: number } | null => {
+      const r = selectedRoom();
+      if (!r) return null;
+      const near = (p: Pt, tol: number) => { const s = screen(p); return Math.hypot(s.x - e.clientX, s.y - e.clientY) <= tol; };
+      for (let i = 0; i < r.polygon.length; i++) if (near(r.polygon[i], 10)) return { kind: 'vertex', i };
+      for (let i = 0; i < r.polygon.length; i++) if (near(mid(r.polygon[i], r.polygon[(i + 1) % r.polygon.length]), 9)) return { kind: 'mid', i };
+      const p = pick(e);
+      return p && inside(p, r.polygon) ? { kind: 'inside', i: -1 } : null;
+    };
+    /** Η νέα θέση κορυφής: Shift = οριζόντια/κάθετα από την προηγούμενη· αλλιώς «κούμπωμα» σε ευθεία με τις γειτονικές (6px οθόνης). */
+    const placeVertex = (poly: Pt[], i: number, p: Pt, shift: boolean): Pt => {
+      const prev = poly[(i - 1 + poly.length) % poly.length], next = poly[(i + 1) % poly.length];
+      if (shift) return Math.abs(p.x - prev.x) > Math.abs(p.y - prev.y) ? { x: p.x, y: prev.y } : { x: prev.x, y: p.y };
+      const tol = 6 / camera.zoom;
+      const q = { ...p };
+      for (const n of [prev, next]) {
+        if (Math.abs(q.x - n.x) < tol) q.x = n.x;
+        if (Math.abs(q.y - n.y) < tol) q.y = n.y;
+      }
+      return q;
+    };
+    const clampPt = (p: Pt): Pt => ({ x: Math.max(0, Math.min(w, p.x)), y: Math.max(0, Math.min(h, p.y)) });
+
     let down: { x: number; y: number; button: number } | null = null;
-    const onDown = (e: PointerEvent) => { down = { x: e.clientX, y: e.clientY, button: e.button }; };
+    let skipClick = false;
+    const onDown = (e: PointerEvent) => {
+      down = { x: e.clientX, y: e.clientY, button: e.button };
+      skipClick = false;
+      if (cbs.current.tool !== 'edit' || e.button !== 0) return;
+      const hit = editHit(e);
+      const r = selectedRoom();
+      const p = pick(e);
+      if (!hit || !r || !p) return;
+      let base = r.polygon.map((q) => ({ ...q }));
+      let i = hit.i;
+      if (hit.kind === 'mid') { i = hit.i + 1; base = [...base.slice(0, i), mid(base[hit.i], base[i % base.length]), ...base.slice(i)]; }
+      c.drag = { id: r.id, kind: hit.kind === 'inside' ? 'move' : 'vertex', i, base, from: p, moved: false };
+      controls.enabled = false;
+      renderer.domElement.setPointerCapture(e.pointerId);
+      if (hit.kind === 'mid') { cbs.current.onEdit?.(r.id, base, 'start'); c.drag.moved = true; cbs.current.onEdit?.(r.id, base, 'move'); }
+    };
+    const dragTo = (e: PointerEvent) => {
+      const d = c.drag;
+      const p = pick(e);
+      if (!d || !p) return;
+      if (!d.moved) { cbs.current.onEdit?.(d.id, d.base, 'start'); d.moved = true; }
+      let poly: Pt[];
+      if (d.kind === 'move') {
+        const dx = p.x - d.from.x, dy = p.y - d.from.y;
+        poly = d.base.map((q) => clampPt({ x: q.x + dx, y: q.y + dy }));
+      } else {
+        poly = d.base.slice();
+        poly[d.i] = clampPt(placeVertex(d.base, d.i, p, e.shiftKey));
+      }
+      cbs.current.onEdit?.(d.id, poly, 'move');
+      // Ζωντανά μήκη των δύο πλευρών της κορυφής.
+      const tip = tipEl.current;
+      if (tip && d.kind === 'vertex') {
+        const a = poly[(d.i - 1 + poly.length) % poly.length], b = poly[d.i], n = poly[(d.i + 1) % poly.length];
+        const s = screen(b), rr = renderer.domElement.getBoundingClientRect();
+        tip.style.opacity = '1';
+        tip.style.transform = `translate(${s.x - rr.left + 14}px, ${s.y - rr.top + 14}px)`;
+        tip.textContent = `${cbs.current.formatLength(Math.hypot(b.x - a.x, b.y - a.y))} · ${cbs.current.formatLength(Math.hypot(n.x - b.x, n.y - b.y))}`;
+      }
+    };
+    const endDrag = (e: PointerEvent) => {
+      const d = c.drag;
+      if (!d) return false;
+      c.drag = null;
+      controls.enabled = true;
+      if (renderer.domElement.hasPointerCapture(e.pointerId)) renderer.domElement.releasePointerCapture(e.pointerId);
+      if (d.moved) { dragTo(e); const cur = cbs.current.rooms.find((r) => r.id === d.id); if (cur) cbs.current.onEdit?.(d.id, cur.polygon, 'end'); }
+      if (tipEl.current) tipEl.current.style.opacity = '0';
+      return d.moved;
+    };
     const onUp = (e: PointerEvent) => {
+      // Πάτημα σε λαβή/μέσα στον επιλεγμένο χώρο δεν είναι «κλικ επιλογής» — αλλιώς το πρώτο κλικ του
+      // διπλού κλικ σε κορυφή (που είναι στο όριο) θα επέλεγε τον γειτονικό χώρο.
+      const hadDrag = !!c.drag;
+      if (endDrag(e) || hadDrag) { skipClick = true; down = null; return; }
       const d = down; down = null;
-      if (!d || d.button !== 0 || Math.hypot(e.clientX - d.x, e.clientY - d.y) > 5) return;
+      if (skipClick || !d || d.button !== 0 || Math.hypot(e.clientX - d.x, e.clientY - d.y) > 5) return;
       if (cbs.current.tool === 'pan') return;
       const p = pick(e);
       if (p && p.x >= 0 && p.y >= 0 && p.x <= w && p.y <= h) cbs.current.onPick(constrain(p, e.shiftKey));
     };
     const onMove = (e: PointerEvent) => {
+      if (c.drag) { dragTo(e); return; }
+      if (cbs.current.tool === 'edit') {
+        const hit = editHit(e);
+        renderer.domElement.style.cursor = !hit ? '' : hit.kind === 'inside' ? 'move' : hit.kind === 'mid' ? 'copy' : 'grab';
+      } else renderer.domElement.style.cursor = '';
       const p = pick(e);
       c.hover = p ? constrain(p, e.shiftKey) : null;
       c.shift = e.shiftKey;
       drawDraft();
     };
     const onLeave = () => { c.hover = null; drawDraft(); };
-    const onDbl = (e: MouseEvent) => { e.preventDefault(); cbs.current.onFinish(); };
+    const onDbl = (e: MouseEvent) => {
+      e.preventDefault();
+      if (cbs.current.tool === 'edit') {
+        // Διπλό κλικ σε κορυφή: διαγραφή της (μένουν τουλάχιστον 3).
+        const hit = editHit(e);
+        const r = selectedRoom();
+        if (hit?.kind === 'vertex' && r && r.polygon.length > 3) {
+          const poly = r.polygon.filter((_, k) => k !== hit.i);
+          cbs.current.onEdit?.(r.id, r.polygon, 'start');
+          cbs.current.onEdit?.(r.id, poly, 'end');
+        }
+        return;
+      }
+      cbs.current.onFinish();
+    };
     const el2 = renderer.domElement;
     el2.addEventListener('pointerdown', onDown);
     el2.addEventListener('pointerup', onUp);
@@ -273,7 +408,7 @@ export function PlanViewer(props: PlanViewerProps) {
         const mat = m.material as THREE.Material | THREE.Material[] | undefined;
         (Array.isArray(mat) ? mat : mat ? [mat] : []).forEach((x) => { (x as THREE.MeshBasicMaterial).map?.dispose(); x.dispose(); });
       });
-      c.dot.dispose();
+      c.dot.dispose(); c.vdot.dispose(); c.plus.dispose();
       renderer.dispose();
       el2.remove();
       ctx.current = null;
@@ -319,8 +454,12 @@ export function PlanViewer(props: PlanViewerProps) {
       fill.position.z = Z.rooms;
       c.layers.rooms.add(fill);
       c.layers.rooms.add(line(r.polygon, Z.outline, sel ? '#FFFFFF' : r.color, sel ? 3.5 : 2.5, { closed: true }));
+      if (sel && tool === 'edit') {
+        c.layers.rooms.add(dots(r.polygon.map((p, i) => mid(p, r.polygon[(i + 1) % r.polygon.length])), Z.draft, 16, c.plus));
+        c.layers.rooms.add(dots(r.polygon, Z.draft + 0.05, 14, c.vdot));
+      }
     }
-  }, [rooms, selectedId, w, h, image, toWorld, clear, line]);
+  }, [rooms, selectedId, tool, w, h, image, toWorld, clear, line, dots]);
 
   React.useEffect(() => {
     const c = ctx.current;
@@ -349,7 +488,7 @@ export function PlanViewer(props: PlanViewerProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fitKey]);
 
-  const cursor = tool === 'pan' ? 'grab' : tool === 'room' ? 'cell' : 'crosshair';
+  const cursor = tool === 'pan' ? 'grab' : tool === 'room' ? 'cell' : tool === 'edit' ? 'default' : 'crosshair';
   return (
     <div className="relative h-full w-full overflow-hidden" style={{ background: BG }}>
       <div ref={host} className="absolute inset-0" style={{ cursor }} />
