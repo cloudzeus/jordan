@@ -137,4 +137,25 @@ describe('PDF', () => {
     expect(pdf.getPageCount()).toBeGreaterThanOrEqual(4);
     expect(pdf.getTitle()).toContain('ΣΥΜ-000042');
   });
+
+  it('κάτοψη & χώροι: εικόνα και πίνακας σε πελάτη και συνεργείο', async () => {
+    // PNG 2×1 φτιαγμένο με pdf-lib-ανεξάρτητο τρόπο (έγκυρο αρχείο, λευκά pixels).
+    const png = Uint8Array.from(Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAIAAAABCAIAAAB7QOjdAAAAEElEQVR4nGP4//8/AxIAAG7+A/2NRvwqAAAAAElFTkSuQmCC', 'base64'));
+    const base: ContractPdfData = {
+      ref: 'ΣΥΜ-000043', docKind: 'OFFER', version: 1, projectTitle: 'Μπάνιο', kindLabel: 'Προϊόν + τοποθέτηση', issuedOn: new Date('2026-10-22'),
+      company: { name: 'Atelier' }, counterparty: { name: 'Πελάτης' },
+      lines: [{ kind: 'MATERIAL', code: 'Π1', name: 'Πλακάκι', notes: 'Χώρος: Μπάνιο · 6,00 m²', qty: 6, unit: 'm²', unitPrice: 30, discount: 0, amount: 180 }],
+      totals: { net: 180, vat: 43.2, gross: 223.2, vatRate: 24 }, milestones: [],
+      doc: parseContractDoc(docJson(), { needsInstallation: true }), itemGuides: [],
+      floorPlan: {
+        title: 'Κάτοψη ισογείου', png, floorM2: 6, wallsM2: 22.11,
+        rows: [{ name: 'Μπάνιο', floorM2: 6, perimeterM: 10, walls: { heightM: 2.4, netM2: 22.11, openings: '1× πόρτα 0,90×2,10' }, material: 'Πλακάκι' }],
+      },
+    };
+    const without = await PDFDocument.load(await renderContractPdf({ ...base, floorPlan: null }));
+    const offer = await PDFDocument.load(await renderContractPdf(base));
+    expect(offer.getPageCount()).toBe(without.getPageCount() + 1);
+    const party = await PDFDocument.load(await renderContractPdf({ ...base, docKind: 'PARTY', totals: { fee: 100 } }));
+    expect(party.getPageCount()).toBeGreaterThan(without.getPageCount());
+  });
 });

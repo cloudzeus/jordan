@@ -3718,10 +3718,41 @@ model Contract {
   members    ContractMember[]
   milestones ContractMilestone[]
   documents  ContractDocument[]
+  /// Χαρτογράφηση κάτοψης από την οποία βγήκε (κάτοψη & χώροι στο PDF πελάτη και συνεργείων).
+  floorPlanId String?
+  floorPlan   FloorPlan? @relation(fields: [floorPlanId], references: [id], onDelete: SetNull)
 
   @@index([prjc])
   @@index([trdr])
   @@index([status])
+  @@index([floorPlanId])
+}
+
+// Χαρτογράφηση κάτοψης έργου (εργαλείο «Διαστασιολόγηση κάτοψης») — ΔΙΚΑ ΜΑΣ δεδομένα. `data` = όλη η
+// κατάσταση του εργαλείου (χώροι/περιγράμματα σε pixels ανάλυσης, τοίχοι, διαχωριστικά, κλίμακα,
+// υλικά, πλακάκι τοίχων) — σχήμα στο `lib/floorplan/saved.ts`. Οι εικόνες ζουν στα αρχεία του έργου
+// (υποφάκελος «Κατόψεις»): `imageFileId` = το σχέδιο χωρίς σημειώσεις (για ξανάνοιγμα),
+// `annotatedFileId` = με χώρους και υπόμνημα (PDF προσφοράς/συνεργείων, προβολή), `sourceFileId` = το
+// πρωτότυπο (φωτογραφία σχεδίου/PDF).
+model FloorPlan {
+  id              String     @id @default(cuid())
+  prjc            Int
+  title           String
+  source          String?
+  data            Json
+  floorM2         Float      @default(0)
+  wallsM2         Float      @default(0)
+  roomCount       Int        @default(0)
+  imageFileId     String?
+  annotatedFileId String?
+  /// Το αρχείο που ανέβασε ο χρήστης όπως ήταν (φωτογραφία σχεδίου ή PDF) — βάση της διαστασιολόγησης.
+  sourceFileId    String?
+  createdById     String?
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+  contracts       Contract[]
+
+  @@index([prjc, updatedAt])
 }
 
 // Υλικά & υπηρεσίες. Όνομα/μονάδα ως στιγμιότυπο. `partyId` = το συνεργείο που εκτελεί τη γραμμή,

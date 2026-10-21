@@ -47,6 +47,15 @@ describe('κάτοψη → προσφορά', () => {
     const s = floorPlanSummary({ rooms, materialLabel: (r) => (r.material ? 'υλικό' : null), source: 'katopsi.pdf', wallLenM: null });
     expect(s).toContain('• Αποθήκη: 3,00 m² · χωρίς υλικό');
     expect(s).toContain('• Σαλόνι: 24,50 m² · περίμετρος 20,00 m · υλικό');
-    expect(s).toContain('Σύνολο: 39,50 m²');
+    expect(s).toContain('Σύνολο δαπέδου: 39,50 m²');
+  });
+
+  it('τοίχοι: ίδιο υλικό σε δικές τους γραμμές, και εκτός όταν απενεργοποιηθούν', () => {
+    const wall: FloorPlanRoom[] = [{ name: 'Μπάνιο', areaM2: 5, perimeterM: 9, wallsM2: 20.4, material: { type: 'item', mtrl: 50 } }];
+    const on = floorPlanOffer({ rooms: wall, recipes, items, markupPct: 0, mode: 'detailed' });
+    expect(on.lines.map((l) => [l.qty, l.notes])).toEqual([[5, 'Χώρος: Μπάνιο · 5,00 m²'], [20.4, 'Χώρος: Μπάνιο · τοίχοι 20,40 m²']]);
+    const off = floorPlanOffer({ rooms: wall, recipes, items, markupPct: 0, mode: 'detailed', includeWalls: false });
+    expect(off.lines).toHaveLength(1);
+    expect(floorPlanSummary({ rooms: wall, materialLabel: () => 'x', source: null, wallLenM: null })).toContain('Σύνολο τοίχων: 20,40 m²');
   });
 });

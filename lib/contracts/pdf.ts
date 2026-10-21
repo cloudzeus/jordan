@@ -30,6 +30,12 @@ export type ContractPdfData = {
   milestones: PdfMilestone[];
   doc: ContractDoc;
   itemGuides: { item: string; guide: InstallGuide }[];
+  /** Χαρτογράφηση κάτοψης: εικόνα με τους χώρους (PNG) και πίνακας χώρων. */
+  floorPlan?: PdfFloorPlan | null;
+};
+export type PdfFloorPlan = {
+  title: string; png: Uint8Array | null; floorM2: number; wallsM2: number;
+  rows: { name: string; floorM2: number; perimeterM: number; walls: { heightM: number; netM2: number; openings: string } | null; material: string | null }[];
 };
 
 const A4 = { w: 595.28, h: 841.89 };
@@ -183,6 +189,44 @@ function partyCard(w: W, x: number, width: number, top: number, label: string, n
   return h;
 }
 
+const m2 = (n: number) => `${qtyEl(Math.round(n * 100) / 100)} m²`;
+
+/**
+ * Κάτοψη & χώροι: η εικόνα της χαρτογράφησης σε όλο το πλάτος και πίνακας χώρων. Στο συνεργείο
+ * μπαίνουν και περίμετροι, ύψος πλακιδίων και ανοίγματα — είναι οδηγία για το πού και πόσο.
+ */
+async function floorPlanSection(w: W, fp: PdfFloorPlan, party: boolean) {
+  w.section(party ? 'Παράρτημα — Κάτοψη & χώροι εργασίας' : 'Κάτοψη χώρων', { newPage: true });
+  w.para(party
+    ? `Η κάτοψη «${fp.title}» με τους χώρους όπου γίνονται οι εργασίες. Τα εμβαδά είναι καθαρά (δάπεδο ανάμεσα στους τοίχους· τοίχοι = περίμετρος × ύψος πλακιδίων − ανοίγματα). Ελέγξτε τις διαστάσεις επί τόπου πριν από την παραγγελία/κοπή υλικών.`
+    : `Οι χώροι της προσφοράς όπως μετρήθηκαν στην κάτοψη «${fp.title}». Τα εμβαδά είναι καθαρά και επιβεβαιώνονται με αυτοψία.`, { size: 9.5, gap: 8 });
+  if (fp.png) {
+    const img = await w.doc.embedPng(fp.png).catch(() => null);
+    if (img) {
+      const k = Math.min(CW / img.width, 430 / img.height);
+      const iw = img.width * k, ih = img.height * k;
+      w.ensure(ih + 10);
+      w.page.drawRectangle({ x: M.x - 1, y: w.y - ih - 1, width: iw + 2, height: ih + 2, color: C.line });
+      w.page.drawImage(img, { x: M.x, y: w.y - ih, width: iw, height: ih });
+      w.y -= ih + 14;
+    }
+  }
+  const cols: Col[] = party
+    ? [{ label: 'Χώρος', w: 34 }, { label: 'Δάπεδο', w: 14, align: 'right' }, { label: 'Περίμετρος', w: 14, align: 'right' }, { label: 'Τοίχοι', w: 14, align: 'right' }, { label: 'Ύψος', w: 10, align: 'right' }]
+    : [{ label: 'Χώρος', w: 52 }, { label: 'Δάπεδο', w: 16, align: 'right' }, { label: 'Τοίχοι', w: 16, align: 'right' }];
+  table(w, cols, fp.rows.map((r) => ({
+    cells: party
+      ? [r.name, m2(r.floorM2), `${qtyEl(Math.round(r.perimeterM * 100) / 100)} m`, r.walls ? m2(r.walls.netM2) : '—', r.walls ? `${qtyEl(r.walls.heightM)} m` : '—']
+      : [r.name, m2(r.floorM2), r.walls ? m2(r.walls.netM2) : '—'],
+    sub: [r.material ? `Υλικό: ${r.material}` : 'Χωρίς υλικό στην προσφορά', party && r.walls?.openings ? `Ανοίγματα: ${r.walls.openings}` : null].filter(Boolean).join(' · ') || null,
+  })), 0);
+  sums(w, [
+    ['Δάπεδο', m2(fp.floorM2)],
+    ...(fp.wallsM2 > 0 ? [['Τοίχοι', m2(fp.wallsM2)] as [string, string]] : []),
+    ['Σύνολο επιφανειών', m2(fp.floorM2 + fp.wallsM2), true],
+  ]);
+}
+
 export async function renderContractPdf(d: ContractPdfData): Promise<Buffer> {
   const doc = await PDFDocument.create();
   doc.registerFontkit(fontkit);
@@ -311,6 +355,9 @@ export async function renderContractPdf(d: ContractPdfData): Promise<Buffer> {
   sig(M.x, d.docKind === 'OFFER' ? 'Για την εταιρία' : 'Ο πρώτος συμβαλλόμενος', d.company.legalName || d.company.name);
   sig(M.x + sigW + 40, d.docKind === 'OFFER' ? 'Αποδοχή πελάτη' : 'Ο δεύτερος συμβαλλόμενος', d.counterparty.name);
   w.y -= 112;
+
+  // ── Κάτοψη & χώροι (χαρτογράφηση) ──
+  if (d.floorPlan && d.floorPlan.rows.length) await floorPlanSection(w, d.floorPlan, party);
 
   // ── Παράρτημα Α: οδηγίες εγκατάστασης (AI) ──
   if (d.doc.installation.length) {

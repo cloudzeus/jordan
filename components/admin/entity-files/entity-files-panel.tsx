@@ -7,7 +7,7 @@ import Link from 'next/link';
 import { useDropzone } from 'react-dropzone';
 import {
   FiAlertTriangle, FiBriefcase, FiChevronRight, FiDownload, FiEdit3, FiEye, FiFile, FiFileText, FiFolder,
-  FiFolderPlus, FiGrid, FiMessageSquare, FiMoreVertical, FiMove, FiRefreshCw, FiTrash2, FiUploadCloud, FiX,
+  FiFolderPlus, FiGrid, FiImage, FiMessageSquare, FiMoreVertical, FiMove, FiRefreshCw, FiTrash2, FiUploadCloud, FiX,
 } from 'react-icons/fi';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -35,6 +35,7 @@ const FAMILY: Record<FileFamily, { tone: string; label: string; icon: React.Comp
   pdf: { tone: '#C2410C', label: 'PDF', icon: FiFileText },
   excel: { tone: '#047857', label: 'XLS', icon: FiGrid },
   word: { tone: '#1D4ED8', label: 'DOC', icon: FiFileText },
+  image: { tone: '#7C3AED', label: 'IMG', icon: FiImage },
 };
 const soft = (hex: string, pct: number) => `color-mix(in srgb, ${hex} ${pct}%, var(--background))`;
 const fmtSize = (b: number) => (b >= 1048576 ? `${(b / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(b / 1024))} KB`);

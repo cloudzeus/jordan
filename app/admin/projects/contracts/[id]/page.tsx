@@ -10,6 +10,7 @@ import { StatusBadge } from '../status-badge';
 import { ContractActions } from './contract-actions';
 import { DocumentsPanel } from './documents-panel';
 import { MilestonesProgress } from './milestones-progress';
+import { FloorPlanPanel } from './floor-plan-panel';
 
 export const dynamic = 'force-dynamic';
 
@@ -37,6 +38,7 @@ export default async function ContractPage({ params }: { params: Promise<{ id: s
       </div>
       <div className="space-y-4">
         <DocumentsPanel contract={c} canManage={canManage} />
+        {c.floorPlanId && <FloorPlanPanel floorPlanId={c.floorPlanId} />}
         {c.status === 'ACTIVE' || c.status === 'COMPLETED' ? <MilestonesProgress contract={c} canManage={canManage && c.status === 'ACTIVE'} /> : null}
         <ContractEditor initial={c} staff={staff} readOnly={!canManage || closed} />
       </div>

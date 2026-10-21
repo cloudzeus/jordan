@@ -61,6 +61,13 @@ describe('τύποι αρχείων', () => {
     expect(matchesSignature('dxf', Buffer.from('999\r\ndxfrw 0.6\r\n  0\r\nSECTION\r\n'))).toBe(true);
     expect(matchesSignature('dxf', Buffer.from('AutoCAD Binary DXF\r\n\x1a\x00'))).toBe(true);
   });
+  it('εικόνες/φωτογραφίες σχεδίων: PNG, JPG, WebP, HEIC με έλεγχο υπογραφής', () => {
+    expect(validateUpload('katopsi.png', Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0])).family).toBe('image');
+    expect(validateUpload('IMG_1.JPG', Buffer.from([0xff, 0xd8, 0xff, 0xe0])).mime).toBe('image/jpeg');
+    expect(validateUpload('a.webp', Buffer.from('RIFF\x10\x00\x00\x00WEBPVP8 ', 'latin1')).ext).toBe('webp');
+    expect(validateUpload('IMG_2.HEIC', Buffer.from('\x00\x00\x00\x18ftypheic\x00\x00', 'latin1')).ext).toBe('heic');
+    expect(() => validateUpload('fake.png', Buffer.from('MZ\x90\x00'))).toThrow(/δεν είναι έγκυρο/);
+  });
   it('απορρίπτει μη επιτρεπτή κατάληξη με ελληνικό μήνυμα', () => {
     expect(() => validateUpload('virus.exe', Buffer.from('MZ'))).toThrow(/δεν επιτρέπεται/);
     expect(() => validateUpload('photo.jpg', Buffer.from([0xff, 0xd8]))).toThrow(EntityFileError);

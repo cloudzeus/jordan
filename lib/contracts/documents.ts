@@ -15,6 +15,7 @@ import {
   type ContractDoc, type ContractKind, type PromptGuide,
 } from './core';
 import { ContractError } from './service';
+import { floorPlanForDocument } from '@/lib/floorplan/plans';
 
 const SUBFOLDER = 'Συμβάσεις';
 
@@ -43,6 +44,14 @@ const toPromptGuide = (g: { item: string; guide: InstallGuide }): PromptGuide =>
   safety: g.guide.safety, checks: g.guide.qualityChecks,
 });
 
+/** Οι χώροι της χαρτογράφησης στην περίληψη προς το AI (αν δεν τους έχει ήδη) — για οδηγίες ανά χώρο. */
+function withRooms(summary: string, fp: Awaited<ReturnType<typeof floorPlanForDocument>>): string {
+  if (!fp?.rows.length || /Χώροι \(\d+\):/.test(summary)) return summary;
+  const n = (x: number) => x.toLocaleString('el-GR', { maximumFractionDigits: 2 });
+  const rows = fp.rows.map((r) => `• ${r.name}: δάπεδο ${n(r.floorM2)} m²${r.walls ? ` · τοίχοι ${n(r.walls.netM2)} m² (ύψος ${n(r.walls.heightM)} m${r.walls.openings ? `, ανοίγματα ${r.walls.openings}` : ''})` : ''}${r.material ? ` · ${r.material}` : ''}`);
+  return [summary, '', `Χώροι κάτοψης «${fp.title}»:`, ...rows].join('\n').trim();
+}
+
 /** Νέα έκδοση εγγράφου για τον πελάτη (partyId = null) ή για ένα συνεργείο. */
 export async function generateDocument(contractId: string, partyId: string | null, user: User) {
   const c = await prisma.contract.findUnique({
@@ -60,11 +69,12 @@ export async function generateDocument(contractId: string, partyId: string | nul
   if (party && !lines.length) throw new ContractError(`Δεν έχουν ανατεθεί γραμμές στο «${party.name}»`, 409);
   const milestones = c.milestones.filter((m) => (party ? m.partyId === party.id : !m.partyId));
 
-  const [brand, trader, guides, partyTrader] = await Promise.all([
+  const [brand, trader, guides, partyTrader, floorPlan] = await Promise.all([
     emailBrand(),
     c.trdr ? prisma.softoneTrader.findUnique({ where: { trdr: c.trdr }, select: { name: true, afm: true, address: true, zip: true, city: true, email: true, phone: true } }) : null,
     itemGuides([...new Set(lines.map((l) => l.mtrl).filter((x): x is number => x != null))]),
     party?.trdr ? prisma.softoneTrader.findUnique({ where: { trdr: party.trdr }, select: { address: true, zip: true, city: true } }) : null,
+    floorPlanForDocument(c.floorPlanId),
   ]);
   const t = totals(c.lines, c.vatRate);
   const fee = party ? crewTotal(c.lines, party.id) : 0;
@@ -76,7 +86,7 @@ export async function generateDocument(contractId: string, partyId: string | nul
     company: { name: brand.name, legalName: brand.legalName, vat: brand.vat, address: brand.address },
     customer: { name: customerName, afm: trader?.afm },
     party: party ? { name: party.name, afm: party.afm, specialty: party.specialty, scope: party.scope } : null,
-    title: c.title, summary: c.summary, site,
+    title: c.title, summary: withRooms(c.summary, floorPlan), site,
     startDate: c.startDate?.toISOString().slice(0, 10) ?? null, endDate: c.endDate?.toISOString().slice(0, 10) ?? null,
     validUntil: c.validUntil?.toISOString().slice(0, 10) ?? null,
     lines: lines.map((l) => ({ kind: l.kind, name: l.name, code: l.code, qty: l.qty, unit: l.unit, notes: l.notes })),
@@ -104,6 +114,7 @@ export async function generateDocument(contractId: string, partyId: string | nul
     totals: party ? { fee } : { ...t, vatRate: c.vatRate },
     milestones: milestones.map((m) => ({ title: m.title, deliverables: m.deliverables, dueDate: m.dueDate?.toISOString().slice(0, 10) ?? null, amount: m.amount })),
     doc, itemGuides: party ? guides : [],
+    floorPlan,
   };
   const pdf = await renderContractPdf(pdfData);
   const fileName = pdfFileName(c.number, c.stage, audience, version, party?.name);

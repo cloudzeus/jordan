@@ -39,6 +39,7 @@ export async function getContract(id: string) {
   const t = totals(c.lines, c.vatRate);
   return {
     id: c.id, number: c.number, ref: contractRef(c.number), title: c.title, summary: c.summary, kind: c.kind, stage: c.stage, status: c.status,
+    floorPlanId: c.floorPlanId,
     trdr: c.trdr, customer: trader ? { code: trader.code, name: trader.name, email: trader.email, phone: trader.phone, afm: trader.afm } : null,
     customerName: c.customerName, customerEmail: c.customerEmail, customerPhone: c.customerPhone,
     prjc: c.prjc, project: project ? { code: project.code, name: project.name } : null,

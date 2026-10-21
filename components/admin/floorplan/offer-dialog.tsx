@@ -12,14 +12,14 @@ import { Dialog, DialogBody, DialogContent, DialogDescription, DialogFooter, Dia
 import { cn } from '@/lib/utils';
 import { CONTRACT_KINDS, KIND_HINT, KIND_LABEL, eur, totals, type ContractKind } from '@/lib/contracts/core';
 import { parseDecimal, type OfferLineMode, type RecipeForOffer } from '@/lib/install-recipes-core';
-import { floorPlanOffer, roomNote, type FloorPlanItem, type FloorPlanRoom } from '@/lib/floorplan/offer-core';
+import { floorPlanOffer, roomNote, wallsNote, type FloorPlanItem, type FloorPlanRoom } from '@/lib/floorplan/offer-core';
 import type { RecipeView } from '@/lib/install-recipes';
 import type { RoomMaterial } from './offer-panel';
 
-export type OfferRoom = { name: string; areaM2: number; perimeterM: number | null; color: string; material: RoomMaterial | null };
+export type OfferRoom = { name: string; areaM2: number; perimeterM: number | null; color: string; material: RoomMaterial | null; wallsM2: number | null };
 export type OfferSubmit = {
   title: string; trdr: number | null; kind: ContractKind; validUntil: string | null; vatRate: number; terms: string | null;
-  markupPct: number; mode: OfferLineMode; attachPlan: boolean;
+  markupPct: number; mode: OfferLineMode; includeWalls: boolean;
 };
 type Customer = { trdr: number; name: string; code?: string | null; email?: string | null; city?: string | null };
 
@@ -79,13 +79,12 @@ function CustomerField({ value, onChange }: { value: Customer | null; onChange: 
   );
 }
 
-export function FloorPlanOfferDialog({ open, onOpenChange, prjc, rooms, recipes, canAttach, busy, onSubmit }: {
+export function FloorPlanOfferDialog({ open, onOpenChange, prjc, rooms, recipes, busy, onSubmit }: {
   open: boolean;
   onOpenChange: (o: boolean) => void;
   prjc: number;
   rooms: OfferRoom[];
   recipes: RecipeView[] | null;
-  canAttach: boolean;
   busy: boolean;
   onSubmit: (o: OfferSubmit) => void;
 }) {
@@ -99,7 +98,7 @@ export function FloorPlanOfferDialog({ open, onOpenChange, prjc, rooms, recipes,
   const [markup, setMarkup] = React.useState('');
   const [mode, setMode] = React.useState<OfferLineMode>('detailed');
   const [terms, setTerms] = React.useState('');
-  const [attach, setAttach] = React.useState(true);
+  const [includeWalls, setIncludeWalls] = React.useState(true);
   const [items, setItems] = React.useState<Map<number, FloorPlanItem>>(new Map());
 
   // Προεπιλογές έργου (μία φορά ανά άνοιγμα).
@@ -144,16 +143,17 @@ export function FloorPlanOfferDialog({ open, onOpenChange, prjc, rooms, recipes,
   const vatOk = Number.isFinite(vatN) && vatN >= 0 && vatN <= 100;
   const recipeMap = React.useMemo(() => new Map<string, RecipeForOffer>((recipes ?? []).map((r) => [r.id, r])), [recipes]);
   const fpRooms: FloorPlanRoom[] = rooms.map((r) => ({
-    name: r.name, areaM2: r.areaM2, perimeterM: r.perimeterM,
+    name: r.name, areaM2: r.areaM2, perimeterM: r.perimeterM, wallsM2: r.wallsM2,
     material: r.material ? (r.material.type === 'recipe' ? { type: 'recipe', recipeId: r.material.recipeId } : { type: 'item', mtrl: r.material.mtrl }) : null,
   }));
-  const preview = floorPlanOffer({ rooms: fpRooms, recipes: recipeMap, items, markupPct: markupOk ? markupN : 0, mode });
+  const preview = floorPlanOffer({ rooms: fpRooms, recipes: recipeMap, items, markupPct: markupOk ? markupN : 0, mode, includeWalls });
   const pricesLoading = mtrls.some((m) => !items.has(m));
   const effKind = kind ?? preview.kind;
   const t = totals(preview.lines.map((l) => ({ ...l, discount: 0 })), vatOk ? vatN : 0);
   const noMaterial = rooms.filter((r) => !r.material);
   const zeroPrice = preview.lines.filter((l) => !(l.unitPrice > 0));
   const totalArea = rooms.reduce((s, r) => s + r.areaM2, 0);
+  const totalWalls = rooms.reduce((s, r) => s + (r.wallsM2 ?? 0), 0);
 
   const errors = [
     !title.trim() && 'Δώστε τίτλο',
@@ -169,14 +169,15 @@ export function FloorPlanOfferDialog({ open, onOpenChange, prjc, rooms, recipes,
     if (errors.length || busy || pricesLoading) return;
     onSubmit({
       title: title.trim(), trdr: customer?.trdr ?? null, kind: effKind, validUntil: validUntil || null, vatRate: vatN,
-      terms: terms.trim() || null, markupPct: markupN, mode, attachPlan: canAttach && attach,
+      terms: terms.trim() || null, markupPct: markupN, mode, includeWalls,
     });
   };
 
   // Γραμμές ομαδοποιημένες ανά χώρο (η σημείωση ξεκινά με «Χώρος: … · m²»).
   const groups = rooms.filter((r) => r.material).map((r) => {
-    const note = roomNote({ name: r.name, areaM2: Math.round(r.areaM2 * 1000) / 1000 });
-    return { room: r, lines: preview.lines.filter((l) => l.notes === note || l.notes?.startsWith(`${note} — `)) };
+    const notes = [roomNote({ name: r.name, areaM2: Math.round(r.areaM2 * 1000) / 1000 })];
+    if (r.wallsM2) notes.push(wallsNote(r.name, Math.round(r.wallsM2 * 1000) / 1000));
+    return { room: r, lines: preview.lines.filter((l) => notes.some((n) => l.notes === n || l.notes?.startsWith(`${n} — `))) };
   });
 
   return (
@@ -259,19 +260,22 @@ export function FloorPlanOfferDialog({ open, onOpenChange, prjc, rooms, recipes,
                   className="w-full rounded-md border border-input bg-background px-3 py-2 text-[length:var(--fs-13)] outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50"
                 />
               </div>
-              {canAttach && (
-                <label className="flex cursor-pointer items-center gap-2 text-[length:var(--fs-12)]">
-                  <input type="checkbox" checked={attach} onChange={(e) => setAttach(e.target.checked)} className="size-4 cursor-pointer accent-[var(--primary)]" />
-                  Αποθήκευση κάτοψης (PNG + CSV) στα αρχεία του έργου
+              {totalWalls > 0 && (
+                <label className="flex cursor-pointer items-start gap-2 text-[length:var(--fs-12)]">
+                  <input type="checkbox" checked={includeWalls} onChange={(e) => setIncludeWalls(e.target.checked)} className="mt-0.5 size-4 cursor-pointer accent-[var(--primary)]" />
+                  <span>Και οι τοίχοι ({nf2.format(totalWalls)} m²) με το υλικό του χώρου, σε δικές τους γραμμές</span>
                 </label>
               )}
+              <p className="rounded-md border border-border bg-muted/40 px-3 py-2 text-[length:var(--fs-12)] text-muted-foreground">
+                Η χαρτογράφηση αποθηκεύεται στο έργο και επισυνάπτεται στην προσφορά: η κάτοψη με τους χώρους μπαίνει στο PDF του πελάτη και στις συμβάσεις/οδηγίες των συνεργείων.
+              </p>
             </section>
 
             {/* Προεπισκόπηση */}
             <section className="space-y-2">
               <div className="flex flex-wrap items-baseline justify-between gap-2">
                 <h3 className="text-[length:var(--fs-13)] font-semibold" style={{ color: '#047857' }}>Προεπισκόπηση</h3>
-                <span className="text-[length:var(--fs-12)] text-muted-foreground">{rooms.length} χώροι · {nf2.format(totalArea)} m² · {preview.lines.length} γραμμές</span>
+                <span className="text-[length:var(--fs-12)] text-muted-foreground">{rooms.length} χώροι · {nf2.format(totalArea)} m²{totalWalls > 0 ? ` + τοίχοι ${nf2.format(totalWalls)} m²` : ''} · {preview.lines.length} γραμμές</span>
               </div>
               {noMaterial.length > 0 && (
                 <p className="flex items-start gap-1.5 rounded-md border px-3 py-2 text-[length:var(--fs-12)]" style={{ borderColor: '#FDBA74', background: '#FFF7ED', color: '#9A3412' }}>
@@ -301,7 +305,7 @@ export function FloorPlanOfferDialog({ open, onOpenChange, prjc, rooms, recipes,
                       <tr className="bg-muted/20">
                         <td colSpan={5} className="px-2.5 py-1.5 font-semibold">
                           <span className="mr-1.5 inline-block size-2.5 rounded-sm align-middle" style={{ background: room.color }} aria-hidden />
-                          {room.name} <span className="font-normal text-muted-foreground">· {nf2.format(room.areaM2)} m²{room.material ? ` · ${room.material.type === 'recipe' ? 'συνταγή' : 'είδος'}: ${room.material.label}` : ''}</span>
+                          {room.name} <span className="font-normal text-muted-foreground">· {nf2.format(room.areaM2)} m²{includeWalls && room.wallsM2 ? ` + τοίχοι ${nf2.format(room.wallsM2)} m²` : ''}{room.material ? ` · ${room.material.type === 'recipe' ? 'συνταγή' : 'είδος'}: ${room.material.label}` : ''}</span>
                         </td>
                       </tr>
                       {lines.length === 0 ? (
@@ -310,7 +314,11 @@ export function FloorPlanOfferDialog({ open, onOpenChange, prjc, rooms, recipes,
                         <tr key={i}>
                           <td className="max-w-0 px-2.5 py-1.5" title={l.notes ?? undefined}>
                             <span className="block truncate">{l.name}</span>
-                            {l.notes?.includes(' — ') && <span className="block truncate text-[length:var(--fs-11)] text-muted-foreground">{l.notes.split(' — ').slice(1).join(' — ')}</span>}
+                            {(room.wallsM2 || l.notes?.includes(' — ')) && (
+                              <span className="block truncate text-[length:var(--fs-11)] text-muted-foreground">
+                                {[room.wallsM2 ? (l.notes?.includes(' · τοίχοι ') ? 'Τοίχοι' : 'Δάπεδο') : null, l.notes?.includes(' — ') ? l.notes.split(' — ').slice(1).join(' — ') : null].filter(Boolean).join(' · ')}
+                              </span>
+                            )}
                           </td>
                           <td className="whitespace-nowrap px-2.5 py-1.5 text-muted-foreground">{l.kind === 'SERVICE' ? 'Υπηρεσία' : 'Υλικό'}</td>
                           <td className="whitespace-nowrap px-2.5 py-1.5 text-right tabular-nums">{qtyFmt.format(l.qty)}{l.unit ? ` ${l.unit}` : ''}</td>

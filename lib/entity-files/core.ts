@@ -6,7 +6,7 @@ export type EntityType = 'TRADER' | 'PROJECT';
 /** 100 MB — τα DWG μεγάλων έργων ξεπερνούν άνετα τα 20–30 MB. */
 export const MAX_ENTITY_FILE_BYTES = 100 * 1024 * 1024;
 
-export type FileFamily = 'cad' | 'pdf' | 'excel' | 'word';
+export type FileFamily = 'cad' | 'pdf' | 'excel' | 'word' | 'image';
 
 export interface FileTypeDef {
   ext: string;
@@ -26,13 +26,19 @@ export const FILE_TYPES: FileTypeDef[] = [
   { ext: 'csv', family: 'excel', label: 'CSV', mime: 'text/csv' },
   { ext: 'doc', family: 'word', label: 'Word 97–2003', mime: 'application/msword' },
   { ext: 'docx', family: 'word', label: 'Word', mime: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' },
+  // Εικόνες: φωτογραφίες σχεδίων/κατόψεων (συνήθως από κινητό) και οι εικόνες της χαρτογράφησης κάτοψης.
+  { ext: 'png', family: 'image', label: 'Εικόνα PNG', mime: 'image/png' },
+  { ext: 'jpg', family: 'image', label: 'Εικόνα JPG', mime: 'image/jpeg' },
+  { ext: 'jpeg', family: 'image', label: 'Εικόνα JPG', mime: 'image/jpeg' },
+  { ext: 'webp', family: 'image', label: 'Εικόνα WebP', mime: 'image/webp' },
+  { ext: 'heic', family: 'image', label: 'Φωτογραφία HEIC (iPhone)', mime: 'image/heic' },
 ];
 
 const BY_EXT = new Map(FILE_TYPES.map((t) => [t.ext, t]));
 
 /** Για το `accept` του input/dropzone. */
 export const ACCEPT_EXTENSIONS = FILE_TYPES.map((t) => `.${t.ext}`);
-export const ALLOWED_HINT = 'AutoCAD (DWG, DXF, DWF), PDF, Excel (XLS, XLSX, CSV), Word (DOC, DOCX) · έως 100 MB';
+export const ALLOWED_HINT = 'AutoCAD (DWG, DXF, DWF), PDF, Excel (XLS, XLSX, CSV), Word (DOC, DOCX), εικόνες/φωτογραφίες (PNG, JPG, WebP, HEIC) · έως 100 MB';
 
 /** Προτεινόμενοι υποφάκελοι — ο χρήστης φτιάχνει κι άλλους. */
 export const DEFAULT_SUBFOLDERS = ['Σχέδια', 'Προσφορές', 'Συμβάσεις'];
@@ -78,6 +84,11 @@ export function matchesSignature(ext: string, b: Buffer): boolean {
     case 'xlsx': return startsWith(b, ZIP) && b.includes(Buffer.from('xl/'));
     case 'docx': return startsWith(b, ZIP) && b.includes(Buffer.from('word/'));
     case 'csv': return looksText(b) && !startsWith(b, '%PDF') && !startsWith(b, ZIP);
+    case 'png': return startsWith(b, Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]));
+    case 'jpg': case 'jpeg': return startsWith(b, Buffer.from([0xff, 0xd8, 0xff]));
+    case 'webp': return startsWith(b, 'RIFF') && b.subarray(8, 12).toString('latin1') === 'WEBP';
+    // HEIF/HEIC: κουτί «ftyp» στο byte 4 με brand heic/heix/mif1/msf1…
+    case 'heic': return b.subarray(4, 8).toString('latin1') === 'ftyp' && /^(heic|heix|hevc|heim|heis|mif1|msf1)$/.test(b.subarray(8, 12).toString('latin1'));
     default: return false;
   }
 }

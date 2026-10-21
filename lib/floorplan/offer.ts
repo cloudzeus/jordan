@@ -5,13 +5,14 @@ import { getRecipe, type RecipeView } from '@/lib/install-recipes';
 import { getProjectSite } from '@/lib/project-site';
 import { ContractError, createContract, itemDefaults } from '@/lib/contracts/service';
 import { CONTRACT_KINDS, contractInput } from '@/lib/contracts/core';
-import { floorPlanOffer, floorPlanSummary, type FloorPlanItem } from './offer-core';
+import { floorPlanOffer, floorPlanSummary, type FloorPlanItem, type FloorPlanRoom } from './offer-core';
 
 export const floorPlanOfferInput = z.object({
   rooms: z.array(z.object({
     name: z.string().trim().min(1).max(120),
     areaM2: z.number().finite().min(0).max(1e6),
     perimeterM: z.number().finite().min(0).max(1e6).nullable(),
+    wallsM2: z.number().finite().min(0).max(1e6).nullish().transform((v) => v ?? null),
     material: z.discriminatedUnion('type', [
       z.object({ type: z.literal('recipe'), recipeId: z.string().min(1).max(64) }),
       z.object({ type: z.literal('item'), mtrl: z.number().int().positive() }),
@@ -28,6 +29,9 @@ export const floorPlanOfferInput = z.object({
   validUntil: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullish().transform((v) => v || null),
   vatRate: z.number().finite().min(0).max(100).default(24),
   terms: z.string().trim().max(20_000).nullish().transform((v) => v || null),
+  includeWalls: z.boolean().default(true),
+  /** Η αποθηκευμένη χαρτογράφηση (κάτοψη & χώροι στο PDF πελάτη και συνεργείων). */
+  floorPlanId: z.string().min(1).max(64).nullish().transform((v) => v ?? null),
 });
 export type FloorPlanOfferInput = z.infer<typeof floorPlanOfferInput>;
 
@@ -64,11 +68,15 @@ export async function createFloorPlanOffer(prjc: number, input: FloorPlanOfferIn
   const items = new Map<number, FloorPlanItem>();
   for (const mtrl of mtrls) { const it = await itemDefaults(mtrl); if (it) items.set(mtrl, { mtrl, code: it.code, name: it.name, price: it.price }); }
 
-  const { lines, kind: autoKind, missing } = floorPlanOffer({ rooms: input.rooms, recipes, items, markupPct: input.markupPct, mode: input.mode });
+  if (input.floorPlanId) {
+    const fp = await prisma.floorPlan.findUnique({ where: { id: input.floorPlanId }, select: { prjc: true } });
+    if (!fp || fp.prjc !== prjc) throw new ContractError('Η χαρτογράφηση δεν βρέθηκε σε αυτό το έργο', 404);
+  }
+  const { lines, kind: autoKind, missing } = floorPlanOffer({ rooms: input.rooms, recipes, items, markupPct: input.markupPct, mode: input.mode, includeWalls: input.includeWalls });
   if (missing.length) throw new ContractError(`Δεν βρέθηκε το υλικό/η συνταγή για: ${missing.join(', ')}`, 404);
   if (!lines.length) throw new ContractError('Διαλέξτε υλικό ή συνταγή σε τουλάχιστον έναν χώρο', 400);
 
-  const label = (r: FloorPlanOfferInput['rooms'][number]) => {
+  const label = (r: FloorPlanRoom) => {
     if (!r.material) return null;
     if (r.material.type === 'recipe') { const x = recipes.get(r.material.recipeId); return x ? x.mtrlName || x.name : null; }
     return items.get(r.material.mtrl)?.name ?? null;
@@ -86,6 +94,6 @@ export async function createFloorPlanOffer(prjc: number, input: FloorPlanOfferIn
     lines: lines.map((l) => ({ ...l, discount: 0, partyKey: null, crewFee: null })),
   });
   const id = await createContract(parsed, userId);
-  await prisma.contract.update({ where: { id }, data: { prjc } });
+  await prisma.contract.update({ where: { id }, data: { prjc, floorPlanId: input.floorPlanId } });
   return { id, lines: lines.length, kind: input.kind ?? autoKind };
 }
