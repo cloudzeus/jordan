@@ -17,6 +17,7 @@ import {
 import { confirmAction } from '@/components/ui/confirm-dialog';
 import { canTransition, type ContractAction } from '@/lib/contracts/core';
 import type { ContractView } from '@/lib/contracts/service';
+import { contractTransitionAction, createPrjcAction, deleteContractAction, linkProjectAction, previewPrjcAction } from '../actions';
 
 const ITEM = 'cursor-pointer gap-2 text-(length:--fs-12)';
 
@@ -38,23 +39,20 @@ export function ContractActions({ contract: c }: { contract: ContractView }) {
   const run = async (a: (typeof ACTIONS)[number]) => {
     if (a.confirm && !(await confirmAction(a.confirm))) return;
     setBusy(true);
-    const r = await fetch(`/api/admin/contracts/${c.id}/action`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: a.action }) });
+    const r = await contractTransitionAction(c.id, a.action);
     setBusy(false);
-    const b = await r.json().catch(() => ({}));
-    if (!r.ok) { toast.error(b.message ?? 'Η ενέργεια απέτυχε'); return; }
+    if (!r.ok) { toast.error(r.message); return; }
     // Αποδοχή προσφοράς πελάτη χωρίς έργο: αμέσως η δημιουργία του έργου στον πελάτη (με επιβεβαίωση
     // πριν γραφτεί οτιδήποτε στο SoftOne).
     if (a.action === 'accept' && !c.prjc && c.trdr) {
       toast.success('Η προσφορά έγινε αποδεκτή — δημιούργησε τώρα το έργο στον πελάτη');
       setCreate(true);
     } else toast.success(a.action === 'activate' ? 'Ενεργοποιήθηκε — οι εργασίες μπήκαν στο έργο και στο ημερολόγιο' : 'Ενημερώθηκε');
-    router.refresh();
   };
   const remove = async () => {
     if (!(await confirmAction(`Διαγραφή της ${c.ref} «${c.title}»;\nΤα PDF μένουν στα αρχεία.`))) return;
-    const r = await fetch(`/api/admin/contracts/${c.id}`, { method: 'DELETE' });
-    const b = await r.json().catch(() => ({}));
-    if (!r.ok) { toast.error(b.message ?? 'Δεν διαγράφηκε'); return; }
+    const r = await deleteContractAction(c.id);
+    if (!r.ok) { toast.error(r.message); return; }
     toast.success('Διαγράφηκε');
     router.push('/admin/projects/contracts');
   };
@@ -90,7 +88,6 @@ export function ContractActions({ contract: c }: { contract: ContractView }) {
 }
 
 function LinkDialog({ open, onOpenChange, contract: c }: { open: boolean; onOpenChange: (o: boolean) => void; contract: ContractView }) {
-  const router = useRouter();
   const [q, setQ] = React.useState('');
   const [opts, setOpts] = React.useState<{ prjc: number; code: string; name: string }[]>([]);
   const [busy, setBusy] = React.useState(false);
@@ -105,13 +102,11 @@ function LinkDialog({ open, onOpenChange, contract: c }: { open: boolean; onOpen
   }, [q, open, c.customerName]);
   const pick = async (prjc: number) => {
     setBusy(true);
-    const r = await fetch(`/api/admin/contracts/${c.id}/softone`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mode: 'link', prjc }) });
+    const r = await linkProjectAction(c.id, prjc);
     setBusy(false);
-    const b = await r.json().catch(() => ({}));
-    if (!r.ok) { toast.error(b.message ?? 'Δεν συνδέθηκε'); return; }
+    if (!r.ok) { toast.error(r.message); return; }
     toast.success('Συνδέθηκε με το έργο — τα PDF αντιγράφηκαν στα αρχεία του');
     onOpenChange(false);
-    router.refresh();
   };
   return (
     <Dialog open={open} onOpenChange={(o) => !busy && onOpenChange(o)}>
@@ -144,7 +139,6 @@ function LinkDialog({ open, onOpenChange, contract: c }: { open: boolean; onOpen
 
 /** Δημιουργία PRJC: πρώτα προεπισκόπηση (dry-run), μετά ρητή επιβεβαίωση με checkbox. */
 function CreatePrjcDialog({ open, onOpenChange, contract: c }: { open: boolean; onOpenChange: (o: boolean) => void; contract: ContractView }) {
-  const router = useRouter();
   const [plan, setPlan] = React.useState<{ code: string; payload: unknown } | null>(null);
   const [error, setError] = React.useState<string | null>(null);
   const [agree, setAgree] = React.useState(false);
@@ -158,21 +152,18 @@ function CreatePrjcDialog({ open, onOpenChange, contract: c }: { open: boolean; 
   React.useEffect(() => {
     if (!open) return;
     void (async () => {
-      const r = await fetch(`/api/admin/contracts/${c.id}/softone`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mode: 'create' }) });
-      const b = await r.json().catch(() => ({}));
-      if (!r.ok) setError(b.message ?? 'Δεν ετοιμάστηκε η προεπισκόπηση'); else setPlan({ code: b.code, payload: b.payload });
+      const r = await previewPrjcAction(c.id);
+      if (!r.ok) setError(r.message); else setPlan(r.data);
     })();
   }, [open, c.id]);
   const go = async () => {
     if (!plan) return;
     setBusy(true);
-    const r = await fetch(`/api/admin/contracts/${c.id}/softone`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mode: 'create', confirm: true, code: plan.code }) });
+    const r = await createPrjcAction(c.id, plan.code);
     setBusy(false);
-    const b = await r.json().catch(() => ({}));
-    if (!r.ok) { setError(b.message ?? 'Η δημιουργία απέτυχε'); return; }
-    toast.success(`Δημιουργήθηκε το έργο ${b.created.code} στο SoftOne`);
+    if (!r.ok) { setError(r.message); return; }
+    toast.success(`Δημιουργήθηκε το έργο ${r.data.code} στο SoftOne`);
     onOpenChange(false);
-    router.refresh();
   };
   return (
     <Dialog open={open} onOpenChange={(o) => !busy && onOpenChange(o)}>

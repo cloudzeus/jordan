@@ -24,6 +24,7 @@ import type { ContractView } from '@/lib/contracts/service';
 import { ProjectSiteDialog, type ProjectSiteValue } from '../project-site-dialog';
 import type { OfferLine } from '@/lib/install-recipes-core';
 import { RecipeLinesDialog } from './recipe-lines-dialog';
+import { itemDefaultsAction, saveContractAction } from './actions';
 
 // ── Τύποι κατάστασης φόρμας (ίδιο σχήμα με το contractInput του server) ─────────────────────────
 type Line = { uid: string; kind: 'MATERIAL' | 'SERVICE'; mtrl: number | null; code: string | null; name: string; unit: string | null; qty: number; unitPrice: number; discount: number; notes: string | null; partyKey: string | null; crewFee: number | null };
@@ -274,8 +275,8 @@ export function ContractEditor({ initial, staff, readOnly = false, customer = nu
     const line: Line = { uid: uid(), kind, mtrl: pick.id, code: pick.code, name: pick.name, unit: null, qty: 1, unitPrice: 0, discount: 0, notes: null, partyKey: null, crewFee: null };
     up((p) => ({ lines: [...p.lines, line] }));
     setAdding(null);
-    const r = await fetch(`/api/admin/contracts/options?kind=item&mtrl=${pick.id}`).then((x) => x.json()).catch(() => null);
-    if (r?.item) setLine(line.uid, { unit: r.item.unit, unitPrice: r.item.price ?? 0 });
+    const item = await itemDefaultsAction(pick.id).catch(() => null);
+    if (item) setLine(line.uid, { unit: item.unit, unitPrice: item.price ?? 0 });
   };
   const addFromRecipe = (lines: OfferLine[], recipeName: string) => {
     up((p) => ({ lines: [...p.lines, ...lines.map((l) => ({ ...l, uid: uid(), discount: 0, partyKey: null, crewFee: null }))] }));
@@ -308,15 +309,13 @@ export function ContractEditor({ initial, staff, readOnly = false, customer = nu
   const save = async () => {
     setSaving(true);
     try {
-      const res = await fetch(initial ? `/api/admin/contracts/${initial.id}` : '/api/admin/contracts', {
-        method: initial ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(toPayload(s)),
-      });
-      const b = await res.json().catch(() => ({}));
-      if (!res.ok) { toast.error(b.message ?? 'Η αποθήκευση απέτυχε'); return; }
-      if (b.contract) setS(fromView(b.contract));
+      // Server Action: αποθήκευση + revalidate στον server — χωρίς fetch/router.refresh.
+      const res = await saveContractAction(initial?.id ?? null, toPayload(s));
+      if (!res.ok) { toast.error(res.message); return; }
+      if (initial && res.data.contract) setS(fromView(res.data.contract));
       setDirty(false);
       toast.success(initial ? 'Αποθηκεύτηκε' : 'Το έργο δημιουργήθηκε — συνέχισε με τα έγγραφα');
-      if (initial) router.refresh(); else router.push(`/admin/projects/contracts/${b.id}`);
+      if (!initial) router.push(`/admin/projects/contracts/${res.data.id}`);
     } finally {
       setSaving(false);
     }

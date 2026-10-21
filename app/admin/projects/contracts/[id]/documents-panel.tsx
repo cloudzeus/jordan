@@ -18,6 +18,7 @@ import {
 import { cn } from '@/lib/utils';
 import { crewTotal, docTitle, eur } from '@/lib/contracts/core';
 import type { ContractView } from '@/lib/contracts/service';
+import { sendDocumentAction } from '../actions';
 
 type Doc = ContractView['documents'][number];
 const ITEM = 'cursor-pointer gap-2 text-(length:--fs-12)';
@@ -116,7 +117,6 @@ export function DocumentsPanel({ contract: c, canManage }: { contract: ContractV
 
 /** Αποστολή: προεπιλεγμένος παραλήπτης ο αποδέκτης του εγγράφου, αλλά επιτρέπεται οποιοσδήποτε (πελάτης / συνεργείο / άλλο email). */
 function SendDialog({ doc, onClose, contract: c }: { doc: Doc | null; onClose: () => void; contract: ContractView }) {
-  const router = useRouter();
   const recipients = [
     ...(c.customerEmail ? [{ label: `Πελάτης · ${c.customer?.name ?? c.customerName}`, email: c.customerEmail }] : []),
     ...c.parties.filter((p) => p.email).map((p) => ({ label: `Συνεργείο · ${p.name}`, email: p.email! })),
@@ -136,13 +136,11 @@ function SendDialog({ doc, onClose, contract: c }: { doc: Doc | null; onClose: (
   const go = async () => {
     if (!doc) return;
     setBusy(true);
-    const r = await fetch(`/api/admin/contracts/${c.id}/documents/${doc.id}/send`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ to, message }) });
+    const r = await sendDocumentAction(c.id, doc.id, { to, message });
     setBusy(false);
-    const b = await r.json().catch(() => ({}));
-    if (!r.ok) { toast.error(b.message ?? 'Η αποστολή απέτυχε'); return; }
-    toast.success(b.result === 'skipped' ? 'Δοκιμαστική λειτουργία — το email δεν στάλθηκε πραγματικά' : `Στάλθηκε στο ${to}`);
+    if (!r.ok) { toast.error(r.message); return; }
+    toast.success(r.data.result === 'skipped' ? 'Δοκιμαστική λειτουργία — το email δεν στάλθηκε πραγματικά' : `Στάλθηκε στο ${to}`);
     onClose();
-    router.refresh();
   };
   return (
     <Dialog open={!!doc} onOpenChange={(o) => !o && !busy && onClose()}>

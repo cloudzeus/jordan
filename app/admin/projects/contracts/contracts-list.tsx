@@ -14,6 +14,7 @@ import { cn } from '@/lib/utils';
 import { KIND_LABEL, STAGE_LABEL, STATUS_LABEL, dayEl, eur, type ContractKind, type ContractStatus } from '@/lib/contracts/core';
 import type { ContractListRow } from '@/lib/contracts/service';
 import { StatusBadge } from './status-badge';
+import { deleteContractAction } from './actions';
 
 const FILTERS: { key: string; label: string; test: (r: ContractListRow) => boolean }[] = [
   { key: 'open', label: 'Ανοιχτές', test: (r) => !['COMPLETED', 'CANCELLED'].includes(r.status) },
@@ -37,11 +38,9 @@ export function ContractsList({ rows, canManage }: { rows: ContractListRow[]; ca
 
   const remove = async (r: ContractListRow) => {
     if (!(await confirmAction(`Διαγραφή της ${STAGE_LABEL[r.stage]?.toLowerCase() ?? 'σύμβασης'} ${r.ref} «${r.title}»;\nΤα PDF μένουν στα αρχεία.`))) return;
-    const res = await fetch(`/api/admin/contracts/${r.id}`, { method: 'DELETE' });
-    const b = await res.json().catch(() => ({}));
-    if (!res.ok) { toast.error(b.message ?? 'Δεν διαγράφηκε'); return; }
+    const res = await deleteContractAction(r.id);
+    if (!res.ok) { toast.error(res.message); return; }
     toast.success('Διαγράφηκε');
-    router.refresh();
   };
 
   return (

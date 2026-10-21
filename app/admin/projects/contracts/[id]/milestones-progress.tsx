@@ -1,25 +1,22 @@
 'use client';
 
 import * as React from 'react';
-import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { FiCheckCircle, FiCircle, FiDollarSign, FiFlag } from 'react-icons/fi';
 import { cn } from '@/lib/utils';
 import { MILESTONE_STATUS_LABEL, dayEl, eur } from '@/lib/contracts/core';
 import type { ContractView } from '@/lib/contracts/service';
+import { setMilestoneAction } from '../actions';
 
 /** Πρόοδος milestones σύμβασης σε εξέλιξη: παραδόθηκε / εξοφλήθηκε (ενημερώνει και το task του έργου). */
 export function MilestonesProgress({ contract: c, canManage }: { contract: ContractView; canManage: boolean }) {
-  const router = useRouter();
   const [busy, setBusy] = React.useState<string | null>(null);
   const partyName = new Map(c.parties.map((p) => [p.key, p.name]));
   const set = async (mid: string, status: 'PENDING' | 'DONE' | 'PAID') => {
     setBusy(mid);
-    const r = await fetch(`/api/admin/contracts/${c.id}/milestones/${mid}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status }) });
+    const r = await setMilestoneAction(c.id, mid, status);
     setBusy(null);
-    const b = await r.json().catch(() => ({}));
-    if (!r.ok) { toast.error(b.message ?? 'Δεν ενημερώθηκε'); return; }
-    router.refresh();
+    if (!r.ok) toast.error(r.message);
   };
   const done = c.milestones.filter((m) => m.status !== 'PENDING').length;
   return (
