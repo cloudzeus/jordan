@@ -439,6 +439,8 @@ export function TraderExpandPanel({ trader, canManage, canFiles = false, onActio
   const [loading, setLoading] = React.useState(false);
   const [people, setPeople] = React.useState<number | null>(null);
   const isCustomer = trader.sodtype === 13;
+  // Πρόσωπα & πρόσβαση: πελάτες → B2B portal· προμηθευτές (συνεργεία) → portal συνεργείου.
+  const hasPeople = isCustomer || trader.sodtype === 12;
   const load = React.useCallback(async () => {
     setLoading(true); setError(null);
     try {
@@ -468,7 +470,7 @@ export function TraderExpandPanel({ trader, canManage, canFiles = false, onActio
       <div className="flex items-center gap-2 border-b border-border">
         <TabsList variant="line" className="h-auto! min-h-9 flex-wrap min-w-0 flex-1 justify-start gap-0 p-0">
           <TabsTrigger value="details" className={TRIGGER} style={{ ['--tab-tone' as string]: TONE.info }}><FiInfo className="hidden size-3.5 sm:inline" aria-hidden /> Στοιχεία</TabsTrigger>
-          {isCustomer && <TabsTrigger value="people" className={TRIGGER} style={{ ['--tab-tone' as string]: TONE.people }}><FiUsers className="hidden size-3.5 sm:inline" aria-hidden /> Πρόσωπα & πρόσβαση <Badge n={people} tone={TONE.people} /></TabsTrigger>}
+          {hasPeople && <TabsTrigger value="people" className={TRIGGER} style={{ ['--tab-tone' as string]: TONE.people }}><FiUsers className="hidden size-3.5 sm:inline" aria-hidden /> Πρόσωπα & πρόσβαση <Badge n={people} tone={TONE.people} /></TabsTrigger>}
           <TabsTrigger value="map" className={TRIGGER} style={{ ['--tab-tone' as string]: TONE.map }}><FiMap className="hidden size-3.5 sm:inline" aria-hidden /> Χάρτης</TabsTrigger>
           <TabsTrigger value="ledger" className={TRIGGER} style={{ ['--tab-tone' as string]: TONE.ledger }}><FiBookOpen className="hidden size-3.5 sm:inline" aria-hidden /> Καρτέλα <Badge n={data?.ledger.length ?? null} tone={TONE.ledger} /></TabsTrigger>
           <TabsTrigger value="projects" className={TRIGGER} style={{ ['--tab-tone' as string]: TONE.projects }}><FiBriefcase className="hidden size-3.5 sm:inline" aria-hidden /> Έργα <Badge n={data?.projects.length ?? null} tone={TONE.projects} /></TabsTrigger>
@@ -484,7 +486,7 @@ export function TraderExpandPanel({ trader, canManage, canFiles = false, onActio
         </button>
       </div>
       <TabsContent value="details"><DetailsTab t={trader} canManage={canManage} onAction={onAction} /></TabsContent>
-      {isCustomer && (
+      {hasPeople && (
         <TabsContent value="people" forceMount className="data-[state=inactive]:hidden">
           <CustomerContactsPanel trdr={trader.trdr} customer={trader.name} defaultEmail={trader.email?.split(';').map((x) => x.trim()).find(Boolean) ?? null} canManage={canManage} onCount={setPeople} />
         </TabsContent>

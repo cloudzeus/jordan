@@ -7,10 +7,11 @@ import { NewUserButton } from './new-user-button';
 
 export default async function AdminUsersPage() {
   await requirePermission('users.read');
-  const [users, roles, canLinkSoftone] = await Promise.all([
+  const [users, roles, canLinkSoftone, canViewAs] = await Promise.all([
     prisma.user.findMany({ include: { role: true }, orderBy: { createdAt: 'desc' } }),
     prisma.role.findMany({ orderBy: { order: 'asc' } }),
     hasPermission('users.softone_link'),
+    hasPermission('portal.view_as'),
   ]);
 
   const rows = users.map((u) => ({
@@ -37,9 +38,10 @@ export default async function AdminUsersPage() {
         icon={<FiUsers />}
         title="Χρήστες"
         description="Διαχείριση χρηστών, ανάθεση ρόλων και κατάσταση λογαριασμού."
+        helpAnchor="users"
         actions={<NewUserButton roles={roleOptions} />}
       />
-      <UsersTable rows={rows} roles={roleOptions} canLinkSoftone={canLinkSoftone} />
+      <UsersTable rows={rows} roles={roleOptions} canLinkSoftone={canLinkSoftone} canViewAs={canViewAs} />
     </div>
   );
 }

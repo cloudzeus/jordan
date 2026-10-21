@@ -9,7 +9,7 @@ export const date = (iso: string | null) => (iso ? new Date(`${iso.slice(0, 10)}
 export function PageTitle({ eyebrow, title, children, back }: { eyebrow: string; title: string; children?: React.ReactNode; back?: { href: string; label: string } }) {
   return (
     <div>
-      {back && <Link href={back.href} className="s-link inline-flex min-h-11 items-center text-(length:--fs-14) text-(--s-ink-2)">← {back.label}</Link>}
+      {back && <div><Link href={back.href} className="s-link inline-flex min-h-11 items-center text-(length:--fs-14) text-(--s-ink-2)">← {back.label}</Link></div>}
       <p className={cn('s-kicker text-(--s-accent)', back ? 'mt-3' : undefined)}>{eyebrow}</p>
       <h1 className="s-rise font-display mt-4 text-(length:--fs-48) lg:text-(length:--fs-64)">{title}</h1>
       {children && <div className="mt-4 max-w-2xl text-(length:--fs-16) text-(--s-ink-2)">{children}</div>}

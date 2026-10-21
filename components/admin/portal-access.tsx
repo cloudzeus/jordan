@@ -12,6 +12,7 @@ import { confirmAction } from '@/components/ui/confirm-dialog';
 import { Dialog, DialogBody, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { DropdownMenuItem, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { Field, FormSection, RowHint, fieldCls } from '@/components/admin/form-kit';
+import { useViewAs } from '@/components/admin/view-as-button';
 
 export type AccessKind = 'customer-contact' | 'partner-contact' | 'partner';
 export type AccessUser = { id: string; email: string; isActive: boolean; createdAt: string; lastLogin: string | null } | null;
@@ -148,6 +149,7 @@ export function AccessMenuItems({ kind, holderId, holderName, user, onGrant, onP
 }) {
   const run = async (fn: () => Promise<unknown>, ok: string) => { try { await fn(); toast.success(ok); onChanged(); } catch (e) { toast.error((e as Error).message); } };
   const url = `/api/admin/access/${kind}/${holderId}`;
+  const viewAs = useViewAs();
   if (!user) {
     return (
       <>
@@ -159,6 +161,7 @@ export function AccessMenuItems({ kind, holderId, holderName, user, onGrant, onP
   return (
     <>
       <DropdownMenuSeparator />
+      {user.isActive && <DropdownMenuItem className={ITEM} disabled={viewAs.pending} onSelect={() => viewAs.open(user.id)}><FiEye className="size-3.5" style={{ color: '#0369A1' }} aria-hidden /> Προβολή portal (ως {holderName})</DropdownMenuItem>}
       <DropdownMenuItem className={ITEM} onSelect={onPassword}><FiKey className="size-3.5" aria-hidden /> Αλλαγή κωδικού…</DropdownMenuItem>
       <DropdownMenuItem className={ITEM} onSelect={() => run(() => call(`${url}/welcome`, 'POST'), `Στάλθηκε email στο ${user.email}`)}><FiMail className="size-3.5" aria-hidden /> Email καλωσορίσματος ξανά</DropdownMenuItem>
       {user.isActive

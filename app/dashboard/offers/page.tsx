@@ -1,3 +1,4 @@
+import { redirect } from 'next/navigation';
 import type { Metadata } from 'next';
 import { requirePortalUser } from '@/lib/rbac';
 import { portalData } from '@/lib/portal-data';
@@ -11,6 +12,8 @@ export const metadata: Metadata = { title: 'Δυναμικές προσφορέ�
 /** Όλα τα κοινά container που στάλθηκαν στον πελάτη/συνεργάτη: ζωντανά πρώτα, μετά το ιστορικό. */
 export default async function OffersPage() {
   const user = await requirePortalUser();
+  // Τα κοινά container είναι για αγοραστές (πελάτες/συνεργάτες) — όχι για συνεργεία.
+  if (user.role.key === 'SUPPLIER') redirect('/dashboard/supplier');
   const data = await portalData(user);
   const open = data.offers.filter((o) => o.status === 'OPEN');
   const closed = data.offers.filter((o) => o.status === 'CLOSED');

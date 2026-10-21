@@ -107,6 +107,8 @@ model User {
   // Εξωτερικοί χρήστες (portal): ποιανού πελάτη (SoftOne TRDR) / συνεργάτη είναι — περιορίζει ό,τι βλέπουν.
   customerTrdr     Int?
   partnerId        String?
+  // Συνεργείο (ρόλος SUPPLIER): ο προμηθευτής SoftOne (TRDR, sodtype 12) — βλέπει μόνο τις δικές του αναθέσεις.
+  supplierTrdr     Int?
   // Προσωπικό: ο αντίστοιχος χρήστης του SoftOne (USERS.USERS) — εκεί καταχωρίζονται τα ραντεβού του (SOACTION.ACTOR).
   softoneUserId    Int?
   softoneUserName  String?
@@ -124,6 +126,7 @@ model User {
   @@index([roleId])
   @@index([customerTrdr])
   @@index([partnerId])
+  @@index([supplierTrdr])
 }
 
 model Account {

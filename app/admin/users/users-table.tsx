@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { ColumnDef } from '@tanstack/react-table';
 import {
   FiEdit2, FiTrash2, FiShield, FiCheck, FiX, FiMail,
-  FiAlertTriangle, FiKey, FiMoreVertical, FiUser, FiGlobe, FiLock, FiLink,
+  FiAlertTriangle, FiKey, FiMoreVertical, FiUser, FiGlobe, FiLock, FiLink, FiEye,
 } from 'react-icons/fi';
 import { toast } from 'sonner';
 import { DataTable } from '@/components/ui/data-table';
@@ -23,6 +23,7 @@ import {
 import { Field, FormSection, FormSelect, RowHint, fieldCls } from '@/components/admin/form-kit';
 import { LocaleMultiSelect } from '@/components/i18n/locale-multi-select';
 import { SoftoneLinkDialog, type LinkTarget } from './softone-link-dialog';
+import { useViewAs } from '@/components/admin/view-as-button';
 
 type UserRow = {
   id: string; email: string; name: string;
@@ -33,7 +34,8 @@ type UserRow = {
 };
 type RoleOpt = { id: string; name: string };
 
-export function UsersTable({ rows, roles, canLinkSoftone = false }: { rows: UserRow[]; roles: RoleOpt[]; canLinkSoftone?: boolean }) {
+export function UsersTable({ rows, roles, canLinkSoftone = false, canViewAs = false }: { rows: UserRow[]; roles: RoleOpt[]; canLinkSoftone?: boolean; canViewAs?: boolean }) {
+  const viewAs = useViewAs('/admin/users');
   const router = useRouter();
   const [linkUser, setLinkUser] = React.useState<LinkTarget | null>(null);
   const [editUser, setEditUser] = React.useState<UserRow | null>(null);
@@ -118,6 +120,11 @@ export function UsersTable({ rows, roles, canLinkSoftone = false }: { rows: User
               <DropdownMenuItem onClick={() => setPwUser(u)}>
                 <FiKey /> Αλλαγή κωδικού
               </DropdownMenuItem>
+              {canViewAs && !u.isStaff && u.isActive && (
+                <DropdownMenuItem disabled={viewAs.pending} onClick={() => viewAs.open(u.id)}>
+                  <FiEye /> Προβολή portal (ως ο χρήστης)
+                </DropdownMenuItem>
+              )}
               {canLinkSoftone && u.isStaff && (
                 <DropdownMenuItem onClick={() => setLinkUser({ id: u.id, name: u.name, email: u.email, softoneUserId: u.softoneUserId })}>
                   <FiLink /> Χρήστης SoftOne…

@@ -1,4 +1,4 @@
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import type { Metadata } from 'next';
 import { requirePortalUser } from '@/lib/rbac';
 import { portalOffer } from '@/lib/portal-data';
@@ -25,6 +25,8 @@ const loadOf = (name: string): 'stones' | 'boxes' | 'sacks' => {
  */
 export default async function OfferPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ p?: string }> }) {
   const user = await requirePortalUser();
+  // Τα κοινά container είναι για αγοραστές (πελάτες/συνεργάτες) — όχι για συνεργεία.
+  if (user.role.key === 'SUPPLIER') redirect('/dashboard/supplier');
   const [{ id }, sp] = await Promise.all([params, searchParams]);
   const data = await portalOffer(user, id);
   if (!data) notFound();
