@@ -187,7 +187,8 @@ export function UnitThumb({ kind, size = 40, className, title, src }: { kind: Un
   const [url, setUrl] = React.useState<string | null>(null);
   const [failed, setFailed] = React.useState(false);
   const [srcFailed, setSrcFailed] = React.useState(false);
-  React.useEffect(() => { setSrcFailed(false); }, [src]);
+  const [prevSrc, setPrevSrc] = React.useState(src);
+  if (src !== prevSrc) { setPrevSrc(src); setSrcFailed(false); }
   const custom = src && !srcFailed ? src : null;
   const iconOnly = kind === 'hour' || kind === 'service';
   React.useEffect(() => {

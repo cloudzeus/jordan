@@ -38,8 +38,14 @@ const fmt = (n: number, d = 0) => n.toLocaleString('el-GR', { maximumFractionDig
 function useTween(target: number, ms: number, enabled: boolean) {
   const [v, setV] = React.useState(enabled ? 0 : target);
   const from = React.useRef(v);
+  // Χωρίς κίνηση: κατευθείαν ο στόχος («adjust state while rendering»· αρχικό `[]` ⇒ και στο πρώτο render).
+  const [prevDeps, setPrevDeps] = React.useState<readonly unknown[]>([]);
+  if (prevDeps.length === 0 || !Object.is(prevDeps[0], target) || !Object.is(prevDeps[1], ms) || !Object.is(prevDeps[2], enabled)) {
+    setPrevDeps([target, ms, enabled]);
+    if (!enabled) setV(target);
+  }
   React.useEffect(() => {
-    if (!enabled) { setV(target); return; }
+    if (!enabled) return;
     const start = performance.now();
     const a = from.current;
     let raf = 0;
@@ -74,6 +80,7 @@ export function OfferShowcase(p: ShowcaseProps) {
 
   React.useEffect(() => {
     const r = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- προτίμηση reduced-motion (εξωτερικό σύστημα), μόνο στον browser
     setReduce(r);
     if (r) { setPlaying(false); setTarget(p.mode === 'demo' ? Math.round(p.capacity * 0.65) : p.filled); }
     const el = ref.current;
@@ -84,9 +91,15 @@ export function OfferShowcase(p: ShowcaseProps) {
   }, [p.mode, p.capacity, p.filled]);
 
   // live: όταν φανεί, ανεβαίνει στο πραγματικό γέμισμα. demo: +1 παλέτα ανά βήμα, ξανά από την αρχή.
+  const liveDeps = [inView, reduce, playing, p.mode, p.filled, p.capacity, demoStart];
+  const [prevLiveDeps, setPrevLiveDeps] = React.useState<readonly unknown[]>([]);
+  if (liveDeps.length !== prevLiveDeps.length || liveDeps.some((x, i) => !Object.is(x, prevLiveDeps[i]))) {
+    setPrevLiveDeps(liveDeps);
+    if (inView && !reduce && p.mode === 'live') setTarget(p.filled);
+  }
   React.useEffect(() => {
     if (!inView || reduce) return;
-    if (p.mode === 'live') { setTarget(p.filled); return; }
+    if (p.mode === 'live') return;
     if (!playing) return;
     const t = window.setInterval(() => setTarget((f) => (f >= p.capacity ? demoStart : Math.min(p.capacity, f + 1))), 1400);
     return () => window.clearInterval(t);

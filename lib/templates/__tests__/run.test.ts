@@ -78,9 +78,9 @@ const extractResult = (values: Record<string, FieldValue>, over: Record<string, 
   ({ values, model: 'gpt', tokensUsed: 42, errors: [] as { fieldKey: string; message: string }[], pageCount: 1, adaptive: [] as string[], ...over });
 
 /** Last `templateRun.create` payload. */
-const runData = () => db.templateRun.create.mock.calls.at(-1)![0].data as Record<string, any>;
+const runData = () => db.templateRun.create.mock.calls.at(-1)![0].data;
 /** Every `ocrDocument.update` payload. */
-const docUpdates = () => db.ocrDocument.update.mock.calls.map((c) => c[0].data as Record<string, any>);
+const docUpdates = () => db.ocrDocument.update.mock.calls.map((c) => c[0].data);
 
 beforeEach(() => {
   for (const m of [db.ocrDocument.findUnique, db.ocrDocument.update, db.extractionTemplate.findUnique, db.extractionTemplate.findFirst,
@@ -633,9 +633,9 @@ const loadRun = (run: Record<string, unknown> = runRow(), d: Record<string, unkn
 };
 
 /** Payload of the last `templateRun.update`. */
-const runUpdate = () => db.templateRun.update.mock.calls.at(-1)![0].data as Record<string, any>;
+const runUpdate = () => db.templateRun.update.mock.calls.at(-1)![0].data;
 /** The field list `extractTemplateFields` was asked to read. */
-const readFields = () => extract.mock.calls.at(-1)![2] as Record<string, any>[];
+const readFields = () => extract.mock.calls.at(-1)![2] as Record<string, unknown>[];
 
 describe('rereadField', () => {
   it('reads only that field, with the region the user drew, and leaves the other values alone', async () => {
@@ -923,7 +923,7 @@ describe('finalizeRunEdit', () => {
 describe('learning the last good position (spec §17.2)', () => {
   /** Every `templateField.update` payload, keyed by field key. */
   const learned = () => Object.fromEntries(
-    db.templateField.update.mock.calls.map((c) => [c[0].where.templateId_key.key, c[0].data.lastGood as Record<string, any>]),
+    db.templateField.update.mock.calls.map((c) => [c[0].where.templateId_key.key, c[0].data.lastGood as Record<string, unknown>]),
   );
 
   it('a field read in the widened box is flagged for review and named in the reason', async () => {

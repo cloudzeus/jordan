@@ -22,7 +22,7 @@ export interface VatTarget {
 function clean(raw: string): string {
   return String(raw ?? '')
     .toUpperCase()
-    .replace(/^[\s.:]*(?:Α\.?Φ\.?Μ\.?|VAT(?:\s*REG(?:\.|ISTRATION)?)?(?:\s*(?:NO|NUMBER|ID))?|TAX\s*(?:ID|NO)|USTID(?:NR)?|P\.?\s*IVA)\s*[.:\-]?/, '')
+    .replace(/^[\s.:]*(?:Α\.?Φ\.?Μ\.?|VAT(?:\s*REG(?:\.|ISTRATION)?)?(?:\s*(?:NO|NUMBER|ID))?|TAX\s*(?:ID|NO)|USTID(?:NR)?|P\.?\s*IVA)\s*[.:-]?/, '')
     .replace(/[^A-Z0-9]+/g, '')
     .replace(/(MWST|TVA|IVA|MVA)$/, '');
 }

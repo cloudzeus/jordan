@@ -39,7 +39,8 @@ export function TradersMap() {
     if (!r?.ok || !d?.points) { setError(d?.message ?? 'Το SoftOne δεν απάντησε.'); return; }
     setData(d);
   }, []);
-  React.useEffect(() => { load(); }, [load]);
+  // Το load ξεκινά σε microtask: τα setState του γίνονται σε callback, όχι σύγχρονα στο σώμα του effect.
+  React.useEffect(() => { void Promise.resolve().then(load); }, [load]);
 
   // Δημιουργία χάρτη (μία φορά).
   React.useEffect(() => {

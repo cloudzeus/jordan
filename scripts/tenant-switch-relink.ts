@@ -34,6 +34,21 @@ if (!file) throw new Error('Δώσε το αρχείο αντιγράφου ασ
 const APPLY = flag === '--apply';
 const B = JSON.parse(readFileSync(file, 'utf8'));
 
+/** Ό,τι διαβάζεται από τους παλιούς καθρέφτες του αντιγράφου (βλ. `tenant-switch-backup.ts`). */
+type OldRow<K extends string> = Record<K, number> & { code: string | null };
+type OldMirrors = {
+  traders: { trdr: number; afm: string | null; sodtype: number }[];
+  items: OldRow<'mtrl'>[];
+  lineitems: OldRow<'mtrl'>[];
+  sxaccounts: OldRow<'mtrl'>[];
+  expenses: OldRow<'expn'>[];
+  costcenters: OldRow<'costcntr'>[];
+  projects: OldRow<'prjc'>[];
+  stages: OldRow<'prjcStage'>[];
+};
+type OldAllocation = { id: string; itemId: string; kind: string; registryMtrl: number; accountCode: string | null };
+type OldShapePart = Prisma.JsonObject & { registryMtrl: number | null };
+
 type Tally = { kept: number; remapped: number; cleared: number };
 const tally = (): Tally => ({ kept: 0, remapped: 0, cleared: 0 });
 const T: Record<string, Tally> = {};
@@ -67,7 +82,7 @@ function bridge<O, N>(old: O[], fresh: N[], oldId: (o: O) => number, oldKey: (o:
 // εκτέλεση (2026-10-11) τις μέτρησε ως «ίδιες» και κράτησε 7 συνδέσεις σε χρεοπιστώσεις του kolleris
 // που δεν υπάρχουν στο Demo S1 — το πρώτο δοκιμαστικό ανέβασμα θα έστελνε ανύπαρκτα MTRL.
 // ── Νέοι καθρέφτες ────────────────────────────────────────────────────────────────────────
-const [nTraders, nItems, nLines, nSx, nExp, nCc, nPrj, nStg, nSeries] = await Promise.all([
+const [nTraders, nItems, nLines, nSx, nExp, nCc, nPrj, nStg] = await Promise.all([
   prisma.softoneTrader.findMany({ select: { trdr: true, afm: true, code: true, name: true, sodtype: true, kind: true } }),
   prisma.softoneItem.findMany({ select: { mtrl: true, code: true, name: true, isService: true } }),
   prisma.softoneLineItem.findMany({ where: { isActive: true }, select: { mtrl: true, code: true, name: true } }),
@@ -78,17 +93,17 @@ const [nTraders, nItems, nLines, nSx, nExp, nCc, nPrj, nStg, nSeries] = await Pr
   prisma.softoneProjectStage.findMany({ where: { isActive: true }, select: { prjcStage: true, code: true } }),
   prisma.softoneDocSeries.findMany({ select: { sosource: true, code: true, isActive: true } }),
 ]);
-const M = B.mirrors;
+const M: OldMirrors = B.mirrors;
 
 const q = (xs: string[]) => xs.map((x) => `'${x.replace(/'/g, "''")}'`).join(',');
 
 // ── ΖΩΝΤΑΝΑ: είδη ──────────────────────────────────────────────────────────────────────────
 // Κωδικός κάθε ΠΑΛΙΟΥ mtrl: από τον παλιό καθρέφτη, αλλιώς από τη γραμμή που το κρατούσε
 // (η γραμμή αποθηκεύει τον κωδικό τη στιγμή της αντιστοίχισης).
-const oldItemCode = new Map<number, string>(M.items.map((i: any) => [i.mtrl, norm(i.code)]));
+const oldItemCode = new Map<number, string>(M.items.map((i) => [i.mtrl, norm(i.code)]));
 for (const it of B.links.docItems) if (it.softoneMtrl != null && it.softoneCode && !oldItemCode.has(it.softoneMtrl)) oldItemCode.set(it.softoneMtrl, norm(it.softoneCode));
 const wantedItemIds = [...new Set<number>([
-  ...B.links.docItems.map((i: any) => i.softoneMtrl), ...B.links.lineRules.map((r: any) => r.mtrl),
+  ...B.links.docItems.map((i: { softoneMtrl: number | null }) => i.softoneMtrl), ...B.links.lineRules.map((r: { mtrl: number | null }) => r.mtrl),
 ].filter((x: unknown): x is number => typeof x === 'number'))];
 const wantedCodes = [...new Set(wantedItemIds.map((id) => oldItemCode.get(id)).filter((c): c is string => !!c))];
 const liveRows = [
@@ -109,7 +124,7 @@ function item(id: number | null | undefined, cat: string) {
 }
 
 // ── ΖΩΝΤΑΝΑ: σειρές ────────────────────────────────────────────────────────────────────────
-const seriesCodes = [...new Set<string>(B.links.docs.map((d: any) => norm(d.softoneSeries)).filter(Boolean))];
+const seriesCodes = [...new Set<string>(B.links.docs.map((d: { softoneSeries: string | null }) => norm(d.softoneSeries)).filter(Boolean))];
 const liveSeries = seriesCodes.length
   ? await softoneGetTable('SERIES', ['SOSOURCE', 'SERIES'], `SERIES IN (${seriesCodes.join(',')})`) as Record<string, unknown>[]
   : [];
@@ -118,14 +133,14 @@ const seriesSet = new Set(liveSeries.map((r) => `${Number(r.SOSOURCE)}:${norm(r.
 // Συναλλασσόμενος: ΑΦΜ + SODTYPE. Ο ίδιος ΑΦΜ μπορεί να είναι και προμηθευτής και πιστωτής,
 // με ΔΙΑΦΟΡΕΤΙΚΟ TRDR — το ΑΦΜ μόνο του θα τους μπέρδευε.
 const trader = bridge(M.traders, nTraders,
-  (o: any) => o.trdr, (o: any) => `${afmKey(o.afm)}#${o.sodtype}`,
+  (o) => o.trdr, (o) => `${afmKey(o.afm)}#${o.sodtype}`,
   (n) => n.trdr, (n) => `${afmKey(n.afm)}#${n.sodtype}`);
-const lin = bridge(M.lineitems, nLines, (o: any) => o.mtrl, (o: any) => norm(o.code), (n) => n.mtrl, (n) => norm(n.code));
-const sx = bridge(M.sxaccounts, nSx, (o: any) => o.mtrl, (o: any) => norm(o.code), (n) => n.mtrl, (n) => norm(n.code));
-const expn = bridge(M.expenses, nExp, (o: any) => o.expn, (o: any) => norm(o.code), (n) => n.expn, (n) => norm(n.code));
-const cc = bridge(M.costcenters, nCc, (o: any) => o.costcntr, (o: any) => norm(o.code), (n) => n.costcntr, (n) => norm(n.code));
-const prj = bridge(M.projects, nPrj, (o: any) => o.prjc, (o: any) => norm(o.code), (n) => n.prjc, (n) => norm(n.code));
-const stg = bridge(M.stages, nStg, (o: any) => o.prjcStage, (o: any) => norm(o.code), (n) => n.prjcStage, (n) => norm(n.code));
+const lin = bridge(M.lineitems, nLines, (o) => o.mtrl, (o) => norm(o.code), (n) => n.mtrl, (n) => norm(n.code));
+const sx = bridge(M.sxaccounts, nSx, (o) => o.mtrl, (o) => norm(o.code), (n) => n.mtrl, (n) => norm(n.code));
+const expn = bridge(M.expenses, nExp, (o) => o.expn, (o) => norm(o.code), (n) => n.expn, (n) => norm(n.code));
+const cc = bridge(M.costcenters, nCc, (o) => o.costcntr, (o) => norm(o.code), (n) => n.costcntr, (n) => norm(n.code));
+const prj = bridge(M.projects, nPrj, (o) => o.prjc, (o) => norm(o.code), (n) => n.prjc, (n) => norm(n.code));
+const stg = bridge(M.stages, nStg, (o) => o.prjcStage, (o) => norm(o.code), (n) => n.prjcStage, (n) => norm(n.code));
 
 const traderByTrdr = new Map(nTraders.map((x) => [x.trdr, x]));
 const itemByMtrl = new Map(nItems.map((x) => [x.mtrl, x]));
@@ -200,7 +215,7 @@ for (const it of B.links.docItems) {
 
 // ── 3. Επιμερισμοί: όλα ή τίποτα ΑΝΑ ΓΡΑΜΜΗ ─────────────────────────────────────────────────
 // Ένας μισός επιμερισμός δεν αθροίζει 100 % και η καταχώριση θα έχανε ποσά.
-const allocByItem = new Map<string, any[]>();
+const allocByItem = new Map<string, OldAllocation[]>();
 for (const a of B.links.allocations) allocByItem.set(a.itemId, [...(allocByItem.get(a.itemId) ?? []), a]);
 for (const [itemId, parts] of allocByItem) {
   const mapped = parts.map((p) => ({ p, n: p.kind === 'SXACCOUNT' ? sx(p.registryMtrl, 'alloc.part') : lin(p.registryMtrl, 'alloc.part') }));
@@ -234,8 +249,8 @@ for (const r of B.links.lineRules) {
 // ── 5. Σχήματα επιμερισμού ──────────────────────────────────────────────────────────────────
 for (const s of B.links.shapeRules) {
   const parts = Array.isArray(s.parts) ? s.parts : [];
-  const mapped = parts.map((p: any) => ({ ...p, registryMtrl: s.kind === 'SXACCOUNT' ? sx(p.registryMtrl, 'shape.part') : lin(p.registryMtrl, 'shape.part') }));
-  if (mapped.every((p: any) => p.registryMtrl != null)) ops.push((db) => db.allocationShapeRule.update({ where: { id: s.id }, data: { parts: mapped } }));
+  const mapped = (parts as OldShapePart[]).map((p) => ({ ...p, registryMtrl: s.kind === 'SXACCOUNT' ? sx(p.registryMtrl, 'shape.part') : lin(p.registryMtrl, 'shape.part') }));
+  if (mapped.every((p) => p.registryMtrl != null)) ops.push((db) => db.allocationShapeRule.update({ where: { id: s.id }, data: { parts: mapped } }));
   else ops.push((db) => db.allocationShapeRule.delete({ where: { id: s.id } }));
 }
 

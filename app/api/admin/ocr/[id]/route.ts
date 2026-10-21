@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
+import type { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/db';
 import { requirePermission } from '@/lib/rbac';
 import { bunnyDelete } from '@/lib/bunny';
@@ -131,7 +132,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 
   const doc = await prisma.ocrDocument.update({
     where: { id },
-    data: { ...scalar, ...seriesPatch, ...verifiedPatch } as any,
+    data: { ...scalar, ...seriesPatch, ...verifiedPatch } as Prisma.OcrDocumentUncheckedUpdateInput,
   });
 
   // Όλα τα γραψίματα του εγγράφου — κανονικά ή legacy — καταλήγουν στον έναν γραφέα, που κρατάει

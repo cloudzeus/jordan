@@ -110,11 +110,12 @@ function OverheadRatesDialog({ open, onOpenChange }: { open: boolean; onOpenChan
   const [error, setError] = React.useState<string | null>(null);
   const [form, setForm] = React.useState({ validFrom: `${new Date().getFullYear()}-01-01`, validTo: '', percent: '', category: '', note: '' });
 
-  const load = React.useCallback(async () => {
-    const r = await fetch('/api/admin/projects/overheads');
-    const d = await r.json().catch(() => ({}));
-    setRates(r.ok ? d.rates : []);
-  }, []);
+  // Το setState μόνο μέσα στο callback του fetch.
+  const load = React.useCallback(() =>
+    fetch('/api/admin/projects/overheads').then(async (r) => {
+      const d = await r.json().catch(() => ({}));
+      setRates(r.ok ? d.rates : []);
+    }), []);
   React.useEffect(() => { if (open) void load(); }, [open, load]);
 
   const percentN = Number(form.percent.replace(',', '.'));

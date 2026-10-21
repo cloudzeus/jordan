@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { FiLink, FiCheck, FiX } from 'react-icons/fi';
+import { FiLink, FiCheck } from 'react-icons/fi';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';

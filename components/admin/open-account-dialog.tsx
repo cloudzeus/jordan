@@ -30,10 +30,17 @@ export function OpenAccountDialog({ req, onClose, onDone }: { req: OpenRequest |
   // προεπισκόπηση (που θα απενεργοποιούσε το κουμπί ακριβώς τη στιγμή του κλικ).
   const previewed = React.useRef('');
 
+  // Reset με «adjust state while rendering» (αρχικό `[]` ⇒ και στο πρώτο render, όπως το effect).
+  const [prevReq, setPrevReq] = React.useState<readonly [OpenRequest | null] | null>(null);
+  if (prevReq === null || !Object.is(prevReq[0], req)) {
+    setPrevReq([req]);
+    if (req) { setName(req.name); setPlan(null); setError(null); }
+  }
   React.useEffect(() => {
     if (!req) return;
-    setName(req.name); setPlan(null); setError(null); previewed.current = '';
-    void preview(req.name);
+    previewed.current = '';
+    // Η προεπισκόπηση ξεκινά σε microtask: τα setState της γίνονται σε callback, όχι σύγχρονα στο effect.
+    void Promise.resolve().then(() => preview(req.name));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [req]);
 

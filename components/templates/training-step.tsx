@@ -62,7 +62,8 @@ export function TrainingStep() {
     return () => clearInterval(id);
   }, [reading, refresh]);
 
-  React.useEffect(() => { setPage(0); }, [openId]);
+  const [prevOpenId, setPrevOpenId] = React.useState(openId);
+  if (openId !== prevOpenId) { setPrevOpenId(openId); setPage(0); }
 
   const upload = async (files: File[]) => {
     if (!files.length) return;

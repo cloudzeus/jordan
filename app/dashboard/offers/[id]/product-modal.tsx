@@ -32,7 +32,12 @@ export function ProductModal({ item, open, onOpenChange, levels, filled, onBook,
 }) {
   const [idx, setIdx] = React.useState(0);
   const [tab, setTab] = React.useState<Tab>('overview');
-  React.useEffect(() => { if (open) { setIdx(0); setTab('overview'); } }, [open, item?.id]);
+  // Επαναφορά στο άνοιγμα / σε άλλο προϊόν (adjust-state-while-rendering)
+  const [prevDeps, setPrevDeps] = React.useState<{ open: boolean; id: string | undefined }>({ open: false, id: item?.id });
+  if (prevDeps.open !== open || prevDeps.id !== item?.id) {
+    setPrevDeps({ open, id: item?.id });
+    if (open) { setIdx(0); setTab('overview'); }
+  }
   if (!item) return null;
 
   // Χωρίς δικά του media: ενδεικτικές φωτογραφίες πέτρας (σήμανση) ώστε να μη μείνει άδειο.

@@ -31,9 +31,9 @@ const FIELD_GROUPS: { title: string; keys: string[] }[] = [
 
 export function FieldCorrection({ docId, mimeType, fileUrl, initialData, fields }: {
   docId: string; mimeType: string; fileUrl: string;
-  initialData: Record<string, any>; fields: string[];
+  initialData: Record<string, unknown>; fields: string[];
 }) {
-  const [data, setData] = useState<Record<string, any>>(initialData ?? {});
+  const [data, setData] = useState<Record<string, unknown>>(initialData ?? {});
   const [base, setBase] = useState<string>(() => JSON.stringify(initialData ?? {}));
   const dirty = JSON.stringify(data) !== base;
   const [activeField, setActiveField] = useState<string | null>(null);
@@ -61,6 +61,8 @@ export function FieldCorrection({ docId, mimeType, fileUrl, initialData, fields 
    */
   const [showDoc, setShowDoc] = useState(true);
   useEffect(() => {
+    // Ανάγνωση localStorage ΜΕΤΑ το hydration (ο server δεν το ξέρει) — συγχρονισμός με εξωτερικό σύστημα.
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- localStorage διαβάζεται μόνο στον client, μετά το mount
     try { setShowDoc(localStorage.getItem('admin.ocr.rowdetail.pdf') !== '0'); } catch { /* ιδιωτική περιήγηση */ }
   }, []);
   const toggleDoc = useCallback(() => {
@@ -154,7 +156,7 @@ export function FieldCorrection({ docId, mimeType, fileUrl, initialData, fields 
                     <label className="flex min-w-0 flex-1 flex-col">
                       <span className={LABEL}>{FIELD_LABELS[f] ?? f}</span>
                       <input
-                        value={data[f] ?? ''}
+                        value={(data[f] ?? '') as string | number}
                         onChange={(e) => setData((d) => ({ ...d, [f]: e.target.value }))}
                         className={INPUT}
                       />
@@ -183,7 +185,7 @@ export function FieldCorrection({ docId, mimeType, fileUrl, initialData, fields 
                 {rest.map((f) => (
                   <label key={f} className="flex min-w-40 flex-1 basis-44 flex-col gap-0.5">
                     <span className={LABEL}>{FIELD_LABELS[f] ?? f}</span>
-                    <input value={data[f] ?? ''}
+                    <input value={(data[f] ?? '') as string | number}
                       onChange={(e) => setData((d) => ({ ...d, [f]: e.target.value }))}
                       className={INPUT} />
                   </label>

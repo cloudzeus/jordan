@@ -41,10 +41,12 @@ export function NewFieldDialog({ open, onOpenChange, region, takenKeys, busy, on
   const [columns, setColumns] = React.useState('');
 
   // Every opening starts a blank field: the same dialog names the next box too.
-  React.useEffect(() => {
-    if (!open) return;
-    setLabel(''); setKey(''); setKind('SINGLE'); setValueType('TEXT'); setColumns('');
-  }, [open]);
+  // («Adjust state while rendering»· αρχικό `null` ⇒ και στο πρώτο render, όπως το effect.)
+  const [prevOpen, setPrevOpen] = React.useState<boolean | null>(null);
+  if (open !== prevOpen) {
+    setPrevOpen(open);
+    if (open) { setLabel(''); setKey(''); setKind('SINGLE'); setValueType('TEXT'); setColumns(''); }
+  }
 
   // What the field will be called: the typed key, else the label slugged — made unique either way,
   // so the preview never promises a key the save would have to change behind the user's back.

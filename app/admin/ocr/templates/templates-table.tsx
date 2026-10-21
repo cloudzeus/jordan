@@ -30,11 +30,11 @@ export function TemplatesTable({ rows, canManage }: { rows: TemplateRow[]; canMa
   const router = useRouter();
   // Το πρότυπο που ζητήθηκε για σάρωση. Ένας διάλογος για όλο τον πίνακα: ό,τι χρειάζεται είναι η γραμμή.
   const [scanning, setScanning] = React.useState<TemplateRow | null>(null);
-  const remove = async (r: TemplateRow) => {
+  const remove = React.useCallback(async (r: TemplateRow) => {
     if (!(await confirmAction(`Διαγραφή του προτύπου «${r.name}»;`))) return;
     try { await templatesApi.remove(r.id); toast.success('Διαγράφηκε'); router.refresh(); }
     catch (e) { toast.error(errorMessage(e)); }
-  };
+  }, [router]);
   const columns = React.useMemo<ColumnDef<TemplateRow>[]>(() => [
     { accessorKey: 'name', header: 'Πρότυπο', size: 260, cell: ({ row }) => (
       <div className="min-w-0">
@@ -71,7 +71,7 @@ export function TemplatesTable({ rows, canManage }: { rows: TemplateRow[]; canMa
           {canManage && <DropdownMenuItem onClick={() => remove(row.original)} className="text-dg-red-600"><FiTrash2 /> Διαγραφή</DropdownMenuItem>}
         </DropdownMenuContent>
       </DropdownMenu>) },
-  ], [canManage, router]);
+  ], [canManage, router, remove]);
 
   return (
     <>

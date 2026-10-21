@@ -30,7 +30,7 @@ const base = { start: '2026-10-24T09:00:00.000Z', minutes: 60 }; // Σάββατ
 beforeEach(() => {
   vi.clearAllMocks();
   db.appointment.count.mockResolvedValue(0);
-  db.appointment.create.mockImplementation(async ({ data }: any) => ({ id: 'ap1', number: 3, ...data }));
+  db.appointment.create.mockImplementation(async ({ data }: { data: Record<string, unknown> }) => ({ id: 'ap1', number: 3, ...data }));
 });
 
 describe('ραντεβού από το προσωπικό', () => {
@@ -64,7 +64,7 @@ describe('ραντεβού από το προσωπικό', () => {
     db.softoneTrader.findUnique.mockResolvedValue({ trdr: 63, name: 'DORIC ΙΚΕ', email: 'info@doric.gr', phone: '210' });
     s1.softoneCreatePerson.mockResolvedValue({ prsn: 301, code: '000139', linked: false });
     db.customerContact.findFirst.mockResolvedValue(null);
-    db.customerContact.create.mockImplementation(async ({ data }: any) => ({ id: 'cc2', ...data }));
+    db.customerContact.create.mockImplementation(async ({ data }: { data: Record<string, unknown> }) => ({ id: 'cc2', ...data }));
     await scheduleStaffAppointment({ ...base, party: { kind: 'newContact', contact: { trdr: 63, firstName: 'Κώστας', lastName: 'Ιωάννου', mobile: '6900000000', role: 'Μηχανικός' } } }, 'u1');
     expect(s1.softoneCreatePerson).toHaveBeenCalledWith({ trdr: 63, firstName: 'Κώστας', lastName: 'Ιωάννου', email: null, mobile: '6900000000', role: 'Μηχανικός' });
     expect(db.appointment.create).toHaveBeenCalledWith({ data: expect.objectContaining({ trdr: 63, customerContactId: 'cc2', name: 'Κώστας Ιωάννου', company: 'DORIC ΙΚΕ', phone: '6900000000' }) });

@@ -45,7 +45,8 @@ function useJson<T>(url: string | null) {
       setLoading(false);
     }
   }, [url]);
-  React.useEffect(() => { void load(); }, [load]);
+  // Το load ξεκινά σε microtask: τα setState του γίνονται σε callback, όχι σύγχρονα στο σώμα του effect.
+  React.useEffect(() => { void Promise.resolve().then(load); }, [load]);
   return { data, error, loading, reload: load };
 }
 

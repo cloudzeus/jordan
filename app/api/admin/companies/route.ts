@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
+import type { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/db';
 import { requirePermission } from '@/lib/rbac';
 import { geocodeAddress } from '@/lib/geocode';
@@ -67,7 +68,7 @@ export async function GET(request: Request) {
   const typeId = searchParams.get('typeId');
   const q = searchParams.get('q');
 
-  const where: any = {};
+  const where: Prisma.CompanyWhereInput = {};
   if (typeId) where.types = { some: { typeId } };
   else if (typeKey) where.types = { some: { type: { key: typeKey } } };
   if (q) {

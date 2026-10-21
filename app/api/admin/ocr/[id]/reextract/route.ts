@@ -9,7 +9,7 @@ import { saveDocumentJson } from '@/lib/ocr/document';
 import { runMatchingTemplate } from '@/lib/templates/run';
 import { classifyDocument } from '@/lib/ocr/doc-type';
 import { docTypeFromKind } from '@/lib/ocr/canonical';
-import { isExtractDocType, type ExtractDocType } from '@/lib/ocr/templates';
+import { isExtractDocType, type ExtractDocType, type SupportedLang } from '@/lib/ocr/templates';
 import { loadIssuerExample } from '@/lib/ocr/example-lookup';
 import type { RunOutcome } from '@/lib/templates/schema';
 
@@ -70,7 +70,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       buffer,
       mimeType: doc.mimeType,
       docType,
-      language: doc.language as any,
+      language: doc.language as SupportedLang,
       pdfSource: doc.mimeType === 'application/pdf' ? 'scanned' : undefined,
       // ΕΔΩ, και μόνο εδώ, το παράδειγμα είναι δωρεάν: το έγγραφο κουβαλάει ήδη το ΑΦΜ του εκδότη
       // από την πρώτη ανάγνωση, οπότε βρίσκουμε το επιβεβαιωμένο «αδελφάκι» του χωρίς δεύτερη
@@ -117,12 +117,12 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
     vat = result.document.issuer.vat;
     ok = { model: result.model, data: result.data };
-  } catch (err: any) {
+  } catch (err) {
     await prisma.ocrDocument.update({
       where: { id },
-      data: { status: 'FAILED', errorMessage: String(err?.message ?? err).slice(0, 2000) },
+      data: { status: 'FAILED', errorMessage: String((err as Error)?.message ?? err).slice(0, 2000) },
     });
-    failure = String(err?.message ?? err);
+    failure = String((err as Error)?.message ?? err);
   } finally {
     // Restore the previous model setting.
     if (originalModel) {

@@ -44,6 +44,7 @@ export function HeroLive() {
   }, []);
 
   React.useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- προτίμηση reduced-motion (εξωτερικό σύστημα): τελική κατάσταση χωρίς animation
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) { setFilled(13); return; }
     let i = 0, f = START, visible = true, timer: ReturnType<typeof setTimeout> | null = null;
     const tick = () => {

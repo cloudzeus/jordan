@@ -37,6 +37,9 @@ export function useGreekTranslation(value: string, setValue: (v: string) => void
   const [original, setOriginal] = React.useState<string | null>(null);
   const autoDone = React.useRef(false);
   // Άλλη γραμμή/ομάδα ⇒ η «αρχική» της προηγούμενης δεν ισχύει πια.
+  // Μένει σε effect: το reset του `original` πρέπει να φανεί ΜΕΤΑ το effect αυτόματης μετάφρασης του
+  // ίδιου commit (εκείνο ελέγχει το προηγούμενο `original`) — σε render θα άλλαζε πότε μεταφράζει.
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- η σειρά με το effect αυτόματης μετάφρασης είναι σκόπιμη
   React.useEffect(() => { setOriginal(null); autoDone.current = false; }, [resetKey]);
   const translate = async () => {
     if (busy || !value.trim()) return;
@@ -69,8 +72,15 @@ export function useGreekTranslation(value: string, setValue: (v: string) => void
 export function useNamePreview(name: string, original: string | null, cfg: ItemNamingCfg | null, lineId?: string | null) {
   const [out, setOut] = React.useState<{ name: string; name1: string | null } | null>(null);
   const needed = !!cfg && !!name.trim() && (cfg.nameCase !== 'asis' || original != null);
+  // («Adjust state while rendering»· αρχικό `[]` ⇒ και στο πρώτο render, όπως το effect.)
+  const previewDeps = [needed, name, original, lineId];
+  const [prevPreviewDeps, setPrevPreviewDeps] = React.useState<readonly unknown[]>([]);
+  if (previewDeps.length !== prevPreviewDeps.length || previewDeps.some((x, i) => !Object.is(x, prevPreviewDeps[i]))) {
+    setPrevPreviewDeps(previewDeps);
+    if (!needed) setOut(null);
+  }
   React.useEffect(() => {
-    if (!needed) { setOut(null); return; }
+    if (!needed) return;
     let alive = true;
     const t = setTimeout(() => {
       fetch('/api/admin/ocr/item-naming', {

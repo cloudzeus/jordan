@@ -144,9 +144,14 @@ function CreatePrjcDialog({ open, onOpenChange, contract: c }: { open: boolean; 
   const [error, setError] = React.useState<string | null>(null);
   const [agree, setAgree] = React.useState(false);
   const [busy, setBusy] = React.useState(false);
+  // Επαναφορά στο άνοιγμα (adjust-state-while-rendering)· η προεπισκόπηση στο effect.
+  const [prevDeps, setPrevDeps] = React.useState({ open: false, id: c.id });
+  if (prevDeps.open !== open || prevDeps.id !== c.id) {
+    setPrevDeps({ open, id: c.id });
+    if (open) { setPlan(null); setError(null); setAgree(false); }
+  }
   React.useEffect(() => {
     if (!open) return;
-    setPlan(null); setError(null); setAgree(false);
     void (async () => {
       const r = await fetch(`/api/admin/contracts/${c.id}/softone`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mode: 'create' }) });
       const b = await r.json().catch(() => ({}));

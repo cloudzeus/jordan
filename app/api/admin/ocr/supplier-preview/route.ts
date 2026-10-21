@@ -22,7 +22,7 @@ export async function POST(req: Request) {
   }
 
   // 1) AADE
-  let raw: unknown = null;
+  let raw: unknown;
   try {
     const r = await fetch('https://vat.wwa.gr/afm2info', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },

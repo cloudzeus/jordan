@@ -10,12 +10,6 @@ import { AiUsageDailyChart, type DailyPoint } from '@/components/admin/ai-usage-
 
 export const dynamic = 'force-dynamic';
 
-interface Aggregate {
-  count: number;
-  totalTokens: number;
-  totalCost: number;
-}
-
 // Stored costs are USD (lib/ai/pricing.ts). We display EUR using an
 // admin-configurable rate (setting `ai.usdToEur`). Format in el-GR EUR.
 function fmtEur(n: number) {

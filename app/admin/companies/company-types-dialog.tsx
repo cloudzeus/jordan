@@ -2,7 +2,7 @@
 
 import { confirmAction } from '@/components/ui/confirm-dialog';
 import * as React from 'react';
-import { FiPlus, FiTrash2, FiSave, FiLock, FiLayers } from 'react-icons/fi';
+import { FiPlus, FiTrash2, FiLock, FiLayers } from 'react-icons/fi';
 import { toast } from 'sonner';
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,

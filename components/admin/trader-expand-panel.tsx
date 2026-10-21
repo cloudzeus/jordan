@@ -452,7 +452,8 @@ export function TraderExpandPanel({ trader, canManage, canFiles = false, onActio
       setLoading(false);
     }
   }, [trader.trdr]);
-  React.useEffect(() => { void load(); }, [load]);
+  // Το load ξεκινά σε microtask: τα setState του γίνονται σε callback, όχι σύγχρονα στο σώμα του effect.
+  React.useEffect(() => { void Promise.resolve().then(load); }, [load]);
 
   const remote = (child: (d: TraderActivity) => React.ReactNode) =>
     error && !data ? (

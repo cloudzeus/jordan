@@ -33,6 +33,18 @@ type RunState =
   | { s: 'queued'; msg: string }
   | { s: 'error'; msg: string };
 
+/** Απάντηση του `/api/admin/ocr/supplier-preview` (μόνο τα πεδία που διαβάζουμε). */
+type AadePreview = {
+  name?: string | null;
+  error?: string;
+  message?: string;
+  softoneDoy?: { office?: { key?: string | null } | null } | null;
+  profession?: string | null;
+  address?: string | null;
+  zip?: string | null;
+  city?: string | null;
+};
+
 const KIND_LABEL: Record<TraderKind, string> = { supplier: 'Προμηθευτής', creditor: 'Πιστωτής', debtor: 'Χρεώστης' };
 
 /** Οι χώρες που προσφέρονται για ξένους χωρίς πρόθεμα. Οι προτάσεις του `guessCountry` είναι όλες εδώ. */
@@ -139,7 +151,7 @@ function BulkCreateTradersModal({ groups, onClose }: { groups: BulkGroup[]; onCl
   const busy = phase === 'running';
 
   async function runOne(r: PlanRow): Promise<RunState> {
-    let aade: any = null;
+    let aade: AadePreview | null = null;
     if (r.useAade) {
       const res = await fetch('/api/admin/ocr/supplier-preview', {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ afm: r.afm }),

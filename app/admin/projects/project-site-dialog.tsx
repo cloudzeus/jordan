@@ -46,17 +46,24 @@ export function ProjectSiteDialog({ prjc, projectLabel, open, onOpenChange, valu
   const map = React.useRef<LMap | null>(null);
   const marker = React.useRef<Marker | null>(null);
   const siteRef = React.useRef<Site | null>(null);
-  siteRef.current = site;
+  React.useEffect(() => { siteRef.current = site; });
+
+  // Επαναφορά στο άνοιγμα (adjust-state-while-rendering)· σε ελεγχόμενη χρήση η θέση έρχεται από το value.
+  const [prevDeps, setPrevDeps] = React.useState<{ open: boolean; prjc: number | null | undefined }>({ open: false, prjc });
+  if (prevDeps.open !== open || prevDeps.prjc !== prjc) {
+    setPrevDeps({ open, prjc });
+    if (open) {
+      setLoaded(false); setCandidates(null); setError(null);
+      if (onSave) {
+        const s = value ?? null;
+        setExisting(!!s); setSite(s); setQ(s ? siteLine(s) : ''); setLoaded(true);
+      }
+    }
+  }
 
   // Φόρτωση της αποθηκευμένης θέσης.
   React.useEffect(() => {
-    if (!open) return;
-    setLoaded(false); setCandidates(null); setError(null);
-    if (onSave) {
-      const s = value ?? null;
-      setExisting(!!s); setSite(s); setQ(s ? siteLine(s) : ''); setLoaded(true);
-      return;
-    }
+    if (!open || onSave) return;
     void (async () => {
       const r = await fetch(`/api/admin/projects/${prjc}/site`, { cache: 'no-store' }).catch(() => null);
       const d = r?.ok ? await r.json().catch(() => null) : null;

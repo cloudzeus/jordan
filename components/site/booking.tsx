@@ -46,7 +46,8 @@ export function BookingForm({ idPrefix = 'bk', onDone, TitleAs = 'h2' }: { idPre
       setError('Δεν φορτώθηκαν οι διαθέσιμες ώρες. Δοκιμάστε ξανά ή τηλεφωνήστε μας.');
     } finally { setLoading(false); }
   }, []);
-  React.useEffect(() => { void load(null); }, [load]);
+  // Το load ξεκινά σε microtask: τα setState του γίνονται σε callback, όχι σύγχρονα στο σώμα του effect.
+  React.useEffect(() => { void Promise.resolve().then(() => load(null)); }, [load]);
 
   const current = data?.days.find((d) => d.date === day) ?? null;
   const canPrev = !!data && !!from && from > data.today;

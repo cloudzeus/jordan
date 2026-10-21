@@ -56,7 +56,13 @@ export function AadeLookupButton({ initialAfm, onApply, size = 'sm', label = 'Ά
   const [data, setData] = React.useState<AadeResult | null>(null);
   const [error, setError] = React.useState<string | null>(null);
 
-  React.useEffect(() => { if (open) { setAfm(initialAfm ?? ''); setData(null); setError(null); } }, [open, initialAfm]);
+  // Reset όταν ανοίγει (ή αλλάζει το αρχικό ΑΦΜ ενώ είναι ανοιχτό) — «adjust state while rendering».
+  const [prevOpen, setPrevOpen] = React.useState(open);
+  const [prevInitialAfm, setPrevInitialAfm] = React.useState(initialAfm);
+  if (open !== prevOpen || initialAfm !== prevInitialAfm) {
+    setPrevOpen(open); setPrevInitialAfm(initialAfm);
+    if (open) { setAfm(initialAfm ?? ''); setData(null); setError(null); }
+  }
 
   const fetchAade = async () => {
     setError(null); setData(null);

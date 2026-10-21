@@ -50,16 +50,20 @@ export function JobUploadDialog({ templateId, templateName, defaultEmails, open,
 
   // Κάθε άνοιγμα ξεκινά καθαρό, με τον τίτλο και τους παραλήπτες ήδη προτεινόμενους: η συνηθισμένη
   // περίπτωση είναι «αυτά τα αρχεία, σήμερα, με τα emails του προτύπου» και δεν πρέπει να θέλει πληκτρολόγηση.
-  React.useEffect(() => {
-    if (!open) return;
-    setFiles([]);
-    setTitle(`${templateName} · ${new Date().toLocaleDateString('el-GR')}`);
-    setReference('');
-    setDocDate(today());
-    setDescription('');
-    setEmails(defaultEmails ?? '');
-    setBusy(false);
-  }, [open, templateName, defaultEmails]);
+  // («Adjust state while rendering»· αρχικό `[]` ⇒ και στο πρώτο render, όπως το effect.)
+  const [prevDeps, setPrevDeps] = React.useState<readonly unknown[]>([]);
+  if (prevDeps.length === 0 || !Object.is(prevDeps[0], open) || !Object.is(prevDeps[1], templateName) || !Object.is(prevDeps[2], defaultEmails)) {
+    setPrevDeps([open, templateName, defaultEmails]);
+    if (open) {
+      setFiles([]);
+      setTitle(`${templateName} · ${new Date().toLocaleDateString('el-GR')}`);
+      setReference('');
+      setDocDate(today());
+      setDescription('');
+      setEmails(defaultEmails ?? '');
+      setBusy(false);
+    }
+  }
 
   const addFiles = (picked: File[]) => {
     const valid = picked.filter((f) => ALLOWED.test(f.name) && f.size > 0);

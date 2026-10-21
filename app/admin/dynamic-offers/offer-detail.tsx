@@ -61,9 +61,14 @@ function ReservationDialog({ open, onOpenChange, offer, onSaved }: { open: boole
   const [pallets, setPallets] = React.useState(offer.minOrder);
   const [notes, setNotes] = React.useState('');
   const [busy, setBusy] = React.useState(false);
+  // Επαναφορά της φόρμας (adjust-state-while-rendering) — ίδιες εξαρτήσεις με το fetch παρακάτω.
+  const [prevDeps, setPrevDeps] = React.useState({ open: false, minOrder: offer.minOrder, items: offer.items, customers });
+  if (prevDeps.open !== open || prevDeps.minOrder !== offer.minOrder || prevDeps.items !== offer.items || prevDeps.customers !== customers) {
+    setPrevDeps({ open, minOrder: offer.minOrder, items: offer.items, customers });
+    if (open) { setQ(''); setTrdr(null); setItemId(offer.items[0]?.id ?? ''); setPallets(offer.minOrder); setNotes(''); }
+  }
   React.useEffect(() => {
     if (!open) return;
-    setQ(''); setTrdr(null); setItemId(offer.items[0]?.id ?? ''); setPallets(offer.minOrder); setNotes('');
     if (!customers) fetch('/api/admin/dynamic-offers/options').then((r) => r.json()).then((d) => setCustomers(d.customers)).catch(() => null);
   }, [open, offer.minOrder, offer.items, customers]);
   const err = checkReservation(pallets, offer.free, offer.minOrder);
@@ -142,9 +147,11 @@ export function OfferDetail({ offer, canReserve, onChanged }: { offer: OfferRow;
   const [previewKind, setPreviewKind] = React.useState<'publish' | 'drop'>('publish');
   const [chartItem, setChartItem] = React.useState(0);
   const [loadError, setLoadError] = React.useState<string | null>(null);
-  // Το onChanged του γονέα δεν είναι σταθερό — μέσω ref, ώστε το load να μην ξανατρέχει σε κάθε render.
-  const onChangedRef = React.useRef(onChanged);
-  onChangedRef.current = onChanged;
+  // Το onChanged του γονέα δεν είναι σταθερό — μέσω effect event, ώστε το load να μην ξανατρέχει σε κάθε render.
+  // Το 404 μετράει σε state και το effect ειδοποιεί τον γονέα (ανανέωση της λίστας).
+  const [goneTick, setGoneTick] = React.useState(0);
+  const onGone = React.useEffectEvent(() => onChanged());
+  React.useEffect(() => { if (goneTick) onGone(); }, [goneTick]);
   const load = React.useCallback(() => {
     fetch(`/api/admin/dynamic-offers/${offer.id}`, { cache: 'no-store' })
       .then(async (r) => {
@@ -152,7 +159,7 @@ export function OfferDetail({ offer, canReserve, onChanged }: { offer: OfferRow;
         if (!r.ok) {
           // 404: η προσφορά διαγράφηκε στο μεταξύ (π.χ. από άλλη καρτέλα) — ανανέωση της λίστας.
           setLoadError(r.status === 404 ? 'Η προσφορά δεν υπάρχει πια — ανανεώνεται η λίστα.' : (d.message ?? 'Αποτυχία φόρτωσης'));
-          if (r.status === 404) onChangedRef.current();
+          if (r.status === 404) setGoneTick((t) => t + 1);
           return;
         }
         setLoadError(null);
@@ -186,7 +193,7 @@ export function OfferDetail({ offer, canReserve, onChanged }: { offer: OfferRow;
 
   /** Αίτημα από το portal: έγκριση (μετράει στο γέμισμα → νέα 3D εικόνα + «η τιμή έπεσε») ή απόρριψη. */
   const decide = async (r: Reservation, decision: 'approve' | 'reject') => {
-    let note: string | null = null;
+    const note: string | null = null;
     if (decision === 'reject') {
       if (!(await confirmAction({ title: 'Απόρριψη αιτήματος', message: `Απόρριψη του αιτήματος ${num(r.pallets)} παλετών του «${r.customer}»; Θα ενημερωθεί με email.`, confirmLabel: 'Απόρριψη', destructive: true }))) return;
     } else if (!(await confirmAction({ title: 'Έγκριση κράτησης', message: `Έγκριση ${num(r.pallets)} παλετών «${r.product.name}» για «${r.customer}»; Θα μετρήσει στο γέμισμα και αν περάσει κλιμάκιο θα σταλεί «η τιμή έπεσε».`, confirmLabel: 'Έγκριση' }))) return;

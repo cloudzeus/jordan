@@ -32,9 +32,12 @@ export function OrderForm({ initial, projects, initialProject }: { initial: Cart
   const seq = useRef(0);
 
   // Αναζήτηση με μικρή καθυστέρηση· κρατάμε μόνο την τελευταία απάντηση.
+  // Κάτω από 2 χαρακτήρες: καθαρισμός αποτελεσμάτων (adjust-state-while-rendering)
+  const [prevQ, setPrevQ] = useState(q);
+  if (q !== prevQ) { setPrevQ(q); if (q.trim().length < 2) setHits(null); }
   useEffect(() => {
     const term = q.trim();
-    if (term.length < 2) { setHits(null); return; }
+    if (term.length < 2) return;
     const id = ++seq.current;
     const t = setTimeout(async () => {
       setSearching(true);

@@ -72,7 +72,8 @@ export function KadField({ kads, removed, onToggle }: { kads: TraderKads | null 
 /** Κατάσταση «αφαιρεμένων» ΚΑΔ — μηδενίζεται όταν έρθει νέα απάντηση ΑΑΔΕ. */
 export function useKadRemoved(reset: unknown): [ReadonlySet<KadSlot>, (s: KadSlot) => void] {
   const [removed, setRemoved] = React.useState<ReadonlySet<KadSlot>>(new Set());
-  React.useEffect(() => { setRemoved(new Set()); }, [reset]);
+  const [prevReset, setPrevReset] = React.useState(reset);
+  if (!Object.is(reset, prevReset)) { setPrevReset(reset); setRemoved(new Set()); }
   const toggle = React.useCallback((s: KadSlot) => setRemoved((prev) => {
     const next = new Set(prev);
     if (next.has(s)) next.delete(s); else next.add(s);

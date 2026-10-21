@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 vi.mock('server-only', () => ({}));
 
 const prisma = vi.hoisted(() => {
-  const p: Record<string, any> = {
+  const p = {
     partner: { findUnique: vi.fn() },
     partnerContact: { count: vi.fn(), updateMany: vi.fn(), create: vi.fn() },
     partnerCustomer: { findUnique: vi.fn(), createMany: vi.fn(), delete: vi.fn() },
@@ -11,8 +11,9 @@ const prisma = vi.hoisted(() => {
     softoneTrader: { findMany: vi.fn() },
     softoneProject: { findUnique: vi.fn(), findMany: vi.fn() },
   };
-  p.$transaction = vi.fn(async (arg: any) => (typeof arg === 'function' ? arg(p) : Promise.all(arg)));
-  return p;
+  return Object.assign(p, {
+    $transaction: vi.fn(async (arg: ((tx: typeof p) => unknown) | Promise<unknown>[]) => (typeof arg === 'function' ? arg(p) : Promise.all(arg))),
+  });
 });
 vi.mock('@/lib/db', () => ({ prisma }));
 
@@ -58,7 +59,7 @@ describe('πρόσωπα επικοινωνίας', () => {
   it('το πρώτο πρόσωπο γίνεται κύριο', async () => {
     prisma.partner.findUnique.mockResolvedValue({ type: 'COMPANY' });
     prisma.partnerContact.count.mockResolvedValue(0);
-    prisma.partnerContact.create.mockImplementation(async ({ data }: any) => data);
+    prisma.partnerContact.create.mockImplementation(async ({ data }: { data: unknown }) => data);
     const c = await addContact('p1', input);
     expect(c.isPrimary).toBe(true);
     expect(prisma.partnerContact.updateMany).toHaveBeenCalledWith({ where: { partnerId: 'p1' }, data: { isPrimary: false } });
@@ -67,7 +68,7 @@ describe('πρόσωπα επικοινωνίας', () => {
   it('επόμενο πρόσωπο δεν αλλάζει το κύριο, εκτός αν ζητηθεί', async () => {
     prisma.partner.findUnique.mockResolvedValue({ type: 'COMPANY' });
     prisma.partnerContact.count.mockResolvedValue(2);
-    prisma.partnerContact.create.mockImplementation(async ({ data }: any) => data);
+    prisma.partnerContact.create.mockImplementation(async ({ data }: { data: unknown }) => data);
     expect((await addContact('p1', input)).isPrimary).toBe(false);
     expect(prisma.partnerContact.updateMany).not.toHaveBeenCalled();
   });

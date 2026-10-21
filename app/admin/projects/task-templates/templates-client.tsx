@@ -86,7 +86,9 @@ function RenameDialog({ t, onClose, onDone }: { t: TemplateView | null; onClose:
   const [description, setDescription] = React.useState('');
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
-  React.useEffect(() => { if (t) { setName(t.name); setDescription(t.description ?? ''); setError(null); } }, [t]);
+  // Γέμισμα της φόρμας όταν ανοίγει για template (adjust-state-while-rendering)
+  const [prevT, setPrevT] = React.useState<TemplateView | null>(null);
+  if (t !== prevT) { setPrevT(t); if (t) { setName(t.name); setDescription(t.description ?? ''); setError(null); } }
   const save = async () => {
     setBusy(true); setError(null);
     const res = await fetch(`/api/admin/task-templates/${t!.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: name.trim(), description: description.trim() || null }) });

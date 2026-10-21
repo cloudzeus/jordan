@@ -146,7 +146,7 @@ export function analyze(text: string, now = new Date()): Analysis {
   const words = f.split(/[^\p{L}\p{N}\-./]+/u).filter((w) => w.length > 1 && !NOT_NAME.has(w) && !/^\d{1,2}$/.test(w));
   const nameHint = words.length ? words.join(' ') : null;
 
-  let intent: IntentKey = ranked[0]?.[0] ?? 'unknown';
+  const intent: IntentKey = ranked[0]?.[0] ?? 'unknown';
   let alternatives = ranked.slice(1, 4).map(([k]) => k);
   let confidence: Analysis['confidence'] = 'high';
 

@@ -3,10 +3,9 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/lib/db';
 import { requirePermission } from '@/lib/rbac';
-import { logAudit } from '@/lib/audit';
 import { parseAfmParam, vatCountry, isValidAfm } from '@/lib/ocr/validate';
 import { applyVatPrefix } from '@/lib/ocr/vat-prefix';
-import { applyTraderToDocs, TRADER_KIND_LABEL } from '@/lib/ocr/queues';
+import { TRADER_KIND_LABEL } from '@/lib/ocr/queues';
 import {
   buildTraderPayload, softoneFetchCountries, softoneIrsDataError, softoneKadError, softoneNextTraderCode,
   matchCountryId, isMissingCodeError, isDuplicateCodeError, clearTraderCodeCache,

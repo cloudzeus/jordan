@@ -59,7 +59,8 @@ export function PlanViewer(props: PlanViewerProps) {
   const labelsEl = React.useRef<HTMLDivElement | null>(null);
   const tipEl = React.useRef<HTMLDivElement | null>(null);
   const cbs = React.useRef(props);
-  cbs.current = props;
+  // «Latest ref»: ενημέρωση μετά το commit (layout effect, πριν από τα passive effects που το διαβάζουν).
+  React.useLayoutEffect(() => { cbs.current = props; });
 
   type Ctx = {
     renderer: THREE.WebGLRenderer; scene: THREE.Scene; camera: THREE.OrthographicCamera; controls: OrbitControls;
@@ -68,6 +69,59 @@ export function PlanViewer(props: PlanViewerProps) {
   };
   const ctx = React.useRef<Ctx | null>(null);
   const toWorld = React.useCallback((p: Pt, z: number) => new THREE.Vector3(p.x - w / 2, h / 2 - p.y, z), [w, h]);
+
+  // ── Βοηθητικά σχεδίασης ───────────────────────────────────────────────────────────────
+  const clear = React.useCallback((g: THREE.Group) => {
+    const c = ctx.current;
+    for (const o of [...g.children]) {
+      g.remove(o);
+      o.traverse((x) => {
+        const m = x as THREE.Mesh;
+        m.geometry?.dispose();
+        const mat = m.material as THREE.Material | undefined;
+        if (mat) { if (mat instanceof LineMaterial) c?.lineMats.delete(mat); (mat as THREE.MeshBasicMaterial).map?.dispose?.(); mat.dispose(); }
+      });
+    }
+  }, []);
+  const line = React.useCallback((pts: Pt[], z: number, color: string, width: number, opts: { closed?: boolean; dashed?: boolean; world?: boolean } = {}) => {
+    const c = ctx.current!;
+    const arr: number[] = [];
+    const seq = opts.closed ? [...pts, pts[0]] : pts;
+    for (const p of seq) { const v = toWorld(p, z); arr.push(v.x, v.y, v.z); }
+    const g = new LineGeometry();
+    g.setPositions(arr);
+    const m = new LineMaterial({ color: new THREE.Color(color).getHex(), linewidth: width, dashed: !!opts.dashed, dashSize: 8, gapSize: 6, worldUnits: !!opts.world, transparent: true, opacity: opts.world ? 0.75 : 1, depthTest: false });
+    m.resolution.set(host.current?.clientWidth ?? 1, host.current?.clientHeight ?? 1);
+    c.lineMats.add(m);
+    const l = new Line2(g, m);
+    if (opts.dashed) l.computeLineDistances();
+    l.renderOrder = 10;
+    return l;
+  }, [toWorld]);
+  const dots = React.useCallback((pts: Pt[], z: number, size = 11) => {
+    const c = ctx.current!;
+    const g = new THREE.BufferGeometry().setFromPoints(pts.map((p) => toWorld(p, z)));
+    const m = new THREE.PointsMaterial({ size, sizeAttenuation: false, map: c.dot.clone(), transparent: true, alphaTest: 0.4, depthTest: false });
+    m.map!.needsUpdate = true;
+    const o = new THREE.Points(g, m);
+    o.renderOrder = 12;
+    return o;
+  }, [toWorld]);
+
+  // Πρόχειρο (σημεία που μπαίνουν τώρα) + «λάστιχο» ως τον κέρσορα. Καλείται και από το pointermove.
+  const drawDraft = React.useCallback(() => {
+    const c = ctx.current;
+    if (!c) return;
+    const { draft: d, tool: t } = cbs.current;
+    clear(c.layers.draft);
+    if (!d.length) return;
+    const color = t === 'calibrate' ? '#F59E0B' : t === 'divider' ? '#F43F5E' : t === 'wall' ? WALL_DRAW : '#22D3EE';
+    const seq = c.hover ? [...d, c.hover] : d;
+    if (seq.length >= 2 && t === 'wall') c.layers.draft.add(line(seq, Z.draft, color, Math.max(2, cbs.current.wallThicknessPx), { world: true }));
+    else if (seq.length >= 2) c.layers.draft.add(line(seq, Z.draft, color, 2.5, { dashed: t === 'polygon' }));
+    if (t === 'polygon' && d.length >= 2 && c.hover) c.layers.draft.add(line([c.hover, d[0]], Z.draft, color, 1, { dashed: true }));
+    c.layers.draft.add(dots(d, Z.draft + 0.1));
+  }, [clear, line, dots]);
 
   // ── Σκηνή (μία φορά ανά εικόνα) ─────────────────────────────────────────────────────────
   React.useEffect(() => {
@@ -227,58 +281,6 @@ export function PlanViewer(props: PlanViewerProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [image, w, h]);
 
-  // ── Βοηθητικά σχεδίασης ───────────────────────────────────────────────────────────────
-  const clear = (g: THREE.Group) => {
-    const c = ctx.current;
-    for (const o of [...g.children]) {
-      g.remove(o);
-      o.traverse((x) => {
-        const m = x as THREE.Mesh;
-        m.geometry?.dispose();
-        const mat = m.material as THREE.Material | undefined;
-        if (mat) { if (mat instanceof LineMaterial) c?.lineMats.delete(mat); (mat as THREE.MeshBasicMaterial).map?.dispose?.(); mat.dispose(); }
-      });
-    }
-  };
-  const line = (pts: Pt[], z: number, color: string, width: number, opts: { closed?: boolean; dashed?: boolean; world?: boolean } = {}) => {
-    const c = ctx.current!;
-    const arr: number[] = [];
-    const seq = opts.closed ? [...pts, pts[0]] : pts;
-    for (const p of seq) { const v = toWorld(p, z); arr.push(v.x, v.y, v.z); }
-    const g = new LineGeometry();
-    g.setPositions(arr);
-    const m = new LineMaterial({ color: new THREE.Color(color).getHex(), linewidth: width, dashed: !!opts.dashed, dashSize: 8, gapSize: 6, worldUnits: !!opts.world, transparent: true, opacity: opts.world ? 0.75 : 1, depthTest: false });
-    m.resolution.set(host.current?.clientWidth ?? 1, host.current?.clientHeight ?? 1);
-    c.lineMats.add(m);
-    const l = new Line2(g, m);
-    if (opts.dashed) l.computeLineDistances();
-    l.renderOrder = 10;
-    return l;
-  };
-  const dots = (pts: Pt[], z: number, size = 11) => {
-    const c = ctx.current!;
-    const g = new THREE.BufferGeometry().setFromPoints(pts.map((p) => toWorld(p, z)));
-    const m = new THREE.PointsMaterial({ size, sizeAttenuation: false, map: c.dot.clone(), transparent: true, alphaTest: 0.4, depthTest: false });
-    m.map!.needsUpdate = true;
-    const o = new THREE.Points(g, m);
-    o.renderOrder = 12;
-    return o;
-  };
-
-  // Πρόχειρο (σημεία που μπαίνουν τώρα) + «λάστιχο» ως τον κέρσορα. Καλείται και από το pointermove.
-  const drawDraft = () => {
-    const c = ctx.current;
-    if (!c) return;
-    const { draft: d, tool: t } = cbs.current;
-    clear(c.layers.draft);
-    if (!d.length) return;
-    const color = t === 'calibrate' ? '#F59E0B' : t === 'divider' ? '#F43F5E' : t === 'wall' ? WALL_DRAW : '#22D3EE';
-    const seq = c.hover ? [...d, c.hover] : d;
-    if (seq.length >= 2 && t === 'wall') c.layers.draft.add(line(seq, Z.draft, color, Math.max(2, cbs.current.wallThicknessPx), { world: true }));
-    else if (seq.length >= 2) c.layers.draft.add(line(seq, Z.draft, color, 2.5, { dashed: t === 'polygon' }));
-    if (t === 'polygon' && d.length >= 2 && c.hover) c.layers.draft.add(line([c.hover, d[0]], Z.draft, color, 1, { dashed: true }));
-    c.layers.draft.add(dots(d, Z.draft + 0.1));
-  };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   React.useEffect(drawDraft, [draft, tool, image]);
 
@@ -294,7 +296,7 @@ export function PlanViewer(props: PlanViewerProps) {
     const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ map: t, transparent: true, depthWrite: false }));
     m.position.z = Z.walls;
     c.layers.walls.add(m);
-  }, [wallsOverlay, w, h, image]);
+  }, [wallsOverlay, w, h, image, clear]);
 
   React.useEffect(() => {
     const c = ctx.current;
@@ -318,7 +320,7 @@ export function PlanViewer(props: PlanViewerProps) {
       c.layers.rooms.add(fill);
       c.layers.rooms.add(line(r.polygon, Z.outline, sel ? '#FFFFFF' : r.color, sel ? 3.5 : 2.5, { closed: true }));
     }
-  }, [rooms, selectedId, w, h, image, toWorld]);
+  }, [rooms, selectedId, w, h, image, toWorld, clear, line]);
 
   React.useEffect(() => {
     const c = ctx.current;
@@ -329,7 +331,7 @@ export function PlanViewer(props: PlanViewerProps) {
       c.layers.lines.add(line(calibration, Z.divider, '#F59E0B', 3));
       c.layers.lines.add(dots(calibration, Z.divider + 0.1, 10));
     }
-  }, [dividers, calibration, image, toWorld]);
+  }, [dividers, calibration, image, toWorld, clear, line, dots]);
 
   // «Χωράει ολόκληρο».
   React.useEffect(() => {

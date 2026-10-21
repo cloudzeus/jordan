@@ -58,6 +58,7 @@ export function SoftoneMirrorPanel({ initial, canManage, help }: { initial: Mirr
   const [s, setS] = React.useState(initial);
   // Πρώτη απόδοση με την ώρα του server (ίδιο κείμενο σε server και browser), μετά με το ρολόι του browser.
   const [now, setNow] = React.useState(() => Date.parse(initial.generatedAt));
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- ρολόι του browser μόνο μετά το hydration
   React.useEffect(() => { setNow(Date.now()); }, []);
   const [starting, setStarting] = React.useState(false);
 

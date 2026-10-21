@@ -24,7 +24,9 @@ export function BookingModal({ open, onOpenChange, offerId, items, itemId, onIte
   const [busy, setBusy] = React.useState(false);
   const [sent, setSent] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
-  React.useEffect(() => { if (open) { setSent(false); setError(null); } }, [open]);
+  // Επαναφορά στο άνοιγμα (adjust-state-while-rendering)
+  const [prevOpen, setPrevOpen] = React.useState(false);
+  if (open !== prevOpen) { setPrevOpen(open); if (open) { setSent(false); setError(null); } }
 
   const item = items.find((i) => i.id === itemId) ?? items[0];
   const multi = items.length > 1;

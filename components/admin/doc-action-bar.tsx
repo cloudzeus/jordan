@@ -73,12 +73,10 @@ export function DocActionBar({
     } finally { setMarkBusy(false); }
   }
 
-  const load = React.useCallback(async () => {
-    try {
-      const r = await fetch(`/api/admin/ocr/${docId}/post-softone?dryRun=1`, { cache: 'no-store' });
-      if (r.ok) setPreview(await r.json());
-    } catch { /* η μπάρα δείχνει «έλεγχος…» — δεν ρίχνει τη σελίδα */ }
-  }, [docId]);
+  const load = React.useCallback(() =>
+    fetch(`/api/admin/ocr/${docId}/post-softone?dryRun=1`, { cache: 'no-store' })
+      .then(async (r) => { if (r.ok) setPreview(await r.json()); })
+      .catch(() => { /* η μπάρα δείχνει «έλεγχος…» — δεν ρίχνει τη σελίδα */ }), [docId]);
   React.useEffect(() => { void load(); }, [load]);
   useDocLinesChanged(docId, () => { void load(); });
   React.useEffect(() => {

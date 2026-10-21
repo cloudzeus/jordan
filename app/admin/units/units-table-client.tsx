@@ -52,14 +52,18 @@ function UnitDialog({ open, onOpenChange, row, onSaved }: { open: boolean; onOpe
   const [busy, setBusy] = React.useState(false);
   const [errors, setErrors] = React.useState<Record<string, string>>({});
 
-  React.useEffect(() => {
-    if (!open) return;
-    setErrors({});
-    setF({
-      shortcut: row?.shortcut ?? '', name: row?.name ?? '', interCode: row?.interCode ?? '',
-      decimals: String(row?.decimals ?? 2), myDataCode: String(row?.myDataCode ?? 1),
-    });
-  }, [open, row]);
+  // Επαναφορά της φόρμας στο άνοιγμα (adjust-state-while-rendering)
+  const [prevDeps, setPrevDeps] = React.useState({ open: false, row });
+  if (prevDeps.open !== open || prevDeps.row !== row) {
+    setPrevDeps({ open, row });
+    if (open) {
+      setErrors({});
+      setF({
+        shortcut: row?.shortcut ?? '', name: row?.name ?? '', interCode: row?.interCode ?? '',
+        decimals: String(row?.decimals ?? 2), myDataCode: String(row?.myDataCode ?? 1),
+      });
+    }
+  }
 
   const set = (k: keyof typeof f) => (v: string) => { setF((s) => ({ ...s, [k]: v })); setErrors({}); };
 
@@ -152,7 +156,8 @@ function UnitIconDialog({ row, onOpenChange, onChanged }: { row: UnitRow | null;
   const [busy, setBusy] = React.useState<'upload' | 'ai' | 'remove' | null>(null);
   const fileRef = React.useRef<HTMLInputElement>(null);
 
-  React.useEffect(() => { if (row) { setIconUrl(row.iconUrl); setHint(''); } }, [row]);
+  const [prevRow, setPrevRow] = React.useState<UnitRow | null>(null);
+  if (row !== prevRow) { setPrevRow(row); if (row) { setIconUrl(row.iconUrl); setHint(''); } }
   if (!row) return null;
 
   const done = (url: string | null, msg: string) => { setIconUrl(url); toast.success(msg); onChanged(); };
@@ -253,16 +258,21 @@ function MembersPanel({ row }: { row: UnitRow }) {
   const [error, setError] = React.useState<string | null>(null);
   const [q, setQ] = React.useState('');
 
-  const load = React.useCallback(async () => {
-    setError(null);
-    try {
-      const res = await fetch(`/api/admin/units/${row.code}/members`, { cache: 'no-store' });
-      const d = await res.json();
-      if (!res.ok) throw new Error(d.message ?? 'Αποτυχία φόρτωσης από το SoftOne');
-      setItems(d.items);
-    } catch (e) { setError((e as Error).message); }
-  }, [row.code]);
-  React.useEffect(() => { void load(); }, [load]);
+  // Τα setState μόνο μέσα στα callbacks της υπόσχεσης (ασύγχρονα)
+  const fetchItems = React.useCallback(() =>
+    fetch(`/api/admin/units/${row.code}/members`, { cache: 'no-store' })
+      .then(async (res) => {
+        const d = await res.json();
+        if (!res.ok) throw new Error(d.message ?? 'Αποτυχία φόρτωσης από το SoftOne');
+        setItems(d.items);
+      })
+      .catch((e) => { setError((e as Error).message); }),
+  [row.code]);
+  const load = () => { setError(null); void fetchItems(); };
+  // Νέα γραμμή → καθαρισμός σφάλματος (adjust-state-while-rendering) και φόρτωση στο effect
+  const [prevCode, setPrevCode] = React.useState(row.code);
+  if (row.code !== prevCode) { setPrevCode(row.code); setError(null); }
+  React.useEffect(() => { void fetchItems(); }, [fetchItems]);
 
   if (error) {
     return (

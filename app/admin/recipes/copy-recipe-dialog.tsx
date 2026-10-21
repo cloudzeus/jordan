@@ -28,11 +28,15 @@ export function CopyRecipeDialog({ recipe, onClose }: { recipe: RecipeView | nul
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
-  React.useEffect(() => {
-    if (!recipe) return;
-    setName(`${recipe.name} (αντίγραφο)`);
-    setMain(null); setPrice(toInput(recipe.materialPrice)); setLastBuy(null); setError(null);
-  }, [recipe]);
+  // Επαναφορά όταν ανοίγει για συνταγή (adjust-state-while-rendering)
+  const [prevRecipe, setPrevRecipe] = React.useState<RecipeView | null>(null);
+  if (recipe !== prevRecipe) {
+    setPrevRecipe(recipe);
+    if (recipe) {
+      setName(`${recipe.name} (αντίγραφο)`);
+      setMain(null); setPrice(toInput(recipe.materialPrice)); setLastBuy(null); setError(null);
+    }
+  }
 
   if (!recipe) return null;
   const tone = RECIPE_KIND_META[recipe.kind].color;

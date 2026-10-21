@@ -65,9 +65,9 @@ export async function POST(req: Request) {
   let pageCount: number;
   try {
     pageCount = await pdfPageCount(buffer);
-  } catch (err: any) {
+  } catch (err) {
     return NextResponse.json(
-      { error: `Το PDF δεν διαβάζεται: ${String(err?.message ?? err).slice(0, 200)}` },
+      { error: `Το PDF δεν διαβάζεται: ${String((err as Error)?.message ?? err).slice(0, 200)}` },
       { status: 422 },
     );
   }

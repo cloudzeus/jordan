@@ -53,7 +53,7 @@ export interface ParsedAnalytics {
 
 export function parseAnalyticsAnswer(raw: string): ParsedAnalytics[] {
   const body = String(raw ?? '').trim().replace(/^```(?:json)?/i, '').replace(/```$/, '').trim();
-  let parsed: unknown = null;
+  let parsed: unknown;
   try {
     parsed = JSON.parse(body);
   } catch {

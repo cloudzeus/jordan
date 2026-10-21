@@ -35,11 +35,15 @@ export function RecipeLinesDialog({ open, onOpenChange, onAdd }: {
   const [markup, setMarkup] = React.useState('');
   const [mode, setMode] = React.useState<OfferLineMode>('detailed');
 
+  // Επαναφορά στο άνοιγμα (adjust-state-while-rendering)· η φόρτωση στο effect.
+  const [prevOpen, setPrevOpen] = React.useState(false);
+  if (prevOpen !== open) {
+    setPrevOpen(open);
+    if (open) { setRecipeId(''); setSqm(''); setLoadError(null); }
+  }
   React.useEffect(() => {
     if (!open) return;
-    setRecipeId(''); setSqm('');
     let ignore = false;
-    setLoadError(null);
     fetch('/api/admin/recipes', { cache: 'no-store' })
       .then(async (res) => {
         if (res.status === 403) throw new Error('Δεν έχετε δικαίωμα προβολής συνταγών (recipes.read).');

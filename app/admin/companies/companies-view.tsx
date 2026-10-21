@@ -6,16 +6,16 @@ import { useRouter } from 'next/navigation';
 import { ColumnDef } from '@tanstack/react-table';
 import {
   FiPlus, FiEdit2, FiTrash2, FiMoreVertical, FiCheck, FiX,
-  FiAlertTriangle, FiSettings, FiLayers, FiMapPin, FiStar,
+  FiAlertTriangle, FiLayers, FiMapPin, FiStar,
   FiInfo, FiFileText, FiPhone, FiCreditCard, FiTag, FiEdit3,
-  FiUpload, FiArchive, FiExternalLink, FiImage, FiRefreshCw,
+  FiArchive, FiExternalLink, FiImage, FiRefreshCw,
   FiUserPlus, FiUser, FiMail, FiSmartphone, FiSearch,
   FiBarChart2,
 } from 'react-icons/fi';
 import { SoftoneAfmDialog } from '@/components/admin/softone-afm-dialog';
 import { toast } from 'sonner';
 import { DataTable } from '@/components/ui/data-table';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -365,7 +365,7 @@ export function CompaniesView({
         );
       },
     },
-  ]), []);
+  ]), [router]);
 
   const filteredRows = React.useMemo(() => {
     if (tab === 'ALL') return rows;
@@ -412,8 +412,8 @@ export function CompaniesView({
         persistKey="admin.companies.v1"
         initialColumnVisibility={Object.fromEntries(
           columns
-            .map((c) => (c as any).id ?? (c as any).accessorKey)
-            .filter(Boolean)
+            .map((c) => (c as { id?: string; accessorKey?: string }).id ?? (c as { id?: string; accessorKey?: string }).accessorKey)
+            .filter((id): id is string => Boolean(id))
             .map((id) => [id, DEFAULT_VISIBLE_COLUMNS.has(id)]),
         )}
         expandable={(c) => <CompanyExpandedRow company={c} />}
@@ -457,6 +457,29 @@ export function CompaniesView({
 
 // ---------------- Create / Edit Dialog ----------------
 
+// ΚΑΔ όπως έρχονται από το GET /api/admin/companies/[id] (με τη σημαία άδειας λειτουργίας).
+type CompanyActivity = {
+  code: string; codeAade?: string | null; codeWithoutDots?: string | null;
+  description: string; kind: 'PRIMARY' | 'SECONDARY'; order?: number; requiresLicense?: boolean;
+};
+
+// Η κατάσταση της φόρμας: ό,τι γεμίζει από το GET /api/admin/companies/[id] ή από την ΑΑΔΕ.
+type CompanyForm = {
+  code?: string; name?: string; shortName?: string; afm?: string; doy?: string; profession?: string;
+  legalForm?: string; gemhNumber?: string; address?: string; city?: string; zip?: string; country?: string; district?: string;
+  phone?: string; phone2?: string; email?: string; website?: string; contactPerson?: string; contactTitle?: string;
+  iban?: string; bankName?: string; paymentTerms?: string;
+  creditLimit?: number | string; discount?: number | string; employeeCount?: number | string;
+  notes?: string; isActive?: boolean; foundingDate?: string;
+  aadeStatus?: string; aadeFirmKind?: string; aadeSyncedAt?: string;
+  arGemi?: string | null; gemiStatus?: string; gemiOffice?: string; gemiObjective?: string; gemiSyncedAt?: string | null;
+  logoUrl?: string | null;
+  legalTypeId?: number | '' | null; vatCategoryId?: number | '' | null; vatCategory?: string;
+  businessTypeId?: string; businessTypeOverride?: boolean;
+  gemiOfficeId?: number | ''; companyStatusId?: number | ''; prefectureId?: string; municipalityId?: string;
+  regionCode?: string | null;
+};
+
 function CompanyDialog({
   open, company, types, defaultTypeKey, onClose, onSaved,
 }: {
@@ -469,7 +492,7 @@ function CompanyDialog({
 }) {
   const isEdit = !!company;
   const router = useRouter();
-  const [form, setForm] = React.useState<any>({});
+  const [form, setForm] = React.useState<CompanyForm>({});
   const [typeIds, setTypeIds] = React.useState<string[]>([]);
   const [activities, setActivities] = React.useState<{ code: string; codeAade?: string | null; codeWithoutDots?: string | null; description: string; kind: 'PRIMARY' | 'SECONDARY'; order?: number }[]>([]);
   const [saving, setSaving] = React.useState(false);
@@ -491,9 +514,25 @@ function CompanyDialog({
   const [reloadKey, setReloadKey] = React.useState(0);
   const [regionBreadcrumb, setRegionBreadcrumb] = React.useState<import('@/components/regions/region-field').RegionFieldValue['breadcrumb']>(null);
 
+  // Συγχρονικό μέρος της επαναφοράς (ενότητα, νέα εταιρία) — adjust-state-while-rendering.
+  const [prevDeps, setPrevDeps] = React.useState({ open: false, company, defaultTypeKey, types, reloadKey });
+  if (prevDeps.open !== open || prevDeps.company !== company || prevDeps.defaultTypeKey !== defaultTypeKey || prevDeps.types !== types || prevDeps.reloadKey !== reloadKey) {
+    setPrevDeps({ open, company, defaultTypeKey, types, reloadKey });
+    if (open) {
+      setActiveSection('general');
+      if (!company) {
+        setForm({ name: '', country: 'GR', isActive: true });
+        setRegionBreadcrumb(null);
+        const def = defaultTypeKey ? types.find((t) => t.key === defaultTypeKey) : null;
+        setTypeIds(def ? [def.id] : []);
+        setActivities([]);
+      }
+    }
+  }
+
+  // Φόρτωση της υπάρχουσας εταιρίας (τα setState μόνο μέσα στα callbacks του fetch).
   React.useEffect(() => {
     if (!open) return;
-    setActiveSection('general');
     if (company) {
       fetch(`/api/admin/companies/${company.id}`)
         .then((r) => r.json())
@@ -529,8 +568,8 @@ function CompanyDialog({
             municipalityId: c.municipalityId ?? '',
             regionCode: c.regionCode ?? null,
           });
-          setTypeIds(c.types.map((t: any) => t.typeId));
-          setActivities((c.activities ?? []).map((a: any) => ({
+          setTypeIds(c.types.map((t: { typeId: string }) => t.typeId));
+          setActivities((c.activities ?? []).map((a: CompanyActivity) => ({
             code: a.code, codeAade: a.codeAade, codeWithoutDots: a.codeWithoutDots,
             description: a.description, kind: a.kind, order: a.order,
             requiresLicense: a.requiresLicense ?? false,
@@ -544,22 +583,17 @@ function CompanyDialog({
             setRegionBreadcrumb(null);
           }
         });
-    } else {
-      setForm({ name: '', country: 'GR', isActive: true });
-      setRegionBreadcrumb(null);
-      const def = defaultTypeKey ? types.find((t) => t.key === defaultTypeKey) : null;
-      setTypeIds(def ? [def.id] : []);
-      setActivities([]);
     }
+    // defaultTypeKey/types: όπως πριν, κάθε αλλαγή τους ξαναφορτώνει την εταιρία
   }, [open, company, defaultTypeKey, types, reloadKey]);
 
-  const set = (k: string, v: any) => setForm((f: any) => ({ ...f, [k]: v }));
+  const set = <K extends keyof CompanyForm>(k: K, v: CompanyForm[K]) => setForm((f) => ({ ...f, [k]: v }));
   const toggleType = (id: string) =>
     setTypeIds((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
 
   const applyAade = (data: AadeResult) => {
     const m = data.mapped;
-    setForm((f: any) => ({
+    setForm((f) => ({
       ...f,
       afm: m.afm,
       name: m.name || f.name,
@@ -603,7 +637,6 @@ function CompanyDialog({
       finally { if (!cancelled) setAadeAuto(false); }
     })();
     return () => { cancelled = true; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.afm, isEdit]);
 
   const save = async () => {
@@ -636,7 +669,7 @@ function CompanyDialog({
     });
     setSaving(false);
     if (res.ok) {
-      const body = await res.json().catch(() => ({} as any));
+      const body = await res.json().catch(() => ({}));
       toast.success(isEdit ? 'Αποθηκεύτηκε' : 'Δημιουργήθηκε');
       // Νέος πελάτης με ΑΦΜ/ΓΕΜΗ → αυτόματος συγχρονισμός ΓΕΜΗ στο παρασκήνιο (με έγγραφα).
       const newId: string | undefined = body?.company?.id;
@@ -648,7 +681,7 @@ function CompanyDialog({
         })
           .then(async (r) => {
             if (r.ok) {
-              const d = await r.json().catch(() => ({} as any));
+              const d = await r.json().catch(() => ({}));
               toast.success(`ΓΕΜΗ ολοκληρώθηκε${d?.documentsImported ? ` · ${d.documentsImported} έγγραφα` : ''}`, { id: tid });
             } else {
               toast.error('Ο συγχρονισμός ΓΕΜΗ απέτυχε', { id: tid });
@@ -1115,6 +1148,7 @@ type Branch = {
   address: string | null; city: string | null; zip: string | null;
   phone: string | null; email: string | null; contactPerson: string | null;
 };
+type BranchForm = Partial<Branch> & { country?: string };
 
 function BranchesPanel({ companyId }: { companyId: string }) {
   const [branches, setBranches] = React.useState<Branch[]>([]);
@@ -1122,15 +1156,17 @@ function BranchesPanel({ companyId }: { companyId: string }) {
   const [editing, setEditing] = React.useState<Branch | null>(null);
   const [creating, setCreating] = React.useState(false);
 
-  const load = React.useCallback(async () => {
-    setLoading(true);
-    const res = await fetch(`/api/admin/companies/${companyId}/branches`);
-    const d = await res.json();
-    setBranches(d.branches ?? []);
-    setLoading(false);
-  }, [companyId]);
+  // Τα setState μόνο μέσα στα callbacks του fetch· το «loading» ανάβει από τον χειριστή (load) ή στην αλλαγή companyId.
+  const fetchBranches = React.useCallback(() =>
+    fetch(`/api/admin/companies/${companyId}/branches`)
+      .then((res) => res.json())
+      .then((d) => { setBranches(d.branches ?? []); setLoading(false); }),
+  [companyId]);
+  const load = () => { setLoading(true); return fetchBranches(); };
+  const [prevCompanyId, setPrevCompanyId] = React.useState(companyId);
+  if (companyId !== prevCompanyId) { setPrevCompanyId(companyId); setLoading(true); }
 
-  React.useEffect(() => { load(); }, [load]);
+  React.useEffect(() => { fetchBranches(); }, [fetchBranches]);
 
   const remove = async (b: Branch) => {
     if (!(await confirmAction(`Διαγραφή υποκαταστήματος "${b.name}";`))) return;
@@ -1194,16 +1230,20 @@ function BranchDialog({
   onClose: () => void; onSaved: () => void;
 }) {
   const isEdit = !!branch;
-  const [form, setForm] = React.useState<any>({});
+  const [form, setForm] = React.useState<BranchForm>({});
   const [saving, setSaving] = React.useState(false);
 
-  React.useEffect(() => {
-    if (!open) return;
-    if (branch) setForm({ ...branch });
-    else setForm({ name: '', country: 'GR', isActive: true, isHeadquarters: false });
-  }, [open, branch]);
+  // Επαναφορά της φόρμας στο άνοιγμα (adjust-state-while-rendering)
+  const [prevDeps, setPrevDeps] = React.useState({ open: false, branch });
+  if (prevDeps.open !== open || prevDeps.branch !== branch) {
+    setPrevDeps({ open, branch });
+    if (open) {
+      if (branch) setForm({ ...branch });
+      else setForm({ name: '', country: 'GR', isActive: true, isHeadquarters: false });
+    }
+  }
 
-  const set = (k: string, v: any) => setForm((f: any) => ({ ...f, [k]: v }));
+  const set = <K extends keyof BranchForm>(k: K, v: BranchForm[K]) => setForm((f) => ({ ...f, [k]: v }));
 
   const save = async () => {
     if (!form.name?.trim()) { toast.error('Όνομα υποχρεωτικό'); return; }
@@ -1342,28 +1382,31 @@ function ContactsPanel({ companyId }: { companyId: string }) {
   const [editing, setEditing] = React.useState<Contact | null>(null);
   const [creating, setCreating] = React.useState(false);
 
-  const load = React.useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await fetch(`/api/admin/companies/${companyId}/contacts`);
-      if (!res.ok) {
-        toast.error(`Αποτυχία φόρτωσης επαφών (HTTP ${res.status})`);
+  // Τα setState μόνο μέσα στα callbacks του fetch· το «loading» ανάβει από τον χειριστή (load) ή στην αλλαγή companyId.
+  const fetchContacts = React.useCallback(() =>
+    fetch(`/api/admin/companies/${companyId}/contacts`)
+      .then(async (res) => {
+        if (!res.ok) {
+          toast.error(`Αποτυχία φόρτωσης επαφών (HTTP ${res.status})`);
+          setList([]);
+        } else {
+          const text = await res.text();
+          const d = text ? JSON.parse(text) : { contacts: [] };
+          setList(d.contacts ?? []);
+        }
+      })
+      .catch((e) => {
+        console.error('[contacts] load failed', e);
+        toast.error('Αποτυχία φόρτωσης επαφών');
         setList([]);
-      } else {
-        const text = await res.text();
-        const d = text ? JSON.parse(text) : { contacts: [] };
-        setList(d.contacts ?? []);
-      }
-    } catch (e) {
-      console.error('[contacts] load failed', e);
-      toast.error('Αποτυχία φόρτωσης επαφών');
-      setList([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [companyId]);
+      })
+      .finally(() => { setLoading(false); }),
+  [companyId]);
+  const load = () => { setLoading(true); return fetchContacts(); };
+  const [prevCompanyId, setPrevCompanyId] = React.useState(companyId);
+  if (companyId !== prevCompanyId) { setPrevCompanyId(companyId); setLoading(true); }
 
-  React.useEffect(() => { load(); }, [load]);
+  React.useEffect(() => { fetchContacts(); }, [fetchContacts]);
 
   const remove = async (c: Contact) => {
     if (!(await confirmAction(`Διαγραφή επαφής "${c.fullName}";`))) return;
@@ -1436,16 +1479,20 @@ function ContactDialog({
   onSaved: () => void;
 }) {
   const isEdit = !!contact;
-  const [form, setForm] = React.useState<any>({});
+  const [form, setForm] = React.useState<Partial<Contact>>({});
   const [saving, setSaving] = React.useState(false);
 
-  React.useEffect(() => {
-    if (!open) return;
-    if (contact) setForm({ ...contact });
-    else setForm({ country: 'GR', isActive: true, isPrimary: false });
-  }, [open, contact]);
+  // Επαναφορά της φόρμας στο άνοιγμα (adjust-state-while-rendering)
+  const [prevDeps, setPrevDeps] = React.useState({ open: false, contact });
+  if (prevDeps.open !== open || prevDeps.contact !== contact) {
+    setPrevDeps({ open, contact });
+    if (open) {
+      if (contact) setForm({ ...contact });
+      else setForm({ country: 'GR', isActive: true, isPrimary: false });
+    }
+  }
 
-  const refreshAvatar = (url: string | null) => setForm((f: any) => ({ ...f, avatarUrl: url }));
+  const refreshAvatar = (url: string | null) => setForm((f) => ({ ...f, avatarUrl: url }));
   const uploadAvatar = async (file: File) => {
     if (!companyId || !contact?.id) { toast.info('Αποθήκευσε πρώτα την επαφή για να ανεβάσεις avatar'); return; }
     const fd = new FormData(); fd.append('file', file);
@@ -1464,7 +1511,7 @@ function ContactDialog({
     else toast.error('Αποτυχία');
   };
 
-  const set = (k: string, v: any) => setForm((f: any) => ({ ...f, [k]: v }));
+  const set = <K extends keyof Contact>(k: K, v: Contact[K]) => setForm((f) => ({ ...f, [k]: v }));
 
   const save = async () => {
     if (!companyId) { toast.error('Επιλέξτε εταιρία'); return; }
@@ -1595,7 +1642,7 @@ type Channel = {
   notes: string | null;
 };
 
-const CHANNEL_META: Record<ChannelKind, { label: string; icon: any; placeholder: string }> = {
+const CHANNEL_META: Record<ChannelKind, { label: string; icon: React.ComponentType<{ className?: string }>; placeholder: string }> = {
   EMAIL:  { label: 'Email',    icon: FiMail,        placeholder: 'name@domain.gr' },
   PHONE:  { label: 'Σταθερό',  icon: FiPhone,       placeholder: '210 1234567' },
   MOBILE: { label: 'Κινητό',   icon: FiSmartphone,  placeholder: '69x xxx xxxx' },
@@ -1611,18 +1658,22 @@ function ChannelsPanel({ companyId, compact = false }: { companyId: string; comp
   });
   const [busy, setBusy] = React.useState(false);
 
-  const load = React.useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await fetch(`/api/admin/companies/${companyId}/channels`);
-      if (!res.ok) { setItems([]); return; }
-      const text = await res.text();
-      const d = text ? JSON.parse(text) : { channels: [] };
-      setItems(d.channels ?? []);
-    } finally { setLoading(false); }
-  }, [companyId]);
+  // Τα setState μόνο μέσα στα callbacks του fetch· το «loading» ανάβει από τον χειριστή (load) ή στην αλλαγή companyId.
+  const fetchChannels = React.useCallback(() =>
+    fetch(`/api/admin/companies/${companyId}/channels`)
+      .then(async (res) => {
+        if (!res.ok) { setItems([]); return; }
+        const text = await res.text();
+        const d = text ? JSON.parse(text) : { channels: [] };
+        setItems(d.channels ?? []);
+      })
+      .finally(() => { setLoading(false); }),
+  [companyId]);
+  const load = () => { setLoading(true); return fetchChannels(); };
+  const [prevCompanyId, setPrevCompanyId] = React.useState(companyId);
+  if (companyId !== prevCompanyId) { setPrevCompanyId(companyId); setLoading(true); }
 
-  React.useEffect(() => { load(); }, [load]);
+  React.useEffect(() => { fetchChannels(); }, [fetchChannels]);
 
   const add = async () => {
     if (!draft.value.trim()) { toast.error('Συμπλήρωσε την τιμή'); return; }
@@ -1843,6 +1894,22 @@ function ActivitiesEditor({
 
 type ExpandTab = 'info' | 'contact' | 'contacts' | 'tax' | 'branches' | 'documents' | 'financial' | 'map';
 
+// Τα πεδία του GET /api/admin/companies/[id] που προβάλλει η ανοιγμένη γραμμή. Το CompanyRow
+// (fallback πριν φορτώσει η λεπτομέρεια) είναι συμβατό, γι' αυτό τα επιπλέον πεδία είναι προαιρετικά.
+type CompanyDetail = {
+  name: string; shortName: string | null; code: string | null; afm: string | null; doy: string | null;
+  arGemi: string | null; legalForm: string | null; profession: string | null; category: string | null; vatCategory: string | null;
+  isActive: boolean; aadeStatus: string | null; aadeFirmKind: string | null; aadeSyncedAt: string | null;
+  gemiStatus: string | null; gemiOffice: string | null; gemiSyncedAt: string | null;
+  foundingDate: string | null; createdAt: string; updatedAt?: string;
+  latitude: number | null; longitude: number | null; geocodedAddress: string | null;
+  website: string | null; address: string | null; zip: string | null; city: string | null; country: string | null;
+  contactPerson: string | null; contactTitle: string | null;
+  iban: string | null; bankName: string | null; currency: string | null; paymentTerms: string | null;
+  creditLimit: number | string | null; discount: number | string | null;
+  notes?: string | null; gemiObjective?: string | null; activities?: CompanyActivity[];
+};
+
 function CompanyExpandedRow({ company }: { company: CompanyRow }) {
   const [tab, setTab] = React.useState<ExpandTab>('info');
   const [coords, setCoords] = React.useState<{ lat: number | null; lng: number | null }>({
@@ -1851,9 +1918,9 @@ function CompanyExpandedRow({ company }: { company: CompanyRow }) {
   const [geocoding, setGeocoding] = React.useState(false);
 
   // Lazy-loaded data caches. null = not requested yet, [] / {} = loaded.
-  const [detail, setDetail] = React.useState<any | null>(null);
+  const [detail, setDetail] = React.useState<CompanyDetail | null>(null);
   const [detailLoading, setDetailLoading] = React.useState(false);
-  const [branches, setBranches] = React.useState<any[] | null>(null);
+  const [branches, setBranches] = React.useState<Branch[] | null>(null);
   const [branchesLoading, setBranchesLoading] = React.useState(false);
   const [docs, setDocs] = React.useState<DocRow[] | null>(null);
   const [docsLoading, setDocsLoading] = React.useState(false);
@@ -1890,6 +1957,7 @@ function CompanyExpandedRow({ company }: { company: CompanyRow }) {
   };
 
   // Info tab also benefits from full detail (notes, gemiObjective, etc.) — kick off on mount.
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- lazy cache: το ensureDetail ανάβει συγχρονικά το detailLoading ως φρουρό διπλού fetch (κοινό με τα tabs)
   React.useEffect(() => { ensureDetail(); }, [ensureDetail]);
 
   const reGeocode = async () => {
@@ -1943,13 +2011,13 @@ function CompanyExpandedRow({ company }: { company: CompanyRow }) {
       </div>
 
       {tab === 'info' && (() => {
-        const c = (detail ?? company) as any;
-        const fmtDate = (v: any) => v ? new Date(v).toLocaleDateString('el-GR') : null;
-        const fmtDateTime = (v: any) => v ? new Date(v).toLocaleString('el-GR', { dateStyle: 'short', timeStyle: 'short' }) : null;
+        const c: CompanyDetail = detail ?? company;
+        const fmtDate = (v: string | null | undefined) => v ? new Date(v).toLocaleDateString('el-GR') : null;
+        const fmtDateTime = (v: string | null | undefined) => v ? new Date(v).toLocaleString('el-GR', { dateStyle: 'short', timeStyle: 'short' }) : null;
         // Collapse whitespace from imported text (e.g. GEMI's gemiObjective uses \r\n).
-        const clean = (v: any) => typeof v === 'string' ? v.replace(/\s+/g, ' ').trim() : v;
+        const clean = <T,>(v: T): T => (typeof v === 'string' ? v.replace(/\s+/g, ' ').trim() : v) as T;
         const activitiesCount = Array.isArray(c.activities) ? c.activities.length : company.activityCount;
-        const primaryActivity = Array.isArray(c.activities) ? c.activities.find((a: any) => a.kind === 'PRIMARY') : null;
+        const primaryActivity = Array.isArray(c.activities) ? c.activities.find((a) => a.kind === 'PRIMARY') : null;
 
         return (
           <div className="space-y-4">
@@ -2082,7 +2150,7 @@ function CompanyExpandedRow({ company }: { company: CompanyRow }) {
                   ? <div className="text-(length:--fs-12) text-muted-foreground italic">Δεν έχουν καταχωρηθεί ΚΑΔ.</div>
                   : (
                     <ul className="divide-y divide-border rounded-sm border max-h-60 overflow-y-auto">
-                      {c.activities.map((a: any) => (
+                      {c.activities.map((a) => (
                         <li key={a.code} className="flex items-center gap-2 px-2 py-1.5 text-(length:--fs-11)">
                           <span className="font-mono tabular-nums w-20 shrink-0">{a.code}</span>
                           <span className="flex-1 truncate" title={a.description}>{a.description}</span>
@@ -2121,7 +2189,7 @@ function CompanyExpandedRow({ company }: { company: CompanyRow }) {
             ? <div className="text-(length:--fs-12) text-muted-foreground italic">Δεν υπάρχουν υποκαταστήματα.</div>
             : (
               <ul className="divide-y divide-border rounded-sm border">
-                {items.map((b: any) => (
+                {items.map((b) => (
                   <li key={b.id} className="flex items-start gap-2 px-3 py-2">
                     <FiMapPin className="size-3.5 text-muted-foreground shrink-0 mt-0.5" />
                     <div className="flex-1 min-w-0">
@@ -2264,7 +2332,7 @@ function Tile({
   hint?: string;
   onClick?: () => void;
 }) {
-  const Wrapper: any = onClick ? 'button' : 'div';
+  const Wrapper: React.ElementType = onClick ? 'button' : 'div';
   return (
     <Wrapper
       type={onClick ? 'button' : undefined}
@@ -2438,15 +2506,17 @@ function DocumentsPanel({
   const [loading, setLoading] = React.useState(true);
   const [filter, setFilter] = React.useState<'ALL' | 'DECISION' | 'PUBLICATION'>('ALL');
 
-  const load = React.useCallback(async () => {
-    setLoading(true);
-    const res = await fetch(`/api/admin/companies/${companyId}/documents`);
-    const d = await res.json();
-    setDocs(d.documents ?? []);
-    setLoading(false);
-  }, [companyId]);
+  // Τα setState μόνο μέσα στα callbacks του fetch· το «loading» ανάβει από τον χειριστή (load) ή στην αλλαγή companyId.
+  const fetchDocs = React.useCallback(() =>
+    fetch(`/api/admin/companies/${companyId}/documents`)
+      .then((res) => res.json())
+      .then((d) => { setDocs(d.documents ?? []); setLoading(false); }),
+  [companyId]);
+  const load = () => { setLoading(true); return fetchDocs(); };
+  const [prevCompanyId, setPrevCompanyId] = React.useState(companyId);
+  if (companyId !== prevCompanyId) { setPrevCompanyId(companyId); setLoading(true); }
 
-  React.useEffect(() => { load(); }, [load]);
+  React.useEffect(() => { fetchDocs(); }, [fetchDocs]);
 
   const remove = async (doc: DocRow) => {
     if (!(await confirmAction(`Διαγραφή εγγράφου "${doc.title}";`))) return;

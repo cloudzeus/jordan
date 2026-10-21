@@ -26,7 +26,7 @@ export function normalizeForSplit(s: string): string {
   return String(s ?? '')
     .normalize('NFD').replace(/[̀-ͯ]/g, '')
     .toUpperCase()
-    .replace(/[^\p{Lu}\p{N}\/\-:. ]+/gu, ' ')
+    .replace(/[^\p{Lu}\p{N}/\-:. ]+/gu, ' ')
     .replace(/\s+/g, ' ')
     .trim();
 }

@@ -72,8 +72,13 @@ export function KanbanBoard({ tasks, canManage, names, actions, boardId = 'proje
   const columnsOf = React.useCallback((list: TaskView[]) => boardColumns(list, scopeOf), [scopeOf]);
   const [cols, setCols] = React.useState(() => columnsOf(tasks));
   const [active, setActive] = React.useState<string | null>(null);
-  colsRef.current = cols;
-  React.useEffect(() => { if (!active) setCols(columnsOf(tasks)); }, [tasks, active, columnsOf]);
+  React.useEffect(() => { colsRef.current = cols; });
+  // Εκτός συρσίματος η διάταξη ακολουθεί τα δεδομένα (adjust-state-while-rendering)
+  const [prevDeps, setPrevDeps] = React.useState({ tasks, active, columnsOf });
+  if (prevDeps.tasks !== tasks || prevDeps.active !== active || prevDeps.columnsOf !== columnsOf) {
+    setPrevDeps({ tasks, active, columnsOf });
+    if (!active) setCols(columnsOf(tasks));
+  }
   const byId = React.useMemo(() => new Map(tasks.map((t) => [t.id, t])), [tasks]);
 
   const colOf = (id: string): PhaseKey | null => (PHASES.find((p) => p.key === id)?.key as PhaseKey | undefined) ?? (Object.keys(cols) as PhaseKey[]).find((k) => cols[k].includes(id)) ?? null;

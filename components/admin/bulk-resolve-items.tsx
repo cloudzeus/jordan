@@ -344,11 +344,18 @@ function TargetPicker({ defaultKind, onPick, onClose }: { defaultKind: MatchKind
   const [q, setQ] = React.useState('');
   const [res, setRes] = React.useState<{ id: number; code: string; name: string; sub?: string; isService?: boolean }[]>([]);
   const [loading, setLoading] = React.useState(false);
+  // Προετοιμασία αναζήτησης σε κάθε αλλαγή (και στο πρώτο render) — «adjust state while rendering».
+  const [prevKind, setPrevKind] = React.useState<MatchKind | null>(null);
+  const [prevQ, setPrevQ] = React.useState(q);
+  if (kind !== prevKind || q !== prevQ) {
+    setPrevKind(kind); setPrevQ(q);
+    const browsable = kind === 'lineitem' || kind === 'expense';
+    if (!browsable && q.trim().length < 2) setRes([]); else setLoading(true);
+  }
   React.useEffect(() => {
     const browsable = kind === 'lineitem' || kind === 'expense';
-    if (!browsable && q.trim().length < 2) { setRes([]); return; }
+    if (!browsable && q.trim().length < 2) return;
     let ignore = false;
-    setLoading(true);
     const h = setTimeout(() => {
       fetch(`/api/admin/softone/search?type=${SEARCH_TYPE[kind]}&q=${encodeURIComponent(q.trim())}`)
         .then((r) => (r.ok ? r.json() : { results: [] }))

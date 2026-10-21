@@ -20,9 +20,17 @@ export function SupplierSearch({ value, onChange, disabled, id = 'sup' }: { valu
   // Seed the box from a supplier that came with the DTO. It must NOT run when `value`
   // goes null — that is the user typing over a linked supplier, and re-syncing would
   // wipe the first keystroke. The clear button resets `q` itself.
-  React.useEffect(() => { if (value) setQ(value.name); }, [value]);
+  // («Adjust state while rendering» αντί για setState σε effect.)
+  const [prevValue, setPrevValue] = React.useState(value);
+  if (value !== prevValue) { setPrevValue(value); if (value) setQ(value.name); }
+  const [prevQ, setPrevQ] = React.useState(q);
+  const [prevSearchValue, setPrevSearchValue] = React.useState(value);
+  if (q !== prevQ || value !== prevSearchValue) {
+    setPrevQ(q); setPrevSearchValue(value);
+    if (value || q.trim().length < 2) { setResults([]); setEmpty(false); }
+  }
   React.useEffect(() => {
-    if (value || q.trim().length < 2) { setResults([]); setEmpty(false); return; }
+    if (value || q.trim().length < 2) return;
     // `ignore` so a slow in-flight search cannot land after a newer query's results.
     let ignore = false;
     const h = setTimeout(() => {

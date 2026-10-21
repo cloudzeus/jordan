@@ -621,7 +621,8 @@ export default function ContainerScene({
   const fitRef = React.useRef<(() => void) | null>(null);
   const builtRef = React.useRef<ReturnType<typeof buildScene> | null>(null);
   const pickRef = React.useRef({ onPickSlots, maxSelectable, selectedSlots, highlightSegment });
-  pickRef.current = { onPickSlots, maxSelectable, selectedSlots, highlightSegment };
+  // «Latest ref»: ενημέρωση μετά το commit (layout effect, πριν από τα passive effects που το διαβάζουν).
+  React.useLayoutEffect(() => { pickRef.current = { onPickSlots, maxSelectable, selectedSlots, highlightSegment }; });
   const info = containerLayout(pallets);
   const fill = filled ?? pallets;
   const fmt = (n: number) => n.toLocaleString('el-GR', { maximumFractionDigits: 2 });
@@ -634,6 +635,7 @@ export default function ContainerScene({
     try {
       renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
     } catch {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- αποτυχία εξωτερικού συστήματος (WebGL) κατά το στήσιμο
       setFailed(true);
       return;
     }
@@ -770,7 +772,7 @@ export default function ContainerScene({
 
   // Πόσο «κοντά» κάθεται η κάμερα (0.92 = ολόκληρο με αέρα· μικρότερο = πιο κοντινό κάδρο).
   const fitScaleRef = React.useRef(fitScale);
-  fitScaleRef.current = fitScale;
+  React.useLayoutEffect(() => { fitScaleRef.current = fitScale; });
 
   // Επιλεγμένες θέσεις (κράτηση με click): ενημέρωση χωρίς να ξαναχτιστεί η σκηνή.
   React.useEffect(() => { builtRef.current?.setPicked(selectedSlots); }, [selectedSlots]);

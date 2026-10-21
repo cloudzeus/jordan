@@ -13,8 +13,8 @@ import { confirmNewsletter, subscribeNewsletter } from '../newsletter';
 
 beforeEach(() => {
   vi.clearAllMocks();
-  db.newsletterSubscriber.create.mockImplementation(async ({ data }: any) => ({ id: 's1', ...data }));
-  db.newsletterSubscriber.update.mockImplementation(async ({ data }: any) => ({ id: 's1', token: 'tok', ...data }));
+  db.newsletterSubscriber.create.mockImplementation(async ({ data }: { data: Record<string, unknown> }) => ({ id: 's1', ...data }));
+  db.newsletterSubscriber.update.mockImplementation(async ({ data }: { data: Record<string, unknown> }) => ({ id: 's1', token: 'tok', ...data }));
 });
 
 describe('newsletter double opt-in', () => {

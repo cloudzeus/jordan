@@ -94,11 +94,18 @@ export function PartnerFormDialog({
   const closeRef = React.useRef(onOpenChange);
   React.useEffect(() => { closeRef.current = onOpenChange; });
 
+  // Επαναφορά στο άνοιγμα (adjust-state-while-rendering)· η φόρτωση στο effect.
+  const [prevDeps, setPrevDeps] = React.useState({ open: false, partnerId });
+  if (prevDeps.open !== open || prevDeps.partnerId !== partnerId) {
+    setPrevDeps({ open, partnerId });
+    if (open) {
+      setErrors({}); setAade('idle');
+      if (!partnerId) setF(EMPTY);
+      else setLoading(true);
+    }
+  }
   React.useEffect(() => {
-    if (!open) return;
-    setErrors({}); setAade('idle');
-    if (!partnerId) { setF(EMPTY); return; }
-    setLoading(true);
+    if (!open || !partnerId) return;
     fetchDetail(partnerId)
       .then((d) => setF(fromDetail(d.partner)))
       .catch((e) => { toast.error(e.message); closeRef.current(false); })
@@ -248,14 +255,18 @@ export function ContactDialog({
   const [busy, setBusy] = React.useState(false);
   const [errors, setErrors] = React.useState<Record<string, string>>({});
 
-  React.useEffect(() => {
-    if (!open) return;
-    setErrors({});
-    setF({
-      name: contact?.name ?? '', role: contact?.role ?? '', phone: contact?.phone ?? '', mobile: contact?.mobile ?? '',
-      email: contact?.email ?? '', notes: contact?.notes ?? '', isPrimary: contact?.isPrimary ?? false,
-    });
-  }, [open, contact]);
+  // Επαναφορά στο άνοιγμα (adjust-state-while-rendering)
+  const [prevDeps, setPrevDeps] = React.useState({ open: false, contact });
+  if (prevDeps.open !== open || prevDeps.contact !== contact) {
+    setPrevDeps({ open, contact });
+    if (open) {
+      setErrors({});
+      setF({
+        name: contact?.name ?? '', role: contact?.role ?? '', phone: contact?.phone ?? '', mobile: contact?.mobile ?? '',
+        email: contact?.email ?? '', notes: contact?.notes ?? '', isPrimary: contact?.isPrimary ?? false,
+      });
+    }
+  }
 
   const inp = (k: 'name' | 'role' | 'phone' | 'mobile' | 'email' | 'notes') => ({
     id: `contact-${k}`, value: f[k], className: fieldCls, 'aria-invalid': errors[k] ? true : undefined,
@@ -327,9 +338,14 @@ export function LinkCustomersDialog({
   const [q, setQ] = React.useState('');
   const [busy, setBusy] = React.useState(false);
 
+  // Επαναφορά στο άνοιγμα (adjust-state-while-rendering)· η φόρτωση στο effect.
+  const [prevDeps, setPrevDeps] = React.useState({ open: false, partnerId });
+  if (prevDeps.open !== open || prevDeps.partnerId !== partnerId) {
+    setPrevDeps({ open, partnerId });
+    if (open) { setPicked(new Set()); setQ(''); setLinked(null); }
+  }
   React.useEffect(() => {
     if (!open) return;
-    setPicked(new Set()); setQ(''); setLinked(null);
     fetchDetail(partnerId).then((d) => setLinked(new Set(d.customers.map((c) => c.trdr)))).catch((e) => toast.error(e.message));
   }, [open, partnerId]);
 
@@ -412,9 +428,14 @@ export function LinkProjectDialog({
   const [busy, setBusy] = React.useState(false);
   const editing = presetPrjc != null;
 
+  // Επαναφορά στο άνοιγμα (adjust-state-while-rendering)· η φόρτωση στο effect.
+  const [prevDeps, setPrevDeps] = React.useState({ open: false, partnerId, presetPrjc });
+  if (prevDeps.open !== open || prevDeps.partnerId !== partnerId || prevDeps.presetPrjc !== presetPrjc) {
+    setPrevDeps({ open, partnerId, presetPrjc });
+    if (open) { setDetail(null); setCustomer('all'); setPrjc(presetPrjc ? String(presetPrjc.prjc) : ''); setRole(presetPrjc?.role ?? ''); }
+  }
   React.useEffect(() => {
     if (!open) return;
-    setDetail(null); setCustomer('all'); setPrjc(presetPrjc ? String(presetPrjc.prjc) : ''); setRole(presetPrjc?.role ?? '');
     fetchDetail(partnerId).then(setDetail).catch((e) => toast.error(e.message));
   }, [open, partnerId, presetPrjc]);
 

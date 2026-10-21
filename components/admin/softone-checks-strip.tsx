@@ -8,8 +8,8 @@ import { ItemsRescanButton } from '@/components/admin/items-rescan-button';
 import type { TraderContacts } from '@/components/admin/create-trader-dialog';
 import * as React from 'react';
 import {
-  FiAlertOctagon, FiAlertTriangle, FiCheck, FiChevronDown, FiChevronRight, FiCopy, FiLoader,
-  FiPercent, FiPlusCircle, FiBox, FiUser, FiHelpCircle, FiCheckCircle,
+  FiAlertOctagon, FiAlertTriangle, FiCheck, FiChevronDown, FiChevronRight, FiLoader,
+  FiPercent, FiBox, FiUser, FiHelpCircle, FiCheckCircle,
 } from 'react-icons/fi';
 import Link from 'next/link';
 import { toast } from 'sonner';

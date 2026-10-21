@@ -43,6 +43,10 @@ const LINE_TONE: Record<LineStatus, { cls: string; icon: React.ReactNode }> = {
   split_discount: { cls: 'bg-amber-50 text-amber-900 dark:bg-amber-500/10 dark:text-amber-300', icon: <FiAlertTriangle aria-hidden className="size-3.5" /> },
 };
 
+/** Σύγκριση λιστών εξαρτήσεων όπως τα deps των hooks (`Object.is` ανά θέση). */
+const depsChanged = (a: readonly unknown[], b: readonly unknown[]) =>
+  a.length !== b.length || a.some((x, i) => !Object.is(x, b[i]));
+
 export function DeliveryNoteDialog({ docId, open, onOpenChange, onDone }: { docId: string; open: boolean; onOpenChange: (o: boolean) => void; onDone?: () => void }) {
   const router = useRouter();
   const [data, setData] = React.useState<Overview | null>(null);
@@ -52,16 +56,27 @@ export function DeliveryNoteDialog({ docId, open, onOpenChange, onDone }: { docI
   const [error, setError] = React.useState<string | null>(null);
   const [acceptPartial, setAcceptPartial] = React.useState(false);
 
+  /** Η ανάγνωση· ο καλών έχει ήδη βάλει busy='load' και καθαρίσει error/cmp/acceptPartial. */
+  const fetchNotes = React.useCallback(() =>
+    fetch(`/api/admin/ocr/${docId}/delivery-note`, { cache: 'no-store' })
+      .then(async (r) => {
+        const d = await r.json().catch(() => null);
+        if (!r.ok) { setError(d?.message ?? 'Τα δελτία δεν διαβάστηκαν από τη SoftOne.'); return; }
+        setData(d); setSelected(d.suggested ?? []); setCmp(d.compare ?? null);
+      })
+      .catch(() => { setError('Σφάλμα δικτύου.'); })
+      .finally(() => { setBusy(null); }), [docId]);
   const load = React.useCallback(async () => {
     setBusy('load'); setError(null); setCmp(null); setAcceptPartial(false);
-    try {
-      const r = await fetch(`/api/admin/ocr/${docId}/delivery-note`, { cache: 'no-store' });
-      const d = await r.json().catch(() => null);
-      if (!r.ok) { setError(d?.message ?? 'Τα δελτία δεν διαβάστηκαν από τη SoftOne.'); return; }
-      setData(d); setSelected(d.suggested ?? []); setCmp(d.compare ?? null);
-    } catch { setError('Σφάλμα δικτύου.'); } finally { setBusy(null); }
-  }, [docId]);
-  React.useEffect(() => { if (open) void load(); }, [open, load]);
+    await fetchNotes();
+  }, [fetchNotes]);
+  // Άνοιγμα: «adjust state while rendering» για το reset, το fetch στο effect.
+  const [prevDeps, setPrevDeps] = React.useState<readonly unknown[]>([]);
+  if (depsChanged(prevDeps, [open, fetchNotes])) {
+    setPrevDeps([open, fetchNotes]);
+    if (open) { setBusy('load'); setError(null); setCmp(null); setAcceptPartial(false); }
+  }
+  React.useEffect(() => { if (open) void fetchNotes(); }, [open, fetchNotes]);
 
   const compare = async (findocs: number[]) => {
     setSelected(findocs); setAcceptPartial(false);

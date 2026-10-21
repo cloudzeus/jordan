@@ -95,7 +95,12 @@ function TextDialog({ open, title, description, label, initial, multiline, confi
 }) {
   const [value, setValue] = React.useState(initial);
   const [busy, setBusy] = React.useState(false);
-  React.useEffect(() => { if (open) setValue(initial); }, [open, initial]);
+  // «Adjust state while rendering» (αρχικό `[]` ⇒ και στο πρώτο render, όπως το effect).
+  const [prevDeps, setPrevDeps] = React.useState<readonly unknown[]>([]);
+  if (prevDeps.length === 0 || !Object.is(prevDeps[0], open) || !Object.is(prevDeps[1], initial)) {
+    setPrevDeps([open, initial]);
+    if (open) setValue(initial);
+  }
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setBusy(true);
@@ -386,17 +391,23 @@ function ProjectFolder({ p, canManage, onChanged }: { p: ProjectFolder; canManag
 export function EntityFilesPanel({ scope, id, onCount }: { scope: Scope; id: number; onCount?: (n: number) => void }) {
   const [data, setData] = React.useState<Payload | null>(null);
   const [error, setError] = React.useState<string | null>(null);
+  /** Η ανάγνωση· ο καλών έχει ήδη καθαρίσει το error. */
+  const fetchFiles = React.useCallback(() =>
+    Promise.resolve()
+      .then(() => api(urlOf(scope, id)))
+      .then((res) => {
+        const body = res as Payload;
+        setData(body);
+        onCount?.(body.folder.files.length);
+      })
+      .catch((e) => { setError((e as Error).message); }), [scope, id, onCount]);
   const load = React.useCallback(async () => {
     setError(null);
-    try {
-      const body = (await api(urlOf(scope, id))) as Payload;
-      setData(body);
-      onCount?.(body.folder.files.length);
-    } catch (e) {
-      setError((e as Error).message);
-    }
-  }, [scope, id, onCount]);
-  React.useEffect(() => { void load(); }, [load]);
+    await fetchFiles();
+  }, [fetchFiles]);
+  const [prevFetchFiles, setPrevFetchFiles] = React.useState(() => fetchFiles);
+  if (fetchFiles !== prevFetchFiles) { setPrevFetchFiles(() => fetchFiles); setError(null); }
+  React.useEffect(() => { void fetchFiles(); }, [fetchFiles]);
 
   if (error && !data) {
     return (

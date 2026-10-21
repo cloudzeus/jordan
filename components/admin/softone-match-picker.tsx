@@ -32,8 +32,16 @@ export function SoftoneSearchPanel({
   const [results, setResults] = React.useState<SoftoneSearchResult[]>([]);
   const [loading, setLoading] = React.useState(false);
 
+  const [prevQ, setPrevQ] = React.useState(q);
+  const [prevType, setPrevType] = React.useState(type);
+  const [prevService, setPrevService] = React.useState(service);
+  if (q !== prevQ || type !== prevType || service !== prevService) {
+    setPrevQ(q); setPrevType(type); setPrevService(service);
+    if (q.trim().length < 2) setResults([]);
+  }
+
   React.useEffect(() => {
-    if (q.trim().length < 2) { setResults([]); return; }
+    if (q.trim().length < 2) return;
     const t = setTimeout(async () => {
       setLoading(true);
       try {

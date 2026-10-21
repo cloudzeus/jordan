@@ -43,18 +43,20 @@ export function useVoiceInput(opts: { onText: (text: string) => void; onError: (
   const chunks = React.useRef<Blob[]>([]);
   const timer = React.useRef<ReturnType<typeof setInterval> | null>(null);
   const cb = React.useRef(opts);
-  cb.current = opts;
+  // «Latest ref»: ενημέρωση μετά το commit, όχι κατά το render.
+  React.useLayoutEffect(() => { cb.current = opts; });
 
   // Μετά το mount (όχι στο render) — αλλιώς διαφέρει το HTML του server από του browser.
   const [supported, setSupported] = React.useState(false);
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- δυνατότητες του browser μόνο μετά το hydration
   React.useEffect(() => { setSupported(!!navigator.mediaDevices?.getUserMedia || !!speechCtor()); }, []);
 
-  const stopTimer = () => { if (timer.current) clearInterval(timer.current); timer.current = null; };
-  const startTimer = () => {
+  const stopTimer = React.useCallback(() => { if (timer.current) clearInterval(timer.current); timer.current = null; }, []);
+  const startTimer = React.useCallback(() => {
     setSeconds(0);
     stopTimer();
     timer.current = setInterval(() => setSeconds((s) => s + 1), 1000);
-  };
+  }, [stopTimer]);
 
   const startBrowser = React.useCallback(() => {
     const Ctor = speechCtor();
@@ -73,7 +75,7 @@ export function useVoiceInput(opts: { onText: (text: string) => void; onError: (
     rec.start();
     setState('recording');
     startTimer();
-  }, []);
+  }, [startTimer, stopTimer]);
 
   const start = React.useCallback(async () => {
     if (state !== 'idle') return;
@@ -133,7 +135,7 @@ export function useVoiceInput(opts: { onText: (text: string) => void; onError: (
       cb.current.onError('Δεν επετράπη η πρόσβαση στο μικρόφωνο');
       setState('idle');
     }
-  }, [mode, startBrowser, state]);
+  }, [mode, startBrowser, state, startTimer, stopTimer]);
 
   const stop = React.useCallback(() => {
     if (recRef.current && recRef.current.state !== 'inactive') recRef.current.stop();
@@ -141,7 +143,7 @@ export function useVoiceInput(opts: { onText: (text: string) => void; onError: (
     if (speechRef.current) { speechRef.current.stop(); speechRef.current = null; }
   }, []);
 
-  React.useEffect(() => () => { stopTimer(); recRef.current?.stop(); speechRef.current?.stop(); }, []);
+  React.useEffect(() => () => { stopTimer(); recRef.current?.stop(); speechRef.current?.stop(); }, [stopTimer]);
 
   return { state, seconds, supported, mode, start, stop };
 }

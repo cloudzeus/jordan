@@ -667,7 +667,7 @@ export function normalizeDate(value: unknown): string | null {
   const s = prepStr(value);
   if (!s) return null;
   if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
-  const m = /^(\d{1,2})[/.\-](\d{1,2})[/.\-](\d{2,4})$/.exec(s);
+  const m = /^(\d{1,2})[/.-](\d{1,2})[/.-](\d{2,4})$/.exec(s);
   if (!m) return s;
   const day = Number(m[1]);
   const month = Number(m[2]);

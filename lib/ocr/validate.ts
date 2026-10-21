@@ -42,7 +42,7 @@ const countryOfPrefix = (p: string): string => (p === 'XI' ? 'GB' : p);
 function cleanVatInput(input: unknown): string {
   return String(input ?? '')
     .toUpperCase()
-    .replace(/^[\s.:]*(?:Α\.?Φ\.?Μ\.?|VAT(?:\s*REG(?:\.|ISTRATION)?)?(?:\s*(?:NO|NUMBER|ID))?|TAX\s*(?:ID|NO))\s*[.:\-]?/, '')
+    .replace(/^[\s.:]*(?:Α\.?Φ\.?Μ\.?|VAT(?:\s*REG(?:\.|ISTRATION)?)?(?:\s*(?:NO|NUMBER|ID))?|TAX\s*(?:ID|NO))\s*[.:-]?/, '')
     .replace(/[^A-Z0-9]+/g, '');
 }
 
@@ -132,11 +132,11 @@ export function parseAfmParam(input: unknown): string | null {
 }
 
 /** Overwrite issuer/recipient ΑΦΜ fields in-place with their normalized form. */
-export function normalizeAfmFields<T extends Record<string, any>>(data: T): T {
+export function normalizeAfmFields<T extends Record<string, unknown>>(data: T): T {
   if (!data || typeof data !== 'object') return data;
   for (const key of ['vatNumber', 'customerVatNumber'] as const) {
-    const n = normalizeAfm((data as any)[key]);
-    if (n) (data as any)[key] = n;
+    const n = normalizeAfm((data as Record<string, unknown>)[key]);
+    if (n) (data as Record<string, unknown>)[key] = n;
   }
   return data;
 }
@@ -150,7 +150,7 @@ function num(v: unknown): number | null {
 }
 
 /** Invoice arithmetic sanity: subtotal + vat ≈ total. Neutral if any part missing. */
-export function checkTotals(data: any): { ok: boolean; issues: string[] } {
+export function checkTotals(data: Record<string, unknown> | null | undefined): { ok: boolean; issues: string[] } {
   const sub = num(data?.subtotal), vat = num(data?.vatAmount), tot = num(data?.totalAmount);
   if (sub == null || vat == null || tot == null) return { ok: true, issues: [] };
   const ok = Math.abs(sub + vat - tot) <= TOTALS_TOLERANCE;
@@ -161,7 +161,7 @@ export function checkTotals(data: any): { ok: boolean; issues: string[] } {
  * If the extracted ISSUER ΑΦΜ equals OUR OWN ΑΦΜ, the model swapped issuer and
  * recipient (common on documents where we are the buyer). Swap them back.
  */
-export function fixSwappedParties<T extends Record<string, any>>(data: T, ownAfm: string | null): T {
+export function fixSwappedParties<T extends Record<string, unknown>>(data: T, ownAfm: string | null): T {
   if (!ownAfm || !data) return data;
   const issuer = String(data.vatNumber ?? '').replace(/\D+/g, '');
   if (issuer !== ownAfm) return data;
@@ -193,7 +193,7 @@ function vatPenalty(v: unknown): number {
  * LOWER is better. Replaces bare missing-count in the retry-keep decision so a
  * present-but-wrong field can lose to a better pass.
  */
-export function qualityScore(data: any, docType: ExtractDocType): number {
+export function qualityScore(data: Record<string, unknown> | null | undefined, docType: ExtractDocType): number {
   let score = countMissingRequired(data, docType);
   if (docType === 'invoice') {
     score += vatPenalty(data?.vatNumber) + vatPenalty(data?.customerVatNumber);

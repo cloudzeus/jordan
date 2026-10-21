@@ -31,7 +31,7 @@ import { replaceLookups } from '@/lib/softone-sync/resync';
 import {
   BALANCE_FIELDS, FINDOC_FIELDS, MTRLINE_FIELDS, MYDATA_FIELDS, RECORD_SPECS, TRDLINE_FIELDS,
   changedSinceFilter, chunk, compact, mapBalance, mapFindoc, mapMtrLine, mapMyData, mapRecord, mapTrdLine,
-  maxStamp, nextWatermark, onlyChanged, planReconcile, planWrites, reconcileDue, s1Stamp, sinceOf,
+  nextWatermark, onlyChanged, planReconcile, planWrites, reconcileDue, s1Stamp, sinceOf,
   type FindocData, type MtrLineData, type RecordData, type RecordSpec, type TrdLineData,
 } from './core';
 import { acquireLease, releaseLease, renewLease } from './lock';

@@ -91,15 +91,22 @@ export function OfferWizard({ open, onOpenChange, offerId, onDone }: {
   const [options, setOptions] = React.useState<{ customers: Option[]; partners: Option[] } | null>(null);
   const [picked, setPicked] = React.useState<Set<string>>(new Set());
   const [rq, setRq] = React.useState('');
-  const [preview, setPreview] = React.useState<{ id: string; kind: 'publish' | 'drop' } | null>(null);
+  const [preview, setPreview] = React.useState<{ id: string; kind: 'publish' | 'drop'; t: number } | null>(null);
   const savedId = React.useRef<string | null>(null);
   const autoTitle = React.useRef(''); // ο αυτόματος τίτλος ακολουθεί τα προϊόντα όσο δεν τον άλλαξε ο χρήστης
 
-  const reset = React.useCallback(() => {
-    setStep(0); setBusy(null); setFilledNow(0); setStatus('DRAFT'); setQ(''); setHits([]); setRows([]); setMeta([]);
-    setCapacityTxt(''); setSyncUnits(false); setLevels([]); setChartItem(0); setTitle(''); setWhen('now'); setPublishAt(''); setClosesAt('');
-    setPicked(new Set()); setRq(''); savedId.current = null; autoTitle.current = '';
-  }, []);
+  // Επαναφορά στο άνοιγμα (ή αλλαγή προσφοράς): το state με adjust-state-while-rendering,
+  // τα refs και η φόρτωση στο effect παρακάτω.
+  const [prevDeps, setPrevDeps] = React.useState<{ open: boolean; offerId: string | null }>({ open: false, offerId });
+  if (prevDeps.open !== open || prevDeps.offerId !== offerId) {
+    setPrevDeps({ open, offerId });
+    if (open) {
+      setStep(0); setBusy(null); setFilledNow(0); setStatus('DRAFT'); setQ(''); setHits([]); setRows([]); setMeta([]);
+      setCapacityTxt(''); setSyncUnits(false); setLevels([]); setChartItem(0); setTitle(''); setWhen('now'); setPublishAt(''); setClosesAt('');
+      setPicked(new Set()); setRq('');
+      if (offerId) setBusy('Φόρτωση…');
+    }
+  }
 
   /** Ζωντανή καρτέλα του είδους (μονάδες, PRICEW, κινήσεις) → προτάσεις τ.μ./παλέτα και τιμών. */
   const loadRecord = React.useCallback((mtrl: number) => {
@@ -124,10 +131,9 @@ export function OfferWizard({ open, onOpenChange, offerId, onDone }: {
   // Επεξεργασία υπάρχουσας: φόρτωση όλων.
   React.useEffect(() => {
     if (!open) return;
-    reset();
+    savedId.current = null; autoTitle.current = '';
     if (!offerId) return;
     savedId.current = offerId;
-    setBusy('Φόρτωση…');
     fetch(`/api/admin/dynamic-offers/${offerId}`, { cache: 'no-store' }).then((r) => r.json()).then((d) => {
       const o = d.offer;
       const n = o.levels.length;
@@ -146,7 +152,7 @@ export function OfferWizard({ open, onOpenChange, offerId, onDone }: {
       setPicked(new Set(d.recipients.map((r: { kind: string; refId: string }) => `${r.kind}:${r.refId}`)));
       setStep(o.status === 'OPEN' ? 2 : 0);
     }).catch(() => toast.error('Αποτυχία φόρτωσης')).finally(() => setBusy(null));
-  }, [open, offerId, reset, loadRecord]);
+  }, [open, offerId, loadRecord]);
 
   // 1 · αναζήτηση προϊόντων (με καθυστέρηση πληκτρολόγησης)
   React.useEffect(() => {
@@ -268,7 +274,7 @@ export function OfferWizard({ open, onOpenChange, offerId, onDone }: {
       const id = await persist();
       if (mode === 'publish' && status !== 'OPEN') {
         const at = when === 'later' && publishAt ? new Date(publishAt) : null;
-        if (when === 'later' && (!at || at.getTime() < Date.now())) throw new Error('Διάλεξε μελλοντική ημερομηνία δημοσίευσης');
+        if (when === 'later' && (!at || at.getTime() < new Date().getTime())) throw new Error('Διάλεξε μελλοντική ημερομηνία δημοσίευσης');
         const fields = `PRICEW01…${priceField(nLevels)}`;
         const ok = await confirmAction({
           title: at ? 'Προγραμματισμός δημοσίευσης' : 'Δημοσίευση τώρα',
@@ -296,7 +302,7 @@ export function OfferWizard({ open, onOpenChange, offerId, onDone }: {
   };
 
   const openPreview = async (kind: 'publish' | 'drop') => {
-    try { const id = await persist(); setPreview({ id, kind }); } catch (e) { toast.error((e as Error).message); } finally { setBusy(null); }
+    try { const id = await persist(); setPreview({ id, kind, t: new Date().getTime() }); } catch (e) { toast.error((e as Error).message); } finally { setBusy(null); }
   };
 
   // ── Βήματα ──
@@ -648,7 +654,7 @@ export function OfferWizard({ open, onOpenChange, offerId, onDone }: {
             <DialogTitle className="text-(length:--fs-15)">Προεπισκόπηση email — {preview?.kind === 'drop' ? '«Η τιμή έπεσε»' : 'Προσφορά'}</DialogTitle>
             <DialogDescription className="text-(length:--fs-11)">Όπως θα το δει ο παραλήπτης (όνομα παραδείγματος).</DialogDescription>
           </DialogHeader>
-          {preview && <iframe title="Προεπισκόπηση email" src={`/api/admin/dynamic-offers/${preview.id}/email-preview?kind=${preview.kind}&t=${Date.now()}`} className="min-h-0 w-full flex-1 bg-slate-100" />}
+          {preview && <iframe title="Προεπισκόπηση email" src={`/api/admin/dynamic-offers/${preview.id}/email-preview?kind=${preview.kind}&t=${preview.t}`} className="min-h-0 w-full flex-1 bg-slate-100" />}
         </DialogContent>
       </Dialog>
     </>

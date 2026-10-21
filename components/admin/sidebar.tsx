@@ -172,8 +172,8 @@ export function AdminSidebar({ user, roleName, roleKey, locale, permissionKeys, 
   React.useEffect(() => {
     let saved: string | null = null;
     try { saved = window.localStorage.getItem('admin.sidebar.collapsed'); } catch { /* private mode */ }
-    if (saved === '1' || saved === '0') { setCollapsed(saved === '1'); return; }
-    setCollapsed(window.innerWidth < 1440);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- ανάγνωση εξωτερικής κατάστασης (localStorage/window) μετά το hydration
+    setCollapsed(saved === '1' || saved === '0' ? saved === '1' : window.innerWidth < 1440);
   }, []);
   const toggleCollapsed = React.useCallback(() => {
     setCollapsed((c) => {
@@ -185,16 +185,19 @@ export function AdminSidebar({ user, roleName, roleKey, locale, permissionKeys, 
   React.useEffect(() => {
     try {
       const saved = JSON.parse(localStorage.getItem(OPEN_GROUPS_KEY) ?? '{}') as Record<string, boolean>;
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- ανάγνωση localStorage μετά το hydration
       setOpen(saved);
     } catch { /* ignore */ }
   }, []);
-  React.useEffect(() => {
+  // Σε κάθε πλοήγηση η ομάδα της τρέχουσας σελίδας ανοίγει — «adjust state while rendering».
+  const [prevPath, setPrevPath] = React.useState(path);
+  if (path !== prevPath) {
+    setPrevPath(path);
     const current = NAV_GROUPS.find((g) => g.items.some(isActive));
     if (current && open[current.label] === false) {
       setOpen((o) => ({ ...o, [current.label]: true }));
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [path]);
+  }
   const toggleGroup = (label: string) => {
     setOpen((o) => {
       // `undefined` σημαίνει «αυτόματο» (ανοιχτό αν είσαι μέσα). Το πρώτο κλικ πρέπει να
@@ -418,7 +421,8 @@ const MOBILE_SHORTCUTS: NavItem[] = [
 export function AdminBottomNav({ permissionKeys, roleKey, roleName, user, badges = {} }: Pick<Props, 'permissionKeys' | 'roleKey' | 'roleName' | 'user' | 'badges'>) {
   const path = usePathname();
   const [open, setOpen] = React.useState(false);
-  React.useEffect(() => { setOpen(false); }, [path]);
+  const [prevPath, setPrevPath] = React.useState(path);
+  if (path !== prevPath) { setPrevPath(path); setOpen(false); }
   const allowed = (it: NavItem) => (!it.permissions || it.permissions.length === 0 || it.permissions.some((p) => permissionKeys.includes(p)))
     && (!it.requireRoleKey || it.requireRoleKey === roleKey) && (!it.roleKeys || (!!roleKey && it.roleKeys.includes(roleKey)));
   const isActive = (it: NavItem) => (it.exact ? path === it.href : path === it.href || path.startsWith(`${it.href}/`));

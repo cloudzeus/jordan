@@ -4,7 +4,7 @@ import { requireUser } from '@/lib/rbac';
 import { getModulesTree } from '@/lib/wiki/loader';
 import { filterPagesForRole } from '@/lib/wiki/access';
 import type { WikiRoleKey } from '@/lib/wiki/types';
-import { getModuleMeta, gradientStyle } from '@/lib/wiki/modules-meta';
+import { getModuleMeta } from '@/lib/wiki/modules-meta';
 
 export default async function WikiIndexPage() {
   const user = await requireUser();

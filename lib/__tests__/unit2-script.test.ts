@@ -4,7 +4,7 @@ vi.mock('server-only', () => ({}));
 
 const state = vi.hoisted(() => ({ item: {} as Record<string, unknown>, calls: [] as { url: string; body: Record<string, unknown> }[], reply: null as null | ((b: Record<string, unknown>) => Record<string, unknown>) }));
 
-vi.mock('@/lib/db', () => ({ prisma: { softoneUnit: { findFirst: vi.fn(async ({ where }: any) => (where.code === 202 ? { code: 202 } : null)) } } }));
+vi.mock('@/lib/db', () => ({ prisma: { softoneUnit: { findFirst: vi.fn(async ({ where }: { where: { code: number } }) => (where.code === 202 ? { code: 202 } : null)) } } }));
 vi.mock('@/lib/softone', () => ({
   loadSoftoneConfig: vi.fn(async () => ({ endpoint: 'https://x.oncloud.gr/s1services', appId: '2020' })),
   softoneGetToken: vi.fn(async () => 'cid'),

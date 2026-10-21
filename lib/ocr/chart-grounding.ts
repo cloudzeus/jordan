@@ -230,7 +230,7 @@ export function issuerHistory(
 export function parseBranchAnswer(raw: string, allowed: ReadonlySet<string>, maxPerGroup = 3): Map<string, string[]> {
   const out = new Map<string, string[]>();
   const text = String(raw ?? '').trim().replace(/^```(?:json)?/i, '').replace(/```$/, '').trim();
-  let parsed: unknown = null;
+  let parsed: unknown;
   try { parsed = JSON.parse(text); } catch {
     const m = text.match(/\{[\s\S]*\}/);
     if (!m) return out;

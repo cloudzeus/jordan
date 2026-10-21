@@ -56,9 +56,12 @@ export function SupplierProductsView({ groups, lastSync, canManage }: { groups: 
   }, [groups, deferredQ, sector]);
 
   // Όταν η αναζήτηση βρίσκει ΕΙΔΗ, οι προμηθευτές τους ανοίγουν μόνοι τους.
-  React.useEffect(() => {
+  // («Adjust state while rendering»· αρχικό `[]` ⇒ και στο πρώτο render, όπως το effect.)
+  const [prevDeps, setPrevDeps] = React.useState<readonly unknown[]>([]);
+  if (prevDeps.length === 0 || !Object.is(prevDeps[0], deferredQ) || !Object.is(prevDeps[1], filtered)) {
+    setPrevDeps([deferredQ, filtered]);
     if (deferredQ.trim()) setOpen(filtered.slice(0, 20).map((g) => String(g.trdr)));
-  }, [deferredQ, filtered]);
+  }
 
   const sync = async () => {
     setSyncing(true);

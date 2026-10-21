@@ -121,10 +121,18 @@ function AccountPicker({
   // Με το ΑΝΟΙΓΜΑ φέρνουμε ΟΛΟΥΣ τους λογαριασμούς — ο χρήστης δεν ξέρει από πού αρχίζει αυτός
   // που ψάχνει, και μια λίστα που απαιτεί να μαντέψεις τα δύο πρώτα γράμματα είναι άχρηστη.
   // Η πληκτρολόγηση απλώς ΣΤΕΝΕΥΕΙ.
+  // Αλλαγή αναζήτησης (ή κλείσιμο): ο σύγχρονος μηδενισμός γίνεται ΚΑΤΑ ΤΟ RENDER — κλειστή λίστα
+  // αδειάζει, ανοιχτή δείχνει «φόρτωση» μέχρι να απαντήσει το fetch του effect.
+  const searchDeps = [q, open, searchType, extraQuery, fallbackQuery] as const;
+  const [prevSearchDeps, setPrevSearchDeps] = React.useState(searchDeps);
+  if (searchDeps.some((d, i) => !Object.is(d, prevSearchDeps[i]))) {
+    setPrevSearchDeps(searchDeps);
+    if (!open) setHits([]);
+    else setLoading(true);
+  }
   React.useEffect(() => {
-    if (!open) { setHits([]); return; }
+    if (!open) return;
     let ignore = false;
-    setLoading(true);
     const t = setTimeout(() => {
       const get = (extra: string) =>
         fetch(`/api/admin/softone/search?type=${searchType}&q=${encodeURIComponent(q.trim())}${extra}`, { cache: 'no-store' })
@@ -259,7 +267,13 @@ export function LineAllocations({
   const [busy, setBusy] = React.useState(false);
   const [dirty, setDirty] = React.useState(false);
 
-  React.useEffect(() => { setRows(initial); setDirty(false); }, [initial]);
+  // Νέα αρχικά δεδομένα από τον γονέα → ξεκινάμε πάλι από αυτά (ρύθμιση state κατά το render).
+  const [prevInitial, setPrevInitial] = React.useState(initial);
+  if (initial !== prevInitial) {
+    setPrevInitial(initial);
+    setRows(initial);
+    setDirty(false);
+  }
 
   /**
    * ΕΤΙΚΕΤΕΣ ΕΡΓΩΝ. Η βάση κρατά μόνο τον αριθμό `PRJC`· τον κωδικό/τίτλο τον φέρνουμε με ΜΙΑ
@@ -324,11 +338,15 @@ export function LineAllocations({
       parts: { label: string; amount: number; percent: number; registryMtrl: number; code: string; name: string }[];
       unresolved: { label: string; amount: number | null; accountLike: boolean }[] } | null
   >(null);
+  // Χωρίς δικαίωμα ή με επιμερισμό ήδη: καμία πρόταση (μηδενισμός κατά το render, όχι στο effect).
+  if ((!canManage || rows.length > 0) && (hint !== null || hw !== null || shape !== null)) {
+    setHint(null); setHw(null); setShape(null);
+  }
   React.useEffect(() => {
     // ΤΟ ΧΕΙΡΟΓΡΑΦΟ ΔΕΝ ΕΞΑΡΤΑΤΑΙ ΑΠΟ ΤΟΝ ΚΟΣΜΟ. Ο φύλακας `kind === 'SXACCOUNT'` υπάρχει για τη
     // ΜΝΗΜΗ, που καλύπτει μόνο χρεοπιστώσεις — αλλά έκοβε και το χειρόγραφο, δηλαδή ακριβώς στα
     // απλογραφικά (Cosmote, 1261) όπου ο λογιστής έχει γράψει το σπάσιμο με το χέρι.
-    if (!canManage || rows.length > 0) { setHint(null); setHw(null); setShape(null); return; }
+    if (!canManage || rows.length > 0) return;
     let ignore = false;
     fetch(`/api/admin/ocr/line-allocations/suggest?lineId=${encodeURIComponent(lineId)}`, { cache: 'no-store' })
       .then((r) => (r.ok ? r.json() : null))

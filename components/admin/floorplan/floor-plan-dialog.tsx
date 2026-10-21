@@ -181,9 +181,15 @@ export function FloorPlanDialog({ prjc, projectLabel, open, onOpenChange, canSav
   });
 
   // ── Ανίχνευση τοίχων (καθυστέρηση ώστε να ζωγραφιστεί πρώτα η ένδειξη) ───────────────
+  // Η ένδειξη/καθαρισμός με «adjust state while rendering» (αρχικό `[]` ⇒ και στο πρώτο render).
+  const wallDeps = [gray, w, h, thr, thick, autoWalls];
+  const [prevWallDeps, setPrevWallDeps] = React.useState<readonly unknown[]>([]);
+  if (wallDeps.length !== prevWallDeps.length || wallDeps.some((x, i) => !Object.is(x, prevWallDeps[i]))) {
+    setPrevWallDeps(wallDeps);
+    if (!gray || !autoWalls) { setWalls(null); setAnalyzing(false); } else setAnalyzing(true);
+  }
   React.useEffect(() => {
-    if (!gray || !autoWalls) { setWalls(null); setAnalyzing(false); return; }
-    setAnalyzing(true);
+    if (!gray || !autoWalls) return;
     const t = setTimeout(() => {
       const r = detectWalls(gray, w, h, { threshold: thr, minThickness: thick });
       setWalls(r);

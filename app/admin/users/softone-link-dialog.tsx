@@ -21,13 +21,19 @@ export function SoftoneLinkDialog({ target, onClose }: { target: LinkTarget | nu
   const [error, setError] = React.useState<string | null>(null);
   const [busy, setBusy] = React.useState(false);
 
-  const load = React.useCallback(async (fresh = false) => {
-    setUsers(null); setError(null);
-    const res = await fetch(`/api/admin/softone/users${fresh ? '?fresh=1' : ''}`).catch(() => null);
-    const d = res ? await res.json().catch(() => ({})) : {};
-    if (res?.ok) setUsers(d.users); else { setUsers([]); setError(d.message ?? 'Δεν φορτώθηκαν οι χρήστες SoftOne'); }
-  }, []);
-  React.useEffect(() => { if (target) { setValue(target.softoneUserId ? String(target.softoneUserId) : ''); void load(); } }, [target, load]);
+  // Τα setState μόνο μέσα στο callback του fetch· ο καθαρισμός στο load (χειριστής) ή στην αλλαγή χρήστη.
+  const fetchUsers = React.useCallback((fresh = false) =>
+    fetch(`/api/admin/softone/users${fresh ? '?fresh=1' : ''}`).catch(() => null).then(async (res) => {
+      const d = res ? await res.json().catch(() => ({})) : {};
+      if (res?.ok) setUsers(d.users); else { setUsers([]); setError(d.message ?? 'Δεν φορτώθηκαν οι χρήστες SoftOne'); }
+    }), []);
+  const load = (fresh = false) => { setUsers(null); setError(null); return fetchUsers(fresh); };
+  const [prevTarget, setPrevTarget] = React.useState<LinkTarget | null>(null);
+  if (target !== prevTarget) {
+    setPrevTarget(target);
+    if (target) { setValue(target.softoneUserId ? String(target.softoneUserId) : ''); setUsers(null); setError(null); }
+  }
+  React.useEffect(() => { if (target) void fetchUsers(); }, [target, fetchUsers]);
 
   async function save() {
     if (!target) return;

@@ -15,7 +15,9 @@ const tabOf = (v: string | null): Tab => (v === 'tasks' ? 'tasks' : 'overview');
 export function ProjectTabs({ openTasks, overview, tasks }: { openTasks: number; overview: React.ReactNode; tasks: React.ReactNode }) {
   const sp = useSearchParams();
   const [tab, setTab] = React.useState<Tab>(() => tabOf(sp.get('tab')));
-  React.useEffect(() => setTab(tabOf(sp.get('tab'))), [sp]);
+  // Συγχρονισμός με τη διεύθυνση (adjust-state-while-rendering)
+  const [prevSp, setPrevSp] = React.useState(sp);
+  if (sp !== prevSp) { setPrevSp(sp); setTab(tabOf(sp.get('tab'))); }
   const change = (v: string) => {
     const t = tabOf(v);
     setTab(t);

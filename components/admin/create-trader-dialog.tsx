@@ -40,6 +40,21 @@ const COUNTRY_OPTIONS = [...new Set([...VAT_COUNTRY_CODES, ...Object.keys(EXTRA_
 /** Τηλέφωνα / fax / email / ιστοσελίδα όπως τα γράφει το παραστατικό — γράφονται στην καρτέλα. */
 export interface TraderContacts { phone?: string | null; phone2?: string | null; fax?: string | null; email?: string | null; webpage?: string | null }
 
+/** Σύγκριση λιστών εξαρτήσεων όπως τα deps των hooks (`Object.is` ανά θέση). */
+const depsChanged = (a: readonly unknown[], b: readonly unknown[]) =>
+  a.length !== b.length || a.some((x, i) => !Object.is(x, b[i]));
+
+/** Το ελληνικό ΑΦΜ που αντλούμε αυτόματα από την ΑΑΔΕ στο άνοιγμα, ή `null` αν δεν γίνεται άντληση. */
+function initialLookupAfm(initAfm: string, countryHint: string | null | undefined): string | null {
+  // Ξένος εκδότης (πρόθεμα χώρας): η ΑΑΔΕ δεν έχει θέση — καμία κλήση, κανένα σφάλμα.
+  const initCountry = vatCountry(initAfm);
+  if (initCountry && initCountry !== 'GR') return null;
+  // Ξένος από τη διεύθυνση του παραστατικού (ΑΦΜ χωρίς πρόθεμα): επίσης χωρίς ΑΑΔΕ.
+  if (countryHint && countryHint !== 'GR' && !isValidAfm(initAfm)) return null;
+  const greek = initAfm.replace(/^(EL|GR)/, '');
+  return /^\d{9}$/.test(greek) && isValidAfm(greek) ? greek : null;
+}
+
 type CodeSuggestion = { code: string | null; source: 'pattern' | 'mask' | 'none'; taken: number; stale: boolean };
 
 /**
@@ -122,53 +137,62 @@ export function CreateTraderDialog({
     return { leafId: leaf?.id ?? null, basis: r.basis, rule: r.rule, needsReview: r.review, primaryKad: primary?.code ?? null, primaryKadDescr: primary?.descr ?? null, specialty: r.specialty ?? null };
   }, [classSodtype, classRows, data, isForeign, isGreek]);
   // Μέχρι να την αγγίξει ο χρήστης, η επιλογή ακολουθεί την πρόταση (προεπιλεγμένη, αλλάζει ελεύθερα).
-  React.useEffect(() => {
-    if (classTouched || !classProposal) return;
-    setClassSel(classProposal.leafId != null ? pathTo(classRows, classProposal.leafId) : []);
-  }, [classProposal, classRows, classTouched]);
+  // «Adjust state while rendering» (αρχικό `[]` ⇒ τρέχει και στο πρώτο render, όπως ένα effect).
+  const classDeps = [classProposal, classRows, classTouched];
+  const [prevClassDeps, setPrevClassDeps] = React.useState<readonly unknown[]>([]);
+  if (depsChanged(prevClassDeps, classDeps)) {
+    setPrevClassDeps(classDeps);
+    if (!classTouched && classProposal) setClassSel(classProposal.leafId != null ? pathTo(classRows, classProposal.leafId) : []);
+  }
+
+  /** Η κλήση στην ΑΑΔΕ· ο καλών έχει ήδη βάλει loading=true και καθαρίσει error/data/dryPayload. */
+  const fetchLookup = React.useCallback((clean: string) =>
+    fetch('/api/admin/ocr/supplier-preview', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ afm: clean }),
+    })
+      .then(async (res) => {
+        const d = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          setError(d?.error === 'not_found' ? 'Δεν βρέθηκε στην ΑΑΔΕ.' : (d?.message ?? 'Αποτυχία άντλησης από ΑΑΔΕ.'));
+        } else {
+          setData(d);
+          if (d?.name) setName(d.name);
+        }
+      })
+      .catch(() => { setError('Σφάλμα δικτύου.'); })
+      .finally(() => { setLoading(false); }), []);
 
   const runLookup = React.useCallback(async (theAfm: string) => {
     const clean = theAfm.replace(/\D/g, '');
     if (!/^\d{9}$/.test(clean)) { setError('Μη έγκυρο ελληνικό ΑΦΜ (9 ψηφία).'); return; }
     setLoading(true); setError(null); setData(null); setDryPayload(null);
-    try {
-      const res = await fetch('/api/admin/ocr/supplier-preview', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ afm: clean }),
-      });
-      const d = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        setError(d?.error === 'not_found' ? 'Δεν βρέθηκε στην ΑΑΔΕ.' : (d?.message ?? 'Αποτυχία άντλησης από ΑΑΔΕ.'));
-      } else {
-        setData(d);
-        if (d?.name) setName(d.name);
-      }
-    } catch {
-      setError('Σφάλμα δικτύου.');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+    await fetchLookup(clean);
+  }, [fetchLookup]);
 
   // Άνοιγμα: καθάρισε, άντλησε ΑΑΔΕ και ζήτα προτεινόμενο κωδικό ΑΥΤΟΥ του τύπου.
+  const openDeps = [open, afm, fallbackName, countryHint, fetchLookup];
+  const [prevOpenDeps, setPrevOpenDeps] = React.useState<readonly unknown[]>([]);
+  if (depsChanged(prevOpenDeps, openDeps)) {
+    setPrevOpenDeps(openDeps);
+    if (open) {
+      const initAfm = (afm || '').toUpperCase().replace(/[\s.\-/]/g, '');
+      setAfmInput(initAfm);
+      setCountryPick(countryHint && countryHint !== 'GR' ? countryHint : '');
+      setName(fallbackName || '');
+      // Η «Δοκιμή» ξεκινά ΑΝΟΙΧΤΗ μέχρι να μάθουμε τον διακόπτη — ποτέ δεν υποθέτουμε «στείλ' το».
+      setCode(''); setData(null); setError(null); setDryPayload(null); setDryRun(true);
+      setCodeError(null); setCodeOffer(null); setSuggestion(null);
+      if (initialLookupAfm(initAfm, countryHint) != null) setLoading(true);
+    }
+  }
   React.useEffect(() => {
     if (!open) return;
     const initAfm = (afm || '').toUpperCase().replace(/[\s.\-/]/g, '');
-    setAfmInput(initAfm);
-    setCountryPick(countryHint && countryHint !== 'GR' ? countryHint : '');
-    setName(fallbackName || '');
-    // Η «Δοκιμή» ξεκινά ΑΝΟΙΧΤΗ μέχρι να μάθουμε τον διακόπτη — ποτέ δεν υποθέτουμε «στείλ' το».
-    setCode(''); setData(null); setError(null); setDryPayload(null); setDryRun(true);
-    setCodeError(null); setCodeOffer(null); setSuggestion(null);
     proposed.current = null;
-    // Ξένος εκδότης (πρόθεμα χώρας): η ΑΑΔΕ δεν έχει θέση — καμία κλήση, κανένα σφάλμα.
-    const initCountry = vatCountry(initAfm);
-    if (initCountry && initCountry !== 'GR') return;
-    // Ξένος από τη διεύθυνση του παραστατικού (ΑΦΜ χωρίς πρόθεμα): επίσης χωρίς ΑΑΔΕ.
-    if (countryHint && countryHint !== 'GR' && !isValidAfm(initAfm)) return;
-    const greek = initAfm.replace(/^(EL|GR)/, '');
-    if (/^\d{9}$/.test(greek) && isValidAfm(greek)) void runLookup(greek);
-  }, [open, afm, fallbackName, countryHint, runLookup]);
+    const greek = initialLookupAfm(initAfm, countryHint);
+    if (greek != null) void fetchLookup(greek);
+  }, [open, afm, fallbackName, countryHint, fetchLookup]);
 
   /**
    * Η «Δοκιμή» ΑΚΟΛΟΥΘΕΙ τον διακόπτη `softone.postingEnabled`.
@@ -181,10 +205,14 @@ export function CreateTraderDialog({
    * φαίνεται σαν να μη δουλεύει.
    */
   const [postingEnabled, setPostingEnabled] = React.useState<boolean | null>(null);
+  const [prevPostingDeps, setPrevPostingDeps] = React.useState<readonly unknown[]>([]);
+  if (depsChanged(prevPostingDeps, [open])) {
+    setPrevPostingDeps([open]);
+    if (open) setPostingEnabled(null);
+  }
   React.useEffect(() => {
     if (!open) return;
     let ignore = false;
-    setPostingEnabled(null);
     fetch('/api/admin/ocr/posting-enabled', { cache: 'no-store' })
       .then((r) => (r.ok ? r.json() : null))
       .then((d: { enabled?: boolean } | null) => {

@@ -69,7 +69,8 @@ export function AmountsFixPanel({ docId, input, canManage, onApplyLocal, onSaved
   const plans = React.useMemo(() => (closes ? [] : totalsPlans(input)), [closes, input]);
   const [busy, setBusy] = React.useState<string | null>(null);
   const [recheck, setRecheck] = React.useState<RecheckResult | null>(null);
-  React.useEffect(() => { setRecheck(null); }, [docId]);
+  const [prevDocId, setPrevDocId] = React.useState(docId);
+  if (docId !== prevDocId) { setPrevDocId(docId); setRecheck(null); }
 
   if (closes || !canManage) return null;
 

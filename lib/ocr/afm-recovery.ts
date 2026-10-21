@@ -102,12 +102,12 @@ export async function recoverIssuerAfm(
   const storedName = (canon?.issuer?.name ?? (ed.companyName as string | undefined) ?? '').trim() || null;
 
   // ── 1. Επανάγνωση ────────────────────────────────────────────────────────────────────────
-  let reread: { issuer_name?: unknown; issuer_afm?: unknown; recipient_name?: unknown; recipient_afm?: unknown; all_afms?: unknown } = {};
+  let reread: { issuer_name?: unknown; issuer_afm?: unknown; recipient_name?: unknown; recipient_afm?: unknown; all_afms?: unknown };
   try {
     const file = await bunnyDownload(doc.storageKey);
     const page = await renderPage(Buffer.isBuffer(file) ? file : Buffer.from(file), doc.mimeType, 0);
     const r = await callVisionLLM(await resolveCfg(), REREAD_PROMPT, page.toString('base64'), 'image/png');
-    reread = parseJsonLoose(r.content) ?? {};
+    reread = (parseJsonLoose(r.content) ?? {}) as typeof reread;
   } catch (e) {
     return { ...base, status: 'no_file', message: `Το αρχείο δεν ξαναδιαβάστηκε: ${(e as Error).message}` };
   }

@@ -16,7 +16,8 @@ export function AirJordanLauncher({ canMemory }: { canMemory: boolean }) {
   const pathname = usePathname();
 
   // Μια παραπομπή (σύνδεσμος) οδηγεί σε άλλη σελίδα: το πάνελ κλείνει για να φανεί.
-  React.useEffect(() => { setOpen(false); }, [pathname]);
+  const [prevPathname, setPrevPathname] = React.useState(pathname);
+  if (pathname !== prevPathname) { setPrevPathname(pathname); setOpen(false); }
 
   React.useEffect(() => {
     const onKey = (e: KeyboardEvent) => {

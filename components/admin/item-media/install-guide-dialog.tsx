@@ -163,7 +163,8 @@ function NoteCard({ mtrl, note, index, canManage, onSaved, onRetranscribe, onDel
   const [text, setText] = React.useState(note.transcript);
   const [saving, setSaving] = React.useState<'idle' | 'saving' | 'saved'>('idle');
   const [busy, setBusy] = React.useState(false);
-  React.useEffect(() => { setText(note.transcript); }, [note.transcript]);
+  const [prevTranscript, setPrevTranscript] = React.useState(note.transcript);
+  if (note.transcript !== prevTranscript) { setPrevTranscript(note.transcript); setText(note.transcript); }
 
   // Αποθήκευση στο blur — μόνο αν άλλαξε το κείμενο.
   const save = async () => {
@@ -337,7 +338,8 @@ export function InstallGuideDialog({ mtrl, open, onOpenChange, canManage, onChan
       return null;
     }
   }, [mtrl]);
-  React.useEffect(() => { if (open) void load(); }, [open, load]);
+  // Το load ξεκινά σε microtask: τα setState του γίνονται σε callback, όχι σύγχρονα στο σώμα του effect.
+  React.useEffect(() => { if (open) void Promise.resolve().then(load); }, [open, load]);
 
   const setNotes = (fn: (n: InstallNoteDTO[]) => InstallNoteDTO[]) => setState((s) => (s ? { ...s, notes: fn(s.notes) } : s));
 

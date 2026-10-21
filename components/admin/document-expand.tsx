@@ -20,19 +20,27 @@ const cache = new Map<number, DocDetail>();
 export function DocumentDetailPanel({ findoc }: { findoc: number }) {
   const [doc, setDoc] = React.useState<DocDetail | null>(cache.get(findoc) ?? null);
   const [error, setError] = React.useState<string | null>(null);
+  /** Η ανάγνωση· ο καλών έχει ήδη καθαρίσει το error. */
+  const fetchDoc = React.useCallback(() =>
+    fetch(`/api/admin/documents/${findoc}`, { cache: 'no-store' })
+      .then(async (r) => {
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok || !d.doc) { setError(d.message ?? 'Το παραστατικό δεν διαβάστηκε από το SoftOne.'); return; }
+        cache.set(findoc, d.doc);
+        setDoc(d.doc);
+      })
+      .catch(() => { setError('Σφάλμα δικτύου.'); }), [findoc]);
   const load = React.useCallback(async () => {
     setError(null);
-    try {
-      const r = await fetch(`/api/admin/documents/${findoc}`, { cache: 'no-store' });
-      const d = await r.json().catch(() => ({}));
-      if (!r.ok || !d.doc) { setError(d.message ?? 'Το παραστατικό δεν διαβάστηκε από το SoftOne.'); return; }
-      cache.set(findoc, d.doc);
-      setDoc(d.doc);
-    } catch {
-      setError('Σφάλμα δικτύου.');
-    }
-  }, [findoc]);
-  React.useEffect(() => { if (!cache.has(findoc)) void load(); }, [findoc, load]);
+    await fetchDoc();
+  }, [fetchDoc]);
+  // «Adjust state while rendering» (αρχικό `[]` ⇒ και στο πρώτο render): ίδιος όρος με το effect.
+  const [prevDeps, setPrevDeps] = React.useState<readonly unknown[]>([]);
+  if (prevDeps.length === 0 || !Object.is(prevDeps[0], findoc) || !Object.is(prevDeps[1], fetchDoc)) {
+    setPrevDeps([findoc, fetchDoc]);
+    if (!cache.has(findoc)) setError(null);
+  }
+  React.useEffect(() => { if (!cache.has(findoc)) void fetchDoc(); }, [findoc, fetchDoc]);
 
   if (error) {
     return (

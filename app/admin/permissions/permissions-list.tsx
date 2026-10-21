@@ -30,7 +30,9 @@ export function PermissionsList({ items }: { items: PermItem[] }) {
 
 function ResourceGroup({ resource, initial }: { resource: string; initial: PermItem[] }) {
   const [local, setLocal] = React.useState(initial);
-  React.useEffect(() => setLocal(initial), [initial]);
+  // Συγχρονισμός με νέα props (adjust-state-while-rendering)
+  const [prevInitial, setPrevInitial] = React.useState(initial);
+  if (initial !== prevInitial) { setPrevInitial(initial); setLocal(initial); }
 
   const handleReorder = async (next: PermItem[]) => {
     setLocal(next);

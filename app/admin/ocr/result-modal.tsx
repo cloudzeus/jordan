@@ -35,11 +35,29 @@ interface OcrDoc {
   durationMs: number | null;
   model: string | null;
   thumbUrl: string | null;
-  extractedData: any;
-  items: any[];
+  extractedData: ModalExtracted | null;
+  items: OcrDocItem[];
 }
 
-interface FieldSpec { key: string; label: string; required: boolean; format?: (v: any) => string }
+/** Το `extractedData` όπως το διαβάζει το modal — χαλαρό σχήμα OCR. */
+type ModalExtracted = Record<string, unknown> & {
+  items?: ({ unit?: string | null } | null)[];
+  subtotal?: unknown; vatAmount?: unknown; totalAmount?: unknown;
+  vatNumber?: unknown; customerVatNumber?: unknown;
+};
+
+/** Μία γραμμή όπως έρχεται από το API (τα Decimal φτάνουν ως string/number). */
+interface OcrDocItem {
+  id: string;
+  code: string | null;
+  name: string;
+  quantity: number | string | null;
+  price: unknown;
+  vatRate: number | string | null;
+  total: unknown;
+}
+
+interface FieldSpec { key: string; label: string; required: boolean; format?: (v: unknown) => string }
 
 const SCHEMA: Record<string, FieldSpec[]> = {
   INVOICE: [
@@ -66,7 +84,7 @@ const SCHEMA: Record<string, FieldSpec[]> = {
     { key: 'totalAmount',        label: 'Γενικό Σύνολο',          required: true, format: fmtMoney },
   ],
   RECEIPT: [
-    { key: 'companyName',   label: 'Κατάστημα / Εκδότης',    required: true, format: (v: any) => v },
+    { key: 'companyName',   label: 'Κατάστημα / Εκδότης',    required: true, format: (v: unknown) => v as string },
     { key: 'vatNumber',     label: 'ΑΦΜ εκδότη',             required: true },
     { key: 'invoiceNumber', label: 'Αρ. Αποδείξεως',         required: true },
     { key: 'date',          label: 'Ημερομηνία',             required: true },
@@ -85,7 +103,7 @@ const SCHEMA: Record<string, FieldSpec[]> = {
   ],
 };
 
-function fmtMoney(v: any) {
+function fmtMoney(v: unknown) {
   if (v == null) return '-';
   const n = Number(v);
   if (Number.isNaN(n)) return String(v);
@@ -119,9 +137,15 @@ export function OcrResultModal({ open, documentId, onClose }: ResultModalProps) 
   const [reextracting, setReextracting] = React.useState(false);
   const [reextractDialog, setReextractDialog] = React.useState(false);
 
+  // Η σύγχρονη ρύθμιση (καθαρισμός / «φορτώνει») κατά το render — και στο πρώτο, όπως το effect.
+  const [prevLoadKey, setPrevLoadKey] = React.useState<{ open: boolean; documentId: typeof documentId } | null>(null);
+  if (prevLoadKey === null || prevLoadKey.open !== open || prevLoadKey.documentId !== documentId) {
+    setPrevLoadKey({ open, documentId });
+    if (!open || !documentId) setDoc(null);
+    else setLoading(true);
+  }
   React.useEffect(() => {
-    if (!open || !documentId) { setDoc(null); return; }
-    setLoading(true);
+    if (!open || !documentId) return;
     fetch(`/api/admin/ocr/${documentId}`)
       .then((r) => r.json())
       .then((d) => { setDoc(d); setCategory(d?.category ?? ''); setNotes(''); })
@@ -139,10 +163,10 @@ export function OcrResultModal({ open, documentId, onClose }: ResultModalProps) 
 
   if (!open) return null;
 
-  const data = doc?.extractedData ?? {};
+  const data: ModalExtracted = doc?.extractedData ?? {};
   const spec = doc ? (SCHEMA[doc.docType] ?? []) : [];
   const fields = spec.map((s) => {
-    const raw = (data as any)[s.key];
+    const raw = data[s.key];
     const present = raw != null && raw !== '' && !(Array.isArray(raw) && raw.length === 0);
     return {
       ...s,
@@ -173,8 +197,8 @@ export function OcrResultModal({ open, documentId, onClose }: ResultModalProps) 
       if (!res.ok) throw new Error((await res.json())?.error ?? `HTTP ${res.status}`);
       toast.success('Αποθηκεύτηκε');
       router.refresh();
-    } catch (err: any) {
-      toast.error(`Σφάλμα: ${err?.message ?? err}`);
+    } catch (err) {
+      toast.error(`Σφάλμα: ${(err as Error)?.message ?? err}`);
     } finally { setSaving(false); }
   }
 
@@ -194,8 +218,8 @@ export function OcrResultModal({ open, documentId, onClose }: ResultModalProps) 
       if (!res.ok) throw new Error(json?.message ?? json?.error ?? `HTTP ${res.status}`);
       toast.success(`Αναρτήθηκε στο SoftOne · ${json.ref}`);
       router.refresh();
-    } catch (err: any) {
-      toast.error(`Σφάλμα: ${err?.message ?? err}`);
+    } catch (err) {
+      toast.error(`Σφάλμα: ${(err as Error)?.message ?? err}`);
     } finally { setPosting(false); }
   }
 
@@ -216,8 +240,8 @@ export function OcrResultModal({ open, documentId, onClose }: ResultModalProps) 
       const fresh = await fetch(`/api/admin/ocr/${doc.id}`).then((r) => r.json());
       setDoc(fresh);
       router.refresh();
-    } catch (err: any) {
-      toast.error(`Αποτυχία: ${err?.message ?? err}`);
+    } catch (err) {
+      toast.error(`Αποτυχία: ${(err as Error)?.message ?? err}`);
     } finally {
       setReextracting(false);
     }
@@ -235,8 +259,8 @@ export function OcrResultModal({ open, documentId, onClose }: ResultModalProps) 
         ? `Υπήρχε ήδη: ${json.company?.name}`
         : `Δημιουργήθηκε ${noun}: ${json.company?.name}`);
       router.refresh();
-    } catch (err: any) {
-      toast.error(`Αποτυχία: ${err?.message ?? err}`);
+    } catch (err) {
+      toast.error(`Αποτυχία: ${(err as Error)?.message ?? err}`);
     } finally { setSupplying(false); }
   }
 
@@ -418,7 +442,7 @@ export function OcrResultModal({ open, documentId, onClose }: ResultModalProps) 
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-border">
-                          {doc.items.map((it: any, idx: number) => (
+                          {doc.items.map((it, idx: number) => (
                             <tr key={it.id} className="hover:bg-neutral-6/40">
                               <td className="px-2 py-1.5 font-mono text-(length:--fs-11)">{it.code ?? '-'}</td>
                               <td className="px-2 py-1.5">{it.name}</td>
@@ -427,7 +451,7 @@ export function OcrResultModal({ open, documentId, onClose }: ResultModalProps) 
                                   στην ίδια θέση με τη γραμμή. Χωρίς αυτή τη στήλη ο χρήστης διόρθωνε
                                   πεδίο που δεν εμφανιζόταν πουθενά. */}
                               <td className="px-2 py-1.5 text-muted-foreground">
-                                {((data as any).items?.[idx]?.unit ?? '') || '—'}
+                                {(data.items?.[idx]?.unit ?? '') || '—'}
                               </td>
                               <td className="px-2 py-1.5 text-right tabular-nums">{fmtMoney(it.price)}</td>
                               <td className="px-2 py-1.5 text-right tabular-nums text-muted-foreground">

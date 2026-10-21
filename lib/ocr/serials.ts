@@ -19,7 +19,7 @@ const LABEL = new RegExp(
 );
 // ΧΩΡΙΣ τελεία και ΧΩΡΙΣ συνέχεια μετά από κενό: στο «SN: DMV24001420-P.ID: 159894» το «ID» είναι ΑΛΛΟ
 // πεδίο της συσκευής. Με την τελεία μέσα, βγαίναν «DMV24001420-P.ID» και «159894» ως σειριακοί.
-const TOKEN = /^[A-Z0-9Α-Ω][A-Z0-9Α-Ω\-]{3,}/iu;
+const TOKEN = /^[A-Z0-9Α-Ω][A-Z0-9Α-Ω-]{3,}/iu;
 
 /**
  * Οι σειριακοί που αναφέρει ένα κείμενο, με τη σειρά εμφάνισης, χωρίς διπλότυπα. Μετά την ετικέτα
@@ -36,7 +36,7 @@ export function extractSerials(text: string | null | undefined): string[] {
       const code = t[0].replace(/-+$/, '');
       if (/\d/.test(code) && !out.includes(code)) out.push(code);
       rest = rest.slice(t[0].length);
-      const sep = /^\s*[,;\/]\s*/u.exec(rest);
+      const sep = /^\s*[,;/]\s*/u.exec(rest);
       if (!sep) break;
       rest = rest.slice(sep[0].length);
     }
@@ -66,7 +66,7 @@ export function stripSerials(text: string | null | undefined): string {
       if (/\d/.test(t[0])) hasDigit = true;
       end += t[0].length;
       rest = rest.slice(t[0].length);
-      const sep = /^\s*[,;\/]\s*/u.exec(rest);
+      const sep = /^\s*[,;/]\s*/u.exec(rest);
       if (!sep) break;
       end += sep[0].length;
       rest = rest.slice(sep[0].length);

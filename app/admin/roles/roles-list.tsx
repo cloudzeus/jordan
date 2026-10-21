@@ -29,7 +29,9 @@ export function RolesList({ items, permissions }: { items: RoleItem[]; permissio
   const [local, setLocal] = React.useState(items);
   const [openRole, setOpenRole] = React.useState<RoleItem | null>(null);
 
-  React.useEffect(() => setLocal(items), [items]);
+  // Συγχρονισμός με νέα props (adjust-state-while-rendering)
+  const [prevItems, setPrevItems] = React.useState(items);
+  if (items !== prevItems) { setPrevItems(items); setLocal(items); }
 
   const handleReorder = async (next: RoleItem[]) => {
     setLocal(next);

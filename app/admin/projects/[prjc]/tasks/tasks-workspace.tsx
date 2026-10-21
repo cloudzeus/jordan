@@ -36,16 +36,22 @@ export function TasksWorkspace({ prjc, tasks: initial, options, templates, canMa
   const refresh = () => router.refresh();
   // Αισιόδοξες αλλαγές (Kanban) πάνω στα δεδομένα του server· ο server ξαναστέλνει μετά το refresh.
   const [tasks, setTasks] = React.useState(initial);
-  React.useEffect(() => setTasks(initial), [initial]);
+  // Συγχρονισμός με νέα props (adjust-state-while-rendering)
+  const [prevInitial, setPrevInitial] = React.useState(initial);
+  if (initial !== prevInitial) { setPrevInitial(initial); setTasks(initial); }
   const [view, setView] = React.useState('board');
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- ανάγνωση localStorage μετά το hydration (στο SSR δεν υπάρχει)
   React.useEffect(() => { try { const v = localStorage.getItem(VIEW_KEY); if (v) setView(v); } catch { /* ιδιωτική περιήγηση */ } }, []);
   const changeView = (v: string) => { setView(v); try { localStorage.setItem(VIEW_KEY, v); } catch { /* */ } };
 
   const [editing, setEditing] = React.useState<{ open: boolean; task: TaskView | null; progress: number }>({ open: false, task: null, progress: 0 });
-  React.useEffect(() => {
+  // `?task=` → άνοιγμα της φόρμας όταν αλλάζει (και στο πρώτο render) — adjust-state-while-rendering
+  const [prevOpenTaskId, setPrevOpenTaskId] = React.useState<string | null>(null);
+  if (openTaskId !== prevOpenTaskId) {
+    setPrevOpenTaskId(openTaskId);
     const t = openTaskId ? initial.find((x) => x.id === openTaskId) : null;
     if (t && canManage) setEditing({ open: true, task: t, progress: 0 });
-  }, [openTaskId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }
   const [saveTpl, setSaveTpl] = React.useState(false);
   const [applyTpl, setApplyTpl] = React.useState(false);
 

@@ -16,7 +16,7 @@ export const dynamic = 'force-dynamic';
 // Ραντεβού στο atelier από το website — ημερολόγιο (ημέρα/εβδομάδα/μήνας) και λίστα.
 export default async function AppointmentsPage() {
   await requirePermission('appointments.read');
-  const now = Date.now();
+  const now = new Date().getTime();
   const [rows, blocks, availability, canManage, canSchedule, notifyTo, staff, softone, me, canProjects] = await Promise.all([
     listAppointments(new Date(now - 180 * 86_400_000), new Date(now + 366 * 86_400_000)),
     listBlocks(new Date(now - 180 * 86_400_000)),

@@ -193,13 +193,16 @@ function EditUserDialog({
   const [locales, setLocales] = React.useState<string[]>([]);
   const [saving, setSaving] = React.useState(false);
 
-  React.useEffect(() => {
+  // Γέμισμα της φόρμας όταν ανοίγει για χρήστη (adjust-state-while-rendering)
+  const [prevUser, setPrevUser] = React.useState<UserRow | null>(null);
+  if (user !== prevUser) {
+    setPrevUser(user);
     if (user) {
       setName(user.name); setEmail(user.email);
       setRoleId(user.roleId); setIsActive(user.isActive);
       setLocales(user.preferredLocales ?? []);
     }
-  }, [user]);
+  }
 
   const save = async () => {
     if (!user) return;
@@ -274,7 +277,8 @@ function PasswordDialog({ user, onClose, onSaved }: { user: UserRow | null; onCl
   const [pw2, setPw2] = React.useState('');
   const [saving, setSaving] = React.useState(false);
 
-  React.useEffect(() => { if (user) { setPw(''); setPw2(''); } }, [user]);
+  const [prevUser, setPrevUser] = React.useState<UserRow | null>(null);
+  if (user !== prevUser) { setPrevUser(user); if (user) { setPw(''); setPw2(''); } }
 
   const save = async () => {
     if (!user) return;

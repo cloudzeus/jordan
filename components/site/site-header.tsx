@@ -25,7 +25,8 @@ export function SiteHeader({ nav, account, signedIn }: { nav: NavItem[]; account
     window.addEventListener('scroll', on, { passive: true });
     return () => window.removeEventListener('scroll', on);
   }, []);
-  React.useEffect(() => { setOpen(false); }, [path]);
+  const [prevPath, setPrevPath] = React.useState(path);
+  if (path !== prevPath) { setPrevPath(path); setOpen(false); }
   React.useEffect(() => {
     document.body.style.overflow = open ? 'hidden' : '';
     return () => { document.body.style.overflow = ''; };

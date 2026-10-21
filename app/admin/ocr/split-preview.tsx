@@ -101,8 +101,8 @@ export function OcrSplitPreview({ data, onCancel }: { data: SplitPreviewData; on
       }
       router.push(`/admin/ocr/batches/${data.batchId}`);
       router.refresh();
-    } catch (err: any) {
-      toast.error(`Αποτυχία διαχωρισμού: ${err?.message ?? err}`);
+    } catch (err) {
+      toast.error(`Αποτυχία διαχωρισμού: ${(err as Error)?.message ?? err}`);
       setPhase('editing');
     }
   }

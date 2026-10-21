@@ -41,7 +41,9 @@ export default async function OcrPendingPage() {
     };
     const meta = reconMeta(input);
     if (!meta.pending) continue;
-    const data = (d.extractedData ?? {}) as any;
+    const data = (d.extractedData ?? {}) as {
+      companyName?: string | null; storeName?: string | null; title?: string | null; invoiceNumber?: string | null;
+    };
     const item: Item = {
       id: d.id, fileName: d.fileName, createdAt: d.createdAt,
       issuer: data?.companyName ?? data?.storeName ?? data?.title ?? null,

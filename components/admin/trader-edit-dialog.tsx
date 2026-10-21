@@ -122,7 +122,8 @@ export function TraderEditDialog({ trdr, mode, open, onOpenChange, canManage }: 
       if (mode === 'vies') setViesOpen(true);
     } catch { setLoadError('Σφάλμα δικτύου.'); } finally { setBusy((b) => (b === 'load' ? null : b)); }
   }, [trdr, mode, runAade]);
-  React.useEffect(() => { if (open) void load(); }, [open, load]);
+  // Το load ξεκινά σε microtask: τα setState του γίνονται σε callback, όχι σύγχρονα στο σώμα του effect.
+  React.useEffect(() => { if (open) void Promise.resolve().then(load); }, [open, load]);
 
   // Αρχική κατηγορία: ό,τι έχει εγκριθεί στην εφαρμογή, αλλιώς ό,τι έχει η καρτέλα στο SoftOne.
   React.useEffect(() => {
@@ -143,11 +144,12 @@ export function TraderEditDialog({ trdr, mode, open, onOpenChange, canManage }: 
   const classDirty = !samePath(classInit, classSel);
 
   // Οι προτάσεις που διαφέρουν από τη φόρμα προεπιλέγονται.
-  React.useEffect(() => {
-    if (!proposals) return;
-    setPicked(new Set(proposals.items.filter((p) => p.value != null && s(p.value) !== s(form[p.key])).map((p) => p.key)));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [proposals]);
+  // («Adjust state while rendering» μόνο στην αλλαγή των προτάσεων· αρχικό `null` ⇒ και στο πρώτο render.)
+  const [prevProposals, setPrevProposals] = React.useState<readonly [typeof proposals] | null>(null);
+  if (prevProposals === null || prevProposals[0] !== proposals) {
+    setPrevProposals([proposals]);
+    if (proposals) setPicked(new Set(proposals.items.filter((p) => p.value != null && s(p.value) !== s(form[p.key])).map((p) => p.key)));
+  }
 
   const onVies = (r: ViesCheckResult) => {
     if (r.valid !== true) return;

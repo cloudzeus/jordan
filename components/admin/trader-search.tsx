@@ -65,18 +65,24 @@ export function TraderSearch({
   const rootRef = React.useRef<HTMLDivElement>(null);
   const listId = `${id}-list`;
 
-  React.useEffect(() => {
-    const term = q.trim();
-    if (term.length < MIN_CHARS) {
+  // Προετοιμασία της αναζήτησης με «adjust state while rendering» (αρχικό `[]` ⇒ και στο πρώτο render).
+  const searchDeps = [q, reload, sodtype];
+  const [prevSearchDeps, setPrevSearchDeps] = React.useState<readonly unknown[]>([]);
+  if (searchDeps.length !== prevSearchDeps.length || searchDeps.some((x, i) => !Object.is(x, prevSearchDeps[i]))) {
+    setPrevSearchDeps(searchDeps);
+    if (q.trim().length < MIN_CHARS) {
       setResults([]);
       setSearched(false);
       setFailed(false);
       setLoading(false);
-      return;
-    }
+    } else setLoading(true);
+  }
+
+  React.useEffect(() => {
+    const term = q.trim();
+    if (term.length < MIN_CHARS) return;
     // `ignore`: ένα αργό αίτημα δεν πρέπει να προσπεράσει νεότερο.
     let ignore = false;
-    setLoading(true);
     const h = setTimeout(() => {
       fetch(`/api/admin/softone/search?type=traders&q=${encodeURIComponent(term)}${sodtype ? `&sodtype=${sodtype}` : ''}`)
         .then(async (r) => {

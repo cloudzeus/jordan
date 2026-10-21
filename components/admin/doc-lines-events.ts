@@ -23,7 +23,8 @@ export function emitDocLinesChanged(docId: string): void {
 /** Ξαναφόρτωσε όταν αλλάξουν οι γραμμές ΑΥΤΟΥ του παραστατικού. */
 export function useDocLinesChanged(docId: string, onChange: () => void): void {
   const ref = React.useRef(onChange);
-  ref.current = onChange;
+  // «Latest ref»: ενημέρωση μετά το commit, όχι κατά το render.
+  React.useLayoutEffect(() => { ref.current = onChange; });
   React.useEffect(() => {
     if (!docId) return;
     const handler = (e: Event) => {
@@ -62,7 +63,8 @@ export const focusLineHref = (docId: string, lineId: string) => `/admin/ocr/${do
 /** Άνοιξε τον picker αυτής της γραμμής όταν ζητηθεί από αλλού μέσα στη σελίδα. */
 export function useFocusLine(lineId: string, onFocus: () => void): void {
   const ref = React.useRef(onFocus);
-  ref.current = onFocus;
+  // «Latest ref»: ενημέρωση μετά το commit, όχι κατά το render.
+  React.useLayoutEffect(() => { ref.current = onFocus; });
   React.useEffect(() => {
     if (!lineId) return;
     const handler = (e: Event) => {
@@ -92,7 +94,8 @@ export function emitStartSplit(lineId: string): void {
 
 export function useStartSplit(lineId: string, onStart: () => void): void {
   const ref = React.useRef(onStart);
-  ref.current = onStart;
+  // «Latest ref»: ενημέρωση μετά το commit, όχι κατά το render.
+  React.useLayoutEffect(() => { ref.current = onStart; });
   React.useEffect(() => {
     if (!lineId) return;
     const handler = (e: Event) => {

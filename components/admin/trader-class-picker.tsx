@@ -31,10 +31,15 @@ export interface ClassProposal {
 export function useTraderClassRows(sodtype: number | null | undefined): { rows: ClassRow[]; loading: boolean } {
   const [rows, setRows] = React.useState<ClassRow[]>([]);
   const [loading, setLoading] = React.useState(false);
+  // («Adjust state while rendering»· αρχικό `null` ⇒ και στο πρώτο render, όπως το effect.)
+  const [prevSodtype, setPrevSodtype] = React.useState<readonly [number | null | undefined] | null>(null);
+  if (prevSodtype === null || !Object.is(prevSodtype[0], sodtype)) {
+    setPrevSodtype([sodtype]);
+    if (sodtype !== 12 && sodtype !== 13) setRows([]); else setLoading(true);
+  }
   React.useEffect(() => {
-    if (sodtype !== 12 && sodtype !== 13) { setRows([]); return; }
+    if (sodtype !== 12 && sodtype !== 13) return;
     let alive = true;
-    setLoading(true);
     fetch(`/api/admin/trader-classes?sodtype=${sodtype}`, { cache: 'no-store' })
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => { if (alive) setRows(d?.rows ?? []); })

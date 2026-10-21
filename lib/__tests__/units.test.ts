@@ -25,8 +25,8 @@ const readBack = (over: Record<string, string> = {}) => ({ success: true, data: 
 beforeEach(() => {
   vi.clearAllMocks();
   db.softoneUnit.findFirst.mockResolvedValue(null);
-  db.softoneUnit.upsert.mockImplementation(async ({ create }: any) => create);
-  db.softoneUnit.update.mockImplementation(async ({ data }: any) => ({ code: 202, ...data }));
+  db.softoneUnit.upsert.mockImplementation(async ({ create }: { create: unknown }) => create);
+  db.softoneUnit.update.mockImplementation(async ({ data }: { data: Record<string, unknown> }) => ({ code: 202, ...data }));
 });
 
 describe('unitCreateInput', () => {

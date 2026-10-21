@@ -41,6 +41,7 @@ export function OcrUploadForm() {
    */
   const [open, setOpen] = useState(false);
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- localStorage διαβάζεται μόνο στον client, μετά το hydration (βλ. πάνω)
     try { if (localStorage.getItem(PANEL_KEY) === '1') setOpen(true); } catch { /* ιδιωτική περιήγηση */ }
   }, []);
   function toggle(next: boolean) {
@@ -72,8 +73,8 @@ export function OcrUploadForm() {
       if (auto) toast.info(`Βρέθηκαν ${json.suggested?.length ?? 'πολλά'} παραστατικά στο αρχείο — έλεγξε τα κοψίματα και συνέχισε.`);
       setSplit({ ...json, fileName: file.name, docType });
       return true;
-    } catch (err: any) {
-      toast.error(`Αποτυχία προεπισκόπησης: ${err?.message ?? err}`);
+    } catch (err) {
+      toast.error(`Αποτυχία προεπισκόπησης: ${(err as Error)?.message ?? err}`);
       return true;
     } finally {
       setBusy(false);
@@ -102,8 +103,8 @@ export function OcrUploadForm() {
       setResultId(json.id);
       setModalOpen(true);
       router.refresh();
-    } catch (err: any) {
-      toast.error(`Σφάλμα OCR: ${err?.message ?? err}`);
+    } catch (err) {
+      toast.error(`Σφάλμα OCR: ${(err as Error)?.message ?? err}`);
     } finally {
       setBusy(false);
       setPhase(null);

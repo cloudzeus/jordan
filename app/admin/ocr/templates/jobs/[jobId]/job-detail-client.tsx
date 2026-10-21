@@ -83,7 +83,9 @@ export function JobDetailClient({ initial, canManage }: { initial: JobDetail; ca
   }, [open, job.fields, page]);
 
   // Το αρχείο που άνοιξε μπορεί να έχει λιγότερες σελίδες από το προηγούμενο.
-  React.useEffect(() => { setPage(0); }, [openId]);
+  // (Ρύθμιση state κατά το render όταν αλλάζει το `openId`, όχι σε effect.)
+  const [prevOpenId, setPrevOpenId] = React.useState(openId);
+  if (openId !== prevOpenId) { setPrevOpenId(openId); setPage(0); }
 
   const dateText = new Date(job.date).toLocaleDateString('el-GR');
 

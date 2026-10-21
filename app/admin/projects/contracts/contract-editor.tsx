@@ -64,11 +64,13 @@ const numVal = (v: string) => { const n = Number(v.replace(',', '.')); return Nu
 function NumInput({ value, onValue, nullable = false, ...rest }: Omit<React.ComponentProps<typeof Input>, 'value' | 'onChange'> & { value: number | null; onValue: (n: number | null) => void; nullable?: boolean }) {
   const show = (v: number | null) => (v == null ? '' : String(v).replace('.', ','));
   const [text, setText] = React.useState(() => show(value));
-  React.useEffect(() => {
+  // Νέα τιμή απ' έξω → ενημέρωση κειμένου (adjust-state-while-rendering)
+  const [prevValue, setPrevValue] = React.useState(value);
+  if (!Object.is(value, prevValue)) {
+    setPrevValue(value);
     const cur = text.trim() === '' ? null : numVal(text);
     if (cur !== value && !(cur == null && value === 0 && !nullable)) setText(show(value));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [value]);
+  }
   return (
     <Input {...rest} inputMode="decimal" value={text}
       onChange={(e) => { const t = e.target.value; setText(t); onValue(t.trim() === '' ? (nullable ? null : 0) : numVal(t)); }}
@@ -129,8 +131,10 @@ function CustomerPicker({ value, onPick, disabled }: { value: { trdr: number | n
   const [q, setQ] = React.useState('');
   const [hits, setHits] = React.useState<CustomerHit[]>([]);
   const [open, setOpen] = React.useState(false);
+  const [prevQ, setPrevQ] = React.useState(q);
+  if (q !== prevQ) { setPrevQ(q); if (q.trim().length < 2) setHits([]); }
   React.useEffect(() => {
-    if (q.trim().length < 2) { setHits([]); return; }
+    if (q.trim().length < 2) return;
     const ctl = new AbortController();
     const t = setTimeout(() => {
       fetch(`/api/admin/contracts/options?kind=customers&q=${encodeURIComponent(q.trim())}`, { signal: ctl.signal })
@@ -236,14 +240,12 @@ export function ContractEditor({ initial, staff, readOnly = false }: { initial: 
 
   // Μετά από ενέργεια (π.χ. σύνδεση με έργο) ο server στέλνει νέα δεδομένα· τα παίρνουμε μόνο αν δεν
   // υπάρχουν μη αποθηκευμένες αλλαγές του χρήστη.
-  const applied = React.useRef(initial);
-  const dirtyRef = React.useRef(dirty);
-  dirtyRef.current = dirty;
-  React.useEffect(() => {
-    if (!initial || initial === applied.current) return;
-    applied.current = initial;
-    if (!dirtyRef.current) setS(fromView(initial));
-  }, [initial]);
+  // (adjust-state-while-rendering)
+  const [applied, setApplied] = React.useState(initial);
+  if (initial && initial !== applied) {
+    setApplied(initial);
+    if (!dirty) setS(fromView(initial));
+  }
   React.useEffect(() => {
     if (!dirty) return;
     const h = (e: BeforeUnloadEvent) => { e.preventDefault(); };

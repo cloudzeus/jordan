@@ -169,7 +169,8 @@ export function ItemEditDialog({ mtrl, open, onOpenChange, onSaved }: {
     }
   }, [mtrl]);
 
-  React.useEffect(() => { if (open) void load(); }, [open, load]);
+  // Το load ξεκινά σε microtask: τα setState του γίνονται σε callback, όχι σύγχρονα στο σώμα του effect.
+  React.useEffect(() => { if (open) void Promise.resolve().then(load); }, [open, load]);
 
   const set = (k: keyof Form) => (v: string | boolean) => setForm((f) => (f ? { ...f, [k]: v } : f));
   const text = (k: keyof Form) => ({

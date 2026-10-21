@@ -5,7 +5,7 @@ import { getSetting } from '@/lib/settings';
 import { roundStep, sortTiers, tierAt } from '@/lib/container-pricing';
 import {
   cancelOrder, createOrder, missingConfig, refundTransaction, retrieveTransaction, transactionIdsOfOrder, vivaConfig,
-  VivaError, type VivaConfig,
+  VivaError,
 } from '@/lib/viva';
 import {
   checkoutUrl, classifyTransaction, dedupeKey, formatEur, fullRefund, orderTimeoutSeconds, parseVivaJson, paymentAmount,

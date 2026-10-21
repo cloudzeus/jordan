@@ -63,7 +63,8 @@ export function DocSeriesTabs({
   const pathname = usePathname();
   const search = useSearchParams();
   const [rows, setRows] = React.useState(initialRows);
-  React.useEffect(() => setRows(initialRows), [initialRows]);
+  const [prevInitialRows, setPrevInitialRows] = React.useState(initialRows);
+  if (initialRows !== prevInitialRows) { setPrevInitialRows(initialRows); setRows(initialRows); }
   const [busy, setBusy] = React.useState(false);
   const [onlyEnabled, setOnlyEnabled] = React.useState(false);
 

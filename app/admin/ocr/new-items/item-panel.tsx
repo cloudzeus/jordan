@@ -7,7 +7,7 @@ import * as React from 'react';
 import Link from 'next/link';
 import {
   FiAlertCircle, FiAlertTriangle, FiCheck, FiCornerDownLeft, FiDollarSign, FiExternalLink,
-  FiCpu, FiInfo, FiLoader, FiPackage, FiPlus, FiPlusCircle, FiRefreshCw, FiSkipForward, FiTag, FiTool,
+  FiCpu, FiInfo, FiLoader, FiPackage, FiPlus, FiRefreshCw, FiSkipForward, FiTag, FiTool,
 } from 'react-icons/fi';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -163,6 +163,9 @@ function defaultVat(vats: VatOption[]): string {
 function initialAlt(_sample?: string) {
   return { buy: '', buyRatio: '', sell: '', sellRatio: '' };
 }
+/** Άλλαξε κάποια εξάρτηση από το προηγούμενο render; (ίδια σύγκριση με τα deps ενός effect) */
+const depsChanged = (a: readonly unknown[], b: readonly unknown[]) =>
+  a.length !== b.length || a.some((d, i) => !Object.is(d, b[i]));
 const ratioNum = (v: string): number | null => { const n = Number(String(v).replace(',', '.')); return Number.isFinite(n) && n > 0 ? n : null; };
 
 function defaultUnit(units: UnitOption[]): string {
@@ -239,7 +242,8 @@ export function ItemPanel({
   const canCreate = category != null && category !== 'lineitem';
   // Τα έργα του εκδότη είναι η χρήσιμη προεπιλογή· ο χρήστης βλέπει όλα με ένα κλικ.
   const [projectScopeAll, setProjectScopeAll] = React.useState(false);
-  React.useEffect(() => setProjectScopeAll(false), [group.key]);
+  const [prevGroupKey, setPrevGroupKey] = React.useState(group.key);
+  if (group.key !== prevGroupKey) { setPrevGroupKey(group.key); setProjectScopeAll(false); }
 
 
   const [creating, setCreating] = React.useState(false);
@@ -254,9 +258,6 @@ export function ItemPanel({
   const [codeOffer, setCodeOffer] = React.useState<string | null>(null);
   /** Η επαναπρόταση μετά από 409 ήρθε από τον καθρέφτη (το SoftOne δεν απάντησε). */
   const [codeOfferStale, setCodeOfferStale] = React.useState(false);
-  /** Η τελευταία πρόταση που γράψαμε ΕΜΕΙΣ — για να ξέρουμε τι επιτρέπεται να αντικατασταθεί. */
-  const lastProposal = React.useRef<string>('');
-
   const [form, setForm] = React.useState(() => ({
     // Ο κωδικός δεν «μαντεύεται» από την περιγραφή: μένει κενός ώσπου να απαντήσει ο server.
     code: '',
@@ -267,14 +268,19 @@ export function ItemPanel({
     itemGroup: '',
     itemCategory: '',
     ...initialAlt(group.sample),
+    /** Η τελευταία πρόταση που γράψαμε ΕΜΕΙΣ — για να ξέρουμε τι επιτρέπεται να αντικατασταθεί. */
+    lastProposal: '',
   }));
   const [dryPayload, setDryPayload] = React.useState<unknown>(null);
   const [dryLoading, setDryLoading] = React.useState(false);
   const [dryError, setDryError] = React.useState<string | null>(null);
   const [dryOpen, setDryOpen] = React.useState(false);
 
-  // Νέα ομάδα ⇒ καθαρή φόρμα με νέα προσυμπλήρωση.
-  React.useEffect(() => {
+  // Νέα ομάδα ⇒ καθαρή φόρμα με νέα προσυμπλήρωση (ρύθμιση state κατά το render, όχι σε effect).
+  const resetDeps = [group.key, group.code, group.sample, group.lines, vats, units] as const;
+  const [prevResetDeps, setPrevResetDeps] = React.useState<readonly unknown[]>(resetDeps);
+  if (depsChanged(resetDeps, prevResetDeps)) {
+    setPrevResetDeps(resetDeps);
     setCreating(false);
     setTouched({});
     setDryPayload(null);
@@ -282,7 +288,6 @@ export function ItemPanel({
     setDryOpen(false);
     setErpCodeError(null);
     setCodeOffer(null);
-    lastProposal.current = '';
     setForm({
       code: '',
       name: group.sample.trim().slice(0, 200),
@@ -292,11 +297,17 @@ export function ItemPanel({
       itemGroup: '',
       itemCategory: '',
       ...initialAlt(group.sample),
+      lastProposal: '',
     });
-  }, [group.key, group.code, group.sample, group.lines, vats, units]);
+  }
 
   // Μόλις ο χρήστης αγγίξει τον κωδικό (ή αλλάξει μητρώο), το μήνυμα του ERP παύει να ισχύει.
-  React.useEffect(() => { setErpCodeError(null); setCodeOffer(null); }, [form.code, category]);
+  const [prevCodeDeps, setPrevCodeDeps] = React.useState({ code: form.code, category });
+  if (form.code !== prevCodeDeps.code || category !== prevCodeDeps.category) {
+    setPrevCodeDeps({ code: form.code, category });
+    setErpCodeError(null);
+    setCodeOffer(null);
+  }
 
   /**
    * Ο **προτεινόμενος κωδικός** για (ομάδα, μητρώο), με φρέσκα δεδομένα από το SoftOne
@@ -306,11 +317,18 @@ export function ItemPanel({
    * Η πρόταση ΔΕΝ κλειδώνει το πεδίο: γράφεται μόνο όταν αυτό είναι άδειο ή κρατά ακόμη
    * προηγούμενη πρόταση. Ό,τι πληκτρολόγησε ο χρήστης μένει ανέγγιχτο.
    */
+  // Οι χρεοπιστώσεις δεν δημιουργούνται από εδώ — καμία πρόταση, καμία κλήση. Η σύγχρονη
+  // ρύθμιση (καθαρισμός / «φορτώνει») γίνεται κατά το render — και στο ΠΡΩΤΟ render, όπως το effect.
+  const proposalDeps = [group.key, group.code, category] as const;
+  const [prevProposalDeps, setPrevProposalDeps] = React.useState<readonly unknown[] | null>(null);
+  if (prevProposalDeps === null || depsChanged(proposalDeps, prevProposalDeps)) {
+    setPrevProposalDeps(proposalDeps);
+    if (category == null || category === 'lineitem') setCodeProposal(null);
+    else setCodeBusy(true);
+  }
   React.useEffect(() => {
-    // Οι χρεοπιστώσεις δεν δημιουργούνται από εδώ — καμία πρόταση, καμία κλήση.
-    if (category == null || category === 'lineitem') { setCodeProposal(null); return; }
+    if (category == null || category === 'lineitem') return;
     let ignore = false;
-    setCodeBusy(true);
     const qs = new URLSearchParams({ kind: category });
     if (group.code) qs.set('supplierCode', group.code);
     fetch(`/api/admin/ocr/new-items/next-code?${qs.toString()}`)
@@ -321,9 +339,8 @@ export function ItemPanel({
         const proposal = d?.code ? String(d.code) : '';
         setForm((f) => {
           const cur = f.code.trim();
-          if (cur !== '' && cur !== lastProposal.current) return f;
-          lastProposal.current = proposal;
-          return { ...f, code: proposal };
+          if (cur !== '' && cur !== f.lastProposal) return f;
+          return { ...f, code: proposal, lastProposal: proposal };
         });
       })
       .catch(() => { if (!ignore) setCodeProposal(null); })
@@ -349,7 +366,7 @@ export function ItemPanel({
   };
   const invalid = Object.values(errors).some(Boolean);
   // Το πεδίο κρατά ακόμη ΑΚΡΙΒΩΣ ό,τι προτείναμε — μόλις το αλλάξει ο χρήστης, το chip φεύγει.
-  const isProposedCode = !!lastProposal.current && form.code.trim() === lastProposal.current;
+  const isProposedCode = !!form.lastProposal && form.code.trim() === form.lastProposal;
   const codeChip = codeProposal ? CODE_CHIP[codeProposal.source] : null;
 
 
@@ -376,11 +393,19 @@ export function ItemPanel({
 
   // Όσο η προεπισκόπηση είναι ανοιχτή ακολουθεί τη φόρμα: κάθε αλλαγή ξαναζητά
   // το dry-run μετά από {@link DRY_DEBOUNCE_MS}, ώστε να μη δείχνει παλιό payload.
+  // Η σύγχρονη ρύθμιση (καθαρισμός σε άκυρη φόρμα / «φορτώνει») κατά το render, όχι στο effect.
+  const dryDeps = [dryOpen, invalid, body] as const;
+  const [prevDryDeps, setPrevDryDeps] = React.useState<readonly unknown[]>(dryDeps);
+  if (depsChanged(dryDeps, prevDryDeps)) {
+    setPrevDryDeps(dryDeps);
+    if (dryOpen) {
+      if (invalid) { setDryPayload(null); setDryError(null); setDryLoading(false); }
+      else setDryLoading(true);
+    }
+  }
   React.useEffect(() => {
-    if (!dryOpen) return;
-    if (invalid) { setDryPayload(null); setDryError(null); setDryLoading(false); return; }
+    if (!dryOpen || invalid) return;
     let ignore = false;
-    setDryLoading(true);
     const h = setTimeout(() => {
       fetch('/api/admin/ocr/new-items/create', {
         method: 'POST',
@@ -814,7 +839,7 @@ export function ItemPanel({
                     <Button
                       type="button" variant="outline" size="sm"
                       className="h-7 w-fit cursor-pointer"
-                      onClick={() => { set('code', codeOffer); lastProposal.current = codeOffer; }}
+                      onClick={() => setForm((f) => ({ ...f, code: codeOffer, lastProposal: codeOffer }))}
                     >
                       <FiRefreshCw aria-hidden className="size-3" /> Χρήση του {codeOffer}
                     </Button>

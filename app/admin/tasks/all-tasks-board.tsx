@@ -28,7 +28,8 @@ export function AllTasksBoard({ tasks: initial, canManage, boardId = 'all-tasks-
   const router = useRouter();
   // Αισιόδοξες αλλαγές πάνω στα δεδομένα του server· το refresh φέρνει τα τελικά.
   const [tasks, setTasks] = React.useState(initial);
-  React.useEffect(() => setTasks(initial), [initial]);
+  const [prevInitial, setPrevInitial] = React.useState(initial);
+  if (initial !== prevInitial) { setPrevInitial(initial); setTasks(initial); }
   const byId = React.useMemo(() => new Map(tasks.map((t) => [t.id, t])), [tasks]);
   const names = React.useMemo(() => new Map<string, TaskRef>(tasks.map((t) => [t.id, { name: t.name, done: t.progress === 100 }])), [tasks]);
 

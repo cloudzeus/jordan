@@ -27,10 +27,16 @@ export function SoftoneAfmDialog({
   const [result, setResult] = React.useState<LookupResult | null>(null);
   const [error, setError] = React.useState<string | null>(null);
 
+  // Reset με «adjust state while rendering» (αρχικό `[]` ⇒ και στο πρώτο render, όπως το effect).
+  const [prevAfm, setPrevAfm] = React.useState<readonly [string | null] | null>(null);
+  if (prevAfm === null || !Object.is(prevAfm[0], afm)) {
+    setPrevAfm([afm]);
+    if (afm) { setLoading(true); setResult(null); setError(null); }
+  }
+
   React.useEffect(() => {
     if (!afm) return;
     let cancelled = false;
-    setLoading(true); setResult(null); setError(null);
     (async () => {
       try {
         const res = await fetch('/api/admin/softone/lookup-afm', {

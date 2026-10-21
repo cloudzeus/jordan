@@ -32,7 +32,8 @@ export function ViesCheck({ vat, trader, onResult, className, autoRun = false }:
 }) {
   const [busy, setBusy] = React.useState(false);
   const [r, setR] = React.useState<ViesCheckResult | null>(null);
-  React.useEffect(() => { setR(null); }, [vat]);
+  const [prevVat, setPrevVat] = React.useState(vat);
+  if (vat !== prevVat) { setPrevVat(vat); setR(null); }
   const ran = React.useRef<string | null>(null);
 
   const run = async (force = false) => {

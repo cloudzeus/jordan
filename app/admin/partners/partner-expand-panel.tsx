@@ -98,18 +98,22 @@ export function PartnerExpandPanel({ row, canManage }: { row: PartnerListRow; ca
   const [access, setAccess] = React.useState<{ self: AccessUser; contacts: Record<string, AccessUser> } | null>(null);
   const [accessDlg, setAccessDlg] = React.useState<{ kind: 'partner-contact' | 'partner'; id: string; name: string; email: string | null; mode: 'grant' | 'password' } | null>(null);
 
-  const load = React.useCallback(async () => {
-    setError(null);
-    try {
-      const res = await fetch(`/api/admin/partners/${row.id}`, { cache: 'no-store' });
-      if (!res.ok) throw new Error('Αποτυχία φόρτωσης');
-      setData(await res.json());
-      const a = await fetch(`/api/admin/partners/${row.id}/access`, { cache: 'no-store' }).then((r) => (r.ok ? r.json() : null)).catch(() => null);
-      setAccess(a);
-    } catch (e) { setError((e as Error).message); }
-  }, [row.id]);
+  // Τα setState μόνο μέσα στα callbacks του fetch· ο καθαρισμός σφάλματος στο load (χειριστές) ή στην αλλαγή γραμμής.
+  const fetchData = React.useCallback(() =>
+    fetch(`/api/admin/partners/${row.id}`, { cache: 'no-store' })
+      .then(async (res) => {
+        if (!res.ok) throw new Error('Αποτυχία φόρτωσης');
+        setData(await res.json());
+        const a = await fetch(`/api/admin/partners/${row.id}/access`, { cache: 'no-store' }).then((r) => (r.ok ? r.json() : null)).catch(() => null);
+        setAccess(a);
+      })
+      .catch((e) => { setError((e as Error).message); }),
+  [row.id]);
+  const load = () => { setError(null); return fetchData(); };
+  const [prevRowId, setPrevRowId] = React.useState(row.id);
+  if (row.id !== prevRowId) { setPrevRowId(row.id); setError(null); }
 
-  React.useEffect(() => { void load(); }, [load]);
+  React.useEffect(() => { void fetchData(); }, [fetchData]);
   usePartnerChanged(row.id, () => { void load(); router.refresh(); });
 
   const closeDlg = (o: boolean) => { if (!o) setDlg(null); };

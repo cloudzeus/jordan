@@ -13,6 +13,7 @@ export function Countdown({ until, tone = 'dark' }: { until: string; tone?: 'dar
   const target = React.useMemo(() => new Date(until).getTime(), [until]);
   const [now, setNow] = React.useState<number | null>(null);
   React.useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- ρολόι μόνο μετά το hydration (αλλιώς mismatch server/client)
     setNow(Date.now());
     const t = window.setInterval(() => setNow(Date.now()), 1000);
     return () => window.clearInterval(t);

@@ -11,9 +11,6 @@ import { Input } from '@/components/ui/input';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from '@/components/ui/dialog';
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from '@/components/ui/select';
 import { RegistrySearch } from '@/components/admin/registry-search';
 import { OpenAccountDialog, type OpenRequest } from '@/components/admin/open-account-dialog';
 import { vatOfAccount } from '@/lib/ocr/scan-accounts';
@@ -88,29 +85,11 @@ const vatMatches = (v: VatOpt, rate: number): boolean => {
   return m ? parseFloat(m[1].replace(',', '.')) === rate : false;
 };
 
-type FormState = { code: string; name: string; vat: string; unit: string; price: string; group: string; category: string };
+/** Σύγκριση λιστών εξαρτήσεων όπως τα deps των hooks (`Object.is` ανά θέση). */
+const depsChanged = (a: readonly unknown[], b: readonly unknown[]) =>
+  a.length !== b.length || a.some((x, i) => !Object.is(x, b[i]));
 
-/**
- * Module-level, ΟΧΙ μέσα στο σώμα του component: ένα component ορισμένο στο render είναι νέος
- * τύπος σε κάθε render, οπότε το React ξεστήνει και ξαναστήνει κάθε `<Select>` — χάνοντας focus
- * και κλείνοντας το ανοιχτό dropdown στο πρώτο πάτημα πλήκτρου.
- */
-function Combo({
-  label, value, onChange, opts, ph = 'Επιλογή…',
-}: { label: string; value: string; onChange: (v: string) => void; opts: Opt[]; ph?: string }) {
-  return (
-    <label className="grid gap-1.5">
-      <span className="text-(length:--fs-11) font-medium text-muted-foreground">{label}</span>
-      <Select value={value || ''} onValueChange={onChange}>
-        <SelectTrigger className="h-9 text-(length:--fs-13)"><SelectValue placeholder={ph} /></SelectTrigger>
-        <SelectContent className="max-h-72">
-          {opts.length === 0 && <div className="px-2 py-1.5 text-(length:--fs-12) text-muted-foreground">— κενό —</div>}
-          {opts.map((o) => <SelectItem key={o.id} value={o.id} className="text-(length:--fs-13)">{o.name}</SelectItem>)}
-        </SelectContent>
-      </Select>
-    </label>
-  );
-}
+type FormState = { code: string; name: string; vat: string; unit: string; price: string; group: string; category: string };
 
 function Note({ children, tone = 'warn' }: { children: React.ReactNode; tone?: 'warn' | 'bad' | 'ok' }) {
   const color = tone === 'bad' ? '#B91C1C' : tone === 'ok' ? '#047857' : '#B45309';
@@ -140,9 +119,12 @@ function AccountPicker({
   const [open, setOpen] = React.useState(false);
   const ref = React.useRef<HTMLDivElement>(null);
 
+  const [prevQ, setPrevQ] = React.useState(q);
+  if (q !== prevQ) { setPrevQ(q); if (q.trim().length < 2) setRows([]); }
+
   React.useEffect(() => {
     const term = q.trim();
-    if (term.length < 2) { setRows([]); return; }
+    if (term.length < 2) return;
     let ignore = false;
     const h = setTimeout(() => {
       fetch(`/api/admin/softone/search?type=accounts&q=${encodeURIComponent(term)}`)
@@ -278,10 +260,15 @@ export function CreateRegistryEntryModal({
    * τη ροή τόσες φορές όσες και οι γραμμές του παραστατικού.
    */
   const [postingEnabled, setPostingEnabled] = React.useState<boolean | null>(null);
+  // «Adjust state while rendering» (αρχικό `[]` ⇒ τρέχει και στο πρώτο render, όπως ένα effect).
+  const [prevPostingDeps, setPrevPostingDeps] = React.useState<readonly unknown[]>([]);
+  if (depsChanged(prevPostingDeps, [open])) {
+    setPrevPostingDeps([open]);
+    if (open) setPostingEnabled(null);
+  }
   React.useEffect(() => {
     if (!open) return;
     let ignore = false;
-    setPostingEnabled(null);
     fetch('/api/admin/ocr/posting-enabled', { cache: 'no-store' })
       .then((r) => (r.ok ? r.json() : null))
       .then((d: { enabled?: boolean } | null) => {
@@ -293,21 +280,29 @@ export function CreateRegistryEntryModal({
     return () => { ignore = true; };
   }, [open]);
 
+  const resetDeps = [open, kind, initialCode, initialName, initialVatRate, initialUnit, initialEan, initialMfrCode, initialPrice];
+  const [prevResetDeps, setPrevResetDeps] = React.useState<readonly unknown[]>([]);
+  if (depsChanged(prevResetDeps, resetDeps)) {
+    setPrevResetDeps(resetDeps);
+    if (open) {
+      // Ξεκινά ΑΝΟΙΧΤΗ μέχρι να απαντήσει ο διακόπτης — ποτέ δεν υποθέτουμε «στείλ' το».
+      setTab('form'); setDryPayload(null); setDryRun(true);
+      setCodeError(null); setCodeOffer(null); setCodeSource(null);
+      setTemplate(null); setTemplateIssue(null);
+      setAccount({ code: '', name: null }); setAccountVerdict(null);
+      // Είδος/υπηρεσία: ο κωδικός της γραμμής είναι κωδικός ΠΡΟΜΗΘΕΥΤΗ — ο κωδικός του είδους
+      // ακολουθεί τη «Μορφή κωδικού» και την αρίθμηση (έρχεται από το next-code).
+      const itemKind = kind === 'product' || kind === 'service';
+      setF({ code: itemKind ? '' : initialCode ?? '', name: initialName ?? '', vat: '', unit: '', price: '', group: '', category: '' });
+      setCode1(lineEan(initialEan, initialCode) ?? '');
+      setCode2(initialMfrCode ?? '');
+      setSaveSupplierCode(true);
+      setCodeRule(null);
+    }
+  }
+
   React.useEffect(() => {
     if (!open) return;
-    // Ξεκινά ΑΝΟΙΧΤΗ μέχρι να απαντήσει ο διακόπτης — ποτέ δεν υποθέτουμε «στείλ' το».
-    setTab('form'); setDryPayload(null); setDryRun(true);
-    setCodeError(null); setCodeOffer(null); setCodeSource(null);
-    setTemplate(null); setTemplateIssue(null);
-    setAccount({ code: '', name: null }); setAccountVerdict(null);
-    // Είδος/υπηρεσία: ο κωδικός της γραμμής είναι κωδικός ΠΡΟΜΗΘΕΥΤΗ — ο κωδικός του είδους
-    // ακολουθεί τη «Μορφή κωδικού» και την αρίθμηση (έρχεται από το next-code).
-    const itemKind = kind === 'product' || kind === 'service';
-    setF({ code: itemKind ? '' : initialCode ?? '', name: initialName ?? '', vat: '', unit: '', price: '', group: '', category: '' });
-    setCode1(lineEan(initialEan, initialCode) ?? '');
-    setCode2(initialMfrCode ?? '');
-    setSaveSupplierCode(true);
-    setCodeRule(null);
     proposed.current = null;
 
     fetch('/api/admin/softone/item-meta')
@@ -383,11 +378,17 @@ export function CreateRegistryEntryModal({
    */
   const [inactiveOffer, setInactiveOffer] = React.useState<InactiveLineItem[]>([]);
   const [activating, setActivating] = React.useState<number | null>(null);
+  const inactiveDeps = [open, kind, account.code, f.code];
+  const [prevInactiveDeps, setPrevInactiveDeps] = React.useState<readonly unknown[]>([]);
+  if (depsChanged(prevInactiveDeps, inactiveDeps)) {
+    setPrevInactiveDeps(inactiveDeps);
+    if (!open || kind !== 'lineitem' || (!account.code.trim() && !f.code.trim())) setInactiveOffer([]);
+  }
   React.useEffect(() => {
-    if (!open || kind !== 'lineitem') { setInactiveOffer([]); return; }
+    if (!open || kind !== 'lineitem') return;
     const acc = account.code.trim();
     const code = f.code.trim();
-    if (!acc && !code) { setInactiveOffer([]); return; }
+    if (!acc && !code) return;
     let ignore = false;
     const h = setTimeout(() => {
       const qs = new URLSearchParams();

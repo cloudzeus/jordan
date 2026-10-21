@@ -61,14 +61,18 @@ export function TaskDialog({
   const [error, setError] = React.useState<string | null>(null);
   const nameRef = React.useRef<HTMLInputElement>(null);
 
-  React.useEffect(() => {
-    if (!open) return;
-    setName(task?.name ?? ''); setDescription(task?.description ?? ''); setStartDate(task?.startDate ?? '');
-    setDuration(String(task?.durationValue ?? 1).replace('.', ',')); setUnit(task?.durationUnit ?? 'DAYS'); setProgress(task?.progress ?? initialProgress);
-    setCustomerVisible(task?.customerVisible ?? false); setInCalendar(task?.inCalendar ?? false);
-    setDeps(task?.dependsOn ?? []); setDepQuery(''); setParties(task?.parties ?? []); setQueue([]); setFiles(task?.files ?? []);
-    setTouched(false); setError(null);
-  }, [open, task, initialProgress]);
+  // Επαναφορά της φόρμας στο άνοιγμα (adjust-state-while-rendering)
+  const [prevDeps, setPrevDeps] = React.useState({ open: false, task, initialProgress });
+  if (prevDeps.open !== open || prevDeps.task !== task || prevDeps.initialProgress !== initialProgress) {
+    setPrevDeps({ open, task, initialProgress });
+    if (open) {
+      setName(task?.name ?? ''); setDescription(task?.description ?? ''); setStartDate(task?.startDate ?? '');
+      setDuration(String(task?.durationValue ?? 1).replace('.', ',')); setUnit(task?.durationUnit ?? 'DAYS'); setProgress(task?.progress ?? initialProgress);
+      setCustomerVisible(task?.customerVisible ?? false); setInCalendar(task?.inCalendar ?? false);
+      setDeps(task?.dependsOn ?? []); setDepQuery(''); setParties(task?.parties ?? []); setQueue([]); setFiles(task?.files ?? []);
+      setTouched(false); setError(null);
+    }
+  }
 
   const durationNum = Number(duration.replace(',', '.'));
   const nameErr = touched && !name.trim() ? 'Δώστε όνομα εργασίας' : null;
@@ -275,8 +279,14 @@ function PartiesField({ prjc, value, onChange, options }: { prjc: number; value:
   const [loading, setLoading] = React.useState(false);
   const isTrader = kind === 'CUSTOMER' || kind === 'SUPPLIER';
 
+  // Καθαρισμός αποτελεσμάτων όταν η αναζήτηση δεν ισχύει (adjust-state-while-rendering)
+  const [prevSearch, setPrevSearch] = React.useState({ q, kind, isTrader, prjc });
+  if (prevSearch.q !== q || prevSearch.kind !== kind || prevSearch.isTrader !== isTrader || prevSearch.prjc !== prjc) {
+    setPrevSearch({ q, kind, isTrader, prjc });
+    if (!isTrader || q.trim().length < 2) setRemote([]);
+  }
   React.useEffect(() => {
-    if (!isTrader || q.trim().length < 2) { setRemote([]); return; }
+    if (!isTrader || q.trim().length < 2) return;
     const ctl = new AbortController();
     const t = setTimeout(async () => {
       setLoading(true);
@@ -346,9 +356,14 @@ function LinkExisting({ prjc, taskId, linked, onLinked }: { prjc: number; taskId
   const [picked, setPicked] = React.useState<string[]>([]);
   const [busy, setBusy] = React.useState(false);
 
+  // Καθαρισμός επιλογής στο άνοιγμα (adjust-state-while-rendering)· η φόρτωση στο effect.
+  const [prevDeps, setPrevDeps] = React.useState({ open: false, prjc });
+  if (prevDeps.open !== open || prevDeps.prjc !== prjc) {
+    setPrevDeps({ open, prjc });
+    if (open) setPicked([]);
+  }
   React.useEffect(() => {
     if (!open) return;
-    setPicked([]);
     fetch(`/api/admin/projects/${prjc}/tasks/options?files=1`).then((r) => r.json()).then((b) => setChoices(b.files ?? [])).catch(() => setChoices([]));
   }, [open, prjc]);
 

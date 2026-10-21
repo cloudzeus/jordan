@@ -51,13 +51,17 @@ function CategoryDialog({
   const [busy, setBusy] = React.useState(false);
   const [errors, setErrors] = React.useState<Record<string, string>>({});
 
-  React.useEffect(() => {
-    if (!open) return;
-    setErrors({});
-    setSodtype(row ? (String(row.sodtype) as '51' | '52') : '51');
-    setShortCode(row?.shortCode ?? '');
-    setName(row?.name ?? '');
-  }, [open, row]);
+  // Επαναφορά της φόρμας στο άνοιγμα (adjust-state-while-rendering)
+  const [prevDeps, setPrevDeps] = React.useState({ open: false, row });
+  if (prevDeps.open !== open || prevDeps.row !== row) {
+    setPrevDeps({ open, row });
+    if (open) {
+      setErrors({});
+      setSodtype(row ? (String(row.sodtype) as '51' | '52') : '51');
+      setShortCode(row?.shortCode ?? '');
+      setName(row?.name ?? '');
+    }
+  }
 
   const save = async () => {
     setBusy(true);
@@ -131,16 +135,22 @@ function MembersPanel({ row }: { row: ClassificationRow }) {
   const [error, setError] = React.useState<string | null>(null);
   const [q, setQ] = React.useState('');
 
-  const load = React.useCallback(async () => {
-    setError(null);
-    try {
-      const res = await fetch(`/api/admin/classifications/members?kind=${row.kind}&sodtype=${row.sodtype}&code=${row.code}`, { cache: 'no-store' });
-      const d = await res.json();
-      if (!res.ok) throw new Error(d.message ?? 'Αποτυχία φόρτωσης από το SoftOne');
-      setItems(d.items);
-    } catch (e) { setError((e as Error).message); }
-  }, [row.kind, row.sodtype, row.code]);
-  React.useEffect(() => { void load(); }, [load]);
+  // Τα setState γίνονται μόνο μέσα στα callbacks της υπόσχεσης (ασύγχρονα)
+  const fetchItems = React.useCallback(() =>
+    fetch(`/api/admin/classifications/members?kind=${row.kind}&sodtype=${row.sodtype}&code=${row.code}`, { cache: 'no-store' })
+      .then(async (res) => {
+        const d = await res.json();
+        if (!res.ok) throw new Error(d.message ?? 'Αποτυχία φόρτωσης από το SoftOne');
+        setItems(d.items);
+      })
+      .catch((e) => { setError((e as Error).message); }),
+  [row.kind, row.sodtype, row.code]);
+  const load = () => { setError(null); void fetchItems(); };
+  // Νέα γραμμή → καθαρισμός σφάλματος (adjust-state-while-rendering) και φόρτωση στο effect
+  const rowKey = `${row.kind}|${row.sodtype}|${row.code}`;
+  const [prevRowKey, setPrevRowKey] = React.useState(rowKey);
+  if (rowKey !== prevRowKey) { setPrevRowKey(rowKey); setError(null); }
+  React.useEffect(() => { void fetchItems(); }, [fetchItems]);
 
   const tone = KIND[row.kind].tone;
   if (error) {

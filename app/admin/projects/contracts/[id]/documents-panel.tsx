@@ -124,11 +124,15 @@ function SendDialog({ doc, onClose, contract: c }: { doc: Doc | null; onClose: (
   const [to, setTo] = React.useState('');
   const [message, setMessage] = React.useState('');
   const [busy, setBusy] = React.useState(false);
-  React.useEffect(() => {
-    if (!doc) return;
-    const own = doc.partyId ? c.parties.find((p) => p.key === doc.partyId)?.email : c.customerEmail;
-    setTo(own ?? ''); setMessage('');
-  }, [doc, c]);
+  // Προεπιλογή παραλήπτη όταν ανοίγει για έγγραφο (adjust-state-while-rendering)
+  const [prevDeps, setPrevDeps] = React.useState<{ doc: Doc | null; c: ContractView }>({ doc: null, c });
+  if (prevDeps.doc !== doc || prevDeps.c !== c) {
+    setPrevDeps({ doc, c });
+    if (doc) {
+      const own = doc.partyId ? c.parties.find((p) => p.key === doc.partyId)?.email : c.customerEmail;
+      setTo(own ?? ''); setMessage('');
+    }
+  }
   const go = async () => {
     if (!doc) return;
     setBusy(true);

@@ -70,7 +70,8 @@ export function RegistrySearch({
 }) {
   const [q, setQ] = React.useState(initialQuery ?? '');
   // Νέα αφετηρία (άλλη κατηγορία στον οδηγό) ⇒ νέα αναζήτηση.
-  React.useEffect(() => { setQ(initialQuery ?? ''); }, [initialQuery]);
+  const [prevInitialQuery, setPrevInitialQuery] = React.useState(initialQuery);
+  if (initialQuery !== prevInitialQuery) { setPrevInitialQuery(initialQuery); setQ(initialQuery ?? ''); }
   const [results, setResults] = React.useState<Result[]>([]);
   const [loading, setLoading] = React.useState(false);
   const [failed, setFailed] = React.useState(false);
@@ -81,14 +82,27 @@ export function RegistrySearch({
   const listId = `${id}-list`;
 
   // Αλλαγή μητρώου (segmented) ⇒ τα προηγούμενα αποτελέσματα δεν ισχύουν πια.
-  React.useEffect(() => { setResults([]); setOpen(false); setActive(0); setFailed(false); }, [kind, category]);
+  // («Adjust state while rendering» αντί για setState σε effect.)
+  const [prevKind, setPrevKind] = React.useState(kind);
+  const [prevCategory, setPrevCategory] = React.useState(category);
+  if (kind !== prevKind || category !== prevCategory) {
+    setPrevKind(kind); setPrevCategory(category);
+    setResults([]); setOpen(false); setActive(0); setFailed(false);
+  }
+
+  // Προετοιμασία της αναζήτησης (αρχικό `[]` ⇒ και στο πρώτο render, όπως το effect).
+  const searchDeps = [q, kind, category, reload];
+  const [prevSearchDeps, setPrevSearchDeps] = React.useState<readonly unknown[]>([]);
+  if (searchDeps.length !== prevSearchDeps.length || searchDeps.some((x, i) => !Object.is(x, prevSearchDeps[i]))) {
+    setPrevSearchDeps(searchDeps);
+    if (q.trim().length < 2) { setResults([]); setLoading(false); setFailed(false); } else setLoading(true);
+  }
 
   React.useEffect(() => {
     const term = q.trim();
-    if (term.length < 2) { setResults([]); setLoading(false); setFailed(false); return; }
+    if (term.length < 2) return;
     // `ignore` ώστε μια αργή απάντηση να μην προσπεράσει μια νεότερη.
     let ignore = false;
-    setLoading(true);
     const h = setTimeout(() => {
       const cat = kind === 'lineitem' && category ? `&category=${category}` : '';
       fetch(`/api/admin/softone/search?type=${ENDPOINT[kind]}&q=${encodeURIComponent(term)}${cat}`)

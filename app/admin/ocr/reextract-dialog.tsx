@@ -27,7 +27,12 @@ export function ReextractDialog({
   const [docType, setDocType] = React.useState<ExtractDocType>('auto');
 
   // Κάθε άνοιγμα ξεκινάει καθαρό: η επιλογή του προηγούμενου εγγράφου δεν κληρονομείται.
-  React.useEffect(() => { if (open) setDocType('auto'); }, [open]);
+  // (Ρύθμιση state κατά το render όταν αλλάζει το `open`, όχι σε effect.)
+  const [prevOpen, setPrevOpen] = React.useState(open);
+  if (open !== prevOpen) {
+    setPrevOpen(open);
+    if (open) setDocType('auto');
+  }
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) onCancel(); }}>

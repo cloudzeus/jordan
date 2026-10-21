@@ -74,6 +74,7 @@ export function AuctionStory({ capacity = 20, tiers, product, unit = 'τ.μ.', p
   React.useLayoutEffect(() => {
     const el = root.current;
     if (!el || !desktop) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- προτίμηση reduced-motion (εξωτερικό σύστημα): τελική κατάσταση χωρίς animation, πριν το paint
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) { setFilled(capacity); setSceneFilled(capacity); return; }
 
     const proxy = { v: 0 };
@@ -127,7 +128,6 @@ export function AuctionStory({ capacity = 20, tiers, product, unit = 'τ.μ.', p
   const color = tierColor(idx, tiers.length);
   const pct = (filled / capacity) * 100;
   const chapter = CHAPTERS.reduce((a, c, i) => (filled + 1e-9 >= c.at ? i : a), 0);
-  const ch = CHAPTERS[chapter];
   const events = EVENTS.filter((e) => filled + 1e-9 >= e.at).slice(-3).reverse();
   const saving = (base - cur.price) * MY_PALLETS * perPallet;
 

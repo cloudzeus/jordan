@@ -36,7 +36,9 @@ export function AssistantWorkspace(props: {
   const [tab, setTab] = React.useState(props.tab);
   const [convs, setConvs] = React.useState(props.conversations);
   const [active, setActive] = React.useState<string | null>(props.selectedId);
-  React.useEffect(() => { setConvs(props.conversations); }, [props.conversations]);
+  // Συγχρονισμός με τα νέα props μετά από router.refresh (adjust-state-while-rendering)
+  const [prevConversations, setPrevConversations] = React.useState(props.conversations);
+  if (props.conversations !== prevConversations) { setPrevConversations(props.conversations); setConvs(props.conversations); }
 
   const switchTab = (t: 'chat' | 'memory') => {
     setTab(t);
@@ -135,7 +137,8 @@ function MemoryPanel({ memories: initial, knowledge, indexedAt }: { memories: Me
   const [text, setText] = React.useState('');
   const [kind, setKind] = React.useState('alias');
   const [busy, setBusy] = React.useState<'add' | 'reindex' | null>(null);
-  React.useEffect(() => { setMemories(initial); }, [initial]);
+  const [prevInitial, setPrevInitial] = React.useState(initial);
+  if (initial !== prevInitial) { setPrevInitial(initial); setMemories(initial); }
   const total = knowledge.reduce((s, k) => s + k.count, 0);
 
   const reindex = async () => {

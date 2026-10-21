@@ -3,8 +3,8 @@
 import { confirmAction } from '@/components/ui/confirm-dialog';
 import * as React from 'react';
 import {
-  FiFolder, FiFolderPlus, FiUpload, FiImage, FiFile, FiTrash2,
-  FiChevronRight, FiHome, FiSearch, FiX, FiDownload, FiCopy,
+  FiFolder, FiFolderPlus, FiUpload, FiFile, FiTrash2,
+  FiChevronRight, FiHome, FiSearch, FiDownload, FiCopy,
 } from 'react-icons/fi';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -62,7 +62,8 @@ export function MediaBrowser({ pickerMode, onPick, acceptImagesOnly }: Props) {
     setBreadcrumbs(data.breadcrumbs ?? []);
   }, [folderId, q, acceptImagesOnly]);
 
-  React.useEffect(() => { fetchList(); }, [fetchList]);
+  // Το fetchList ξεκινά σε microtask: τα setState του γίνονται σε callback, όχι σύγχρονα στο σώμα του effect.
+  React.useEffect(() => { void Promise.resolve().then(fetchList); }, [fetchList]);
 
   const uploader = useUploader(folderId, fetchList);
 

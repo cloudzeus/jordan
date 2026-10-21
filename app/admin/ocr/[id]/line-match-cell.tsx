@@ -163,12 +163,23 @@ export function LineMatchCell({
   }, [ai, lineName, lineTotal, suggestion, defaultKind, target]);
 
   // Ο server ξαναέδωσε τη γραμμή (π.χ. μετά από `router.refresh()`): η στήλη είναι η αλήθεια.
-  React.useEffect(() => { setMatch(initial); }, [initial]);
-  React.useEffect(() => { setAnalytics(initialAnalytics); }, [initialAnalytics]);
+  // (Όλα τα παρακάτω: ρύθμιση state ΚΑΤΑ ΤΟ RENDER όταν αλλάζει η είσοδος, όχι σε effect.)
+  const [prevInitial, setPrevInitial] = React.useState(initial);
+  if (initial !== prevInitial) { setPrevInitial(initial); setMatch(initial); }
+  const [prevInitialAnalytics, setPrevInitialAnalytics] = React.useState(initialAnalytics);
+  if (initialAnalytics !== prevInitialAnalytics) { setPrevInitialAnalytics(initialAnalytics); setAnalytics(initialAnalytics); }
   // Άνοιγμα: ξεκίνα από ό,τι είναι ήδη αντιστοιχισμένο, αλλιώς από την κατηγορία του εγγράφου.
-  React.useEffect(() => { if (open) setKind(matchKindOf(match) ?? defaultKind); }, [open, match, defaultKind]);
+  const [prevKindDeps, setPrevKindDeps] = React.useState({ open, match, defaultKind });
+  if (open !== prevKindDeps.open || match !== prevKindDeps.match || defaultKind !== prevKindDeps.defaultKind) {
+    setPrevKindDeps({ open, match, defaultKind });
+    if (open) setKind(matchKindOf(match) ?? defaultKind);
+  }
   // Κάθε άνοιγμα ξεκινά από την ερώτηση «τι αφορά;» — με την τωρινή κατηγορία σημειωμένη.
-  React.useEffect(() => { if (open) { setStep(1); setTile(null); setAdvanced(false); } }, [open]);
+  const [prevOpen, setPrevOpen] = React.useState(open);
+  if (open !== prevOpen) {
+    setPrevOpen(open);
+    if (open) { setStep(1); setTile(null); setAdvanced(false); }
+  }
   // Η λωρίδα ελέγχων ζήτησε «λύσε ΑΥΤΗ τη γραμμή»: ανοίγουμε τον ΕΝΑΝ picker, εδώ.
   useFocusLine(lineId, () => {
     if (!canManage) return;

@@ -88,6 +88,7 @@ export function AuctionStage(p: AuctionProps) {
     return () => { io.disconnect(); window.clearTimeout(t); };
   }, []);
   const [now, setNow] = React.useState<number | null>(null);
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- ώρα μόνο μετά το hydration (αλλιώς mismatch server/client)
   React.useEffect(() => { setNow(Date.now()); }, []);
 
   const withdraw = async (id: string, n: number) => {

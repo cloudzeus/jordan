@@ -51,11 +51,15 @@ export function AddBudgetLineDialog({
   const [lastBuy, setLastBuy] = React.useState<{ unitCost: number; date: string; fincode: string } | null | 'loading'>(null);
 
   // Κάθε άνοιγμα ξεκινά καθαρό — δεν κουβαλά την προηγούμενη επιλογή σε άλλο έργο.
-  React.useEffect(() => {
-    if (!open) return;
-    setKind(defaultKind); setPick(null); setQty('1'); setPrice(''); setNotes('');
-    setTouched(false); setServerError(null); setLastBuy(null);
-  }, [open, defaultKind]);
+  // (adjust-state-while-rendering αντί για effect)
+  const [prevDeps, setPrevDeps] = React.useState({ open: false, defaultKind });
+  if (prevDeps.open !== open || prevDeps.defaultKind !== defaultKind) {
+    setPrevDeps({ open, defaultKind });
+    if (open) {
+      setKind(defaultKind); setPick(null); setQty('1'); setPrice(''); setNotes('');
+      setTouched(false); setServerError(null); setLastBuy(null);
+    }
+  }
 
   // Τελευταία τιμή αγοράς του είδους (από τα παραστατικά αγορών) — προσυμπληρώνει την τιμή
   // μονάδας ΜΟΝΟ αν ο χρήστης δεν έχει ήδη γράψει δική του.

@@ -54,8 +54,11 @@ export function NewTradersClient({ header, groups, ignored, truncated, taxOffice
   const primaryRef = React.useRef<(() => void) | null>(null);
 
   // Ο server είναι η πηγή αλήθειας: κάθε `router.refresh()` ξαναγεμίζει τις λίστες.
-  React.useEffect(() => { setPending(groups); }, [groups]);
-  React.useEffect(() => { setHidden(ignored); }, [ignored]);
+  // (Ρύθμιση state κατά το render όταν αλλάζουν τα props — όχι σε effect.)
+  const [prevGroups, setPrevGroups] = React.useState(groups);
+  if (groups !== prevGroups) { setPrevGroups(groups); setPending(groups); }
+  const [prevIgnored, setPrevIgnored] = React.useState(ignored);
+  if (ignored !== prevIgnored) { setPrevIgnored(ignored); setHidden(ignored); }
 
   const rows: Row[] = React.useMemo(() => {
     if (filter === 'ignored') {
@@ -73,11 +76,14 @@ export function NewTradersClient({ header, groups, ignored, truncated, taxOffice
       .map((g) => ({ type: 'group' as const, id: `g:${g.afm}`, group: g }));
   }, [filter, hidden, pending, search]);
 
-  // Πάντα υπάρχει επιλεγμένη γραμμή όσο η λίστα δεν είναι άδεια.
-  React.useEffect(() => {
-    if (rows.length === 0) { setSelectedId(null); return; }
-    setSelectedId((cur) => (cur && rows.some((r) => r.id === cur) ? cur : rows[0].id));
-  }, [rows]);
+  // Πάντα υπάρχει επιλεγμένη γραμμή όσο η λίστα δεν είναι άδεια. Ελέγχεται σε κάθε αλλαγή
+  // της λίστας (και στο πρώτο render), κατά το render — όχι σε effect.
+  const [prevRows, setPrevRows] = React.useState<Row[] | null>(null);
+  if (rows !== prevRows) {
+    setPrevRows(rows);
+    if (rows.length === 0) setSelectedId(null);
+    else setSelectedId((cur) => (cur && rows.some((r) => r.id === cur) ? cur : rows[0].id));
+  }
 
   const selected = rows.find((r) => r.id === selectedId) ?? null;
 

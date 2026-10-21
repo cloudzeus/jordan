@@ -33,7 +33,7 @@ export function parseGreekDate(v: unknown): Date | null {
   if (v == null) return null;
   const s = String(v).trim();
   if (!s) return null;
-  const m = s.match(/^(\d{1,2})[/.\-](\d{1,2})[/.\-](\d{4})$/);
+  const m = s.match(/^(\d{1,2})[/.-](\d{1,2})[/.-](\d{4})$/);
   if (m) {
     const [, dd, mm, yyyy] = m;
     const d = new Date(Date.UTC(Number(yyyy), Number(mm) - 1, Number(dd)));

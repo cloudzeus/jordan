@@ -53,10 +53,12 @@ export function AccessDialog({ open, onOpenChange, kind, holderId, holderName, d
   const [show, setShow] = React.useState(true);
   const [welcome, setWelcome] = React.useState(true);
   const [busy, setBusy] = React.useState(false);
-  React.useEffect(() => {
-    if (!open) return;
-    setEmail(defaultEmail ?? ''); setPassword(generatePassword()); setShow(true); setWelcome(true);
-  }, [open, defaultEmail]);
+  // Reset με «adjust state while rendering» (αρχικό `[]` ⇒ και στο πρώτο render, όπως το effect).
+  const [prevDeps, setPrevDeps] = React.useState<readonly unknown[]>([]);
+  if (prevDeps.length === 0 || !Object.is(prevDeps[0], open) || !Object.is(prevDeps[1], defaultEmail)) {
+    setPrevDeps([open, defaultEmail]);
+    if (open) { setEmail(defaultEmail ?? ''); setPassword(generatePassword()); setShow(true); setWelcome(true); }
+  }
 
   const pwErr = passwordProblem(password);
   const emailOk = mode === 'password' || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());

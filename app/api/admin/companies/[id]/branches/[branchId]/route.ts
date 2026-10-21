@@ -63,7 +63,7 @@ export async function PATCH(
         district: rest.district ?? cur?.district, zip: rest.zip ?? cur?.zip, country: rest.country ?? cur?.country,
         latitude: geo?.lat ?? null, longitude: geo?.lng ?? null,
       });
-      if (m) (rest as any).regionCode = m.regionCode;
+      if (m) rest.regionCode = m.regionCode;
     }
   }
 

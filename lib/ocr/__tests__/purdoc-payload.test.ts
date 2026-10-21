@@ -4,7 +4,7 @@ import { describe, it, expect } from 'vitest';
 import { emptyDocument, type DocumentJson } from '../canonical';
 import {
   buildPurdocPayload, documentReference, postingBlockers, postingWarnings,
-  type PurdocContext, type PostingDoc,
+  type PurdocContext, type PostingDoc, type PurdocLinLine,
 } from '../purdoc-payload';
 import {
   defaultPostingTarget, objectsForSosource, resolvePostingTarget, seriesTraderKind,
@@ -708,7 +708,7 @@ const splitCtx = (over: Partial<PurdocContext> = {}): PurdocContext => ({
 
 describe('επιμερισμός → γραμμές LINLINES', () => {
   const linesOf = (c: PurdocContext = splitCtx()) =>
-    (buildPurdocPayload(oneLineDoc(), c).DATA as any).LINLINES as any[];
+    buildPurdocPayload(oneLineDoc(), c).DATA.LINLINES as PurdocLinLine[];
 
   it('ΜΙΑ γραμμή παραστατικού γίνεται N γραμμές, μία ανά λογαριασμό', () => {
     const lin = linesOf();
@@ -755,7 +755,7 @@ describe('επιμερισμός → έργο ανά κομμάτι', () => {
       ],
     }],
   });
-  const linesOf = (c: PurdocContext) => (buildPurdocPayload(oneLineDoc(), c).DATA as any).LINLINES as any[];
+  const linesOf = (c: PurdocContext) => buildPurdocPayload(oneLineDoc(), c).DATA.LINLINES as PurdocLinLine[];
 
   it('2 κομμάτια, ίδιος λογαριασμός, διαφορετικό έργο → 2 γραμμές με το δικό τους PRJC', () => {
     const lin = linesOf(ticketCtx());
@@ -808,7 +808,7 @@ describe('επιμερισμός → έλεγχοι πριν την καταχώ
     const c = splitCtx({ target: PURCHASE });
     const codes = postingBlockers(oneLineDoc(), postingDoc(), c);
     expect(codes.length).toBeGreaterThan(0);
-    const data = buildPurdocPayload(oneLineDoc(), c).DATA as any;
+    const data = buildPurdocPayload(oneLineDoc(), c).DATA;
     expect(data.ITELINES ?? []).toHaveLength(0);
     expect(data.SRVLINES ?? []).toHaveLength(0);
   });

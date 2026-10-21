@@ -24,6 +24,8 @@ export function ZoomablePreview({
   const [t, setT] = React.useState({ s: 1, x: 0, y: 0 });
   const [errored, setErrored] = React.useState(false);
   const drag = React.useRef<{ x: number; y: number; ox: number; oy: number } | null>(null);
+  // Για τον κέρσορα (το ref δεν διαβάζεται στο render).
+  const [dragging, setDragging] = React.useState(false);
 
   const clamp = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v));
 
@@ -53,13 +55,14 @@ export function ZoomablePreview({
   const onMouseDown = (e: React.MouseEvent) => {
     if (t.s <= 1) return;
     drag.current = { x: e.clientX, y: e.clientY, ox: t.x, oy: t.y };
+    setDragging(true);
   };
   const onMouseMove = (e: React.MouseEvent) => {
     if (!drag.current) return;
     const d = drag.current;
     setT((p) => ({ ...p, x: d.ox + (e.clientX - d.x), y: d.oy + (e.clientY - d.y) }));
   };
-  const endDrag = () => { drag.current = null; };
+  const endDrag = () => { drag.current = null; setDragging(false); };
   const reset = () => setT({ s: 1, x: 0, y: 0 });
 
   const transform = `translate(${t.x}px, ${t.y}px) scale(${t.s})`;
@@ -77,7 +80,7 @@ export function ZoomablePreview({
       style={{
         position: 'relative',
         overflow: 'hidden',
-        cursor: zoomed ? (drag.current ? 'grabbing' : 'grab') : 'zoom-in',
+        cursor: zoomed ? (dragging ? 'grabbing' : 'grab') : 'zoom-in',
         touchAction: 'none',
       }}
       title="Κύλισε για zoom · σύρε για μετακίνηση · διπλό κλικ για επαναφορά"

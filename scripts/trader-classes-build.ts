@@ -4,7 +4,7 @@ import path from 'node:path';
 import { prisma } from '@/lib/db';
 import { softoneGetTable } from '@/lib/softone';
 import { textOf } from '@/lib/aade-parse';
-import { CLASS_TREE, SODTYPE, classifyTrader, parentOf, treeFor, type Side } from '@/lib/trader-classes';
+import { CLASS_TREE, SODTYPE, classifyTrader, parentOf, treeFor, type ClassifyResult, type Side } from '@/lib/trader-classes';
 import type { CollectedCustomer } from './customer-kad-collect';
 
 // Εμπορικές κατηγορίες (TRDBUSINESS) συναλλασσομένων: ιεραρχία → βάση, αυτόματη ανάθεση (πελάτες + προμηθευτές) → βάση,
@@ -27,9 +27,13 @@ const dotted = (digits: string) => {
 
 // Τίτλοι ιεραρχίας ΚΑΔ (NACE 2.1) για την αναφορά.
 const kadTitles = new Map<string, string>();
-const walk = (n: any) => {
+type KadNode = {
+  code?: string | number; title?: string;
+  branches?: KadNode[]; groups?: KadNode[]; classes?: KadNode[]; categories?: KadNode[]; subcategories?: KadNode[]; national_activities?: KadNode[];
+};
+const walk = (n: KadNode) => {
   if (n.code && n.title) kadTitles.set(String(n.code), n.title);
-  for (const k of ['branches', 'groups', 'classes', 'categories', 'subcategories', 'national_activities']) for (const c of n[k] ?? []) walk(c);
+  for (const k of ['branches', 'groups', 'classes', 'categories', 'subcategories', 'national_activities'] as const) for (const c of n[k] ?? []) walk(c);
 };
 JSON.parse(fs.readFileSync(path.join(process.cwd(), 'public', 'kad2025.json'), 'utf8')).sectors.forEach(walk);
 const kadLevels = (digits: string) => {
@@ -78,12 +82,12 @@ async function dropStale() {
 }
 
 (async () => {
-  const aade = read('aade-afm2info.json') as Record<string, { at: string; raw?: any }>;
+  const aade = read('aade-afm2info.json') as Record<string, { at: string; raw?: { basic_rec?: Record<string, unknown> } }>;
   const purchases = read('supplier-purchases.json').suppliers as Record<string, { docs: number; value: number; items: { name: string; value: number }[]; categories: unknown }>;
   const countries = new Map((await softoneGetTable('COUNTRY', ['COUNTRY', 'NAME', 'INTERCODE'], '')).map((c) => [c.COUNTRY, c]));
 
   const ids = WRITE_DB ? await seedTree() : null;
-  const out: Record<Side, any[]> = { customer: [], supplier: [] };
+  const out: Record<Side, (ClassifyResult & Record<string, unknown>)[]> = { customer: [], supplier: [] };
 
   for (const side of ['customer', 'supplier'] as Side[]) {
     const file = side === 'customer' ? 'customer-kad.json' : 'supplier-kad.json';

@@ -41,7 +41,12 @@ export function ImageEditorDialog({
   const [stageEl, setStageEl] = React.useState<HTMLDivElement | null>(null);
   const drag = React.useRef<{ px: number; py: number; x: number; y: number } | null>(null);
 
-  React.useEffect(() => { if (open && media) setT(media.transform ?? DEFAULT_TRANSFORM); }, [open, media]);
+  // «Adjust state while rendering» (αρχικό `[]` ⇒ και στο πρώτο render, όπως το effect).
+  const [prevDeps, setPrevDeps] = React.useState<readonly unknown[]>([]);
+  if (prevDeps.length === 0 || !Object.is(prevDeps[0], open) || !Object.is(prevDeps[1], media)) {
+    setPrevDeps([open, media]);
+    if (open && media) setT(media.transform ?? DEFAULT_TRANSFORM);
+  }
 
   // Το μέγεθος του καμβά στην οθόνη (τετράγωνο που χωρά στο παράθυρο) — η κλίμακα προεπισκόπησης.
   React.useEffect(() => {

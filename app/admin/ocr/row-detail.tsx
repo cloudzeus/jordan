@@ -214,6 +214,16 @@ const SOURCE_META: Record<AmountSource, { label: string; short: string; icon: Re
   },
 };
 
+/** Μία γραμμή όπως έρχεται από το `GET /api/admin/ocr/:id` — μόνο ό,τι διαβάζει ο επιμερισμός. */
+interface ApiLine {
+  id: string;
+  rowIndex: number;
+  allocations?: {
+    order: number; registryMtrl: number; kind: string; accountCode: string | null;
+    percent: unknown; amount: unknown; prjc?: number | null; prjcStage?: number | null;
+  }[] | null;
+}
+
 function SourceChip({ source, className }: { source: AmountSource; className?: string }) {
   const m = SOURCE_META[source];
   return (
@@ -223,7 +233,6 @@ function SourceChip({ source, className }: { source: AmountSource; className?: s
   );
 }
 
-const eurTxt = (n: number) => `${n.toLocaleString('el-GR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
 /** Ποσό με την πηγή του, για τους ελέγχους συμφωνίας. */
 function SourcedAmount({ source, value }: { source: AmountSource; value: string }) {
   return (
@@ -304,7 +313,7 @@ export function OcrRowDetail({
   onOpenFull?: () => void;
 }) {
   const router = useRouter();
-  const data = (row.extractedData ?? {}) as Record<string, any>;
+  const data: Record<string, unknown> = row.extractedData ?? {};
   const ro = !canCategorize;
 
   // The user can re-classify the document after the scan; the full field set is
@@ -403,9 +412,9 @@ export function OcrRowDetail({
         const d = await r.json();
         if (!alive || !Array.isArray(d?.items)) return;
         setAllocTrdr(typeof d.softoneTrdr === 'number' ? d.softoneTrdr : null);
-        setSaved(new Map(d.items.map((it: any) => [it.rowIndex, {
+        setSaved(new Map((d.items as ApiLine[]).map((it) => [it.rowIndex, {
           id: it.id,
-          allocations: (it.allocations ?? []).map((a: any): AllocationRow => ({
+          allocations: (it.allocations ?? []).map((a): AllocationRow => ({
             order: a.order, registryMtrl: a.registryMtrl,
             kind: a.kind === 'SXACCOUNT' ? 'SXACCOUNT' : 'LINEITEM',
             accountCode: a.accountCode, percent: Number(a.percent), amount: Number(a.amount),
@@ -427,6 +436,7 @@ export function OcrRowDetail({
 
   const [showPdf, setShowPdf] = React.useState(true);
   React.useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- localStorage διαβάζεται μόνο στον client, μετά το mount
     try { setShowPdf(localStorage.getItem('admin.ocr.rowdetail.pdf') !== '0'); } catch { /* ιδιωτική περιήγηση */ }
   }, []);
   const togglePdf = React.useCallback(() => {
@@ -508,7 +518,7 @@ export function OcrRowDetail({
   function reset() { setForm(initialForm); setItems(initialItems); setCategory(row.category ?? ''); setSeriesKey(initialSeriesKey); setDocType(row.docType); }
 
   function buildExtractedData() {
-    const out: Record<string, any> = { ...data };
+    const out: Record<string, unknown> = { ...data };
     // Write every known key (not just the visible subset) so edits survive a type switch.
     for (const s of ALL_SPECS) {
       if (!(s.key in form)) continue;
@@ -544,7 +554,7 @@ export function OcrRowDetail({
     setSaving(true);
     try {
       const extractedData = buildExtractedData();
-      const body: any = { category: category || null, extractedData, docType };
+      const body: Record<string, unknown> = { category: category || null, extractedData, docType };
       // Η σειρά μπαίνει στο PATCH ΜΟΝΟ όταν ο χρήστης την άλλαξε: το API σφραγίζει κάθε
       // `softoneSeries` ως «χειροκίνητη επιλογή», οπότε μια απλή διόρθωση συνόλου θα
       // κλείδωνε άδικα το έγγραφο έξω από τον αυτόματο ταξινομητή.
@@ -564,8 +574,8 @@ export function OcrRowDetail({
       }
       toast.success('Αποθηκεύτηκε');
       router.refresh();
-    } catch (err: any) {
-      toast.error(`Σφάλμα: ${err?.message ?? err}`);
+    } catch (err) {
+      toast.error(`Σφάλμα: ${(err as Error)?.message ?? err}`);
     } finally { setSaving(false); }
   }
 
@@ -583,8 +593,8 @@ export function OcrRowDetail({
       if (!res.ok) throw new Error(json?.error ?? `HTTP ${res.status}`);
       toast.success(`Αναρτήθηκε (ref: ${json.ref})`);
       router.refresh();
-    } catch (err: any) {
-      toast.error(`Σφάλμα: ${err?.message ?? err}`);
+    } catch (err) {
+      toast.error(`Σφάλμα: ${(err as Error)?.message ?? err}`);
     } finally { setPosting(false); }
   }
 

@@ -27,10 +27,16 @@ function PartySearch({ onPick, only, placeholder = 'Επωνυμία, κωδικ
   const [q, setQ] = React.useState('');
   const [hits, setHits] = React.useState<PartyHit[]>([]);
   const [loading, setLoading] = React.useState(false);
+  // Καθαρισμός/ένδειξη φόρτωσης όταν αλλάζει η αναζήτηση (adjust-state-while-rendering)
+  const [prevSearch, setPrevSearch] = React.useState({ q, only });
+  if (prevSearch.q !== q || prevSearch.only !== only) {
+    setPrevSearch({ q, only });
+    if (q.trim().length < 2) setHits([]);
+    else setLoading(true);
+  }
   React.useEffect(() => {
-    if (q.trim().length < 2) { setHits([]); return; }
+    if (q.trim().length < 2) return;
     const ctl = new AbortController();
-    setLoading(true);
     const t = setTimeout(async () => {
       try {
         const res = await fetch(`/api/admin/appointments/parties?q=${encodeURIComponent(q.trim())}`, { signal: ctl.signal });
@@ -92,12 +98,16 @@ export function ScheduleDialog({ open, prefill, defaultMinutes, staff, meId, sof
   const [newEmail, setNewEmail] = React.useState('');
   const [newAfm, setNewAfm] = React.useState('');
 
-  React.useEffect(() => {
-    if (!open) return;
-    setMode('existing'); setPicked(null); setOwner(null); setOverlap(null); setError(null); setNewEmail(''); setNewAfm('');
-    setDate(prefill?.date ?? new Date().toISOString().slice(0, 10)); setTime(prefill?.time ?? '10:00');
-    setMinutes(DURATIONS.includes(defaultMinutes) ? defaultMinutes : 60); setNotify(true); setPlace('atelier'); setAssignee(meId ?? '');
-  }, [open, prefill, defaultMinutes, meId]);
+  // Επαναφορά της φόρμας όταν ανοίγει (ή αλλάζουν τα props ενώ είναι ανοιχτή) — adjust-state-while-rendering
+  const [prevDeps, setPrevDeps] = React.useState({ open: false, prefill, defaultMinutes, meId });
+  if (prevDeps.open !== open || prevDeps.prefill !== prefill || prevDeps.defaultMinutes !== defaultMinutes || prevDeps.meId !== meId) {
+    setPrevDeps({ open, prefill, defaultMinutes, meId });
+    if (open) {
+      setMode('existing'); setPicked(null); setOwner(null); setOverlap(null); setError(null); setNewEmail(''); setNewAfm('');
+      setDate(prefill?.date ?? new Date().toISOString().slice(0, 10)); setTime(prefill?.time ?? '10:00');
+      setMinutes(DURATIONS.includes(defaultMinutes) ? defaultMinutes : 60); setNotify(true); setPlace('atelier'); setAssignee(meId ?? '');
+    }
+  }
 
   const email = mode === 'existing' ? picked?.email ?? '' : newEmail.trim();
 

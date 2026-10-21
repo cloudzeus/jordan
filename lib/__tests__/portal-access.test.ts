@@ -4,7 +4,7 @@ vi.mock('server-only', () => ({}));
 vi.mock('bcryptjs', () => ({ default: { hash: vi.fn(async (p: string) => `hash(${p})`) } }));
 
 const db = vi.hoisted(() => {
-  const p: Record<string, any> = {
+  const p = {
     customerContact: { findUnique: vi.fn(), update: vi.fn() },
     partnerContact: { findUnique: vi.fn(), update: vi.fn() },
     partner: { findUnique: vi.fn(), update: vi.fn() },
@@ -13,8 +13,7 @@ const db = vi.hoisted(() => {
     role: { findUnique: vi.fn() },
     session: { deleteMany: vi.fn() },
   };
-  p.$transaction = vi.fn(async (fn: any) => fn(p));
-  return p;
+  return Object.assign(p, { $transaction: vi.fn(async (fn: (tx: typeof p) => unknown) => fn(p)) });
 });
 vi.mock('@/lib/db', () => ({ prisma: db }));
 
@@ -27,7 +26,7 @@ beforeEach(() => {
   db.softoneTrader.findUnique.mockResolvedValue({ name: 'ΑΤΤΙΚΟ ΠΕΡΙΒΑΛΛΟΝ' });
   db.role.findUnique.mockResolvedValue({ id: 'role-customer' });
   db.user.findUnique.mockResolvedValue(null);
-  db.user.create.mockImplementation(async ({ data }: any) => ({ id: 'u1', email: data.email }));
+  db.user.create.mockImplementation(async ({ data }: { data: { email: string } }) => ({ id: 'u1', email: data.email }));
 });
 
 describe('κωδικός', () => {

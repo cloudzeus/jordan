@@ -1,4 +1,4 @@
-import { FiShield, FiPlus } from 'react-icons/fi';
+import { FiShield } from 'react-icons/fi';
 import { prisma } from '@/lib/db';
 import { requirePermission } from '@/lib/rbac';
 import { PageHeader } from '@/components/admin/page-header';

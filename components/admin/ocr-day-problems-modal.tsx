@@ -111,9 +111,14 @@ export function OcrDayProblemsModal({
   const idsKey = rows.map((r) => r.id).join(',');
 
   // Προτάσεις: μία κλήση για όλη την ημέρα, όταν ανοίγει το παράθυρο.
+  // Reset με «adjust state while rendering» (αρχικό `[]` ⇒ και στο πρώτο render, όπως το effect).
+  const [prevDeps, setPrevDeps] = React.useState<readonly unknown[]>([]);
+  if (prevDeps.length === 0 || !Object.is(prevDeps[0], open) || !Object.is(prevDeps[1], idsKey)) {
+    setPrevDeps([open, idsKey]);
+    if (open && idsKey) { setSuggestions(null); setDone(new Set()); }
+  }
   React.useEffect(() => {
     if (!open || !idsKey) return;
-    setSuggestions(null); setDone(new Set());
     let cancelled = false;
     fetch('/api/admin/ocr/problem-suggestions', {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids: idsKey.split(',') }),

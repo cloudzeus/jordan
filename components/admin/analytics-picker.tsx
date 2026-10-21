@@ -62,13 +62,24 @@ export function AnalyticsPicker({
   const rootRef = React.useRef<HTMLDivElement>(null);
   const listId = `${id}-list`;
 
-  React.useEffect(() => { setResults([]); setOpen(false); setActive(0); setFailed(false); }, [kind, trdr, scopeAll]);
+  // «Adjust state while rendering» αντί για setState μέσα σε effect: reset όταν αλλάζει το
+  // πλαίσιο (kind/trdr/scopeAll) και προετοιμασία της αναζήτησης όταν αλλάζει και το q.
+  const [prevKind, setPrevKind] = React.useState(kind);
+  const [prevTrdr, setPrevTrdr] = React.useState(trdr);
+  const [prevScopeAll, setPrevScopeAll] = React.useState(scopeAll);
+  const [prevQ, setPrevQ] = React.useState(q);
+  const ctxChanged = kind !== prevKind || trdr !== prevTrdr || scopeAll !== prevScopeAll;
+  if (ctxChanged || q !== prevQ) {
+    setPrevKind(kind); setPrevTrdr(trdr); setPrevScopeAll(scopeAll); setPrevQ(q);
+    if (ctxChanged) { setResults([]); setOpen(false); setActive(0); setFailed(false); }
+    if (q.trim().length < 2) { setResults([]); setLoading(false); setFailed(false); }
+    else setLoading(true);
+  }
 
   React.useEffect(() => {
     const term = q.trim();
-    if (term.length < 2) { setResults([]); setLoading(false); setFailed(false); return; }
+    if (term.length < 2) return;
     let ignore = false;
-    setLoading(true);
     const h = setTimeout(() => {
       const extra = kind === 'projects'
         ? `${trdr && !scopeAll ? `&trdr=${trdr}` : ''}${scopeAll ? '&scope=all' : ''}`

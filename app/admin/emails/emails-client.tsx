@@ -161,26 +161,32 @@ function StatementTab({ customers, me, canSend, banks, initialTrdr }: { customer
   const [p, setP] = React.useState<Preview | null>(null);
   const [view, setView] = React.useState<'email' | 'pdf'>('email');
   const [mode, setMode] = React.useState<'html' | 'text'>('html');
-  const [loading, setLoading] = React.useState(false);
+  // Με αρχικό πελάτη η φόρτωση ξεκινά ήδη στο mount (βλ. effect παρακάτω).
+  const [loading, setLoading] = React.useState(() => !!initialTrdr);
   const [sending, setSending] = React.useState<'me' | 'customer' | null>(null);
   const [key, setKey] = React.useState('');
   const target = trdr ?? 'sample';
   const qs = new URLSearchParams({ from, to }).toString();
   const items = React.useMemo(() => customers.map((c) => ({ value: String(c.trdr), label: c.label })), [customers]);
 
-  async function load(id = target) {
+  // Τα setState μόνο μέσα στα callbacks του fetch· loading/καθαρισμός γίνονται στο load (χειριστές).
+  function fetchStatement(id: string) {
+    return fetch(`/api/admin/statements/${id}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ from, to, message }) })
+      .then(async (res) => {
+        const d = await res.json().catch(() => ({}));
+        if (!res.ok) { toast.error(d.error ?? 'Η κατάσταση δεν φορτώθηκε'); return; }
+        setP(d);
+        setEmail(d.recipient ?? customers.find((c) => String(c.trdr) === id)?.email ?? '');
+        setKey(`${id}:${qs}:${Date.now()}`);
+      })
+      .finally(() => { setLoading(false); });
+  }
+  function load(id = target) {
     setLoading(true);
     setP(null);
-    try {
-      const res = await fetch(`/api/admin/statements/${id}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ from, to, message }) });
-      const d = await res.json().catch(() => ({}));
-      if (!res.ok) { toast.error(d.error ?? 'Η κατάσταση δεν φορτώθηκε'); return; }
-      setP(d);
-      setEmail(d.recipient ?? customers.find((c) => String(c.trdr) === id)?.email ?? '');
-      setKey(`${id}:${qs}:${Date.now()}`);
-    } finally { setLoading(false); }
+    return fetchStatement(id);
   }
-  React.useEffect(() => { if (initialTrdr) void load(String(initialTrdr)); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  React.useEffect(() => { if (initialTrdr) void fetchStatement(String(initialTrdr)); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function send(targetKind: 'me' | 'customer') {
     if (targetKind === 'customer') {

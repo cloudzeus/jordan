@@ -12,8 +12,7 @@ import { isGoogleAiStudio, providerHeaders, providerModel } from '@/lib/ai/visio
 export const DEFAULT_GUIDE_MODEL = 'gemini-2.5-flash';
 export const DEFAULT_STT_MODEL = 'gemini-2.5-flash';
 
-const AUDIO_FORMATS = ['webm', 'mp4', 'wav', 'mp3', 'ogg', 'm4a', 'aac', 'flac'] as const;
-export type AudioFormat = (typeof AUDIO_FORMATS)[number];
+export type AudioFormat = 'webm' | 'mp4' | 'wav' | 'mp3' | 'ogg' | 'm4a' | 'aac' | 'flac';
 
 /** `audio/webm;codecs=opus` → `webm`, `audio/x-m4a` → `m4a`. */
 export function audioFormatOf(mime: string): AudioFormat | null {

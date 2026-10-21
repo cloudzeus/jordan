@@ -1,7 +1,6 @@
 // scripts/templates/preview-regions.ts — DEV. Render a template's sample page with its field regions drawn on top.
 // Usage: npx tsx --import ./scripts/templates/register.mjs scripts/templates/preview-regions.ts <templateId|slug> [page] [out.png]
 import 'dotenv/config';
-import fs from 'node:fs';
 import sharp from 'sharp';
 import { prisma } from '../../lib/db';
 import { bunnyDownload } from '../../lib/bunny';

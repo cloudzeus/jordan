@@ -25,9 +25,12 @@ export function AssetSearch({ id, disabled, onPick }: { id: string; disabled?: b
   const [results, setResults] = React.useState<(AssetPick & { acnmsk: string | null })[]>([]);
   const [loading, setLoading] = React.useState(false);
 
+  const [prevQ, setPrevQ] = React.useState(q);
+  if (q !== prevQ) { setPrevQ(q); if (q.trim().length < 2) setResults([]); }
+
   React.useEffect(() => {
     const term = q.trim();
-    if (term.length < 2) { setResults([]); return; }
+    if (term.length < 2) return;
     const ctrl = new AbortController();
     const t = setTimeout(() => {
       setLoading(true);
@@ -112,9 +115,17 @@ export function CreateAssetDialog({ open, onOpenChange, lineId, lineName, lineVa
   const [rateTouched, setRateTouched] = React.useState(false);
   const [immediate, setImmediate] = React.useState(false);
 
+  // Reset της φόρμας όταν ανοίγει (και στο πρώτο render αν είναι ήδη ανοιχτό) — «adjust state while rendering».
+  const [prevOpen, setPrevOpen] = React.useState(false);
+  const [prevLineName, setPrevLineName] = React.useState(lineName);
+  const [prevLineVatRate, setPrevLineVatRate] = React.useState(lineVatRate);
+  if (open !== prevOpen || lineName !== prevLineName || lineVatRate !== prevLineVatRate) {
+    setPrevOpen(open); setPrevLineName(lineName); setPrevLineVatRate(lineVatRate);
+    if (open) { setError(null); setName(lineName ?? ''); setCodeTouched(false); setRateTouched(false); setImmediate(false); }
+  }
+
   React.useEffect(() => {
     if (!open) return;
-    setError(null); setName(lineName ?? ''); setCodeTouched(false); setRateTouched(false); setImmediate(false);
     fetch('/api/admin/softone/assets/lookups')
       .then(async (r) => { const d = await r.json(); if (!r.ok) throw new Error(d.message ?? 'Οι κατηγορίες δεν φορτώθηκαν.'); return d as FormData; })
       .then((d) => {
@@ -132,10 +143,13 @@ export function CreateAssetDialog({ open, onOpenChange, lineId, lineName, lineVa
   }, [open, lineName, lineVatRate]);
 
   // Νέα λογιστική κατηγορία ⇒ νέος προτεινόμενος κωδικός, εκτός αν ο χρήστης τον έγραψε ο ίδιος.
-  React.useEffect(() => {
-    if (!data || codeTouched) return;
-    setCode(mtrAcn != null ? data.proposedCode[mtrAcn] ?? '' : '');
-  }, [data, mtrAcn, codeTouched]);
+  const [prevData, setPrevData] = React.useState(data);
+  const [prevMtrAcn, setPrevMtrAcn] = React.useState(mtrAcn);
+  const [prevCodeTouched, setPrevCodeTouched] = React.useState(codeTouched);
+  if (data !== prevData || mtrAcn !== prevMtrAcn || codeTouched !== prevCodeTouched) {
+    setPrevData(data); setPrevMtrAcn(mtrAcn); setPrevCodeTouched(codeTouched);
+    if (data && !codeTouched) setCode(mtrAcn != null ? data.proposedCode[mtrAcn] ?? '' : '');
+  }
 
   const gl = data?.glCategories.find((g) => g.mtrAcn === mtrAcn);
   const advice = React.useMemo(
@@ -143,10 +157,13 @@ export function CreateAssetDialog({ open, onOpenChange, lineId, lineName, lineVa
     [data, name, lineName, lineAmount, gl],
   );
   // Νέα πρόταση (άλλη κατηγορία/περιγραφή) ⇒ νέος συντελεστής, εκτός αν ο χρήστης τον έγραψε ο ίδιος.
-  React.useEffect(() => {
-    if (rateTouched) return;
-    setRate(advice ? String(advice.rate) : gl?.depreciation != null ? String(gl.depreciation) : '');
-  }, [advice, gl, rateTouched]);
+  const [prevAdvice, setPrevAdvice] = React.useState(advice);
+  const [prevGl, setPrevGl] = React.useState(gl);
+  const [prevRateTouched, setPrevRateTouched] = React.useState(rateTouched);
+  if (advice !== prevAdvice || gl !== prevGl || rateTouched !== prevRateTouched) {
+    setPrevAdvice(advice); setPrevGl(gl); setPrevRateTouched(rateTouched);
+    if (!rateTouched) setRate(advice ? String(advice.rate) : gl?.depreciation != null ? String(gl.depreciation) : '');
+  }
   const rateNum = rate.trim() === '' ? null : Number(rate.replace(',', '.'));
   const rateOk = rateNum == null || (Number.isFinite(rateNum) && rateNum >= 0 && rateNum <= 100);
   const amount = lineAmount != null && Number.isFinite(lineAmount) ? Math.abs(lineAmount) : null;

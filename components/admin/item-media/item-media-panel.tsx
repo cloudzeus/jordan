@@ -196,7 +196,8 @@ export function StockStrip({ mtrl }: { mtrl: number }) {
       setBusy(false);
     }
   }, [mtrl]);
-  React.useEffect(() => { void load(false); }, [load]);
+  // Το load ξεκινά σε microtask: τα setState του γίνονται σε callback, όχι σύγχρονα στο σώμα του effect.
+  React.useEffect(() => { void Promise.resolve().then(() => load(false)); }, [load]);
 
   if (!data) return <div className="h-14 animate-pulse rounded-md bg-muted motion-reduce:animate-none" aria-busy="true" aria-label="Φόρτωση υπολοίπων" />;
   const unit = data.unit ? ` ${data.unit}` : '';
@@ -256,7 +257,8 @@ export function ItemMediaPanel({ mtrl, canManage, showStock = false }: { mtrl: n
       setError((e as Error).message);
     }
   }, [mtrl]);
-  React.useEffect(() => { void load(); }, [load]);
+  // Το load ξεκινά σε microtask: τα setState του γίνονται σε callback, όχι σύγχρονα στο σώμα του effect.
+  React.useEffect(() => { void Promise.resolve().then(load); }, [load]);
 
   const call = async (url: string, init: RequestInit, ok: string) => {
     const res = await fetch(url, { ...init, headers: { 'Content-Type': 'application/json' } });

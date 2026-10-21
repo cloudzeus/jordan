@@ -17,8 +17,8 @@ const LEAD = { id: 'l1', email: 'arch@studio.gr', name: 'Μαρία', company: n
 beforeEach(() => {
   vi.clearAllMocks();
   settings.value = undefined;
-  db.lead.update.mockImplementation(async ({ data }: any) => ({ ...LEAD, ...data }));
-  db.lead.create.mockImplementation(async ({ data }: any) => ({ id: 'new', ...data }));
+  db.lead.update.mockImplementation(async ({ data }: { data: Record<string, unknown> }) => ({ ...LEAD, ...data }));
+  db.lead.create.mockImplementation(async ({ data }: { data: Record<string, unknown> }) => ({ id: 'new', ...data }));
 });
 
 describe('upsertLead', () => {

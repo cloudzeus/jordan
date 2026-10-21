@@ -22,7 +22,6 @@ import {
 import { RunStatusPill } from '@/components/templates/run-status-pill';
 import { reconMeta } from '@/lib/ocr/recon-status';
 import { normalizeDate } from '@/lib/ocr/canonical';
-import { runSeverity } from '@/lib/templates/run-view';
 import type { RunStatus } from '@/lib/templates/schema';
 import { OcrRowDetail } from './row-detail';
 import { ReextractDialog } from './reextract-dialog';
@@ -48,7 +47,7 @@ export interface OcrRow {
   vatNumber: string | null;
   customerVatNumber: string | null;
   total: number | null;
-  extractedData: any;
+  extractedData: Record<string, unknown> | null;
   errorMessage: string | null;
   softoneTrdr: number | null;
   softoneCode: string | null;
@@ -221,6 +220,7 @@ export function OcrTable({
   React.useEffect(() => {
     try {
       const saved = localStorage.getItem('admin.ocr.tab');
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- localStorage διαβάζεται μόνο στον client, μετά το hydration
       if (saved === 'posted' || saved === 'open') setTab(saved);
     } catch { /* ιδιωτική περιήγηση */ }
   }, []);
@@ -291,8 +291,8 @@ export function OcrTable({
       if (!res.ok) throw new Error(json?.message ?? json?.error ?? `HTTP ${res.status}`);
       p.ok(`Καταχωρίστηκε στο SoftOne (ref: ${json.ref})`);
       router.refresh();
-    } catch (err: any) {
-      p.fail(`Αποτυχία καταχώρισης: ${err?.message ?? err}`);
+    } catch (err) {
+      p.fail(`Αποτυχία καταχώρισης: ${(err as Error)?.message ?? err}`);
     }
   }
 
@@ -312,8 +312,8 @@ export function OcrTable({
       if (!res.ok) throw new Error(json?.error ?? `HTTP ${res.status}`);
       p.ok('Η ανάγνωση ολοκληρώθηκε');
       router.refresh();
-    } catch (err: any) {
-      p.fail(`Αποτυχία ανάγνωσης: ${err?.message ?? err}`);
+    } catch (err) {
+      p.fail(`Αποτυχία ανάγνωσης: ${(err as Error)?.message ?? err}`);
       router.refresh();
     } finally {
       setReextractingId(null);
@@ -336,8 +336,8 @@ export function OcrTable({
       if (!res.ok) throw new Error(json?.error ?? `HTTP ${res.status}`);
       p.ok(`Το επανασκανάρισμα ολοκληρώθηκε (${json.model})`);
       router.refresh();
-    } catch (err: any) {
-      p.fail(`Αποτυχία επανασκαναρίσματος: ${err?.message ?? err}`);
+    } catch (err) {
+      p.fail(`Αποτυχία επανασκαναρίσματος: ${(err as Error)?.message ?? err}`);
       router.refresh();
     } finally {
       setReextractingId(null);
@@ -354,8 +354,8 @@ export function OcrTable({
       const noun = role === 'CUSTOMER' ? 'πελάτης' : 'προμηθευτής';
       p.ok(json.reused ? `Υπήρχε ήδη: ${name}` : `Δημιουργήθηκε ${noun}: ${name}`);
       router.refresh();
-    } catch (err: any) {
-      p.fail(`Αποτυχία: ${err?.message ?? err}`);
+    } catch (err) {
+      p.fail(`Αποτυχία: ${(err as Error)?.message ?? err}`);
     }
   }
 
@@ -367,8 +367,8 @@ export function OcrTable({
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       p.ok('Διαγράφηκε');
       router.refresh();
-    } catch (err: any) {
-      p.fail(`Αποτυχία διαγραφής: ${err?.message ?? err}`);
+    } catch (err) {
+      p.fail(`Αποτυχία διαγραφής: ${(err as Error)?.message ?? err}`);
     }
   }
 
@@ -383,8 +383,8 @@ export function OcrTable({
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       p.ok(value === 'RESOLVED' ? 'Σημειώθηκε ως ολοκληρωμένο' : value === 'IGNORED' ? 'Αγνοήθηκε' : 'Επαναφορά σε αυτόματο');
       router.refresh();
-    } catch (err: any) {
-      p.fail(`Αποτυχία: ${err?.message ?? err}`);
+    } catch (err) {
+      p.fail(`Αποτυχία: ${(err as Error)?.message ?? err}`);
     }
   }
 
@@ -406,9 +406,9 @@ export function OcrTable({
           throw new Error(json?.message ?? json?.error ?? `HTTP ${res.status}`);
         }
         ok++;
-      } catch (err: any) {
+      } catch (err) {
         fail++;
-        firstError ??= String(err?.message ?? err);
+        firstError ??= String((err as Error)?.message ?? err);
       }
       toast.loading(`Ανάρτηση ${ok + fail}/${ready.length}…`, { id: t });
     }

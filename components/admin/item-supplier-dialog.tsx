@@ -53,7 +53,8 @@ export function ItemSupplierDialog({ open, onOpenChange, lineId }: { open: boole
 
   React.useEffect(() => {
     if (!open) return;
-    void load();
+    // Το load ξεκινά σε microtask: τα setState του γίνονται σε callback, όχι σύγχρονα στο σώμα του effect.
+    void Promise.resolve().then(load);
     fetch('/api/admin/ocr/posting-enabled', { cache: 'no-store' }).then((r) => (r.ok ? r.json() : null))
       .then((d) => setPostingEnabled(d?.enabled === true)).catch(() => setPostingEnabled(null));
   }, [open, load]);

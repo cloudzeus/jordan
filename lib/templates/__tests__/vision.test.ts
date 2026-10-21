@@ -14,7 +14,7 @@ import { logAiUsage } from '@/lib/ai/usage';
 
 const png = Buffer.from('89504e470d0a1a0a', 'hex');
 
-beforeEach(() => { fetchMock.mockReset(); (logAiUsage as any).mockClear(); resetVisionConfigCache(); });
+beforeEach(() => { fetchMock.mockReset(); vi.mocked(logAiUsage).mockClear(); resetVisionConfigCache(); });
 
 describe('readCropValue', () => {
   it('returns the trimmed content, model and tokens, and logs usage', async () => {

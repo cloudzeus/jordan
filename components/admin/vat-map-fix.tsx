@@ -33,12 +33,19 @@ export function VatMapFix({
   const [busy, setBusy] = React.useState(false);
   const [open, setOpen] = React.useState(false);
 
-  React.useEffect(() => { setRate(rates[0] ?? null); }, [missing.join(',')]); // eslint-disable-line react-hooks/exhaustive-deps
+  const missingKey = missing.join(',');
+  const [prevMissingKey, setPrevMissingKey] = React.useState(missingKey);
+  if (missingKey !== prevMissingKey) { setPrevMissingKey(missingKey); setRate(rates[0] ?? null); }
 
+  // («Adjust state while rendering»· αρχικό `[]` ⇒ και στο πρώτο render, όπως το effect.)
+  const [prevDeps, setPrevDeps] = React.useState<readonly unknown[]>([]);
+  if (prevDeps.length === 0 || !Object.is(prevDeps[0], open) || !Object.is(prevDeps[1], rate)) {
+    setPrevDeps([open, rate]);
+    if (open && rate != null) setOptions(null);
+  }
   React.useEffect(() => {
     if (!open || rate == null) return;
     let ignore = false;
-    setOptions(null);
     fetch(`/api/admin/ocr/vat-map?rate=${rate}`)
       .then((r) => (r.ok ? r.json() : null))
       .then((d: { options?: Option[] } | null) => { if (!ignore) setOptions(d?.options ?? []); })

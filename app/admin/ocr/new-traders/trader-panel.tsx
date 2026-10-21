@@ -299,6 +299,8 @@ export function TraderPanel({
   const [codeBusy, setCodeBusy] = React.useState(false);
   /** Η τελευταία πρόταση που γράψαμε εμείς — για να ξέρουμε τι επιτρέπεται να αλλάξουμε. */
   const lastProposal = React.useRef<string>('');
+  /** Αντίγραφο του `lastProposal` για το render (το ref δεν διαβάζεται κατά το render). */
+  const [proposedCode, setProposedCode] = React.useState('');
   const kindRefs = React.useRef<Partial<Record<TraderKind, HTMLButtonElement | null>>>({});
   const codeRef = React.useRef<HTMLInputElement | null>(null);
   /** Ποια διεύθυνση έχει ήδη ζητηθεί αυτόματα — καμία επανάληψη σε re-render. */
@@ -321,8 +323,11 @@ export function TraderPanel({
   const [dryPayload, setDryPayload] = React.useState<string | null>(null);
   const [dryError, setDryError] = React.useState<string | null>(null);
 
-  // Κάθε εκδότης ξεκινά καθαρός.
-  React.useEffect(() => {
+  // Κάθε εκδότης ξεκινά καθαρός. (Ρύθμιση state κατά το render όταν αλλάζει η είσοδος· το ref
+  // μηδενίζεται σε effect, πριν από το effect της πρότασης κωδικού — όπως πριν.)
+  const [prevSeed, setPrevSeed] = React.useState({ group, taxOffices });
+  if (group !== prevSeed.group || taxOffices !== prevSeed.taxOffices) {
+    setPrevSeed({ group, taxOffices });
     setForm(seed(group, taxOffices));
     setTouched({}); setSubmitted(false); setFailure(null); setBusy(null);
     setShowSearch(false); setIgnoring(false); setReason('');
@@ -331,13 +336,21 @@ export function TraderPanel({
     setGeo(null); setGeoBusy(false); setGeoMiss(false); setGeoDown(false);
     setCoords(null); setErpCodeError(null); setCodeOffer(null); setErpDoyError(null);
     setUserOwned(new Set()); setFieldSource({});
+    setProposedCode('');
+  }
+  React.useEffect(() => {
     lastProposal.current = '';
   }, [group, taxOffices]);
 
   // Μόλις ο χρήστης αγγίξει τον κωδικό (ή αλλάξει τύπο), το μήνυμα του ERP παύει να ισχύει.
-  React.useEffect(() => { setErpCodeError(null); setCodeOffer(null); }, [form.code, form.kind]);
+  const [prevCodeKind, setPrevCodeKind] = React.useState({ code: form.code, kind: form.kind });
+  if (form.code !== prevCodeKind.code || form.kind !== prevCodeKind.kind) {
+    setPrevCodeKind({ code: form.code, kind: form.kind });
+    setErpCodeError(null); setCodeOffer(null);
+  }
   // Νέα επιλογή Δ.Ο.Υ. ⇒ η άρνηση του server για την προηγούμενη δεν ισχύει πια.
-  React.useEffect(() => { setErpDoyError(null); }, [form.irsData]);
+  const [prevIrsData, setPrevIrsData] = React.useState(form.irsData);
+  if (form.irsData !== prevIrsData) { setPrevIrsData(form.irsData); setErpDoyError(null); }
 
   /**
    * Ο **επόμενος ελεύθερος κωδικός** για τον επιλεγμένο τύπο, με φρέσκα δεδομένα από
@@ -347,9 +360,14 @@ export function TraderPanel({
    * Η πρόταση ΔΕΝ κλειδώνει το πεδίο: γράφεται μόνο όταν αυτό είναι άδειο ή κρατά
    * ακόμη προηγούμενη πρόταση. Ό,τι πληκτρολόγησε ο χρήστης μένει ανέγγιχτο.
    */
+  // «Φορτώνει» κατά το render (και στο πρώτο), όχι σύγχρονα μέσα στο effect.
+  const [prevCodeFetch, setPrevCodeFetch] = React.useState<{ afm: string; kind: TraderKind } | null>(null);
+  if (prevCodeFetch === null || prevCodeFetch.afm !== group.afm || prevCodeFetch.kind !== form.kind) {
+    setPrevCodeFetch({ afm: group.afm, kind: form.kind });
+    setCodeBusy(true);
+  }
   React.useEffect(() => {
     let ignore = false;
-    setCodeBusy(true);
     fetch(`/api/admin/ocr/new-traders/next-code?kind=${form.kind}`)
       .then((r) => (r.ok ? r.json() : null))
       .then((d: CodeSuggestion | null) => {
@@ -382,6 +400,7 @@ export function TraderPanel({
           return next === null ? f : { ...f, code: next };
         });
         lastProposal.current = proposal;
+        setProposedCode(proposal);
       })
       .catch(() => { if (!ignore) setCodeSuggestion(null); })
       .finally(() => { if (!ignore) setCodeBusy(false); });
@@ -390,11 +409,17 @@ export function TraderPanel({
 
   // Τα στοιχεία ΑΑΔΕ φορτώνονται αυτόματα για τον επιλεγμένο ΑΦΜ. ΟΧΙ όμως για
   // εκδότη εκτός Ελλάδας: το ελληνικό μητρώο δεν τον ξέρει — εκεί ρωτάμε VIES.
+  // Ο σύγχρονος μηδενισμός (κάθε νέος ΑΦΜ / «ξανά») κατά το render — και στο πρώτο, όπως το effect.
+  const [prevAadeKey, setPrevAadeKey] = React.useState<{ afm: string; isForeign: boolean; reload: number } | null>(null);
+  if (prevAadeKey === null || prevAadeKey.afm !== group.afm
+    || prevAadeKey.isForeign !== group.isForeign || prevAadeKey.reload !== aadeReload) {
+    setPrevAadeKey({ afm: group.afm, isForeign: group.isForeign, reload: aadeReload });
+    setAade(null);
+    setAadeState(group.isForeign ? 'foreign' : 'loading');
+  }
   React.useEffect(() => {
     let ignore = false;
-    setAade(null);
-    if (group.isForeign) { setAadeState('foreign'); return; }
-    setAadeState('loading');
+    if (group.isForeign) return;
     fetch('/api/admin/ocr/supplier-preview', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ afm: group.afm }),
@@ -483,7 +508,12 @@ export function TraderPanel({
    * τίποτα δεν σβήνεται** — οι τιμές του OCR μένουν στη θέση τους (το `planRegistryFill`
    * αγνοεί κενές τιμές μητρώου).
    */
-  React.useEffect(() => {
+  const [prevAadeFill, setPrevAadeFill] = React.useState({ aade, aadeState, taxOffices });
+  if (aade !== prevAadeFill.aade || aadeState !== prevAadeFill.aadeState || taxOffices !== prevAadeFill.taxOffices) {
+    setPrevAadeFill({ aade, aadeState, taxOffices });
+    applyAade();
+  }
+  function applyAade() {
     if (aadeState !== 'ready' || !aade) return;
     // Η Δ.Ο.Υ. γράφεται ως ΚΛΕΙΔΙ IRSDATA της γραμμής που έχει τον ΙΔΙΟ κωδικό με την ΑΑΔΕ
     // (το έλυσε ο server). Καμία αντιστοίχιση ονομασίας εδώ.
@@ -510,13 +540,14 @@ export function TraderPanel({
       for (const k of plan.cleared) delete next[k];
       return next;
     });
-    // `userOwned` ΔΕΝ μπαίνει στα deps: η εφαρμογή τρέχει όταν έρθει το μητρώο, όχι κάθε φορά
+    // Το `userOwned` ΔΕΝ είναι κλειδί: η εφαρμογή τρέχει όταν έρθει το μητρώο, όχι κάθε φορά
     // που ο χρήστης αγγίζει ένα πεδίο (κάτι που θα ξαναέγραφε τα υπόλοιπα κάτω από τα χέρια του).
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [aade, aadeState, taxOffices]);
+  }
 
   /** Το ίδιο για ξένο εκδότη: ό,τι επιστρέφει το VIES. Το «---» δεν είναι τιμή. */
-  React.useEffect(() => {
+  const [prevVies, setPrevVies] = React.useState(vies);
+  if (vies !== prevVies) { setPrevVies(vies); applyVies(); }
+  function applyVies() {
     if (!vies || vies.valid !== true) return;
     const plan = planRegistryFill<FieldKey>({
       userOwned,
@@ -529,8 +560,7 @@ export function TraderPanel({
       for (const k of plan.applied) next[k] = 'vies';
       return next;
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [vies]);
+  }
 
   /** Η τιμή που διάβασε το OCR για ένα πεδίο — `null` όταν το παραστατικό δεν έδινε τίποτα. */
   const ocrValueOf = (k: FieldKey): string | null => {
@@ -547,7 +577,7 @@ export function TraderPanel({
    * Η σήμανση προέλευσης κάτω από ένα πεδίο: από πού ήρθε η τιμή και πώς γυρνά πίσω σε αυτήν
    * του παραστατικού. Χωρίς αυτό, η αυτόματη εφαρμογή θα ήταν σιωπηλή αντικατάσταση.
    */
-  const RegistryMark = ({ k }: { k: FieldKey }) => {
+  const registryMark = (k: FieldKey) => {
     const src = fieldSource[k];
     if (!src) return null;
     const ocr = ocrValueOf(k);
@@ -574,7 +604,7 @@ export function TraderPanel({
     );
   };
 
-  const payload = () => ({
+  const payload = React.useCallback(() => ({
     kind: form.kind,
     name: form.name.trim(),
     code: form.code.trim() || null,
@@ -595,7 +625,7 @@ export function TraderPanel({
     // Άγνωστο σημείο ⇒ `null` και στα δύο· το SoftOne δεν παίρνει ποτέ 0 για «δεν ξέρω».
     latitude: coords?.lat ?? null,
     longitude: coords?.lng ?? null,
-  });
+  }), [form, aade?.softoneKad, kadRemoved, coords]);
 
   const create = React.useCallback(async () => {
     if (!canManage || busy) return;
@@ -856,7 +886,7 @@ export function TraderPanel({
   );
   const kindColor = KIND_COLORS[form.kind];
   // Το πεδίο κρατά ακόμη ΑΚΡΙΒΩΣ ό,τι προτείναμε — μόλις το αλλάξει ο χρήστης, το chip φεύγει.
-  const isProposedCode = !!lastProposal.current && form.code.trim() === lastProposal.current;
+  const isProposedCode = !!proposedCode && form.code.trim() === proposedCode;
 
   // Το ΑΦΜ όπως θα αποθηκευτεί: αν το OCR διάβασε γυμνά ψηφία αλλά η χώρα (από τη
   // διεύθυνση, το VIES ή την επιλογή του χρήστη) δεν είναι η Ελλάδα, μπαίνει το
@@ -1252,7 +1282,7 @@ export function TraderPanel({
         <div className="grid gap-2.5 sm:grid-cols-2">
           <Field label="Επωνυμία" required error={errorOf('name')} id="tp-name" className="sm:col-span-2">
             <Input {...bind('name', 'tp-name')} className="h-8 text-(length:--fs-13)" />
-            <RegistryMark k="name" />
+            {registryMark('name')}
           </Field>
 
           <Field
@@ -1291,7 +1321,7 @@ export function TraderPanel({
               <Button
                 type="button" variant="outline" size="xs"
                 className="w-fit cursor-pointer"
-                onClick={() => { set('code', codeOffer); lastProposal.current = codeOffer; }}
+                onClick={() => { set('code', codeOffer); lastProposal.current = codeOffer; setProposedCode(codeOffer); }}
               >
                 <FiRefreshCw aria-hidden className="size-3" /> Χρήση του {codeOffer}
               </Button>
@@ -1344,7 +1374,7 @@ export function TraderPanel({
                 </p>
               </>
             )}
-            <RegistryMark k="irsData" />
+            {registryMark('irsData')}
             {/* Η ΑΑΔΕ έδωσε Δ.Ο.Υ. που δεν αντιστοιχίζεται: το λέμε ρητά — δεν μαντεύουμε. */}
             {!form.irsData && aadeState === 'ready' && aade?.softoneDoy?.note && (
               <p
@@ -1364,7 +1394,7 @@ export function TraderPanel({
 
           <Field label="Επάγγελμα" id="tp-prof" error={errorOf('profession')} className="sm:col-span-2">
             <Input {...bind('profession', 'tp-prof')} className="h-8 text-(length:--fs-13)" />
-            <RegistryMark k="profession" />
+            {registryMark('profession')}
           </Field>
 
           {!isForeign && aadeState === 'ready' && aade?.softoneKad && (aade.softoneKad.primary || aade.softoneKad.secondary) && (
@@ -1374,7 +1404,7 @@ export function TraderPanel({
           )}
 
           <Field label="Διεύθυνση" id="tp-addr" error={errorOf('address')} className="sm:col-span-2">
-            <RegistryMark k="address" />
+            {registryMark('address')}
             <div className="flex items-center gap-2">
               <Input {...bind('address', 'tp-addr')} className="h-8 flex-1 text-(length:--fs-13)" />
               <Button
@@ -1471,12 +1501,12 @@ export function TraderPanel({
 
           <Field label="Τ.Κ." id="tp-zip" error={errorOf('zip')}>
             <Input {...bind('zip', 'tp-zip')} inputMode="numeric" className="h-8 text-(length:--fs-13)" />
-            <RegistryMark k="zip" />
+            {registryMark('zip')}
           </Field>
 
           <Field label="Πόλη" id="tp-city" error={errorOf('city')}>
             <Input {...bind('city', 'tp-city')} className="h-8 text-(length:--fs-13)" />
-            <RegistryMark k="city" />
+            {registryMark('city')}
           </Field>
 
           <Field

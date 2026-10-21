@@ -137,9 +137,12 @@ function RescheduleDialog({ row, rows, blocks, availability, onClose, onDone }: 
   const [time, setTime] = React.useState('10:00');
   const [notify, setNotify] = React.useState(true);
   const [busy, setBusy] = React.useState(false);
-  React.useEffect(() => {
+  // Επαναφορά της φόρμας όταν αλλάζει το ραντεβού (adjust-state-while-rendering αντί για effect)
+  const [prevRow, setPrevRow] = React.useState<AppointmentView | null>(null);
+  if (row !== prevRow) {
+    setPrevRow(row);
     if (row) { setDate(zonedParts(new Date(row.start)).date); setStart(null); setForce(false); setTime(zonedParts(new Date(row.start)).time); setNotify(true); }
-  }, [row]);
+  }
 
   const slots = React.useMemo(() => {
     if (!row || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return [];
@@ -204,7 +207,11 @@ function RescheduleDialog({ row, rows, blocks, availability, onClose, onDone }: 
 function AssignDialog({ row, staff, softoneEnabled, onClose, onDone }: { row: AppointmentView | null; staff: StaffUser[]; softoneEnabled: boolean; onClose: () => void; onDone: () => void }) {
   const [value, setValue] = React.useState('');
   const [busy, setBusy] = React.useState(false);
-  React.useEffect(() => { if (row) setValue(row.assignedToId ?? ''); }, [row]);
+  const [prevRow, setPrevRow] = React.useState<AppointmentView | null>(null);
+  if (row !== prevRow) {
+    setPrevRow(row);
+    if (row) setValue(row.assignedToId ?? '');
+  }
   const pick = staff.find((u) => u.id === value);
   async function save() {
     if (!row) return;
@@ -246,6 +253,7 @@ export function AppointmentsClient({ rows, blocks, availability, canManage, canS
   const [action, setAction] = React.useState<Action>(null);
   const [filter, setFilter] = React.useState<'upcoming' | 'PENDING' | 'past' | 'all'>('upcoming');
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- μία ανάγνωση browser API μετά το hydration (στο SSR δεν υπάρχει window)
   React.useEffect(() => { if (window.matchMedia('(max-width: 767px)').matches) setView('day'); }, []);
 
   const sel = rows.find((r) => r.id === selected) ?? null;
@@ -263,7 +271,7 @@ export function AppointmentsClient({ rows, blocks, availability, canManage, canS
   const onAction = (a: Action) => { setSelected(null); setAction(a); };
   const done = () => { setAction(null); setSelected(null); refresh(); };
 
-  const now = Date.now();
+  const now = new Date().getTime();
   const match = (r: AppointmentView, f: typeof filter) =>
     f === 'all' ? true : f === 'PENDING' ? r.status === 'PENDING' && new Date(r.end).getTime() > now : f === 'past' ? new Date(r.end).getTime() <= now : new Date(r.end).getTime() > now && isActiveStatus(r.status);
   const data = rows.filter((r) => match(r, filter)).sort((a, b) => (filter === 'past' ? b.start.localeCompare(a.start) : a.start.localeCompare(b.start)));

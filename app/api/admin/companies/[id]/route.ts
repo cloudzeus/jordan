@@ -100,7 +100,7 @@ export async function PATCH(request: Request, ctx: { params: Promise<{ id: strin
 
   // Coerce empty `code` → null so we don't trip the UNIQUE constraint with "".
   if ('code' in rest && (rest.code === '' || rest.code == null)) {
-    (rest as any).code = null;
+    rest.code = null;
   }
   // Reject collision early with a clean message instead of a Prisma P2002.
   if (rest.code) {
@@ -144,7 +144,7 @@ export async function PATCH(request: Request, ctx: { params: Promise<{ id: strin
         municipalityId: rest.municipalityId ?? cur?.municipalityId, prefectureId: rest.prefectureId ?? cur?.prefectureId,
         latitude: geo?.lat ?? null, longitude: geo?.lng ?? null,
       });
-      if (m) (rest as any).regionCode = m.regionCode;
+      if (m) rest.regionCode = m.regionCode;
     }
   }
 

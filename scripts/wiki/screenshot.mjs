@@ -68,7 +68,7 @@ async function login(page, role) {
 
 async function runActions(page, actions = []) {
   for (const a of actions) {
-    const [op, rest] = a.split(':', 2);
+    const [op] = a.split(':', 2);
     const arg = a.slice(op.length + 1);
     if (op === 'click') await page.click(arg);
     else if (op === 'fill') {

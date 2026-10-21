@@ -42,8 +42,6 @@ type Preview = {
 /** Η wiki σελίδα της κάρτας — σταθερή διαδρομή, όπως το `helpAnchors: [document-json]` του MDX. */
 const HELP_HREF = '/wiki/ocr/document-json';
 
-const KIND_LABEL: Record<string, string> = { invoice: 'Τιμολόγιο', receipt: 'Απόδειξη', general: 'Κείμενο' };
-
 const money = (v: number | null | undefined): string =>
   v == null ? '—' : v.toLocaleString('el-GR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
@@ -115,9 +113,9 @@ export function DocumentJsonCard({ docId, canPost, showPosting = true }: {
   const [payloadOpen, setPayloadOpen] = React.useState(false);
   const [posting, setPosting] = React.useState(false);
 
-  const load = React.useCallback(async () => {
-    setLoading(true);
-    setError(null);
+  // Η φόρτωση χωρίς το αρχικό «setLoading(true)/setError(null)»: κάθε setState γίνεται μετά από
+  // `await`, άρα το effect δεν αλλάζει state σύγχρονα (το reset για νέο docId γίνεται στο render).
+  const fetchAll = React.useCallback(async () => {
     try {
       const res = await fetch(`/api/admin/ocr/${docId}/document`, { cache: 'no-store' });
       if (!res.ok) throw new Error(`Το JSON δεν φορτώθηκε (${res.status})`);
@@ -135,7 +133,22 @@ export function DocumentJsonCard({ docId, canPost, showPosting = true }: {
     }
   }, [docId, canPost]);
 
-  React.useEffect(() => { void load(); }, [load]);
+  const load = React.useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    await fetchAll();
+  }, [fetchAll]);
+
+  // Νέο έγγραφο → πάλι «φορτώνει», χωρίς παλιό σφάλμα (ρύθμιση state κατά το render).
+  const loadKey = `${docId}|${canPost}`;
+  const [prevLoadKey, setPrevLoadKey] = React.useState(loadKey);
+  if (loadKey !== prevLoadKey) {
+    setPrevLoadKey(loadKey);
+    setLoading(true);
+    setError(null);
+  }
+
+  React.useEffect(() => { void (async () => { await fetchAll(); })(); }, [fetchAll]);
   // Ο χρήστης μόλις αντιστοίχισε γραμμή: τα εμπόδια («γραμμές χωρίς αντιστοίχιση») πρέπει
   // να ξαναμετρηθούν ΕΔΩ, αλλιώς η σελίδα λέει ότι δεν μπορεί να καταχωρίσει για κάτι που
   // μόλις λύθηκε — και το μαθαίνει μόνο με reload.

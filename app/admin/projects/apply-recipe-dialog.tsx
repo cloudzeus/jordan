@@ -40,11 +40,15 @@ export function ApplyRecipeDialog({ open, onOpenChange, prjc, projectLabel }: {
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
+  // Επαναφορά στο άνοιγμα (adjust-state-while-rendering)· η φόρτωση στο effect.
+  const [prevOpen, setPrevOpen] = React.useState(false);
+  if (prevOpen !== open) {
+    setPrevOpen(open);
+    if (open) { setRecipeId(''); setSqm(''); setLabor(null); setError(null); setLoadError(null); }
+  }
   React.useEffect(() => {
     if (!open) return;
-    setRecipeId(''); setSqm(''); setLabor(null); setError(null);
     let ignore = false;
-    setLoadError(null);
     fetch('/api/admin/recipes', { cache: 'no-store' })
       .then(async (res) => {
         if (res.status === 403) throw new Error('Δεν έχετε δικαίωμα προβολής συνταγών (recipes.read).');

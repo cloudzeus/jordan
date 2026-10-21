@@ -124,11 +124,11 @@ export async function POST(req: Request) {
     });
 
     return NextResponse.json({ id: doc.id, data, durationMs, templateRun });
-  } catch (err: any) {
+  } catch (err) {
     await prisma.ocrDocument.update({
       where: { id: doc.id },
-      data: { status: 'FAILED', errorMessage: String(err?.message ?? err).slice(0, 2000) },
+      data: { status: 'FAILED', errorMessage: String((err as Error)?.message ?? err).slice(0, 2000) },
     });
-    return NextResponse.json({ id: doc.id, error: String(err?.message ?? err) }, { status: 422 });
+    return NextResponse.json({ id: doc.id, error: String((err as Error)?.message ?? err) }, { status: 422 });
   }
 }

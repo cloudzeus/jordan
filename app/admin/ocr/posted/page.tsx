@@ -54,7 +54,13 @@ export default async function OcrPostedPage() {
   };
 
   const rows: Row[] = docs.map((d) => {
-    const doc = (d.document ?? {}) as any;
+    // Το κανονικό JSON του παραστατικού — μόνο ό,τι διαβάζει η λίστα.
+    const doc = (d.document ?? {}) as {
+      issuer?: { name?: string | null; vat?: string | null } | null;
+      type?: { number?: string | null } | null;
+      date?: string | null;
+      totals?: { total?: number | string | null } | null;
+    };
     const object = d.seriesSource ? OBJECTS_FOR_SOSOURCE[Number(d.seriesSource)] : undefined;
     return {
       id: d.id, fileName: d.fileName, postedAt: d.postedAt, postedRef: d.postedRef,

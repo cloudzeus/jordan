@@ -20,17 +20,25 @@ const TH = 'px-2 py-1.5 text-left text-(length:--fs-10) font-semibold uppercase 
 const TD = 'px-2 py-1.5 text-(length:--fs-12) align-top';
 const ITEM = 'cursor-pointer gap-2 text-(length:--fs-12)';
 
+/** Σύγκριση λιστών εξαρτήσεων όπως τα deps των hooks (`Object.is` ανά θέση). */
+const depsChanged = (a: readonly unknown[], b: readonly unknown[]) =>
+  a.length !== b.length || a.some((x, i) => !Object.is(x, b[i]));
+
 function ContactDialog({ open, onOpenChange, trdr, customer, contact, onSaved }: {
   open: boolean; onOpenChange: (o: boolean) => void; trdr: number; customer: string; contact: Contact | null; onSaved: (c: { id: string; name: string; email: string | null }, wantsAccess: boolean) => void;
 }) {
   const [f, setF] = React.useState({ name: '', role: '', phone: '', mobile: '', email: '', notes: '', isPrimary: false });
   const [access, setAccess] = React.useState(false);
   const [busy, setBusy] = React.useState(false);
-  React.useEffect(() => {
-    if (!open) return;
-    setF({ name: contact?.name ?? '', role: contact?.role ?? '', phone: contact?.phone ?? '', mobile: contact?.mobile ?? '', email: contact?.email ?? '', notes: contact?.notes ?? '', isPrimary: contact?.isPrimary ?? false });
-    setAccess(false);
-  }, [open, contact]);
+  // Reset της φόρμας στο άνοιγμα — «adjust state while rendering» (αρχικό `[]` ⇒ και στο πρώτο render).
+  const [prevDeps, setPrevDeps] = React.useState<readonly unknown[]>([]);
+  if (depsChanged(prevDeps, [open, contact])) {
+    setPrevDeps([open, contact]);
+    if (open) {
+      setF({ name: contact?.name ?? '', role: contact?.role ?? '', phone: contact?.phone ?? '', mobile: contact?.mobile ?? '', email: contact?.email ?? '', notes: contact?.notes ?? '', isPrimary: contact?.isPrimary ?? false });
+      setAccess(false);
+    }
+  }
   const inp = (k: 'name' | 'role' | 'phone' | 'mobile' | 'email' | 'notes') => ({ id: `cc-${k}`, value: f[k], className: fieldCls, onChange: (e: React.ChangeEvent<HTMLInputElement>) => setF((s) => ({ ...s, [k]: e.target.value })) });
   const save = async () => {
     setBusy(true);

@@ -70,22 +70,26 @@ function useProjectActivity(prjc: number) {
   const [error, setError] = React.useState<string | null>(null);
   const [loading, setLoading] = React.useState(!cache.has(prjc));
 
-  const load = React.useCallback(async (force = false) => {
-    if (!force && cache.has(prjc)) return;
+  // Τα setState μόνο μέσα στα callbacks της υπόσχεσης· το «loading» ανάβει στο load (χειριστές) ή στην αλλαγή έργου.
+  const fetchInto = React.useCallback(() =>
+    fetchActivity(prjc)
+      .then((body) => { cache.set(prjc, body); setData(body); })
+      .catch((e) => { setError((e as Error).message); })
+      .finally(() => { setLoading(false); }),
+  [prjc]);
+  const load = React.useCallback((force = false): Promise<void> => {
+    if (!force && cache.has(prjc)) return Promise.resolve();
     setLoading(true);
     setError(null);
-    try {
-      const body = await fetchActivity(prjc);
-      cache.set(prjc, body);
-      setData(body);
-    } catch (e) {
-      setError((e as Error).message);
-    } finally {
-      setLoading(false);
-    }
-  }, [prjc]);
+    return fetchInto();
+  }, [prjc, fetchInto]);
+  const [prevPrjc, setPrevPrjc] = React.useState(prjc);
+  if (prjc !== prevPrjc) {
+    setPrevPrjc(prjc);
+    if (!cache.has(prjc)) { setLoading(true); setError(null); }
+  }
 
-  React.useEffect(() => { void load(); }, [load]);
+  React.useEffect(() => { if (!cache.has(prjc)) void fetchInto(); }, [prjc, fetchInto]);
   useProjectRefresh(prjc, (scope) => { if (scope === 'all') void load(true); });
   return { data, error, loading, reload: () => load(true) };
 }
@@ -93,12 +97,13 @@ function useProjectActivity(prjc: number) {
 /** Ο προϋπολογισμός ζει στη δική μας βάση: ξαναδιαβάζεται μόνος του, χωρίς κλήση στο SoftOne. */
 function useBudget(prjc: number) {
   const [lines, setLines] = React.useState<BudgetLine[] | null>(null);
-  const load = React.useCallback(async () => {
-    try {
-      const res = await fetch(`/api/admin/projects/${prjc}/budget`, { cache: 'no-store' });
-      if (res.ok) setLines(((await res.json()) as { lines: BudgetLine[] }).lines);
-    } catch { /* ο προϋπολογισμός είναι συμπληρωματικός — οι κινήσεις φαίνονται κι έτσι */ }
-  }, [prjc]);
+  const load = React.useCallback(() =>
+    fetch(`/api/admin/projects/${prjc}/budget`, { cache: 'no-store' })
+      .then(async (res) => {
+        if (res.ok) setLines(((await res.json()) as { lines: BudgetLine[] }).lines);
+      })
+      .catch(() => { /* ο προϋπολογισμός είναι συμπληρωματικός — οι κινήσεις φαίνονται κι έτσι */ }),
+  [prjc]);
   React.useEffect(() => { void load(); }, [load]);
   useProjectRefresh(prjc, () => { void load(); });
   return { lines, reload: load };

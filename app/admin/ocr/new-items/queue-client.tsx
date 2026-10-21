@@ -94,7 +94,8 @@ export function NewItemsClient({
   // Μια κατηγορία που μόλις δημιουργήθηκε πρέπει να είναι ΑΜΕΣΩΣ επιλέξιμη, χωρίς reload:
   // ο server την έχει ήδη γράψει και στο SoftOne και στον καθρέφτη.
   const [classOptions, setClassOptions] = React.useState<ClassOption[]>(itemCategories);
-  React.useEffect(() => { setClassOptions(itemCategories); }, [itemCategories]);
+  const [prevItemCategories, setPrevItemCategories] = React.useState(itemCategories);
+  if (itemCategories !== prevItemCategories) { setPrevItemCategories(itemCategories); setClassOptions(itemCategories); }
   const [selectedKey, setSelectedKey] = React.useState<string | null>(initialGroups[0]?.key ?? null);
   const [search, setSearch] = React.useState('');
   const [filter, setFilter] = React.useState<string>('all');
@@ -106,7 +107,6 @@ export function NewItemsClient({
   const [loaded, setLoaded] = React.useState<Set<string>>(
     () => new Set(initialGroups.slice(0, suggestedFor).map((g) => g.key)),
   );
-  const [loadingSuggest, setLoadingSuggest] = React.useState<string | null>(null);
   // Ομάδες που η lazy φόρτωση προτάσεων απέτυχε: ΔΕΝ μετράνε ως «φορτωμένες»
   // (θα φαίνονταν «χωρίς πρόταση») και δεν ξαναζητιούνται χωρίς ρητό retry.
   const [failedSuggest, setFailedSuggest] = React.useState<Set<string>>(() => new Set());
@@ -136,6 +136,7 @@ export function NewItemsClient({
   React.useEffect(() => {
     try {
       const n = Number(sessionStorage.getItem(CATEGORY_STORAGE_KEY));
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- sessionStorage διαβάζεται μόνο στον client, μετά το hydration
       if (Number.isFinite(n) && n > 0) setLineCategoryState(n);
     } catch { /* private mode / αποκλεισμένο storage: το φίλτρο ξεκινά κενό */ }
   }, []);
@@ -182,18 +183,18 @@ export function NewItemsClient({
 
   const selected = visible.find((g) => g.key === selectedKey) ?? null;
 
-  // Αν το φίλτρο/η αναζήτηση έκρυψε την επιλογή, διάλεξε την πρώτη ορατή.
-  React.useEffect(() => {
-    if (visible.length === 0) { if (selectedKey !== null) setSelectedKey(null); return; }
-    if (!visible.some((g) => g.key === selectedKey)) setSelectedKey(visible[0].key);
-  }, [visible, selectedKey]);
+  // Αν το φίλτρο/η αναζήτηση έκρυψε την επιλογή, διάλεξε την πρώτη ορατή (κατά το render —
+  // η συνθήκη παύει να ισχύει αμέσως μετά, άρα δεν υπάρχει βρόχος).
+  if (visible.length === 0) { if (selectedKey !== null) setSelectedKey(null); }
+  else if (!visible.some((g) => g.key === selectedKey)) setSelectedKey(visible[0].key);
 
-  // Lazy προτάσεις για την επιλεγμένη ομάδα.
+  // Lazy προτάσεις για την επιλεγμένη ομάδα. «Φορτώνει» = επιλεγμένη, ούτε φορτωμένη ούτε
+  // αποτυχημένη: ακριβώς τότε τρέχει το fetch παρακάτω (παράγεται, δεν αποθηκεύεται).
+  const loadingSuggestions = !!selected && !loaded.has(selected.key) && !failedSuggest.has(selected.key);
   React.useEffect(() => {
     if (!selected || loaded.has(selected.key) || failedSuggest.has(selected.key)) return;
     const g = selected;
     let ignore = false;
-    setLoadingSuggest(g.key);
     const params = new URLSearchParams({ afm: g.afm, pattern: g.pattern });
     if (g.code) params.set('code', g.code);
     if (g.sample) params.set('sample', g.sample);
@@ -211,8 +212,7 @@ export function NewItemsClient({
       })
       .catch(() => {
         if (!ignore) setFailedSuggest((prev) => new Set(prev).add(g.key));
-      })
-      .finally(() => { if (!ignore) setLoadingSuggest(null); });
+      });
     return () => { ignore = true; };
   }, [selected, loaded, failedSuggest]);
 
@@ -616,7 +616,7 @@ export function NewItemsClient({
           onCategory={setCategory}
           suggestions={shownSuggestions}
           hiddenSuggestions={hiddenSuggestions}
-          loadingSuggestions={loadingSuggest === selected.key}
+          loadingSuggestions={loadingSuggestions}
           suggestionsFailed={failedSuggest.has(selected.key)}
           onRetrySuggestions={retrySuggestions}
           canManage={canManage}

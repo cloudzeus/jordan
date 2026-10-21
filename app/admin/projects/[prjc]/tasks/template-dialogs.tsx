@@ -29,7 +29,12 @@ export function SaveTemplateDialog({ open, onOpenChange, prjc, tasks, onSaved }:
   const [picked, setPicked] = React.useState<string[]>([]);
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
-  React.useEffect(() => { if (open) { setName(''); setDescription(''); setPicked(tasks.map((t) => t.id)); setError(null); } }, [open, tasks]);
+  // Επαναφορά στο άνοιγμα (adjust-state-while-rendering)
+  const [prevDeps, setPrevDeps] = React.useState({ open: false, tasks });
+  if (prevDeps.open !== open || prevDeps.tasks !== tasks) {
+    setPrevDeps({ open, tasks });
+    if (open) { setName(''); setDescription(''); setPicked(tasks.map((t) => t.id)); setError(null); }
+  }
 
   const ordered = [...tasks].sort((a, b) => a.sched.start.localeCompare(b.sched.start));
   const missingDeps = ordered.filter((t) => picked.includes(t.id) && t.dependsOn.some((d) => !picked.includes(d)));
@@ -105,7 +110,12 @@ export function ApplyTemplateDialog({ open, onOpenChange, prjc, templates, today
   const [start, setStart] = React.useState(today);
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
-  React.useEffect(() => { if (open) { setTplId(templates[0]?.id ?? ''); setTarget(prjc ? String(prjc) : ''); setStart(today); setError(null); } }, [open, templates, today, prjc]);
+  // Επαναφορά στο άνοιγμα (adjust-state-while-rendering)
+  const [prevDeps, setPrevDeps] = React.useState({ open: false, templates, today, prjc });
+  if (prevDeps.open !== open || prevDeps.templates !== templates || prevDeps.today !== today || prevDeps.prjc !== prjc) {
+    setPrevDeps({ open, templates, today, prjc });
+    if (open) { setTplId(templates[0]?.id ?? ''); setTarget(prjc ? String(prjc) : ''); setStart(today); setError(null); }
+  }
 
   const tpl = templates.find((t) => t.id === tplId) ?? null;
   const preview = tpl && start ? applyTemplateItems(tpl.items, start) : [];
