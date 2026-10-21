@@ -2,6 +2,7 @@
 // milestones → εργασίες έργου (ProjectTask, στο ημερολόγιο). ΚΑΜΙΑ εγγραφή στο SoftOne εδώ — η
 // δημιουργία PRJC ζει στο lib/contracts/softone.ts και θέλει ρητή επιβεβαίωση.
 import 'server-only';
+import { attachFloorPlanToProject } from '@/lib/floorplan/plans';
 import { prisma } from '@/lib/db';
 import { createTask, deleteTask, updateTask, TaskError } from '@/lib/project-tasks';
 import { saveProjectSite } from '@/lib/project-site';
@@ -351,6 +352,8 @@ export async function linkProject(id: string, prjc: number, userId: string) {
   if (!p) throw new ContractError('Το έργο δεν βρέθηκε στον καθρέφτη του SoftOne', 404);
   if (c.status === 'ACTIVE' && c.prjc && c.prjc !== prjc) throw new ContractError('Η σύμβαση είναι σε εξέλιξη σε άλλο έργο', 409);
   await prisma.contract.update({ where: { id }, data: { prjc } });
+  // Προσφορά πελάτη από χαρτογράφηση: η κάτοψη αποκτά πλέον και έργο (εμφανίζεται και εκεί).
+  await attachFloorPlanToProject(c.floorPlanId, prjc).catch((e) => console.error('[contracts] floor plan → project', e));
   if (c.siteLat != null && c.siteLng != null) {
     await saveProjectSite(prjc, {
       address: c.siteAddress, zip: c.siteZip, district: c.siteDistrict, city: c.siteCity, formatted: c.siteFormatted,

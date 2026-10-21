@@ -20,7 +20,7 @@ export class FloorPlanAiError extends Error {
   constructor(message: string, readonly status = 400) { super(message); }
 }
 
-export async function detectRooms(image: File, user: { id: string }, prjc: number): Promise<AiResponse & { model: string }> {
+export async function detectRooms(image: File, user: { id: string }, ref: { type: 'Project' | 'Trader'; id: number }): Promise<AiResponse & { model: string }> {
   if (!/^image\/(jpeg|png|webp)$/.test(image.type)) throw new FloorPlanAiError('Η εικόνα πρέπει να είναι JPG, PNG ή WebP');
   if (image.size > MAX_BYTES) throw new FloorPlanAiError('Η εικόνα είναι πολύ μεγάλη');
   const dataUrl = `data:${image.type};base64,${Buffer.from(await image.arrayBuffer()).toString('base64')}`;
@@ -47,7 +47,7 @@ export async function detectRooms(image: File, user: { id: string }, prjc: numbe
       scope: 'OTHER', provider: providerFromUrl(e.url), model, operation: 'floorplan.detect',
       inputTokens: u.prompt_tokens ?? 0, outputTokens: u.completion_tokens ?? 0, totalTokens: u.total_tokens ?? 0,
       costUsd: typeof u.cost === 'number' ? u.cost : null, durationMs: Date.now() - started,
-      userId: user.id, refType: 'Project', refId: String(prjc),
+      userId: user.id, refType: ref.type, refId: String(ref.id),
     });
     const parsed = parseAiResponse(body?.choices?.[0]?.message?.content ?? '');
     if (!parsed.rooms.length) throw new FloorPlanAiError('Το μοντέλο δεν βρήκε χώρους στην εικόνα', 422);

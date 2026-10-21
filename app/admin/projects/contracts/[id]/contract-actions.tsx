@@ -42,7 +42,12 @@ export function ContractActions({ contract: c }: { contract: ContractView }) {
     setBusy(false);
     const b = await r.json().catch(() => ({}));
     if (!r.ok) { toast.error(b.message ?? 'Η ενέργεια απέτυχε'); return; }
-    toast.success(a.action === 'activate' ? 'Ενεργοποιήθηκε — οι εργασίες μπήκαν στο έργο και στο ημερολόγιο' : 'Ενημερώθηκε');
+    // Αποδοχή προσφοράς πελάτη χωρίς έργο: αμέσως η δημιουργία του έργου στον πελάτη (με επιβεβαίωση
+    // πριν γραφτεί οτιδήποτε στο SoftOne).
+    if (a.action === 'accept' && !c.prjc && c.trdr) {
+      toast.success('Η προσφορά έγινε αποδεκτή — δημιούργησε τώρα το έργο στον πελάτη');
+      setCreate(true);
+    } else toast.success(a.action === 'activate' ? 'Ενεργοποιήθηκε — οι εργασίες μπήκαν στο έργο και στο ημερολόγιο' : 'Ενημερώθηκε');
     router.refresh();
   };
   const remove = async () => {
@@ -195,5 +200,27 @@ function CreatePrjcDialog({ open, onOpenChange, contract: c }: { open: boolean; 
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+}
+
+/**
+ * Αποδεκτή προσφορά πελάτη χωρίς έργο (π.χ. αποδοχή από το portal, ή «Αργότερα» στο παράθυρο): μπάρα
+ * με «Δημιουργία έργου στον πελάτη» — ίδιο παράθυρο με επιβεβαίωση πριν γραφτεί κάτι στο SoftOne.
+ */
+export function CreateProjectBanner({ contract: c }: { contract: ContractView }) {
+  const [open, setOpen] = React.useState(false);
+  if (c.prjc || !c.trdr || c.stage !== 'CONTRACT' || c.status === 'CANCELLED') return null;
+  return (
+    <>
+      <div className="flex flex-wrap items-center gap-3 rounded-xl border px-4 py-3" style={{ borderColor: '#6EE7B7', background: '#ECFDF5' }}>
+        <FiCheckCircle className="size-5 shrink-0" style={{ color: '#047857' }} aria-hidden />
+        <div className="min-w-0 flex-1">
+          <p className="text-(length:--fs-13) font-semibold" style={{ color: '#065F46' }}>Η προσφορά έγινε αποδεκτή — δεν υπάρχει ακόμη έργο</p>
+          <p className="text-(length:--fs-12)" style={{ color: '#047857' }}>Δημιούργησε το έργο στον πελάτη στο SoftOne (ή σύνδεσέ το με υπάρχον από το μενού ⋮)· εκεί μπαίνουν τα αρχεία, η κάτοψη και οι εργασίες.</p>
+        </div>
+        <Button size="sm" onClick={() => setOpen(true)} style={{ background: '#047857', color: '#fff' }}><FiDatabase className="size-3.5" aria-hidden /> Δημιουργία έργου…</Button>
+      </div>
+      <CreatePrjcDialog open={open} onOpenChange={setOpen} contract={c} />
+    </>
   );
 }

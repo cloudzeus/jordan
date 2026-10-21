@@ -229,9 +229,15 @@ function MicButton({ onText }: { onText: (t: string) => void }) {
 }
 
 // ── Editor ───────────────────────────────────────────────────────────────────────────────────────
-export function ContractEditor({ initial, staff, readOnly = false }: { initial: ContractView | null; staff: Staff[]; readOnly?: boolean }) {
+export function ContractEditor({ initial, staff, readOnly = false, customer = null }: {
+  initial: ContractView | null; staff: Staff[]; readOnly?: boolean;
+  /** Νέα προσφορά από το μενού του πελάτη: ο πελάτης ήδη επιλεγμένος. */
+  customer?: { trdr: number; name: string; email: string | null; phone: string | null } | null;
+}) {
   const router = useRouter();
-  const [s, setS] = React.useState<State>(() => (initial ? fromView(initial) : blank()));
+  const [s, setS] = React.useState<State>(() => (initial ? fromView(initial)
+    : customer ? { ...blank(), trdr: customer.trdr, customerName: customer.name, customerEmail: customer.email, customerPhone: customer.phone }
+    : blank()));
   const [dirty, setDirty] = React.useState(false);
   const [saving, setSaving] = React.useState(false);
   const [siteOpen, setSiteOpen] = React.useState(false);

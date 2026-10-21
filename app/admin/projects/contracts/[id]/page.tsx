@@ -7,7 +7,7 @@ import { KIND_LABEL, type ContractKind, type ContractStatus } from '@/lib/contra
 import { PageHeader } from '@/components/admin/page-header';
 import { ContractEditor } from '../contract-editor';
 import { StatusBadge } from '../status-badge';
-import { ContractActions } from './contract-actions';
+import { ContractActions, CreateProjectBanner } from './contract-actions';
 import { DocumentsPanel } from './documents-panel';
 import { MilestonesProgress } from './milestones-progress';
 import { FloorPlanPanel } from './floor-plan-panel';
@@ -37,6 +37,7 @@ export default async function ContractPage({ params }: { params: Promise<{ id: s
           : <span className="rounded bg-orange-50 px-1.5 py-0.5 text-orange-900 ring-1 ring-orange-200">Χωρίς έργο SoftOne — συνδέστε ή δημιουργήστε το από το μενού ⋮</span>}
       </div>
       <div className="space-y-4">
+        {canManage && <CreateProjectBanner contract={c} />}
         <DocumentsPanel contract={c} canManage={canManage} />
         {c.floorPlanId && <FloorPlanPanel floorPlanId={c.floorPlanId} />}
         {c.status === 'ACTIVE' || c.status === 'COMPLETED' ? <MilestonesProgress contract={c} canManage={canManage && c.status === 'ACTIVE'} /> : null}

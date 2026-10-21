@@ -5,8 +5,9 @@ import { deleteEntityFile, getEntityFile, uploadEntityFile } from '@/lib/entity-
 import { EntityFileError } from '@/lib/entity-files/core';
 import { planData, roomSheet, type PlanData, type RoomSheetRow } from './saved';
 
-// Αποθηκευμένες χαρτογραφήσεις κάτοψης (`FloorPlan`). Οι εικόνες ανεβαίνουν στα αρχεία του έργου,
-// υποφάκελος «Κατόψεις»· σε ενημέρωση τα παλιά αρχεία της ίδιας χαρτογράφησης σβήνονται.
+// Αποθηκευμένες χαρτογραφήσεις κάτοψης (`FloorPlan`). Ανήκουν σε έργο ή — όταν η προσφορά γίνεται από
+// το μενού του πελάτη, πριν υπάρξει έργο — σε πελάτη. Οι εικόνες ανεβαίνουν στα αρχεία του έργου ή του
+// πελάτη, υποφάκελος «Κατόψεις»· σε ενημέρωση τα παλιά αρχεία της ίδιας χαρτογράφησης σβήνονται.
 
 export class FloorPlanError extends Error {
   constructor(message: string, readonly status = 400) { super(message); }
@@ -16,14 +17,19 @@ const SUBFOLDER = 'Κατόψεις';
 const MAX_PNG = 15 * 1024 * 1024;
 type User = { id: string; name: string | null; email: string };
 
+/** Σε ποιον ανήκει η χαρτογράφηση: έργο SoftOne ή πελάτης (προσφορά πριν από το έργο). */
+export type PlanOwner = { kind: 'project'; prjc: number } | { kind: 'customer'; trdr: number };
+const ownerWhere = (o: PlanOwner) => (o.kind === 'project' ? { prjc: o.prjc } : { trdr: o.trdr });
+const ownerFiles = (o: PlanOwner) => (o.kind === 'project' ? { type: 'PROJECT' as const, id: o.prjc } : { type: 'TRADER' as const, id: o.trdr });
+
 export type FloorPlanListRow = {
   id: string; title: string; source: string | null; floorM2: number; wallsM2: number; roomCount: number;
   annotatedFileId: string | null; updatedAt: string; contracts: { id: string; number: number; title: string }[];
 };
 
-export async function listFloorPlans(prjc: number): Promise<FloorPlanListRow[]> {
+export async function listFloorPlans(owner: PlanOwner): Promise<FloorPlanListRow[]> {
   const rows = await prisma.floorPlan.findMany({
-    where: { prjc }, orderBy: { updatedAt: 'desc' }, take: 50,
+    where: ownerWhere(owner), orderBy: { updatedAt: 'desc' }, take: 50,
     select: { id: true, title: true, source: true, floorM2: true, wallsM2: true, roomCount: true, annotatedFileId: true, updatedAt: true, contracts: { select: { id: true, number: true, title: true } } },
   });
   return rows.map((r) => ({ ...r, updatedAt: r.updatedAt.toISOString() }));
@@ -34,7 +40,7 @@ export async function getFloorPlan(id: string) {
   if (!r) return null;
   const d = planData.safeParse(r.data);
   if (!d.success) throw new FloorPlanError('Η αποθηκευμένη χαρτογράφηση δεν διαβάζεται', 500);
-  return { id: r.id, prjc: r.prjc, title: r.title, source: r.source, imageFileId: r.imageFileId, annotatedFileId: r.annotatedFileId, sourceFileId: r.sourceFileId, updatedAt: r.updatedAt.toISOString(), data: d.data };
+  return { id: r.id, prjc: r.prjc, trdr: r.trdr, title: r.title, source: r.source, imageFileId: r.imageFileId, annotatedFileId: r.annotatedFileId, sourceFileId: r.sourceFileId, updatedAt: r.updatedAt.toISOString(), data: d.data };
 }
 
 function pngBuffer(f: File | null, what: string): Promise<Buffer> | null {
@@ -49,7 +55,7 @@ function pngBuffer(f: File | null, what: string): Promise<Buffer> | null {
  * `annotated` = με χώρους και υπόμνημα. Επιστρέφει το id.
  */
 export async function saveFloorPlan(o: {
-  prjc: number; id?: string | null; title: string; source: string | null; data: unknown;
+  owner: PlanOwner; id?: string | null; title: string; source: string | null; data: unknown;
   image: File | null; annotated: File | null;
   /** Το πρωτότυπο αρχείο του χρήστη (φωτογραφία σχεδίου ή PDF) — στέλνεται όταν φορτώθηκε νέο σχέδιο. */
   original?: File | null;
@@ -60,7 +66,10 @@ export async function saveFloorPlan(o: {
   const d: PlanData = parsed.data;
   const cur = o.id ? await prisma.floorPlan.findUnique({ where: { id: o.id } }) : null;
   if (o.id && !cur) throw new FloorPlanError('Η χαρτογράφηση δεν βρέθηκε', 404);
-  if (cur && cur.prjc !== o.prjc) throw new FloorPlanError('Η χαρτογράφηση ανήκει σε άλλο έργο', 409);
+  if (cur && (o.owner.kind === 'project' ? cur.prjc !== o.owner.prjc : cur.trdr !== o.owner.trdr)) {
+    throw new FloorPlanError(o.owner.kind === 'project' ? 'Η χαρτογράφηση ανήκει σε άλλο έργο' : 'Η χαρτογράφηση ανήκει σε άλλον πελάτη', 409);
+  }
+  const files = ownerFiles(o.owner);
   if (!cur && !o.image) throw new FloorPlanError('Λείπει η εικόνα της κάτοψης');
 
   const stamp = new Date().toISOString().slice(0, 10);
@@ -68,14 +77,14 @@ export async function saveFloorPlan(o: {
   const upload = async (f: File | null, suffix: string, notes: string) => {
     const buf = await pngBuffer(f, suffix === 'sxedio' ? 'εικόνα κάτοψης' : 'εικόνα με τους χώρους');
     if (!buf) return null;
-    const file = await uploadEntityFile({ type: 'PROJECT', id: o.prjc, buffer: buf, name: `${safe}-${suffix}-${stamp}.png`, subfolder: SUBFOLDER, notes, user: o.user });
+    const file = await uploadEntityFile({ ...files, buffer: buf, name: `${safe}-${suffix}-${stamp}.png`, subfolder: SUBFOLDER, notes, user: o.user });
     return file.id;
   };
   // Το πρωτότυπο ανεβαίνει με το δικό του όνομα· τύπος/υπογραφή ελέγχονται από τα αρχεία έργων.
   const uploadOriginal = async (f: File | null | undefined) => {
     if (!f) return null;
     try {
-      const file = await uploadEntityFile({ type: 'PROJECT', id: o.prjc, buffer: Buffer.from(await f.arrayBuffer()), name: f.name, subfolder: SUBFOLDER, notes: `Χαρτογράφηση «${o.title}» — πρωτότυπο σχέδιο`, user: o.user });
+      const file = await uploadEntityFile({ ...files, buffer: Buffer.from(await f.arrayBuffer()), name: f.name, subfolder: SUBFOLDER, notes: `Χαρτογράφηση «${o.title}» — πρωτότυπο σχέδιο`, user: o.user });
       return file.id;
     } catch (e) {
       if (e instanceof EntityFileError) throw new FloorPlanError(`Το πρωτότυπο σχέδιο δεν αποθηκεύτηκε: ${e.message}`, 415);
@@ -101,7 +110,11 @@ export async function saveFloorPlan(o: {
     }
     return { id: cur.id, created: false };
   }
-  const row = await prisma.floorPlan.create({ data: { prjc: o.prjc, createdById: o.user.id, ...fields } });
+  // Χαρτογράφηση έργου: κρατάμε και τον πελάτη του έργου (εμφανίζεται και στο μενού του πελάτη).
+  const owner = o.owner.kind === 'project'
+    ? { prjc: o.owner.prjc, trdr: (await prisma.softoneProject.findUnique({ where: { prjc: o.owner.prjc }, select: { trdr: true } }))?.trdr ?? null }
+    : { prjc: null, trdr: o.owner.trdr };
+  const row = await prisma.floorPlan.create({ data: { ...owner, createdById: o.user.id, ...fields } });
   return { id: row.id, created: true };
 }
 
@@ -117,4 +130,10 @@ export async function floorPlanForDocument(floorPlanId: string | null): Promise<
   }
   const sheet = roomSheet(p.data);
   return { title: p.title, png, ...sheet };
+}
+
+/** Το έργο που δημιουργήθηκε/συνδέθηκε για μια προσφορά πελάτη: η χαρτογράφησή της αποκτά και έργο. */
+export async function attachFloorPlanToProject(floorPlanId: string | null, prjc: number) {
+  if (!floorPlanId) return;
+  await prisma.floorPlan.updateMany({ where: { id: floorPlanId, prjc: null }, data: { prjc } });
 }

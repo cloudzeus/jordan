@@ -3,7 +3,8 @@
 import * as React from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { type ColumnDef } from '@tanstack/react-table';
-import { FiRefreshCw, FiGlobe, FiUsers, FiFileText, FiMoreVertical, FiEdit3, FiShield, FiEye, FiFolder } from 'react-icons/fi';
+import { FiRefreshCw, FiGlobe, FiUsers, FiFileText, FiMoreVertical, FiEdit3, FiShield, FiEye, FiFolder, FiFilePlus } from 'react-icons/fi';
+import { CustomerOfferWizard } from '@/components/admin/floorplan/customer-offer-wizard';
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
@@ -61,10 +62,13 @@ export function TradersView({
   rows,
   canManage,
   canFiles = false,
+  canOffer = false,
   lastSync,
 }: {
   rows: TraderRecord[];
   canManage: boolean;
+  /** projects.manage: «Νέα προσφορά…» στους πελάτες (wizard με ή χωρίς χαρτογράφηση κάτοψης). */
+  canOffer?: boolean;
   /** files.read: καρτέλα «Αρχεία» + ενέργεια «Αρχεία & φάκελοι» */
   canFiles?: boolean;
   lastSync: string | null;
@@ -75,6 +79,9 @@ export function TradersView({
   const [busy, setBusy] = React.useState(false);
   /** Ανοιχτό παράθυρο τροποποίησης/εξακρίβωσης. */
   const [dialog, setDialog] = React.useState<{ trdr: number; mode: TraderDialogMode } | null>(null);
+  /** Wizard «Νέα προσφορά» — μένει στη θέση του μετά το κλείσιμο, ώστε το εργαλείο κάτοψης να κρατά την κατάσταση. */
+  const [offerFor, setOfferFor] = React.useState<{ trdr: number; code: string; name: string } | null>(null);
+  const [offerOpen, setOfferOpen] = React.useState(false);
 
   const counts = React.useMemo(() => {
     const m = new Map<number, number>();
@@ -144,6 +151,14 @@ export function TradersView({
                   <FiGlobe aria-hidden className="mr-2 size-3.5" /> Εξακρίβωση VIES
                   {!foreign && <span className="ml-auto text-(length:--fs-10) text-muted-foreground">όχι ξένος ΑΦΜ</span>}
                 </DropdownMenuItem>
+                {canOffer && c.sodtype === 13 && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onSelect={() => { setOfferFor({ trdr: c.trdr, code: c.code, name: c.name }); setOfferOpen(true); }} className="text-(length:--fs-13)">
+                      <FiFilePlus aria-hidden className="mr-2 size-3.5" style={{ color: '#0E7490' }} /> Νέα προσφορά…
+                    </DropdownMenuItem>
+                  </>
+                )}
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onSelect={() => row.toggleExpanded(true)} className="text-(length:--fs-13)">
                   <FiFileText aria-hidden className="mr-2 size-3.5" /> Καρτέλα & κινήσεις{(c.docCount ?? 0) > 0 ? ` · ${c.docCount} σκαναρίσματα` : ''}
@@ -269,7 +284,7 @@ export function TradersView({
     );
     return cols;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeType, canManage]);
+  }, [activeType, canManage, canOffer]);
 
   const toolbar = canManage ? (
     <Button variant="secondary" size="sm" onClick={sync} disabled={busy}>
@@ -326,6 +341,7 @@ export function TradersView({
           open onOpenChange={(o) => { if (!o) setDialog(null); }}
         />
       )}
+      {offerFor && <CustomerOfferWizard key={offerFor.trdr} customer={offerFor} open={offerOpen} onOpenChange={setOfferOpen} />}
     </div>
   );
 }

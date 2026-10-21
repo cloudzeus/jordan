@@ -123,13 +123,20 @@ function Range({ label, value, min, max, step = 1, display, onChange, disabled }
   );
 }
 
-export function FloorPlanDialog({ prjc, projectLabel, open, onOpenChange, canSave = false, canOffer = false }: {
-  prjc: number; projectLabel: string; open: boolean; onOpenChange: (o: boolean) => void;
+/** Σε ποιον ανήκει η χαρτογράφηση: έργο ή πελάτης (προσφορά από το μενού του πελάτη, πριν από το έργο). */
+export type FloorPlanOwner = { prjc: number } | { trdr: number };
+
+export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSave = false, canOffer = false }: {
+  owner: FloorPlanOwner; projectLabel: string; open: boolean; onOpenChange: (o: boolean) => void;
   /** files.manage: «Αποθήκευση στο έργο» ανεβάζει PNG + CSV στον φάκελο «Κατόψεις». */
   canSave?: boolean;
   /** projects.manage: υλικό/συνταγή ανά χώρο και «Δημιουργία προσφοράς». */
   canOffer?: boolean;
 }) {
+  const ownerId = 'prjc' in owner ? owner.prjc : owner.trdr;
+  // API της χαρτογράφησης ανά ιδιοκτήτη· αρχεία στον φάκελο του έργου ή του πελάτη.
+  const apiBase = 'prjc' in owner ? `/api/admin/projects/${owner.prjc}` : `/api/admin/traders/${owner.trdr}`;
+  const filesUrl = 'prjc' in owner ? `/api/admin/entity-files/projects/${owner.prjc}` : `/api/admin/entity-files/traders/${owner.trdr}`;
   const [file, setFile] = React.useState<File | null>(null);
   const [plan, setPlan] = React.useState<LoadedPlan | null>(null);
   const [loading, setLoading] = React.useState(false);
@@ -213,12 +220,12 @@ export function FloorPlanDialog({ prjc, projectLabel, open, onOpenChange, canSav
   React.useEffect(() => {
     if (!open || plan || savedPlans) return;
     let ignore = false;
-    fetch(`/api/admin/projects/${prjc}/floorplans`, { cache: 'no-store' })
+    fetch(`${apiBase}/floorplans`, { cache: 'no-store' })
       .then((r) => (r.ok ? r.json() : { plans: [] }))
       .then((d) => { if (!ignore) setSavedPlans(d.plans ?? []); })
       .catch(() => { if (!ignore) setSavedPlans([]); });
     return () => { ignore = true; };
-  }, [open, plan, savedPlans, prjc]);
+  }, [open, plan, savedPlans, apiBase]);
 
   /** Ξανάνοιγμα αποθηκευμένης χαρτογράφησης: σχέδιο + όλη η κατάσταση, κλιμακωμένη στη νέα ανάλυση. */
   const restore = async (id: string) => {
@@ -370,7 +377,7 @@ export function FloorPlanDialog({ prjc, projectLabel, open, onOpenChange, canSav
       const blob = await new Promise<Blob>((res, rej) => c.toBlob((b) => (b ? res(b) : rej(new Error('JPEG export failed'))), 'image/jpeg', 0.88));
       const fd = new FormData();
       fd.append('image', new File([blob], 'katopsi.jpg', { type: 'image/jpeg' }));
-      const res = await fetch(`/api/admin/projects/${prjc}/floorplan-ai`, { method: 'POST', body: fd });
+      const res = await fetch(`${apiBase}/floorplan-ai`, { method: 'POST', body: fd });
       const body = await res.json().catch(() => null);
       if (!res.ok) throw new Error(body?.message ?? 'Η αναγνώριση απέτυχε.');
       const r = aiResponse.parse(body);
@@ -584,7 +591,7 @@ export function FloorPlanDialog({ prjc, projectLabel, open, onOpenChange, canSav
     };
   });
   const wallLenM = mPerPx && drawnWalls.length ? drawnWalls.reduce((sum, d) => sum + Math.hypot(d.b.x - d.a.x, d.b.y - d.a.y), 0) * mPerPx : null;
-  const baseName = `katopsi-${prjc}-${new Date().toISOString().slice(0, 10)}`;
+  const baseName = `katopsi-${ownerId}-${new Date().toISOString().slice(0, 10)}`;
   const scaleNote = calib ? `Κλίμακα: ${nf.format(calib.meters)} m = ${Math.round(calib.meters / (mPerPx ?? 1))} px · αρχείο ${plan?.name ?? ''}${plan && plan.pages > 1 ? ` (σελ. ${plan.page})` : ''}` : 'Χωρίς κλίμακα';
   const png = () => annotatedPng({ image: plan!.display, w, h, rooms: exportRooms, dividers, walls: drawnWalls, title: projectLabel, scaleNote });
 
@@ -598,7 +605,7 @@ export function FloorPlanDialog({ prjc, projectLabel, open, onOpenChange, canSav
         fd.append('file', new File([b], name, { type: b.type }));
         fd.append('subfolder', 'Κατόψεις');
         fd.append('notes', `Διαστασιολόγηση κάτοψης · σύνολο ${fmtM2(total)}`);
-        const r = await fetch(`/api/admin/entity-files/projects/${prjc}`, { method: 'POST', body: fd });
+        const r = await fetch(filesUrl, { method: 'POST', body: fd });
         if (!r.ok) throw new Error((await r.json().catch(() => null))?.message ?? 'Η αποθήκευση απέτυχε.');
       }
       toast.success('Αποθηκεύτηκαν PNG και CSV στα αρχεία του έργου (φάκελος «Κατόψεις»).');
@@ -636,7 +643,7 @@ export function FloorPlanDialog({ prjc, projectLabel, open, onOpenChange, canSav
         if (file) fd.append('original', file);
       }
       fd.append('annotated', new File([await png()], 'annotated.png', { type: 'image/png' }));
-      const res = await fetch(`/api/admin/projects/${prjc}/floorplans`, { method: 'POST', body: fd });
+      const res = await fetch(`${apiBase}/floorplans`, { method: 'POST', body: fd });
       const d = await res.json().catch(() => null);
       if (!res.ok) throw new Error(d?.message ?? 'Η χαρτογράφηση δεν αποθηκεύτηκε.');
       setSavedId(d.id); setPlanTitle(title); imageSavedFor.current = plan; setSavedPlans(null);
@@ -667,7 +674,7 @@ export function FloorPlanDialog({ prjc, projectLabel, open, onOpenChange, canSav
       // Η χαρτογράφηση αποθηκεύεται πάντα και συνδέεται με την προσφορά (κάτοψη στο PDF πελάτη/συνεργείων).
       const floorPlanId = await savePlan(true);
       if (!floorPlanId) return;
-      const res = await fetch(`/api/admin/projects/${prjc}/floorplan-offer`, {
+      const res = await fetch(`${apiBase}/floorplan-offer`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           rooms: offerRooms.map((r) => ({
@@ -1026,7 +1033,7 @@ export function FloorPlanDialog({ prjc, projectLabel, open, onOpenChange, canSav
               )}
               {canOffer && (
                 <FloorPlanOfferDialog
-                  open={offerOpen} onOpenChange={setOfferOpen} prjc={prjc} rooms={offerRooms} recipes={recipes}
+                  open={offerOpen} onOpenChange={setOfferOpen} apiBase={apiBase} rooms={offerRooms} recipes={recipes}
                   busy={offering || planSaving} onSubmit={(o) => void createOffer(o)}
                 />
               )}

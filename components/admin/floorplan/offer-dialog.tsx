@@ -79,10 +79,11 @@ function CustomerField({ value, onChange }: { value: Customer | null; onChange: 
   );
 }
 
-export function FloorPlanOfferDialog({ open, onOpenChange, prjc, rooms, recipes, busy, onSubmit }: {
+export function FloorPlanOfferDialog({ open, onOpenChange, apiBase, rooms, recipes, busy, onSubmit }: {
   open: boolean;
   onOpenChange: (o: boolean) => void;
-  prjc: number;
+  /** `/api/admin/projects/[prjc]` ή `/api/admin/traders/[trdr]`. */
+  apiBase: string;
   rooms: OfferRoom[];
   recipes: RecipeView[] | null;
   busy: boolean;
@@ -106,7 +107,7 @@ export function FloorPlanOfferDialog({ open, onOpenChange, prjc, rooms, recipes,
     if (!open) return;
     let ignore = false;
     setLoadError(null);
-    fetch(`/api/admin/projects/${prjc}/floorplan-offer`, { cache: 'no-store' })
+    fetch(`${apiBase}/floorplan-offer`, { cache: 'no-store' })
       .then(async (r) => { const d = await r.json().catch(() => null); if (!r.ok) throw new Error(d?.message ?? 'Τα στοιχεία του έργου δεν φορτώθηκαν.'); return d; })
       .then((d) => {
         if (ignore) return;
@@ -116,7 +117,7 @@ export function FloorPlanOfferDialog({ open, onOpenChange, prjc, rooms, recipes,
       })
       .catch((e: Error) => { if (!ignore) setLoadError(e.message); });
     return () => { ignore = true; };
-  }, [open, prjc]);
+  }, [open, apiBase]);
 
   // Τιμές λιανικής των σκέτων ειδών για την προεπισκόπηση.
   const mtrls = React.useMemo(() => [...new Set(rooms.flatMap((r) => (r.material?.type === 'item' ? [r.material.mtrl] : [])))], [rooms]);
@@ -187,7 +188,7 @@ export function FloorPlanOfferDialog({ open, onOpenChange, prjc, rooms, recipes,
           <DialogHeader className="border-b border-border px-5 pb-3 pt-4">
             <DialogTitle className="text-[length:var(--fs-16)]">Δημιουργία προσφοράς από την κάτοψη</DialogTitle>
             <DialogDescription className="text-[length:var(--fs-12)]">
-              Ελέγξτε τα στοιχεία και την προεπισκόπηση. Η προσφορά καταχωρίζεται ως πρόχειρη στο έργο και διορθώνεται μετά στις «Συμβάσεις & Προσφορές».
+              Ελέγξτε τα στοιχεία και την προεπισκόπηση. Η προσφορά καταχωρίζεται ως πρόχειρη {apiBase.includes('/traders/') ? 'στον πελάτη — το έργο δημιουργείται όταν γίνει αποδεκτή' : 'στο έργο'} και διορθώνεται μετά στις «Συμβάσεις & Προσφορές».
             </DialogDescription>
           </DialogHeader>
 

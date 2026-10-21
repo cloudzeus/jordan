@@ -36,7 +36,7 @@ export default async function TradersPage({ searchParams }: { searchParams: Prom
       />
       <TradersTabs
         initialTab={tab === 'map' || tab === 'products' ? tab : 'list'}
-        list={<TradersView rows={rows} canManage={canManage} canFiles={await hasPermission('files.read')} lastSync={lastSync ?? null} />}
+        list={<TradersView rows={rows} canManage={canManage} canFiles={await hasPermission('files.read')} canOffer={await hasPermission('projects.manage')} lastSync={lastSync ?? null} />}
         products={
           <Suspense fallback={<p className="py-10 text-center text-(length:--fs-12) text-muted-foreground">Φόρτωση προϊόντων…</p>}>
             <SupplierProductsPanel canManage={canManage} />

@@ -3736,7 +3736,10 @@ model Contract {
 // πρωτότυπο (φωτογραφία σχεδίου/PDF).
 model FloorPlan {
   id              String     @id @default(cuid())
-  prjc            Int
+  /// Έργο SoftOne· κενό όταν η χαρτογράφηση έγινε για προσφορά πελάτη πριν υπάρξει έργο.
+  prjc            Int?
+  /// Πελάτης SoftOne (χαρτογράφηση από το μενού του πελάτη)· μένει και όταν συνδεθεί έργο.
+  trdr            Int?
   title           String
   source          String?
   data            Json
@@ -3753,6 +3756,7 @@ model FloorPlan {
   contracts       Contract[]
 
   @@index([prjc, updatedAt])
+  @@index([trdr, updatedAt])
 }
 
 // Υλικά & υπηρεσίες. Όνομα/μονάδα ως στιγμιότυπο. `partyId` = το συνεργείο που εκτελεί τη γραμμή,
