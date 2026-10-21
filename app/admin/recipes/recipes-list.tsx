@@ -13,6 +13,7 @@ import { RECIPE_KINDS, RECIPE_KIND_META, type RecipeKind } from '@/lib/install-r
 import type { RecipeView } from '@/lib/install-recipes';
 import { CopyRecipeDialog } from './copy-recipe-dialog';
 import { KindBadge, eur, num } from './recipe-ui';
+import { deleteRecipeAction } from './actions';
 
 const ITEM = 'cursor-pointer gap-2 text-(length:--fs-12)';
 
@@ -28,8 +29,8 @@ export function RecipesList({ recipes, canManage }: { recipes: RecipeView[]; can
 
   const remove = async (r: RecipeView) => {
     if (!(await confirmAction({ message: `Διαγραφή της συνταγής «${r.name}»;\nΔεν αναιρείται. Τα αντίγραφά της δεν επηρεάζονται.`, destructive: true }))) return;
-    const res = await fetch(`/api/admin/recipes/${r.id}`, { method: 'DELETE' });
-    if (res.ok) { toast.success('Η συνταγή διαγράφηκε'); router.refresh(); } else toast.error((await res.json().catch(() => ({}))).message ?? 'Η διαγραφή απέτυχε');
+    const res = await deleteRecipeAction(r.id);
+    if (res.ok) toast.success('Η συνταγή διαγράφηκε'); else toast.error(res.message);
   };
 
   const tabs: { key: RecipeKind | 'ALL'; label: string; count: number }[] = [

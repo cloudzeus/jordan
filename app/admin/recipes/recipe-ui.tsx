@@ -4,6 +4,7 @@ import * as React from 'react';
 import { FiPackage, FiX } from 'react-icons/fi';
 import { RECIPE_KIND_META, type RecipeKind } from '@/lib/install-recipes-core';
 import type { RecipeItemInfo } from '@/lib/install-recipes';
+import { recipeItemInfoAction } from './actions';
 
 export const eur = new Intl.NumberFormat('el-GR', { style: 'currency', currency: 'EUR', minimumFractionDigits: 2, maximumFractionDigits: 2 });
 export const num = (n: number, d = 3) => n.toLocaleString('el-GR', { maximumFractionDigits: d });
@@ -52,9 +53,7 @@ export function PickedItem({ code, name, unit, tone, onClear, disabled }: {
 export async function fetchItemInfo(mtrls: number[]): Promise<Record<number, RecipeItemInfo>> {
   if (!mtrls.length) return {};
   try {
-    const res = await fetch(`/api/admin/recipes/item-info?mtrl=${mtrls.join(',')}`, { cache: 'no-store' });
-    if (!res.ok) return {};
-    return (await res.json()).items ?? {};
+    return await recipeItemInfoAction(mtrls);
   } catch {
     return {};
   }

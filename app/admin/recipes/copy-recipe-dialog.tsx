@@ -12,6 +12,7 @@ import { RegistrySearch, type RegistryPick } from '@/components/admin/registry-s
 import { RECIPE_KIND_META, parseDecimal, toInput } from '@/lib/install-recipes-core';
 import type { RecipeView } from '@/lib/install-recipes';
 import { PickedItem, eur, fetchItemInfo } from './recipe-ui';
+import { copyRecipeAction } from './actions';
 
 type Item = { mtrl: number; code: string; name: string; unit: string | null };
 
@@ -60,16 +61,11 @@ export function CopyRecipeDialog({ recipe, onClose }: { recipe: RecipeView | nul
     if (!name.trim() || priceErr) return;
     setBusy(true); setError(null);
     try {
-      const res = await fetch(`/api/admin/recipes/${recipe.id}/copy`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: name.trim(), mtrl: main?.mtrl ?? null, materialPrice: priceN }),
-      });
-      const body = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(body.message || 'Η αντιγραφή απέτυχε');
+      const res = await copyRecipeAction(recipe.id, { name: name.trim(), mtrl: main?.mtrl ?? null, materialPrice: priceN });
+      if (!res.ok) throw new Error(res.message);
       toast.success('Δημιουργήθηκε αντίγραφο — ελέγξτε ποσότητες και τιμές');
       onClose();
-      router.push(`/admin/recipes/${body.recipe.id}`);
+      router.push(`/admin/recipes/${res.data.id}`);
     } catch (err) {
       setError((err as Error).message);
     } finally {

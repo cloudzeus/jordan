@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogBody, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { RECIPE_KIND_META, parseDecimal, recipeToOfferLines, type OfferLine, type OfferLineMode } from '@/lib/install-recipes-core';
 import type { RecipeView } from '@/lib/install-recipes';
+import { listRecipesAction } from '../../recipes/actions';
 
 const eur = new Intl.NumberFormat('el-GR', { style: 'currency', currency: 'EUR' });
 const qtyFmt = new Intl.NumberFormat('el-GR', { maximumFractionDigits: 3 });
@@ -44,14 +45,9 @@ export function RecipeLinesDialog({ open, onOpenChange, onAdd }: {
   React.useEffect(() => {
     if (!open) return;
     let ignore = false;
-    fetch('/api/admin/recipes', { cache: 'no-store' })
-      .then(async (res) => {
-        if (res.status === 403) throw new Error('Δεν έχετε δικαίωμα προβολής συνταγών (recipes.read).');
-        if (!res.ok) throw new Error('Οι συνταγές δεν φορτώθηκαν — δοκιμάστε ξανά.');
-        return (await res.json()).recipes as RecipeView[];
-      })
-      .then((r) => { if (!ignore) setRecipes(r); })
-      .catch((e: Error) => { if (!ignore) setLoadError(e.message); });
+    listRecipesAction()
+      .then((r) => { if (ignore) return; if (r.ok) setRecipes(r.data); else setLoadError(r.message); })
+      .catch(() => { if (!ignore) setLoadError('Οι συνταγές δεν φορτώθηκαν — δοκιμάστε ξανά.'); });
     return () => { ignore = true; };
   }, [open]);
 

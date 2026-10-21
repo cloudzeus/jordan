@@ -14,6 +14,7 @@ import {
 } from '@/lib/install-recipes-core';
 import type { RecipeView } from '@/lib/install-recipes';
 import { KindBadge, PickedItem, eur, fetchItemInfo, num } from './recipe-ui';
+import { saveRecipeAction } from './actions';
 
 type Item = { mtrl: number; code: string; name: string; unit: string | null };
 type LineState = Item & { key: string; qty: string; waste: string; price: string; notes: string; lastBuy: number | null };
@@ -140,16 +141,11 @@ export function RecipeEditor({ initial, templates = [], readOnly = false }: { in
         materialPrice: priceN, wastePct: wasteN, laborCostPerSqm: laborN, laborMtrl: laborItem?.mtrl ?? null,
         lines: parsedLines.map((x) => ({ mtrl: x.l.mtrl, qtyPerSqm: x.qty, wastePct: x.w, unitPrice: x.p, notes: x.l.notes.trim() || null })),
       };
-      const res = await fetch(initial ? `/api/admin/recipes/${initial.id}` : '/api/admin/recipes', {
-        method: initial ? 'PUT' : 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-      const body = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(body.message || 'Αποτυχία αποθήκευσης');
+      // Server Action: αποθήκευση + revalidate της σελίδας στον server — χωρίς fetch/router.refresh.
+      const res = await saveRecipeAction(initial?.id ?? null, payload);
+      if (!res.ok) throw new Error(res.message);
       toast.success(initial ? 'Η συνταγή αποθηκεύτηκε' : 'Η συνταγή δημιουργήθηκε');
-      if (initial) router.refresh();
-      else router.push(`/admin/recipes/${body.recipe.id}`);
+      if (!initial) router.push(`/admin/recipes/${res.data.id}`);
     } catch (err) {
       setServerError((err as Error).message);
     } finally {

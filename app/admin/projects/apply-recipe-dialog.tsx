@@ -12,6 +12,7 @@ import { RegistrySearch } from '@/components/admin/registry-search';
 import { RECIPE_KIND_META, parseDecimal, recipeForArea } from '@/lib/install-recipes-core';
 import type { RecipeView } from '@/lib/install-recipes';
 import { emitProjectRefresh } from './project-events';
+import { applyRecipeToBudgetAction, listRecipesAction } from '../recipes/actions';
 
 const TONE = '#4338CA';
 const eur = new Intl.NumberFormat('el-GR', { style: 'currency', currency: 'EUR' });
@@ -49,14 +50,9 @@ export function ApplyRecipeDialog({ open, onOpenChange, prjc, projectLabel }: {
   React.useEffect(() => {
     if (!open) return;
     let ignore = false;
-    fetch('/api/admin/recipes', { cache: 'no-store' })
-      .then(async (res) => {
-        if (res.status === 403) throw new Error('Δεν έχετε δικαίωμα προβολής συνταγών (recipes.read).');
-        if (!res.ok) throw new Error('Οι συνταγές δεν φορτώθηκαν — δοκιμάστε ξανά.');
-        return (await res.json()).recipes as RecipeView[];
-      })
-      .then((r) => { if (!ignore) setRecipes(r); })
-      .catch((e: Error) => { if (!ignore) setLoadError(e.message); });
+    listRecipesAction()
+      .then((r) => { if (ignore) return; if (r.ok) setRecipes(r.data); else setLoadError(r.message); })
+      .catch(() => { if (!ignore) setLoadError('Οι συνταγές δεν φορτώθηκαν — δοκιμάστε ξανά.'); });
     return () => { ignore = true; };
   }, [open]);
 
@@ -83,14 +79,9 @@ export function ApplyRecipeDialog({ open, onOpenChange, prjc, projectLabel }: {
     if (!recipe || !sqmOk) return;
     setBusy(true); setError(null);
     try {
-      const res = await fetch(`/api/admin/projects/${prjc}/budget/recipe`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ recipeId: recipe.id, sqm: sqmN, laborMtrl: labor?.mtrl ?? null }),
-      });
-      const body = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(body.message || 'Αποτυχία προσθήκης');
-      toast.success(`Προστέθηκαν ${body.lines} γραμμές από «${recipe.name}» (${eur.format(body.value)})`);
+      const res = await applyRecipeToBudgetAction(prjc, { recipeId: recipe.id, sqm: sqmN, laborMtrl: labor?.mtrl ?? null });
+      if (!res.ok) throw new Error(res.message);
+      toast.success(`Προστέθηκαν ${res.data.lines} γραμμές από «${recipe.name}» (${eur.format(res.data.value)})`);
       emitProjectRefresh(prjc, 'budget');
       onOpenChange(false);
     } catch (err) {
