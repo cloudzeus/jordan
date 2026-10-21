@@ -8,7 +8,7 @@ import { Container } from '@/components/site/ui';
 import { SiteMotion } from '@/components/site/motion';
 import { cn } from '@/lib/utils';
 
-export type PortalSection = 'home' | 'offers' | 'projects' | 'orders' | 'new-order' | 'catalog';
+export type PortalSection = 'home' | 'offers' | 'projects' | 'orders' | 'new-order';
 
 const isCustomer = (u: NonNullable<UserWithRole>) => u.role.key === 'CUSTOMER' && u.customerTrdr != null;
 
@@ -21,7 +21,6 @@ export function portalNav(user: NonNullable<UserWithRole>) {
       { key: 'projects' as const, href: '/dashboard/customer/projects', label: 'Έργα' },
       { key: 'orders' as const, href: '/dashboard/customer/orders', label: 'Παραγγελίες' },
     ] : []),
-    { key: 'catalog' as const, href: '/products', label: 'Κατάλογος' },
   ];
 }
 

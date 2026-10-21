@@ -249,16 +249,16 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* ═══ ΚΑΤΑΛΟΓΟΣ: ταινία κατηγοριών ═══ */}
+      {/* ═══ ΤΑΙΝΙΑ ΚΑΤΗΓΟΡΙΩΝ (διακοσμητική — ο δημόσιος κατάλογος αφαιρέθηκε) ═══ */}
       {cats.length > 0 && (
-        <section className="overflow-hidden border-y border-(--s-line) bg-white py-10" aria-label="Κατηγορίες καταλόγου">
+        <section className="overflow-hidden border-y border-(--s-line) bg-white py-10" aria-label="Κατηγορίες υλικών">
           <div className="flex">
             <div className="s-marquee flex shrink-0 items-center gap-10 whitespace-nowrap pr-10">
               {[...cats.slice(0, 10), ...cats.slice(0, 10)].map((k, i) => (
-                <Link key={`${k.code}-${i}`} href={`/products?category=${k.code}`} tabIndex={i >= Math.min(10, cats.length) ? -1 : undefined}
-                  className="font-display s-outline text-(length:--fs-64) text-(--s-ink) transition-colors hover:text-(--s-ink) hover:[-webkit-text-stroke:0]">
+                <span key={`${k.code}-${i}`} aria-hidden={i >= Math.min(10, cats.length) || undefined}
+                  className="font-display s-outline text-(length:--fs-64) text-(--s-ink)">
                   {k.name}<span className="ml-10 inline-block size-2 rounded-full bg-(--s-accent) align-middle" aria-hidden />
-                </Link>
+                </span>
               ))}
             </div>
           </div>

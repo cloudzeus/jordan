@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { FiArrowRight, FiBox, FiClipboard, FiFileText, FiGrid, FiLayers, FiPhone, FiPlus, FiRepeat, FiTruck } from 'react-icons/fi';
+import { FiBox, FiClipboard, FiFileText, FiGrid, FiLayers, FiPhone, FiPlus, FiRepeat, FiTruck } from 'react-icons/fi';
 import { portalData } from '@/lib/portal-data';
 import { customerProjects, customerSalesDocs } from '@/lib/portal-erp';
 import { customerOrderRequests } from '@/lib/order-requests';
@@ -188,17 +188,15 @@ export async function Portal({ user }: { user: NonNullable<UserWithRole> }) {
           <Label>Συντομεύσεις</Label>
           <h2 className="font-display mt-3 text-(length:--fs-40)">Τι θέλετε να κάνετε;</h2>
           <div className={customer ? 'mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4' : 'mt-10 grid gap-4 sm:grid-cols-3'} data-reveal data-stagger>
-            {customer && <ActionCard emphasis href="/dashboard/customer/orders/new" icon={FiPlus} title="Νέα παραγγελία" text="Υλικά και ποσότητες από τον κατάλογο, σε ένα λεπτό." />}
+            {customer && <ActionCard emphasis href="/dashboard/customer/orders/new" icon={FiPlus} title="Νέα παραγγελία" text="Υλικά και ποσότητες, σε ένα λεπτό." />}
             <ActionCard href="/dashboard/offers" icon={FiBox} title="Κοινά container" text="Κλείστε παλέτες — η τιμή πέφτει για όλους." />
             {customer && <ActionCard href="/dashboard/customer/projects" icon={FiGrid} title="Τα έργα μου" text="Πορεία, παραδόσεις και τιμολόγια ανά έργο." />}
-            <ActionCard href="/products" icon={FiLayers} title="Κατάλογος υλικών" text="Πέτρες, κονιάματα, πλακίδια, ψηφίδες." />
             {!customer && <ActionCard href={`mailto:${c.salesEmail}?subject=${encodeURIComponent('Ραντεβού στο atelier')}`} icon={FiPhone} title="Ραντεβού στο atelier" text={c.hours} />}
           </div>
           <p className="mt-10 flex flex-wrap items-center gap-x-6 gap-y-2 text-(length:--fs-14) text-(--s-ink-2)">
             <span>Χρειάζεστε βοήθεια;</span>
             <a href={`tel:${c.phones[0].replace(/\s/g, '')}`} className="s-link tabular-nums text-(--s-ink)">{c.phones[0]}</a>
             <a href={`mailto:${c.salesEmail}`} className="s-link text-(--s-ink)">{c.salesEmail}</a>
-            <Link href="/products" className="group inline-flex items-center gap-1 text-(--s-ink)">Κατάλογος <FiArrowRight className="size-3.5 transition-transform group-hover:translate-x-0.5" aria-hidden /></Link>
           </p>
         </div>
       </section>

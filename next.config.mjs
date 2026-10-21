@@ -20,6 +20,14 @@ const nextConfig = {
   experimental: {
     serverActions: { bodySizeLimit: '500mb' },
   },
+  // Ο δημόσιος κατάλογος (/products) αφαιρέθηκε — τα παλιά links και τα αποτελέσματα αναζήτησης
+  // πάνε στην αρχική αντί για 404.
+  async redirects() {
+    return [
+      { source: '/products', destination: '/', permanent: true },
+      { source: '/products/:path*', destination: '/', permanent: true },
+    ];
+  },
   serverExternalPackages: ['sharp', 'pdf-to-img', 'pdfjs-dist', 'pdf-parse', 'unpdf'],
 };
 

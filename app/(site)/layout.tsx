@@ -30,7 +30,6 @@ export async function generateMetadata(): Promise<Metadata> {
 const NAV = [
   { href: '/#auctions', label: 'Δυναμικές προσφορές' },
   { href: '/#b2b', label: 'Η πύλη' },
-  { href: '/products', label: 'Κατάλογος' },
   { href: '/#contact', label: 'Επικοινωνία' },
 ];
 
