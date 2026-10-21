@@ -42,7 +42,6 @@ export function SampleStep() {
       )}
       {dto.sample ? (
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={templatesApi.pageImageUrl(dto.id, 0, dto.version, 2)} alt="Δείγμα, σελίδα 1" className="w-full max-w-[280px] rounded-md border border-border shadow-fluent-2" />
           <div className="text-(length:--fs-12) text-muted-foreground">
             <p><span className="font-medium text-foreground">{dto.sample.mimeType}</span> · {dto.sample.pageCount} σελίδ{dto.sample.pageCount === 1 ? 'α' : 'ες'}</p>

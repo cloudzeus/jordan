@@ -241,11 +241,9 @@ function SampleTile({ m, canManage, busy, onToggle, onFrames }: {
       >
         {m.kind === 'VIDEO' ? (
           m.sampleFrames[0] || m.thumbUrl
-            // eslint-disable-next-line @next/next/no-img-element
             ? <img src={m.sampleFrames[0] ?? m.thumbUrl ?? ''} alt="" className={cn('size-full object-cover', !on && 'opacity-70')} />
             : <video src={`${m.url}#t=0.5`} preload="metadata" muted playsInline className={cn('pointer-events-none size-full object-cover', !on && 'opacity-70')} />
         ) : (
-          // eslint-disable-next-line @next/next/no-img-element
           <img src={m.thumbUrl ?? m.url} alt="" loading="lazy" className={cn('size-full object-cover', !on && 'opacity-70')} />
         )}
         <span

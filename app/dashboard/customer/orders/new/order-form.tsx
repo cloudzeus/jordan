@@ -15,7 +15,6 @@ const today = () => new Date().toISOString().slice(0, 10);
 function Thumb({ p }: { p: Hit }) {
   return (
     <span className="relative block size-14 shrink-0 overflow-hidden bg-(--s-paper)">
-      {/* eslint-disable-next-line @next/next/no-img-element */}
       {p.photo ? <img src={p.photo} alt="" className="size-full object-cover" /> : <ProductPlaceholder mtrl={p.mtrl} name={p.name} label={false} />}
     </span>
   );

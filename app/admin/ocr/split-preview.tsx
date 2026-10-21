@@ -194,7 +194,6 @@ export function OcrSplitPreview({ data, onCancel }: { data: SplitPreviewData; on
                     : 'border-border bg-neutral-6/40',
                 )}
               >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={page.thumbUrl}
                   alt={`Σελίδα ${page.index + 1}`}

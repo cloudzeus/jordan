@@ -260,7 +260,7 @@ export async function extractDigitalPdfText(buffer: Buffer): Promise<string> {
     await loadingTask.destroy();
     return pages.join('\n').replace(/[ \t]+/g, ' ').trim();
   } catch (err: any) {
-    throw new Error(`PDF text extraction failed: ${err?.message ?? err}`);
+    throw new Error(`PDF text extraction failed: ${err?.message ?? err}`, { cause: err });
   }
 }
 
@@ -279,7 +279,7 @@ export async function rasterizePdf(buffer: Buffer, maxPages = 3, scale = 2): Pro
   try {
     document = await pdf(buffer, { scale });
   } catch (err: any) {
-    throw new Error(`rasterizePdf (pdf-to-img init): ${err?.message ?? err}`);
+    throw new Error(`rasterizePdf (pdf-to-img init): ${err?.message ?? err}`, { cause: err });
   }
   const pages: Buffer[] = [];
   try {
@@ -292,7 +292,7 @@ export async function rasterizePdf(buffer: Buffer, maxPages = 3, scale = 2): Pro
       if (pages.length >= maxPages) break;
     }
   } catch (err: any) {
-    throw new Error(`rasterizePdf (page iteration): ${err?.message ?? err}`);
+    throw new Error(`rasterizePdf (page iteration): ${err?.message ?? err}`, { cause: err });
   }
   return pages;
 }

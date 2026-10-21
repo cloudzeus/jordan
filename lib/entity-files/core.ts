@@ -124,6 +124,7 @@ export function buildBasePath(type: EntityType, id: number, code: string, name: 
 
 /** Όνομα υποφακέλου όπως το έγραψε ο χρήστης — καθαρό, χωρίς `/`, έως 60 χαρακτήρες. */
 export function cleanSubfolder(name: string): string {
+  // eslint-disable-next-line no-control-regex -- σκόπιμα: αφαιρούνται χαρακτήρες ελέγχου από ονόματα φακέλων
   const s = String(name ?? '').replace(/[\\/]+/g, ' ').replace(/[\u0000-\u001f]/g, '').replace(/\s+/g, ' ').trim();
   if (s.length > 60) throw new EntityFileError('Το όνομα του φακέλου είναι πολύ μεγάλο (έως 60 χαρακτήρες).');
   if (s === '.' || s === '..') throw new EntityFileError('Μη έγκυρο όνομα φακέλου.');
@@ -143,6 +144,7 @@ export function buildFileKey(basePath: string, subfolder: string, fileName: stri
 
 /** Μετονομασία: κρατά πάντα την κατάληξη του αρχείου (ο τύπος δεν αλλάζει με το όνομα). */
 export function renameKeepingExt(newName: string, ext: string): string {
+  // eslint-disable-next-line no-control-regex -- σκόπιμα: αφαιρούνται χαρακτήρες ελέγχου από ονόματα αρχείων
   const s = String(newName ?? '').replace(/[\\/\u0000-\u001f]/g, ' ').replace(/\s+/g, ' ').trim();
   const stem = s.replace(new RegExp(`\\.${ext}$`, 'i'), '').trim();
   if (!stem) throw new EntityFileError('Δώστε όνομα αρχείου.');

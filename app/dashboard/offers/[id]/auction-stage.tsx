@@ -281,7 +281,6 @@ export function AuctionStage(p: AuctionProps) {
                 <li key={it.id} className="min-w-0">
                   <button type="button" onClick={() => setProductOpen(it.id)} className="group block w-full cursor-pointer bg-white text-left transition-shadow hover:shadow-[0_12px_40px_rgba(11,22,32,0.12)] focus-visible:outline-solid focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--s-ink)">
                     <div className="relative aspect-4/3 overflow-hidden bg-(--s-paper)">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img src={thumb} alt="" loading="lazy" className="s-img size-full object-cover" />
                       {videos > 0 && <span className="absolute left-3 top-3 bg-[#0B1620]/85 px-2 py-0.5 text-(length:--fs-12) text-white">{videos} βίντεο</span>}
                     </div>

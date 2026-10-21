@@ -8,7 +8,8 @@
     "postinstall": "prisma generate",
     "build": "prisma generate && next build",
     "start": "next start",
-    "lint": "next lint",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev --name init",
     "seed:db": "node ./scripts/seed.js",
@@ -98,6 +99,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@playwright/test": "^1.60.0",
     "@tailwindcss/postcss": "^4.3.3",
     "@types/bcryptjs": "^2.4.6",
@@ -109,16 +111,15 @@
     "@types/swagger-ui-react": "^5.18.0",
     "@types/three": "^0.186.0",
     "@types/update-notifier": "^6.0.8",
-    "@typescript-eslint/eslint-plugin": "^8.59.4",
-    "@typescript-eslint/parser": "^8.59.4",
-    "eslint": "^9.0.0",
-    "eslint-plugin-react": "^7.34.2",
+    "eslint": "^10.13.0",
     "eslint-plugin-react-hooks": "^7.1.1",
+    "globals": "^17.13.0",
     "postcss": "^8.4.37",
     "prisma": "^7.10.1",
     "tailwindcss": "^4.3.3",
     "ts-node": "^10.9.2",
     "typescript": "^5.7.0",
+    "typescript-eslint": "^8.72.0",
     "vitest": "^4.1.7"
   },
   "overrides": {

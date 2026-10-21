@@ -260,7 +260,6 @@ export function ItemsTableClient({
         cell: ({ row }) => (
           <div className="flex min-w-0 items-center gap-2">
             {row.original.thumbUrl
-              // eslint-disable-next-line @next/next/no-img-element
               ? <img src={row.original.thumbUrl} alt="" loading="lazy" className="size-7 shrink-0 rounded border border-border object-cover" />
               : <span aria-hidden className="size-7 shrink-0 rounded border border-dashed border-border bg-muted/40" />}
           <div className="min-w-0">

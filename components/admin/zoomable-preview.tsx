@@ -93,7 +93,6 @@ export function ZoomablePreview({
         </div>
       ) : (
         <div style={{ width: '100%', height: '100%', transform, transformOrigin: '0 0' }}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={src}
             alt={alt}
