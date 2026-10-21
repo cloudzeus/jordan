@@ -19,6 +19,8 @@ import {
 import { confirmAction } from '@/components/ui/confirm-dialog';
 import { EVENT_LABEL, RECIPIENT_STATUS, RFP_STATUS_LABEL } from '@/lib/rfp/core';
 import type { ContractRfpView } from '@/lib/rfp/service';
+import { awardRfpAction, createRfpAction, renewRfpLinkAction, rfpEventsAction, setRfpStatusAction } from '../actions';
+import type { ActionResult } from '@/lib/action-result';
 
 const eur = (n: number) => n.toLocaleString('el-GR', { style: 'currency', currency: 'EUR' });
 const day = (s: string | null) => (s ? s.slice(0, 10).split('-').reverse().join('/') : '—');
@@ -32,36 +34,34 @@ type Created = { ref: string; recipients: { name: string; email: string | null; 
 export function RfpPanel({ contractId, title, summary, rfps, canManage }: {
   contractId: string; title: string; summary: string; rfps: ContractRfpView[]; canManage: boolean;
 }) {
-  const router = useRouter();
   const [creating, setCreating] = React.useState(false);
   const [created, setCreated] = React.useState<Created | null>(null);
   const [log, setLog] = React.useState<{ id: string; name: string } | null>(null);
   const [busy, setBusy] = React.useState(false);
 
-  const call = async (url: string, body: unknown, ok: string) => {
+  // Server Actions: η σελίδα ξαναφορτώνεται από τον server (revalidatePath) — χωρίς router.refresh.
+  const call = async <T,>(fn: () => Promise<ActionResult<T>>, ok: string): Promise<T | null> => {
     setBusy(true);
     try {
-      const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-      const d = await r.json().catch(() => null);
-      if (!r.ok) { toast.error(d?.message ?? 'Η ενέργεια απέτυχε'); return null; }
+      const r = await fn();
+      if (!r.ok) { toast.error(r.message); return null; }
       toast.success(ok);
-      router.refresh();
-      return d;
+      return r.data;
     } finally { setBusy(false); }
   };
   const award = async (rfp: ContractRfpView, x: ContractRfpView['recipients'][number]) => {
     if (!(await confirmAction(`Ανάθεση στο «${x.name}» με ${eur(x.amount ?? 0)} χωρίς ΦΠΑ;\nΜπαίνει ως συνεργείο της σύμβασης με αμοιβή αυτό το ποσό, μοιρασμένο στις εργασίες χωρίς συνεργείο. Οι υπόλοιποι ενημερώνονται ότι δεν επιλέχθηκαν.`))) return;
-    await call(`/api/admin/rfps/${rfp.id}/award`, { recipientId: x.id }, 'Ανατέθηκε — το συνεργείο μπήκε στη σύμβαση');
+    await call(() => awardRfpAction(rfp.id, x.id), 'Ανατέθηκε — το συνεργείο μπήκε στη σύμβαση');
   };
   const renew = async (x: ContractRfpView['recipients'][number], sendEmail: boolean) => {
     if (!(await confirmAction(`Νέος σύνδεσμος για «${x.name}»;\nΟ προηγούμενος σύνδεσμος παύει να ισχύει.${sendEmail ? ' Θα σταλεί email με τον νέο.' : ''}`))) return;
-    const d = await call(`/api/admin/rfps/recipients/${x.id}/renew`, { sendEmail }, 'Νέος σύνδεσμος');
+    const d = await call(() => renewRfpLinkAction(x.id, sendEmail), 'Νέος σύνδεσμος');
     if (d?.url) {
       await navigator.clipboard.writeText(d.url).then(() => toast.message('Ο σύνδεσμος αντιγράφηκε στο πρόχειρο'), () => null);
       if (d.email_result) toast.message(SEND_LABEL[d.email_result] ?? d.email_result);
     }
   };
-  const status = (rfp: ContractRfpView, s: 'CLOSED' | 'CANCELLED' | 'OPEN') => call(`/api/admin/rfps/${rfp.id}/status`, { status: s }, 'Ενημερώθηκε');
+  const status = (rfp: ContractRfpView, s: 'CLOSED' | 'CANCELLED' | 'OPEN') => call(() => setRfpStatusAction(rfp.id, s), 'Ενημερώθηκε');
 
   return (
     <section id="rfp" className="rounded-xl border border-border bg-card">
@@ -168,7 +168,7 @@ export function RfpPanel({ contractId, title, summary, rfps, canManage }: {
       {canManage && (
         <NewRfpDialog
           open={creating} onOpenChange={setCreating} contractId={contractId} title={title} summary={summary}
-          onCreated={(c) => { setCreating(false); setCreated(c); router.refresh(); }}
+          onCreated={(c) => { setCreating(false); setCreated(c); }}
         />
       )}
       <CreatedDialog created={created} onClose={() => setCreated(null)} />
@@ -212,13 +212,9 @@ function NewRfpDialog({ open, onOpenChange, contractId, title, summary, onCreate
     if (!picked.length) { toast.error('Διάλεξε τουλάχιστον ένα συνεργείο'); return; }
     setBusy(true);
     try {
-      const r = await fetch(`/api/admin/contracts/${contractId}/rfps`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: t, scope, dueDate: due || null, message: message || null, sendEmail, recipients: picked.map((p) => ({ kind: p.kind, ref: p.ref })) }),
-      });
-      const d = await r.json().catch(() => null);
-      if (!r.ok) { toast.error(d?.message ?? 'Το αίτημα δεν δημιουργήθηκε'); return; }
-      onCreated(d);
+      const r = await createRfpAction(contractId, { title: t, scope, dueDate: due || null, message: message || null, sendEmail, recipients: picked.map((p) => ({ kind: p.kind, ref: p.ref })) });
+      if (!r.ok) { toast.error(r.message); return; }
+      onCreated(r.data);
     } finally { setBusy(false); }
   };
 
@@ -327,10 +323,13 @@ type Ev = { id: string; type: string; at: string; actor: string; ip: string | nu
 
 function EventsDialog({ target, onClose }: { target: { id: string; name: string } | null; onClose: () => void }) {
   const [data, setData] = React.useState<{ events: Ev[]; chain: { ok: boolean; brokenAt: number | null } } | null>(null);
+  // Άλλος παραλήπτης → καθαρά δεδομένα (adjust-state-while-rendering)· η φόρτωση στο effect.
+  const [prevTarget, setPrevTarget] = React.useState(target);
+  if (prevTarget !== target) { setPrevTarget(target); setData(null); }
   React.useEffect(() => {
-    if (!target) { setData(null); return; }
+    if (!target) return;
     let ignore = false;
-    fetch(`/api/admin/rfps/recipients/${target.id}/events`, { cache: 'no-store' }).then((r) => r.json()).then((d) => { if (!ignore) setData(d); }).catch(() => null);
+    rfpEventsAction(target.id).then((r) => { if (!ignore && r.ok) setData(r.data); }).catch(() => null);
     return () => { ignore = true; };
   }, [target]);
   const detail = (e: Ev) => {

@@ -14,6 +14,7 @@ import { copyDocsToProject, sendDocument } from '@/lib/contracts/documents';
 import { createPrjc, prjcPlan } from '@/lib/contracts/softone';
 import { TaskError } from '@/lib/project-tasks';
 import { SoftoneError } from '@/lib/softone';
+import { awardRecipient, createRfp, recipientEvents, renewLink, RfpError, setRfpStatus } from '@/lib/rfp/service';
 
 const LIST = '/admin/projects/contracts';
 const refresh = (id?: string) => { revalidatePath(LIST); if (id) revalidatePath(`${LIST}/${id}`); };
@@ -166,4 +167,80 @@ export async function itemDefaultsAction(mtrl: number): Promise<Awaited<ReturnTy
   const a = await actor('projects.read');
   if ('error' in a || !Number.isInteger(mtrl) || mtrl <= 0) return null;
   return itemDefaults(mtrl);
+}
+
+/* ───────────── Αιτήματα προσφοράς (RFP) προς συνεργεία ───────────── */
+// Οι δημόσιες σελίδες του συνεργείου (σύνδεσμος με token, χωρίς σύνδεση) μένουν REST — εκεί δεν υπάρχει συνεδρία.
+
+/** Ίδιο με το REST (`rfpFail`): γνωστά → μήνυμα, άγνωστα → log + γενικό μήνυμα (όχι τεχνικές λεπτομέρειες). */
+function rfpCaught(e: unknown) {
+  if (e instanceof RfpError) return fail(e.message);
+  if (e instanceof ZodError) return fail(e.issues[0]?.message ?? 'Μη έγκυρα στοιχεία');
+  console.error('[rfp action]', e);
+  return fail('Κάτι πήγε στραβά — δοκιμάστε ξανά.');
+}
+const rfpUser = (u: { id: string; name: string | null; email: string }) => ({ id: u.id, name: u.name ?? null, email: u.email });
+
+/** Νέο αίτημα: PDF specs, μοναδικοί σύνδεσμοι, email. Οι σύνδεσμοι επιστρέφονται μόνο τώρα (στη βάση μένει hash). */
+export async function createRfpAction(contractId: string, input: unknown): Promise<ActionResult<Awaited<ReturnType<typeof createRfp>>>> {
+  const a = await actor('projects.manage');
+  if ('error' in a) return a.error;
+  try {
+    const out = await createRfp(contractId, input, rfpUser(a.user));
+    await logAudit({ userId: a.user.id, userEmail: a.user.email, action: 'rfp.create', resource: 'rfp', resourceId: out.id, metadata: { contractId, ref: out.ref, recipients: out.recipients.map((r) => ({ name: r.name, email: r.email_result })) } }).catch(() => null);
+    refresh(contractId);
+    return done(out);
+  } catch (e) {
+    return rfpCaught(e);
+  }
+}
+
+/** Ανάθεση: το συνεργείο μπαίνει στη σύμβαση με αμοιβή = το ποσό του. */
+export async function awardRfpAction(rfpId: string, recipientId: string): Promise<ActionResult> {
+  const a = await actor('projects.manage');
+  if ('error' in a) return a.error;
+  try {
+    const out = await awardRecipient(rfpId, recipientId, rfpUser(a.user));
+    await logAudit({ userId: a.user.id, userEmail: a.user.email, action: 'rfp.award', resource: 'rfp', resourceId: rfpId, metadata: { recipientId, ...out } }).catch(() => null);
+    revalidatePath(LIST, 'layout');
+    return doneEmpty();
+  } catch (e) {
+    return rfpCaught(e);
+  }
+}
+
+/** Νέος μοναδικός σύνδεσμος (ο παλιός παύει να ισχύει), προαιρετικά ξανά email. */
+export async function renewRfpLinkAction(recipientId: string, sendEmail: boolean): Promise<ActionResult<Awaited<ReturnType<typeof renewLink>>>> {
+  const a = await actor('projects.manage');
+  if ('error' in a) return a.error;
+  try {
+    const out = await renewLink(recipientId, rfpUser(a.user), { sendEmail: sendEmail === true });
+    await logAudit({ userId: a.user.id, userEmail: a.user.email, action: 'rfp.link_renew', resource: 'rfp_recipient', resourceId: recipientId, metadata: { email: out.email_result } }).catch(() => null);
+    revalidatePath(LIST, 'layout');
+    return done(out);
+  } catch (e) {
+    return rfpCaught(e);
+  }
+}
+
+/** Ημερολόγιο συνεδρίας (απόδειξη) με έλεγχο της αλυσίδας hash. Η λήψη CSV μένει στο REST route. */
+export async function rfpEventsAction(recipientId: string): Promise<ActionResult<Awaited<ReturnType<typeof recipientEvents>>>> {
+  const a = await actor('projects.manage');
+  if ('error' in a) return a.error;
+  return done(await recipientEvents(recipientId));
+}
+
+/** Κλείσιμο / ακύρωση / ξανά άνοιγμα αιτήματος (όχι μετά την ανάθεση). */
+export async function setRfpStatusAction(rfpId: string, status: 'CLOSED' | 'CANCELLED' | 'OPEN'): Promise<ActionResult> {
+  const a = await actor('projects.manage');
+  if ('error' in a) return a.error;
+  if (!['CLOSED', 'CANCELLED', 'OPEN'].includes(status)) return fail('Άκυρη κατάσταση');
+  try {
+    await setRfpStatus(rfpId, status);
+    await logAudit({ userId: a.user.id, userEmail: a.user.email, action: `rfp.${status.toLowerCase()}`, resource: 'rfp', resourceId: rfpId }).catch(() => null);
+    revalidatePath(LIST, 'layout');
+    return doneEmpty();
+  } catch (e) {
+    return rfpCaught(e);
+  }
 }

@@ -28,7 +28,7 @@ export async function FloorPlanPanel({ floorPlanId }: { floorPlanId: string }) {
       <div className="grid gap-4 border-t border-border p-4 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
         {p.annotatedFileId ? (
           <a href={`/api/admin/floorplans/${p.id}/image`} target="_blank" rel="noopener noreferrer" className="block overflow-hidden rounded-lg border border-border bg-white">
-            {/* eslint-disable-next-line @next/next/no-img-element -- ιδιωτικό αρχείο μέσω API, όχι next/image */}
+            {/* Απλό <img>: ιδιωτικό αρχείο μέσω API, όχι next/image. */}
             <img src={`/api/admin/floorplans/${p.id}/image`} alt={`Κάτοψη ${p.title} με τους χώρους`} className="h-auto w-full" />
           </a>
         ) : <p className="text-(length:--fs-12) text-muted-foreground">Χωρίς εικόνα.</p>}

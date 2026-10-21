@@ -178,13 +178,20 @@ export async function createRfp(contractId: string, raw: unknown, user: User) {
   const rfp = await prisma.rfp.create({
     data: { contractId, title: input.title, scope: input.scope, dueDate: input.dueDate ? new Date(input.dueDate) : null, createdById: user.id },
   });
-  const pdf = await buildSpecsPdf(rfp, contractId);
-  const fileName = `APR-${String(rfp.number).padStart(6, '0')}-specs.pdf`;
-  const file = await uploadEntityFile({
-    type: c.prjc ? 'PROJECT' : 'TRADER', id: (c.prjc ?? c.trdr)!, buffer: pdf, name: fileName, subfolder: SUBFOLDER,
-    notes: `Αίτημα προσφοράς ${rfpRef(rfp.number)} — specs (χωρίς τιμές)`, user,
-  });
-  await prisma.rfp.update({ where: { id: rfp.id }, data: { specsFileId: file.id, specsFileName: fileName, specsSha256: sha256(pdf) } });
+  // Αν το PDF ή η αποθήκευσή του αποτύχει, δεν μένει «ανοιχτό» αίτημα χωρίς specs και παραλήπτες.
+  let pdf: Buffer;
+  try {
+    pdf = await buildSpecsPdf(rfp, contractId);
+    const fileName = `APR-${String(rfp.number).padStart(6, '0')}-specs.pdf`;
+    const file = await uploadEntityFile({
+      type: c.prjc ? 'PROJECT' : 'TRADER', id: (c.prjc ?? c.trdr)!, buffer: pdf, name: fileName, subfolder: SUBFOLDER,
+      notes: `Αίτημα προσφοράς ${rfpRef(rfp.number)} — specs (χωρίς τιμές)`, user,
+    });
+    await prisma.rfp.update({ where: { id: rfp.id }, data: { specsFileId: file.id, specsFileName: fileName, specsSha256: sha256(pdf) } });
+  } catch (e) {
+    await prisma.rfp.delete({ where: { id: rfp.id } }).catch(() => null);
+    throw e;
+  }
 
   const out: { recipientId: string; name: string; email: string | null; url: string; email_result: SendResult | null }[] = [];
   for (const s of snaps) {

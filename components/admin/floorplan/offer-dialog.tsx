@@ -36,8 +36,11 @@ function CustomerField({ value, onChange }: { value: Customer | null; onChange: 
   const [q, setQ] = React.useState('');
   const [hits, setHits] = React.useState<Customer[]>([]);
   const [open, setOpen] = React.useState(false);
+  // Λιγότεροι από 2 χαρακτήρες → καμία πρόταση (adjust-state-while-rendering, όχι setState στο effect).
+  const [prevQ, setPrevQ] = React.useState(q);
+  if (prevQ !== q) { setPrevQ(q); if (q.trim().length < 2) setHits([]); }
   React.useEffect(() => {
-    if (q.trim().length < 2) { setHits([]); return; }
+    if (q.trim().length < 2) return;
     const ctl = new AbortController();
     const t = setTimeout(() => {
       fetch(`/api/admin/contracts/options?kind=customers&q=${encodeURIComponent(q.trim())}`, { signal: ctl.signal })
@@ -103,10 +106,12 @@ export function FloorPlanOfferDialog({ open, onOpenChange, apiBase, rooms, recip
   const [items, setItems] = React.useState<Map<number, FloorPlanItem>>(new Map());
 
   // Προεπιλογές έργου (μία φορά ανά άνοιγμα).
+  // Στο άνοιγμα: καθαρό σφάλμα (adjust-state-while-rendering)· η φόρτωση στο effect.
+  const [prevOpen, setPrevOpen] = React.useState(open);
+  if (prevOpen !== open) { setPrevOpen(open); if (open) setLoadError(null); }
   React.useEffect(() => {
     if (!open) return;
     let ignore = false;
-    setLoadError(null);
     fetch(`${apiBase}/floorplan-offer`, { cache: 'no-store' })
       .then(async (r) => { const d = await r.json().catch(() => null); if (!r.ok) throw new Error(d?.message ?? 'Τα στοιχεία του έργου δεν φορτώθηκαν.'); return d; })
       .then((d) => {
