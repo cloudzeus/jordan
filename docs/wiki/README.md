@@ -13,7 +13,7 @@ public/wiki/screenshots/<module>/<slug>/*.png
 
 1. **Scaffold νέα σελίδα:**
    ```
-   npm run wiki:new -- programs/import --roles "ADMIN,EMPLOYEE" --title "Εισαγωγή προγράμματος"
+   npm run wiki:new -- operations/recipes --roles "ADMIN,EMPLOYEE" --title "Συνταγές τοποθέτησης"
    ```
 
 2. **Γράψε περιεχόμενο** στο νέο `.mdx` (Ελληνικά). Συστατικά διαθέσιμα:
@@ -24,28 +24,28 @@ public/wiki/screenshots/<module>/<slug>/*.png
 
 3. **Πρόσθεσε `helpAnchors`** στο frontmatter για να ενεργοποιήσεις το contextual help icon:
    ```yaml
-   helpAnchors: [programs-import, programs-import-step2]
+   helpAnchors: [recipes, recipes-new]
    ```
    Στη σελίδα της εφαρμογής:
    ```tsx
-   <PageHeader title="..." helpAnchor="programs-import" />
+   <PageHeader title="..." helpAnchor="recipes" />
    ```
 
 4. **Screenshots:** στο frontmatter δήλωσε route + actions:
    ```yaml
    screenshots:
      - file: list.png
-       route: /admin/programs
+       route: /admin/recipes
        caption: "Λίστα"
      - file: edit.png
-       route: /admin/programs/123
+       route: /admin/recipes/new
        asRole: ADMIN
        actions:
-         - waitFor:[data-testid="programs-table"]
+         - waitFor:[data-testid="recipes-list"]
    ```
    Τρέξε:
    ```
-   npm run wiki:screenshots -- --module programs
+   npm run wiki:screenshots -- --module operations
    ```
 
 5. **Search index** (αν χρησιμοποιείται):

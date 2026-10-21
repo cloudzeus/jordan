@@ -6,7 +6,7 @@ import { filterPagesForRole } from '@/lib/wiki/access';
 import type { WikiRoleKey } from '@/lib/wiki/types';
 import { WikiSidebar } from '@/components/wiki/wiki-sidebar';
 
-export const metadata = { title: 'Οδηγός Χρήστη · DGEspa' };
+export const metadata = { title: 'Οδηγός Χρήστη · Atelier by Damask' };
 
 export default async function WikiLayout({ children }: { children: React.ReactNode }) {
   const user = await requireUser();

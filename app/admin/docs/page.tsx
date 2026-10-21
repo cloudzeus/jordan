@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { PageHeader } from '@/components/admin/page-header';
 import SwaggerUIClient from '@/components/swagger-ui-client';
 
-export const metadata = { title: 'API Documentation · DGEspa' };
+export const metadata = { title: 'API Documentation · Atelier by Damask' };
 
 export default function DocsPage() {
   return (
@@ -12,7 +12,7 @@ export default function DocsPage() {
       <PageHeader
         icon={<FiFileText />}
         title="API Documentation"
-        description="Πλήρης τεκμηρίωση του REST API. Καταναλώνεται από το mobile app της DGEspa."
+        description="Πλήρης τεκμηρίωση του REST API. Καταναλώνεται από το mobile app."
         actions={
           <div className="flex gap-2">
             <Button asChild variant="outline">
