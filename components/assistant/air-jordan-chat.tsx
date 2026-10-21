@@ -31,8 +31,8 @@ export interface ChatMsg {
   followups?: Choice[];
 }
 
-const ITEM = 'cursor-pointer gap-2 text-[length:var(--fs-12)]';
-const TRIGGER = 'inline-flex size-8 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors duration-150 hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring data-[state=open]:bg-muted data-[state=open]:text-foreground';
+const ITEM = 'cursor-pointer gap-2 text-(length:--fs-12)';
+const TRIGGER = 'inline-flex size-8 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors duration-150 hover:bg-muted hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring data-[state=open]:bg-muted data-[state=open]:text-foreground';
 
 function cn(...c: (string | false | null | undefined)[]) { return c.filter(Boolean).join(' '); }
 
@@ -181,15 +181,15 @@ export function AirJordanChat({
       <div className="flex items-center gap-2.5 border-b border-border px-3 py-2.5">
         <AirJordanAvatar size={32} />
         <div className="min-w-0 flex-1">
-          <p className="truncate text-[length:var(--fs-14)] font-semibold leading-tight text-foreground">Air Jordan</p>
-          <p className="truncate text-[length:var(--fs-11)] text-muted-foreground">Έργα · συναλλασσόμενοι · υλικά · ραντεβού</p>
+          <p className="truncate text-(length:--fs-14) font-semibold leading-tight text-foreground">Air Jordan</p>
+          <p className="truncate text-(length:--fs-11) text-muted-foreground">Έργα · συναλλασσόμενοι · υλικά · ραντεβού</p>
         </div>
         <DropdownMenu>
           <DropdownMenuTrigger className={TRIGGER} aria-label="Ενέργειες Air Jordan">
             <FiMoreVertical className="size-4" aria-hidden />
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56">
-            <DropdownMenuLabel className="text-[length:var(--fs-11)] font-semibold text-muted-foreground">Air Jordan</DropdownMenuLabel>
+            <DropdownMenuLabel className="text-(length:--fs-11) font-semibold text-muted-foreground">Air Jordan</DropdownMenuLabel>
             <DropdownMenuItem className={ITEM} onSelect={newConversation}><FiPlus className="size-3.5" aria-hidden /> Νέα συνομιλία</DropdownMenuItem>
             {variant === 'panel' && (
               <DropdownMenuItem className={ITEM} asChild>
@@ -216,8 +216,8 @@ export function AirJordanChat({
           <div className="mx-auto flex max-w-md flex-col items-center gap-3 pt-6 text-center">
             <AirJordanAvatar size={56} />
             <div>
-              <p className="text-[length:var(--fs-16)] font-semibold text-foreground">Γεια! Είμαι ο Air Jordan.</p>
-              <p className="mt-1 text-[length:var(--fs-13)] text-muted-foreground">
+              <p className="text-(length:--fs-16) font-semibold text-foreground">Γεια! Είμαι ο Air Jordan.</p>
+              <p className="mt-1 text-(length:--fs-13) text-muted-foreground">
                 Ρωτήστε με — γραπτά ή με τη φωνή — για τη μέρα σας, πελάτες, προμηθευτές, έργα, υλικά, ραντεβού ή πώς γίνεται κάτι στην εφαρμογή. Απαντώ με βάση τα δεδομένα της εφαρμογής και του SoftOne, με παραπομπές.
               </p>
             </div>
@@ -228,14 +228,14 @@ export function AirJordanChat({
         {messages.map((m, i) => (
           m.role === 'user' ? (
             <div key={i} className="flex justify-end">
-              <div className="max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-br-md bg-primary px-3.5 py-2 text-[length:var(--fs-14)] text-primary-foreground [overflow-wrap:anywhere]">{m.content}</div>
+              <div className="max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-br-md bg-primary px-3.5 py-2 text-(length:--fs-14) text-primary-foreground wrap-anywhere">{m.content}</div>
             </div>
           ) : (
             <div key={i} className="flex gap-2">
               <AirJordanAvatar size={26} className="mt-0.5 shrink-0" />
               <div className="min-w-0 flex-1">
                 <div className={cn('rounded-2xl rounded-tl-md border px-3.5 py-2.5', m.error ? 'border-destructive/30 bg-destructive/5 text-destructive' : 'border-border bg-card')}>
-                  {m.error ? <p className="text-[length:var(--fs-13)]">{m.content}</p> : <MarkdownView text={m.content} />}
+                  {m.error ? <p className="text-(length:--fs-13)">{m.content}</p> : <MarkdownView text={m.content} />}
                 </div>
                 {m.cards?.map((c) => <AppointmentConfirmCard key={c.token} card={c} conversationId={conversationId} />)}
                 {m.choices && m.choices.length > 0 && (
@@ -245,7 +245,7 @@ export function AirJordanChat({
                 )}
                 {m.followups && m.followups.length > 0 && i === messages.length - 1 && (
                   <div className="mt-2">
-                    <p className="mb-1 text-[length:var(--fs-11)] font-medium text-muted-foreground">Τι άλλο θέλετε να δείτε;</p>
+                    <p className="mb-1 text-(length:--fs-11) font-medium text-muted-foreground">Τι άλλο θέλετε να δείτε;</p>
                     <div className="flex flex-wrap gap-1.5">
                       {m.followups.map((c) => <ChoiceButton key={c.label} c={c} disabled={busy} onPrompt={(t) => void send(t)} onFill={fill} />)}
                     </div>
@@ -255,15 +255,15 @@ export function AirJordanChat({
                   <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
                     {(m.citations ?? []).map((c) => (
                       c.url ? (
-                        <Link key={c.refKey} href={c.url} title={c.label} className="inline-flex max-w-[16rem] items-center gap-1 truncate rounded-full border border-border bg-muted/50 px-2 py-0.5 text-[length:var(--fs-11)] text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary">
+                        <Link key={c.refKey} href={c.url} title={c.label} className="inline-flex max-w-[16rem] items-center gap-1 truncate rounded-full border border-border bg-muted/50 px-2 py-0.5 text-(length:--fs-11) text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary">
                           <FiExternalLink className="size-3 shrink-0" aria-hidden /><span className="truncate">{c.label}</span>
                         </Link>
                       ) : (
-                        <span key={c.refKey} className="max-w-[16rem] truncate rounded-full border border-border bg-muted/50 px-2 py-0.5 text-[length:var(--fs-11)] text-muted-foreground">{c.label}</span>
+                        <span key={c.refKey} className="max-w-[16rem] truncate rounded-full border border-border bg-muted/50 px-2 py-0.5 text-(length:--fs-11) text-muted-foreground">{c.label}</span>
                       )
                     ))}
-                    {m.feedback === 1 && <span className="inline-flex items-center gap-1 text-[length:var(--fs-11)] text-emerald-600"><FiCheck className="size-3" aria-hidden /> Στη μνήμη</span>}
-                    {m.feedback === -1 && <span className="text-[length:var(--fs-11)] text-muted-foreground">Σημειώθηκε λάθος</span>}
+                    {m.feedback === 1 && <span className="inline-flex items-center gap-1 text-(length:--fs-11) text-emerald-600"><FiCheck className="size-3" aria-hidden /> Στη μνήμη</span>}
+                    {m.feedback === -1 && <span className="text-(length:--fs-11) text-muted-foreground">Σημειώθηκε λάθος</span>}
                     <DropdownMenu>
                       <DropdownMenuTrigger className={cn(TRIGGER, 'ml-auto size-7')} aria-label="Ενέργειες απάντησης">
                         <FiMoreVertical className="size-3.5" aria-hidden />
@@ -286,7 +286,7 @@ export function AirJordanChat({
           <div className="flex gap-2">
             <AirJordanAvatar size={26} className="mt-0.5 shrink-0" />
             <div className="rounded-2xl rounded-tl-md border border-border bg-card px-3.5 py-2.5">
-              <ul className="space-y-1 text-[length:var(--fs-12)] text-muted-foreground">
+              <ul className="space-y-1 text-(length:--fs-12) text-muted-foreground">
                 {(steps.length ? steps : ['Σκέφτομαι']).map((s, j, arr) => (
                   <li key={j} className="flex items-center gap-1.5">
                     {j === arr.length - 1 ? <FiLoader className="size-3 animate-spin text-primary" aria-hidden /> : <FiCheck className="size-3 text-emerald-600" aria-hidden />}
@@ -302,7 +302,7 @@ export function AirJordanChat({
       {/* Εισαγωγή */}
       <div className="border-t border-border p-2.5 pb-[max(0.625rem,env(safe-area-inset-bottom))]">
         {voice.state !== 'idle' && (
-          <div className="mb-2 flex items-center gap-2 rounded-md bg-[var(--cx-accent-soft)] px-3 py-1.5 text-[length:var(--fs-12)] text-primary">
+          <div className="mb-2 flex items-center gap-2 rounded-md bg-(--cx-accent-soft) px-3 py-1.5 text-(length:--fs-12) text-primary">
             {voice.state === 'recording' ? (
               <>
                 <span className="relative flex size-2.5"><span className="absolute inline-flex size-full animate-ping rounded-full bg-red-500 opacity-60" /><span className="relative inline-flex size-2.5 rounded-full bg-red-500" /></span>
@@ -328,7 +328,7 @@ export function AirJordanChat({
             }}
             placeholder={voice.state === 'transcribing' ? 'Μεταγραφή…' : 'Ρωτήστε για έργο, προμηθευτή, υλικό…'}
             aria-label="Ερώτηση προς τον Air Jordan"
-            className="max-h-[180px] min-h-11 flex-1 resize-none rounded-lg border border-input bg-background px-3 py-2.5 text-[length:var(--fs-14)] leading-snug outline-none transition-colors placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-ring/30"
+            className="max-h-[180px] min-h-11 flex-1 resize-none rounded-lg border border-input bg-background px-3 py-2.5 text-(length:--fs-14) leading-snug outline-hidden transition-colors placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-ring/30"
           />
           {voice.supported && (
             <button
@@ -366,8 +366,8 @@ export function AirJordanChat({
 
 function ChoiceButton({ c, primary, disabled, onPrompt, onFill }: { c: Choice; primary?: boolean; disabled?: boolean; onPrompt: (t: string) => void; onFill: (t: string) => void }) {
   const cls = cn(
-    'inline-flex min-h-11 cursor-pointer items-center gap-1.5 rounded-lg border px-3 text-left text-[length:var(--fs-13)] transition-colors disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-9',
-    primary ? 'border-primary/40 bg-[var(--cx-accent-soft)] font-medium text-primary hover:bg-primary hover:text-primary-foreground' : 'border-border bg-card text-foreground/80 hover:border-primary/40 hover:text-primary',
+    'inline-flex min-h-11 cursor-pointer items-center gap-1.5 rounded-lg border px-3 text-left text-(length:--fs-13) transition-colors disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-9',
+    primary ? 'border-primary/40 bg-(--cx-accent-soft) font-medium text-primary hover:bg-primary hover:text-primary-foreground' : 'border-border bg-card text-foreground/80 hover:border-primary/40 hover:text-primary',
   );
   if (c.href) {
     const external = c.href.startsWith('/api/');
@@ -391,7 +391,7 @@ function StarterGroups({ onPick }: { onPick: (text: string) => void }) {
         {STARTERS.map((s, i) => (
           <button
             key={s.group} type="button" role="tab" aria-selected={g === i} onClick={() => setG(i)}
-            className={cn('min-h-9 cursor-pointer rounded-full border px-3 text-[length:var(--fs-12)] font-medium transition-colors', g === i ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-card text-foreground/70 hover:border-primary/40')}
+            className={cn('min-h-9 cursor-pointer rounded-full border px-3 text-(length:--fs-12) font-medium transition-colors', g === i ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-card text-foreground/70 hover:border-primary/40')}
           >
             {s.group}
           </button>
@@ -401,13 +401,13 @@ function StarterGroups({ onPick }: { onPick: (text: string) => void }) {
         {STARTERS[g].items.map((s) => (
           <button
             key={s} type="button" onClick={() => onPick(s)}
-            className="min-h-11 cursor-pointer rounded-md border border-border bg-card px-3 py-2 text-left text-[length:var(--fs-13)] text-foreground/80 transition-colors hover:border-primary/40 hover:bg-[var(--cx-accent-soft)]"
+            className="min-h-11 cursor-pointer rounded-md border border-border bg-card px-3 py-2 text-left text-(length:--fs-13) text-foreground/80 transition-colors hover:border-primary/40 hover:bg-(--cx-accent-soft)"
           >
             {s}
           </button>
         ))}
       </div>
-      <p className="mt-2 text-center text-[length:var(--fs-11)] text-muted-foreground">Ό,τι τελειώνει με «…» το συμπληρώνετε εσείς (π.χ. το όνομα του πελάτη).</p>
+      <p className="mt-2 text-center text-(length:--fs-11) text-muted-foreground">Ό,τι τελειώνει με «…» το συμπληρώνετε εσείς (π.χ. το όνομα του πελάτη).</p>
     </div>
   );
 }

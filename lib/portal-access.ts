@@ -67,9 +67,10 @@ export async function listCustomerContacts(trdr: number) {
   return rows.map(({ user, ...c }) => ({ ...c, createdAt: c.createdAt.toISOString(), updatedAt: c.updatedAt.toISOString(), user: userView(user, last) }));
 }
 
+/** Πρόσωπα έχουν πελάτες (13) και προμηθευτές-συνεργεία (12). */
 async function mustBeCustomer(trdr: number) {
   const t = await prisma.softoneTrader.findUnique({ where: { trdr }, select: { sodtype: true } });
-  if (t?.sodtype !== 13) throw new AccessError('Ο συναλλασσόμενος δεν είναι πελάτης', 404);
+  if (t?.sodtype !== 13 && t?.sodtype !== 12) throw new AccessError('Ο συναλλασσόμενος δεν είναι πελάτης ή προμηθευτής', 404);
 }
 
 export async function addCustomerContact(trdr: number, input: z.infer<typeof customerContactInput>) {
@@ -111,13 +112,15 @@ export async function deleteCustomerContact(trdr: number, id: string) {
 
 // ── Πρόσβαση (χρήστης) ─────────────────────────────────────────────────────────────────────
 
-type Holder = { name: string; userId: string | null; roleKey: RoleKey; customerTrdr: number | null; partnerId: string | null; orgName: string; contactEmail: string | null };
+type Holder = { name: string; userId: string | null; roleKey: RoleKey; customerTrdr: number | null; supplierTrdr?: number | null; partnerId: string | null; orgName: string; contactEmail: string | null };
 
 async function loadHolder(kind: HolderKind, id: string): Promise<Holder> {
   if (kind === 'customer-contact') {
     const c = await prisma.customerContact.findUnique({ where: { id } });
     if (!c) throw new AccessError('Το πρόσωπο δεν υπάρχει', 404);
-    const t = await prisma.softoneTrader.findUnique({ where: { trdr: c.trdr }, select: { name: true } });
+    const t = await prisma.softoneTrader.findUnique({ where: { trdr: c.trdr }, select: { name: true, sodtype: true } });
+    // Πρόσωπο προμηθευτή = συνεργείο: ρόλος SUPPLIER, βλέπει μόνο τις αναθέσεις του.
+    if (t?.sodtype === 12) return { name: c.name, userId: c.userId, roleKey: 'SUPPLIER', customerTrdr: null, supplierTrdr: c.trdr, partnerId: null, orgName: t.name, contactEmail: c.email };
     return { name: c.name, userId: c.userId, roleKey: 'CUSTOMER', customerTrdr: c.trdr, partnerId: null, orgName: t?.name ?? '', contactEmail: c.email };
   }
   if (kind === 'partner-contact') {
@@ -150,7 +153,7 @@ export async function grantAccess(kind: HolderKind, id: string, input: z.infer<t
     const u = await tx.user.create({
       data: {
         email: input.email, name: h.name, passwordHash, roleId: role.id, emailVerified: new Date(), isActive: true,
-        customerTrdr: h.customerTrdr, partnerId: h.partnerId,
+        customerTrdr: h.customerTrdr, supplierTrdr: h.supplierTrdr ?? null, partnerId: h.partnerId,
       },
       select: { id: true, email: true },
     });
@@ -174,7 +177,7 @@ async function holderUser(kind: HolderKind, id: string) {
   const h = await loadHolder(kind, id);
   if (!h.userId) throw new AccessError('Το πρόσωπο δεν έχει πρόσβαση', 404);
   const u = await prisma.user.findUnique({ where: { id: h.userId }, include: { role: { select: { key: true } } } });
-  if (!u || (u.role.key !== 'CUSTOMER' && u.role.key !== 'COLLABORATOR')) throw new AccessError('Ο χρήστης δεν είναι πελάτης/συνεργάτης', 403);
+  if (!u || !['CUSTOMER', 'COLLABORATOR', 'SUPPLIER'].includes(u.role.key ?? '')) throw new AccessError('Ο χρήστης δεν είναι πελάτης/συνεργάτης/συνεργείο', 403);
   return { h, u };
 }
 

@@ -8,8 +8,8 @@ import { ItemsRescanButton } from '@/components/admin/items-rescan-button';
 import type { TraderContacts } from '@/components/admin/create-trader-dialog';
 import * as React from 'react';
 import {
-  FiAlertOctagon, FiAlertTriangle, FiCheck, FiChevronDown, FiChevronRight, FiCopy, FiLoader,
-  FiPercent, FiPlusCircle, FiBox, FiUser, FiHelpCircle, FiCheckCircle,
+  FiAlertOctagon, FiAlertTriangle, FiCheck, FiChevronDown, FiChevronRight, FiLoader,
+  FiPercent, FiBox, FiUser, FiHelpCircle, FiCheckCircle,
 } from 'react-icons/fi';
 import Link from 'next/link';
 import { toast } from 'sonner';
@@ -166,7 +166,7 @@ export function SoftoneChecksStrip({ docId, helpHref = null }: { docId: string; 
     <>
       <div className="overflow-hidden rounded-xl border border-border bg-card shadow-card">
         {/* Πού πάει — πρώτο, γιατί ΑΥΤΟ ορίζει τι ζητούν τα υπόλοιπα τμήματα. */}
-        <div className="flex flex-wrap items-center gap-1.5 border-b border-border bg-muted/30 px-4 py-1.5 text-[length:var(--fs-11)]">
+        <div className="flex flex-wrap items-center gap-1.5 border-b border-border bg-muted/30 px-4 py-1.5 text-(length:--fs-11)">
           <span className="font-semibold uppercase tracking-wider text-muted-foreground">Προορισμός</span>
           {helpHref && (
             <Link href={helpHref} target="_blank" aria-label="Βοήθεια: ολοκλήρωση παραστατικού"
@@ -261,7 +261,7 @@ export function SoftoneChecksStrip({ docId, helpHref = null }: { docId: string; 
                         {req && data.supplier.afm && (
                           <button
                             type="button" onClick={() => setCreatingTrader(true)}
-                            className="text-left text-[length:var(--fs-11)] font-medium text-sisyphus-600 underline-offset-2 hover:underline"
+                            className="text-left text-(length:--fs-11) font-medium text-sisyphus-600 underline-offset-2 hover:underline"
                           >
                             Ο εκδότης είναι από άλλη χώρα; Δημιουργία {req.labelAcc} χωρίς ΑΑΔΕ
                           </button>
@@ -272,7 +272,7 @@ export function SoftoneChecksStrip({ docId, helpHref = null }: { docId: string; 
                         κατευθείαν δημιουργία με τη χώρα του ΑΦΜ. */}
                     {foreignCountry && req && (
                       <div className="space-y-1">
-                        <p className="text-[length:var(--fs-11)] text-muted-foreground">
+                        <p className="text-(length:--fs-11) text-muted-foreground">
                           {data.supplier.issuerVatId && <span className="font-mono text-foreground">{data.supplier.issuerVatId}</span>}
                           {data.supplier.issuerVatId && ' · '}
                           {data.supplier.softoneCountry
@@ -285,7 +285,7 @@ export function SoftoneChecksStrip({ docId, helpHref = null }: { docId: string; 
                         </p>
                         <button
                           type="button" onClick={() => setCreatingTrader(true)}
-                          className="inline-flex w-full items-center justify-center gap-1.5 rounded bg-sisyphus-500 px-2.5 py-1.5 text-[length:var(--fs-12)] font-semibold text-white shadow-fluent-2 transition hover:bg-sisyphus-600"
+                          className="inline-flex w-full items-center justify-center gap-1.5 rounded bg-sisyphus-500 px-2.5 py-1.5 text-(length:--fs-12) font-semibold text-white shadow-fluent-2 transition hover:bg-sisyphus-600"
                         >
                           Δημιουργία {req.labelAcc}
                         </button>
@@ -354,7 +354,7 @@ export function SoftoneChecksStrip({ docId, helpHref = null }: { docId: string; 
         {/* ΟΣΑ ΕΙΝΑΙ ΕΝΤΑΞΕΙ, ΣΕ ΜΙΑ ΓΡΑΜΜΗ. Ένα ολόκληρο τμήμα που λέει «όλα καλά» είναι θόρυβος·
             η επιβεβαίωση όμως χρειάζεται, γιατί η σιωπή δεν ξεχωρίζει από το «δεν ελέγχθηκε». */}
         {(itemsTone === 'ok' || vatTone === 'ok') && (
-          <p className="flex flex-wrap items-center gap-x-3 gap-y-0.5 border-t border-border px-4 py-1.5 text-[length:var(--fs-11)] text-emerald-700 dark:text-emerald-400">
+          <p className="flex flex-wrap items-center gap-x-3 gap-y-0.5 border-t border-border px-4 py-1.5 text-(length:--fs-11) text-emerald-700 dark:text-emerald-400">
             {itemsTone === 'ok' && <span className="inline-flex items-center gap-1"><FiCheckCircle className="size-3" aria-hidden /> Γραμμές αντιστοιχισμένες ({data.items.total})</span>}
             {vatTone === 'ok' && <span className="inline-flex items-center gap-1"><FiCheckCircle className="size-3" aria-hidden /> ΦΠΑ με κωδικούς</span>}
           </p>
@@ -364,18 +364,18 @@ export function SoftoneChecksStrip({ docId, helpHref = null }: { docId: string; 
         {open && itemsUnmatched > 0 && (
           <div className="border-t border-border bg-muted/20 p-2">
             <div className="flex flex-wrap items-center justify-between gap-2 px-1 pb-1.5">
-              <p className="min-w-0 flex-1 text-[length:var(--fs-11)] text-muted-foreground">{data.items.reason}</p>
+              <p className="min-w-0 flex-1 text-(length:--fs-11) text-muted-foreground">{data.items.reason}</p>
               {/* Είδος που καταχωρήθηκε στη SoftOne ΑΦΟΥ το ψάξαμε: ξαναψάχνουμε μόνο αυτές τις γραμμές. */}
               <ItemsRescanButton docId={docId} onDone={(n) => { if (n > 0) { void load(); emitDocLinesChanged(docId); } }} />
             </div>
             <div className="max-h-56 overflow-auto rounded-lg border border-border bg-card">
               {data.items.unmatched.map((l) => (
                 <div key={l.id} className="flex items-center gap-2 border-b border-border/60 px-3 py-2 last:border-0">
-                  <span className="w-[90px] shrink-0 font-mono text-[length:var(--fs-11)] text-muted-foreground">{l.code || `#${l.rowIndex + 1}`}</span>
-                  <span className="min-w-0 flex-1 truncate text-[length:var(--fs-12)] text-foreground">{l.name}</span>
+                  <span className="w-[90px] shrink-0 font-mono text-(length:--fs-11) text-muted-foreground">{l.code || `#${l.rowIndex + 1}`}</span>
+                  <span className="min-w-0 flex-1 truncate text-(length:--fs-12) text-foreground">{l.name}</span>
                   <button type="button" onClick={() => openLine(l.id)} disabled={openingLine != null}
                     aria-busy={openingLine === l.id || undefined}
-                    className="inline-flex min-h-8 shrink-0 cursor-pointer items-center gap-1 rounded-md border border-sisyphus-500/30 px-2 py-1 text-[length:var(--fs-11)] font-semibold text-sisyphus-600 hover:bg-sisyphus-50 disabled:cursor-wait disabled:opacity-70"
+                    className="inline-flex min-h-8 shrink-0 cursor-pointer items-center gap-1 rounded-md border border-sisyphus-500/30 px-2 py-1 text-(length:--fs-11) font-semibold text-sisyphus-600 hover:bg-sisyphus-50 disabled:cursor-wait disabled:opacity-70"
                     title="Άνοιγμα της γραμμής — εκεί γίνεται η αντιστοίχιση ΚΑΙ η δημιουργία">
                     {openingLine === l.id
                       ? <><FiLoader aria-hidden className="size-3 animate-spin motion-reduce:animate-none" /> Άνοιγμα…</>
@@ -388,7 +388,7 @@ export function SoftoneChecksStrip({ docId, helpHref = null }: { docId: string; 
         )}
 
         {!needsAction && (
-          <div className="flex items-center gap-1.5 border-t border-border bg-emerald-50/40 px-3 py-1.5 text-[length:var(--fs-11)] font-medium" style={{ color: '#047857' }}>
+          <div className="flex items-center gap-1.5 border-t border-border bg-emerald-50/40 px-3 py-1.5 text-(length:--fs-11) font-medium" style={{ color: '#047857' }}>
             <FiCheck className="size-3.5" /> Όλοι οι έλεγχοι ΟΚ — έτοιμο για καταχώριση.
           </div>
         )}
@@ -428,12 +428,12 @@ function Segment({
           {icon}
         </span>
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-1 text-[length:var(--fs-10)] font-semibold uppercase tracking-wider text-muted-foreground">
+          <div className="flex items-center gap-1 text-(length:--fs-10) font-semibold uppercase tracking-wider text-muted-foreground">
             {title}
           </div>
           <div className="flex items-center gap-1.5">
             <StatusIcon className="size-3.5 shrink-0" style={{ color: t.fg }} />
-            <span className="truncate text-[length:var(--fs-13)] font-medium text-foreground" title={value}>{value}</span>
+            <span className="truncate text-(length:--fs-13) font-medium text-foreground" title={value}>{value}</span>
           </div>
         </div>
         {action}
@@ -458,9 +458,9 @@ function SegmentAction({
       type="button" {...rest}
       className={cn(
         'inline-flex h-7 shrink-0 cursor-pointer items-center gap-1 rounded-md bg-sisyphus-500 px-2.5',
-        'text-[length:var(--fs-11)] font-semibold text-white shadow-sm transition',
+        'text-(length:--fs-11) font-semibold text-white shadow-xs transition',
         'hover:bg-sisyphus-600 active:bg-sisyphus-700',
-        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sisyphus-500/40 focus-visible:ring-offset-1',
+        'focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-sisyphus-500/40 focus-visible:ring-offset-1',
         className,
       )}
     >

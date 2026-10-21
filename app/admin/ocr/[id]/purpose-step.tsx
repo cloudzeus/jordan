@@ -71,14 +71,14 @@ export function PurposeStep({
 
   return (
     <div className="space-y-3">
-      <p className="rounded-lg bg-muted/50 px-3 py-2 text-[length:var(--fs-13)] text-foreground">
+      <p className="rounded-lg bg-muted/50 px-3 py-2 text-(length:--fs-13) text-foreground">
         Διάλεξε <strong>τι αφορά</strong> η αγορά. Δεν χρειάζεται να ξέρεις λογιστική — η εφαρμογή ξέρει
         πώς καταχωρείται το καθένα (π.χ. ένα laptop ως εξοπλισμός, η βενζίνη ως έξοδο αυτοκινήτου).
       </p>
 
       <div className="flex flex-wrap items-start justify-between gap-2">
         {suggested ? (
-          <p className="flex min-w-0 flex-1 items-start gap-1.5 text-[length:var(--fs-12)] text-muted-foreground">
+          <p className="flex min-w-0 flex-1 items-start gap-1.5 text-(length:--fs-12) text-muted-foreground">
             {ai ? <FiCpu aria-hidden className="mt-0.5 size-3.5 shrink-0 text-sisyphus-600" /> : <FiZap aria-hidden className="mt-0.5 size-3.5 shrink-0 text-sisyphus-600" />}
             <span>
               <strong className="text-foreground">{ai ? 'Πρόταση AI' : 'Πρόταση'}: {TILES[suggested.tile].title}.</strong> {suggested.reason}
@@ -86,12 +86,12 @@ export function PurposeStep({
             </span>
           </p>
         ) : (
-          <p className="min-w-0 flex-1 text-[length:var(--fs-12)] text-muted-foreground">Δεν βρήκαμε πρόταση από την περιγραφή.</p>
+          <p className="min-w-0 flex-1 text-(length:--fs-12) text-muted-foreground">Δεν βρήκαμε πρόταση από την περιγραφή.</p>
         )}
         {!ai && (
           <button
             type="button" onClick={onAskAi} disabled={aiBusy}
-            className="inline-flex min-h-9 shrink-0 cursor-pointer items-center gap-1.5 rounded-md border border-sisyphus-500/40 px-3 text-[length:var(--fs-12)] font-semibold text-sisyphus-700 outline-none hover:bg-sisyphus-500/10 focus-visible:ring-2 focus-visible:ring-sisyphus-500 disabled:opacity-60 dark:text-sisyphus-300"
+            className="inline-flex min-h-9 shrink-0 cursor-pointer items-center gap-1.5 rounded-md border border-sisyphus-500/40 px-3 text-(length:--fs-12) font-semibold text-sisyphus-700 outline-hidden hover:bg-sisyphus-500/10 focus-visible:ring-2 focus-visible:ring-sisyphus-500 disabled:opacity-60 dark:text-sisyphus-300"
           >
             {aiBusy ? <FiLoader aria-hidden className="size-3.5 animate-spin motion-reduce:animate-none" /> : <FiCpu aria-hidden className="size-3.5" />}
             {aiBusy ? 'Το AI σκέφτεται…' : 'Ρώτα το AI'}
@@ -113,11 +113,11 @@ export function PurposeStep({
               aria-checked={isCurrent}
               onClick={() => choose(tile, blocked)}
               className={cn(
-                'group relative flex min-h-[4.25rem] cursor-pointer items-start gap-3 rounded-xl border p-3 text-left outline-none',
+                'group relative flex min-h-17 cursor-pointer items-start gap-3 rounded-xl border p-3 text-left outline-hidden',
                 'cx-transition motion-reduce:transition-none focus-visible:ring-2 focus-visible:ring-sisyphus-500',
                 highlighted
-                  ? 'border-sisyphus-500 bg-sisyphus-500/[0.06] shadow-fluent-2'
-                  : 'border-border hover:border-sisyphus-500/50 hover:bg-[var(--cx-hover)]',
+                  ? 'border-sisyphus-500 bg-sisyphus-500/6 shadow-fluent-2'
+                  : 'border-border hover:border-sisyphus-500/50 hover:bg-(--cx-hover)',
                 blocked && 'border-dashed',
               )}
             >
@@ -129,19 +129,19 @@ export function PurposeStep({
               </span>
               <span className="min-w-0 flex-1">
                 <span className="flex flex-wrap items-center gap-1.5">
-                  <span className="text-[length:var(--fs-14)] font-semibold text-foreground">{def.title}</span>
+                  <span className="text-(length:--fs-14) font-semibold text-foreground">{def.title}</span>
                   {isSuggested && !quizTile && (
-                    <span className="rounded-full bg-sisyphus-500 px-1.5 py-px text-[length:var(--fs-10)] font-semibold text-white">{ai ? 'Πρόταση AI' : 'Πρόταση'}</span>
+                    <span className="rounded-full bg-sisyphus-500 px-1.5 py-px text-(length:--fs-10) font-semibold text-white">{ai ? 'Πρόταση AI' : 'Πρόταση'}</span>
                   )}
                   {isCurrent && (
-                    <span className="inline-flex items-center gap-0.5 rounded-full bg-emerald-500/15 px-1.5 py-px text-[length:var(--fs-10)] font-semibold text-emerald-800 dark:text-emerald-300">
+                    <span className="inline-flex items-center gap-0.5 rounded-full bg-emerald-500/15 px-1.5 py-px text-(length:--fs-10) font-semibold text-emerald-800 dark:text-emerald-300">
                       <FiCheck aria-hidden className="size-3" /> Τώρα
                     </span>
                   )}
                 </span>
-                <span className="mt-0.5 block text-[length:var(--fs-12)] text-muted-foreground">{def.examples}</span>
+                <span className="mt-0.5 block text-(length:--fs-12) text-muted-foreground">{def.examples}</span>
                 {blocked && (
-                  <span className="mt-1 inline-flex items-center gap-1 text-[length:var(--fs-11)] font-medium text-amber-800 dark:text-amber-300">
+                  <span className="mt-1 inline-flex items-center gap-1 text-(length:--fs-11) font-medium text-amber-800 dark:text-amber-300">
                     <FiAlertTriangle aria-hidden className="size-3" /> Δεν γίνεται σε αυτή τη σειρά — δες γιατί
                   </span>
                 )}
@@ -152,7 +152,7 @@ export function PurposeStep({
       </div>
 
       {blockedOpen && (
-        <div role="alert" className="flex items-start gap-2 rounded-lg border border-amber-500/40 bg-amber-500/[0.07] px-3 py-2 text-[length:var(--fs-12)] text-foreground">
+        <div role="alert" className="flex items-start gap-2 rounded-lg border border-amber-500/40 bg-amber-500/[0.07] px-3 py-2 text-(length:--fs-12) text-foreground">
           <FiAlertTriangle aria-hidden className="mt-0.5 size-4 shrink-0 text-amber-600" />
           <span><strong>{TILES[blockedOpen].title}:</strong> {blockedAdvice(TILES[blockedOpen].purpose)}</span>
         </div>
@@ -164,7 +164,7 @@ export function PurposeStep({
           type="button"
           aria-expanded={quizOpen}
           onClick={() => setQuizOpen((o) => !o)}
-          className="flex min-h-10 w-full cursor-pointer items-center gap-1.5 px-3 text-left text-[length:var(--fs-13)] font-semibold text-sisyphus-700 outline-none hover:bg-[var(--cx-hover)] focus-visible:ring-2 focus-visible:ring-sisyphus-500 dark:text-sisyphus-300"
+          className="flex min-h-10 w-full cursor-pointer items-center gap-1.5 px-3 text-left text-(length:--fs-13) font-semibold text-sisyphus-700 outline-hidden hover:bg-(--cx-hover) focus-visible:ring-2 focus-visible:ring-sisyphus-500 dark:text-sisyphus-300"
         >
           <FiHelpCircle aria-hidden className="size-4" /> Δεν είμαι σίγουρος — βοήθησέ με να διαλέξω
         </button>
@@ -194,13 +194,13 @@ export function PurposeStep({
             )}
             {quizTile && (
               <div className="flex flex-wrap items-center justify-between gap-2 rounded-md bg-sisyphus-500/[0.07] px-2.5 py-2">
-                <span className="text-[length:var(--fs-13)] text-foreground">
+                <span className="text-(length:--fs-13) text-foreground">
                   Ταιριάζει: <strong>{TILES[quizTile].title}</strong>
                 </span>
                 <button
                   type="button"
                   onClick={() => choose(quizTile, quizTileBlocked)}
-                  className="inline-flex min-h-9 cursor-pointer items-center rounded-md bg-sisyphus-500 px-3 text-[length:var(--fs-13)] font-semibold text-white hover:bg-sisyphus-600"
+                  className="inline-flex min-h-9 cursor-pointer items-center rounded-md bg-sisyphus-500 px-3 text-(length:--fs-13) font-semibold text-white hover:bg-sisyphus-600"
                 >
                   Συνέχεια με αυτό
                 </button>
@@ -217,8 +217,8 @@ function YesNo({ q, hint, value, onChange }: { q: string; hint: string; value: b
   const id = React.useId();
   return (
     <fieldset aria-describedby={`${id}-h`}>
-      <legend className="text-[length:var(--fs-13)] font-medium text-foreground">{q}</legend>
-      <p id={`${id}-h`} className="text-[length:var(--fs-11)] text-muted-foreground">{hint}</p>
+      <legend className="text-(length:--fs-13) font-medium text-foreground">{q}</legend>
+      <p id={`${id}-h`} className="text-(length:--fs-11) text-muted-foreground">{hint}</p>
       <div className="mt-1.5 flex gap-2">
         {([true, false] as const).map((v) => (
           <button
@@ -227,8 +227,8 @@ function YesNo({ q, hint, value, onChange }: { q: string; hint: string; value: b
             aria-pressed={value === v}
             onClick={() => onChange(v)}
             className={cn(
-              'min-h-9 min-w-16 cursor-pointer rounded-md border px-3 text-[length:var(--fs-13)] font-semibold outline-none focus-visible:ring-2 focus-visible:ring-sisyphus-500',
-              value === v ? 'border-sisyphus-500 bg-sisyphus-500 text-white' : 'border-input hover:bg-[var(--cx-hover)]',
+              'min-h-9 min-w-16 cursor-pointer rounded-md border px-3 text-(length:--fs-13) font-semibold outline-hidden focus-visible:ring-2 focus-visible:ring-sisyphus-500',
+              value === v ? 'border-sisyphus-500 bg-sisyphus-500 text-white' : 'border-input hover:bg-(--cx-hover)',
             )}
           >
             {v ? 'Ναι' : 'Όχι'}

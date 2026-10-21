@@ -19,18 +19,24 @@ const KIND: Record<PartyKind, { label: string; icon: React.ComponentType<{ class
   partnerContact: { label: 'Επαφή συνεργάτη', icon: FiUser, tone: '#7C3AED' },
 };
 const DURATIONS = [30, 45, 60, 90, 120, 180, 240];
-const label = 'block space-y-1 text-[length:var(--fs-12)] font-medium';
-const textarea = 'w-full rounded-md border border-input bg-background px-3 py-2 text-[length:var(--fs-13)] font-normal';
+const label = 'block space-y-1 text-(length:--fs-12) font-medium';
+const textarea = 'w-full rounded-md border border-input bg-background px-3 py-2 text-(length:--fs-13) font-normal';
 const durLabel = (m: number) => (m < 60 ? `${m} λεπτά` : m % 60 ? `${Math.floor(m / 60)} ώρα ${m % 60}′` : `${m / 60} ${m === 60 ? 'ώρα' : 'ώρες'}`);
 
 function PartySearch({ onPick, only, placeholder = 'Επωνυμία, κωδικός, ΑΦΜ, όνομα επαφής, email…' }: { onPick: (h: PartyHit) => void; only?: PartyKind; placeholder?: string }) {
   const [q, setQ] = React.useState('');
   const [hits, setHits] = React.useState<PartyHit[]>([]);
   const [loading, setLoading] = React.useState(false);
+  // Καθαρισμός/ένδειξη φόρτωσης όταν αλλάζει η αναζήτηση (adjust-state-while-rendering)
+  const [prevSearch, setPrevSearch] = React.useState({ q, only });
+  if (prevSearch.q !== q || prevSearch.only !== only) {
+    setPrevSearch({ q, only });
+    if (q.trim().length < 2) setHits([]);
+    else setLoading(true);
+  }
   React.useEffect(() => {
-    if (q.trim().length < 2) { setHits([]); return; }
+    if (q.trim().length < 2) return;
     const ctl = new AbortController();
-    setLoading(true);
     const t = setTimeout(async () => {
       try {
         const res = await fetch(`/api/admin/appointments/parties?q=${encodeURIComponent(q.trim())}`, { signal: ctl.signal });
@@ -48,7 +54,7 @@ function PartySearch({ onPick, only, placeholder = 'Επωνυμία, κωδικ
       </div>
       {q.trim().length >= 2 && (
         <ul className="max-h-60 w-full min-w-0 overflow-y-auto rounded-md border border-border" role="listbox" aria-label="Αποτελέσματα">
-          {(loading || hits.length === 0) && <li className="px-3 py-3 text-[length:var(--fs-12)] text-muted-foreground">{loading ? 'Αναζήτηση…' : (only ? 'Δεν βρέθηκε συναλλασσόμενος.' : 'Δεν βρέθηκε κανείς — δημιουργήστε «Νέα επαφή» ή «Νέο πελάτη».')}</li>}
+          {(loading || hits.length === 0) && <li className="px-3 py-3 text-(length:--fs-12) text-muted-foreground">{loading ? 'Αναζήτηση…' : (only ? 'Δεν βρέθηκε συναλλασσόμενος.' : 'Δεν βρέθηκε κανείς — δημιουργήστε «Νέα επαφή» ή «Νέο πελάτη».')}</li>}
           {hits.map((h) => {
             const k = KIND[h.kind];
             return (
@@ -56,10 +62,10 @@ function PartySearch({ onPick, only, placeholder = 'Επωνυμία, κωδικ
                 <button type="button" role="option" aria-selected={false} onClick={() => onPick(h)} className="flex w-full cursor-pointer items-start gap-2 border-b border-border/60 px-3 py-2 text-left last:border-0 hover:bg-muted">
                   <k.icon className="mt-0.5 size-3.5 shrink-0" aria-hidden />
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate text-[length:var(--fs-13)] font-medium">{h.label}</span>
-                    <span className="block truncate text-[length:var(--fs-11)] text-muted-foreground">{h.sub}</span>
+                    <span className="block truncate text-(length:--fs-13) font-medium">{h.label}</span>
+                    <span className="block truncate text-(length:--fs-11) text-muted-foreground">{h.sub}</span>
                   </span>
-                  <span className="shrink-0 rounded px-1.5 text-[length:var(--fs-10)] font-medium" style={{ color: k.tone, background: `color-mix(in srgb, ${k.tone} 12%, var(--background))` }}>{k.label}</span>
+                  <span className="shrink-0 rounded px-1.5 text-(length:--fs-10) font-medium" style={{ color: k.tone, background: `color-mix(in srgb, ${k.tone} 12%, var(--background))` }}>{k.label}</span>
                 </button>
               </li>
             );
@@ -92,12 +98,16 @@ export function ScheduleDialog({ open, prefill, defaultMinutes, staff, meId, sof
   const [newEmail, setNewEmail] = React.useState('');
   const [newAfm, setNewAfm] = React.useState('');
 
-  React.useEffect(() => {
-    if (!open) return;
-    setMode('existing'); setPicked(null); setOwner(null); setOverlap(null); setError(null); setNewEmail(''); setNewAfm('');
-    setDate(prefill?.date ?? new Date().toISOString().slice(0, 10)); setTime(prefill?.time ?? '10:00');
-    setMinutes(DURATIONS.includes(defaultMinutes) ? defaultMinutes : 60); setNotify(true); setPlace('atelier'); setAssignee(meId ?? '');
-  }, [open, prefill, defaultMinutes, meId]);
+  // Επαναφορά της φόρμας όταν ανοίγει (ή αλλάζουν τα props ενώ είναι ανοιχτή) — adjust-state-while-rendering
+  const [prevDeps, setPrevDeps] = React.useState({ open: false, prefill, defaultMinutes, meId });
+  if (prevDeps.open !== open || prevDeps.prefill !== prefill || prevDeps.defaultMinutes !== defaultMinutes || prevDeps.meId !== meId) {
+    setPrevDeps({ open, prefill, defaultMinutes, meId });
+    if (open) {
+      setMode('existing'); setPicked(null); setOwner(null); setOverlap(null); setError(null); setNewEmail(''); setNewAfm('');
+      setDate(prefill?.date ?? new Date().toISOString().slice(0, 10)); setTime(prefill?.time ?? '10:00');
+      setMinutes(DURATIONS.includes(defaultMinutes) ? defaultMinutes : 60); setNotify(true); setPlace('atelier'); setAssignee(meId ?? '');
+    }
+  }
 
   const email = mode === 'existing' ? picked?.email ?? '' : newEmail.trim();
 
@@ -127,7 +137,7 @@ export function ScheduleDialog({ open, prefill, defaultMinutes, staff, meId, sof
     } catch (err) { setError((err as Error).message); } finally { setBusy(false); }
   }
 
-  const tab = (on: boolean) => cn('inline-flex h-10 min-w-0 flex-1 cursor-pointer items-center justify-center gap-1.5 whitespace-nowrap rounded px-1.5 text-[length:var(--fs-12)] font-medium sm:h-8 sm:px-3', on ? 'bg-background shadow-xs text-foreground' : 'text-muted-foreground hover:text-foreground');
+  const tab = (on: boolean) => cn('inline-flex h-10 min-w-0 flex-1 cursor-pointer items-center justify-center gap-1.5 whitespace-nowrap rounded px-1.5 text-(length:--fs-12) font-medium sm:h-8 sm:px-3', on ? 'bg-background shadow-2xs text-foreground' : 'text-muted-foreground hover:text-foreground');
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
       <DialogContent className="sm:max-w-xl">
@@ -147,8 +157,8 @@ export function ScheduleDialog({ open, prefill, defaultMinutes, staff, meId, sof
               picked ? (
                 <div className="flex min-w-0 items-start justify-between gap-2 rounded-md border border-border bg-muted/40 px-3 py-2">
                   <span className="min-w-0">
-                    <span className="block truncate text-[length:var(--fs-13)] font-medium">{picked.label}</span>
-                    <span className="block truncate text-[length:var(--fs-11)] text-muted-foreground">{[KIND[picked.kind].label, picked.sub, picked.email, picked.phone].filter(Boolean).join(' · ')}</span>
+                    <span className="block truncate text-(length:--fs-13) font-medium">{picked.label}</span>
+                    <span className="block truncate text-(length:--fs-11) text-muted-foreground">{[KIND[picked.kind].label, picked.sub, picked.email, picked.phone].filter(Boolean).join(' · ')}</span>
                   </span>
                   <Button type="button" variant="ghost" size="icon" className="size-7 shrink-0" onClick={() => setPicked(null)} aria-label="Αλλαγή"><FiX className="size-3.5" aria-hidden /></Button>
                 </div>
@@ -157,7 +167,7 @@ export function ScheduleDialog({ open, prefill, defaultMinutes, staff, meId, sof
               <div className="space-y-3">
                 {owner ? (
                   <div className="flex min-w-0 items-start justify-between gap-2 rounded-md border border-border bg-muted/40 px-3 py-2">
-                    <span className="min-w-0"><span className="block truncate text-[length:var(--fs-13)] font-medium">{owner.label}</span><span className="block truncate text-[length:var(--fs-11)] text-muted-foreground">{owner.sub}</span></span>
+                    <span className="min-w-0"><span className="block truncate text-(length:--fs-13) font-medium">{owner.label}</span><span className="block truncate text-(length:--fs-11) text-muted-foreground">{owner.sub}</span></span>
                     <Button type="button" variant="ghost" size="icon" className="size-7 shrink-0" onClick={() => setOwner(null)} aria-label="Αλλαγή συναλλασσομένου"><FiX className="size-3.5" aria-hidden /></Button>
                   </div>
                 ) : <PartySearch only="trader" placeholder="Συναλλασσόμενος της επαφής (επωνυμία, κωδικός, ΑΦΜ)…" onPick={(h) => { setOwner(h); setError(null); }} />}
@@ -168,7 +178,7 @@ export function ScheduleDialog({ open, prefill, defaultMinutes, staff, meId, sof
                   <label className={label}><span>Κινητό</span><Input name="mobile" type="tel" maxLength={32} /></label>
                   <label className={cn(label, 'sm:col-span-2')}><span>Email</span><Input name="email" type="email" maxLength={64} value={newEmail} onChange={(e) => setNewEmail(e.target.value)} /></label>
                 </div>
-                <p className="flex items-start gap-2 rounded-md bg-[color-mix(in_srgb,#B45309_10%,var(--background))] px-3 py-2 text-[length:var(--fs-12)] text-[#92400E]">
+                <p className="flex items-start gap-2 rounded-md bg-[color-mix(in_srgb,#B45309_10%,var(--background))] px-3 py-2 text-(length:--fs-12) text-[#92400E]">
                   <FiAlertTriangle className="mt-0.5 size-3.5 shrink-0" aria-hidden />
                   <span>Η επαφή θα δημιουργηθεί στο SoftOne («Πρόσωπο» συνδεδεμένο με τον συναλλασσόμενο). Αν υπάρχει ήδη πρόσωπο με το ίδιο email, συνδέεται. Το ραντεβού μένει στην εφαρμογή.</span>
                 </p>
@@ -185,7 +195,7 @@ export function ScheduleDialog({ open, prefill, defaultMinutes, staff, meId, sof
                   <label className={label}><span>Πόλη</span><Input name="city" maxLength={64} /></label>
                   <label className={label}><span>Δραστηριότητα</span><Input name="profession" maxLength={64} placeholder="π.χ. Αρχιτέκτονας" /></label>
                 </div>
-                <p className="flex items-start gap-2 rounded-md bg-[color-mix(in_srgb,#B45309_10%,var(--background))] px-3 py-2 text-[length:var(--fs-12)] text-[#92400E]">
+                <p className="flex items-start gap-2 rounded-md bg-[color-mix(in_srgb,#B45309_10%,var(--background))] px-3 py-2 text-(length:--fs-12) text-[#92400E]">
                   <FiAlertTriangle className="mt-0.5 size-3.5 shrink-0" aria-hidden />
                   <span>Θα δημιουργηθεί καρτέλα πελάτη στο SoftOne{newAfm.trim() ? '' : ' ως «Υποψήφιος» (χωρίς ΑΦΜ)'} — και ο υπεύθυνος ως επαφή του. Αν υπάρχει ήδη πελάτης με τον ίδιο ΑΦΜ ή email, συνδέεται με αυτόν. Το ραντεβού μένει στην εφαρμογή.</span>
                 </p>
@@ -197,7 +207,7 @@ export function ScheduleDialog({ open, prefill, defaultMinutes, staff, meId, sof
               <label className={label}><span>Ώρα</span><Input type="time" required step={300} value={time} onChange={(e) => { setTime(e.target.value); setOverlap(null); }} /></label>
               <label className={cn(label, 'col-span-2 sm:col-span-1')}>
                 <span>Διάρκεια</span>
-                <select value={minutes} onChange={(e) => { setMinutes(Number(e.target.value)); setOverlap(null); }} className="h-9 w-full rounded-md border border-input bg-background px-2 text-[length:var(--fs-13)] font-normal">
+                <select value={minutes} onChange={(e) => { setMinutes(Number(e.target.value)); setOverlap(null); }} className="h-9 w-full rounded-md border border-input bg-background px-2 text-(length:--fs-13) font-normal">
                   {DURATIONS.map((m) => <option key={m} value={m}>{durLabel(m)}</option>)}
                 </select>
               </label>
@@ -211,10 +221,10 @@ export function ScheduleDialog({ open, prefill, defaultMinutes, staff, meId, sof
             </div>
             <label className={label}>
               <span>Υπεύθυνος</span>
-              <select value={assignee} onChange={(e) => setAssignee(e.target.value)} className="h-9 w-full rounded-md border border-input bg-background px-2 text-[length:var(--fs-13)] font-normal">
+              <select value={assignee} onChange={(e) => setAssignee(e.target.value)} className="h-9 w-full rounded-md border border-input bg-background px-2 text-(length:--fs-13) font-normal">
                 {staff.map((u) => <option key={u.id} value={u.id}>{u.name}{u.softone ? ` · SoftOne: ${u.softone}` : ''}</option>)}
               </select>
-              <span className="block text-[length:var(--fs-11)] font-normal text-muted-foreground">
+              <span className="block text-(length:--fs-11) font-normal text-muted-foreground">
                 {staff.find((u) => u.id === assignee)?.softone
                   ? (softoneEnabled ? `Θα καταχωριστεί και στο SoftOne ως «Ραντεβού» (${place === 'customer' ? 'στον πελάτη' : 'στην εταιρία'}).` : 'Συνδεδεμένος με SoftOne — η καταχώριση είναι κλειστή στις Ρυθμίσεις.')
                   : 'Δεν είναι συνδεδεμένος με χρήστη SoftOne — μένει μόνο στην εφαρμογή.'}
@@ -222,20 +232,20 @@ export function ScheduleDialog({ open, prefill, defaultMinutes, staff, meId, sof
             </label>
             <label className={label}>
               <span>Θέμα</span>
-              <select name="topic" defaultValue={TOPICS[1]} className="h-9 w-full rounded-md border border-input bg-background px-2 text-[length:var(--fs-13)] font-normal">
+              <select name="topic" defaultValue={TOPICS[1]} className="h-9 w-full rounded-md border border-input bg-background px-2 text-(length:--fs-13) font-normal">
                 {TOPICS.map((t) => <option key={t}>{t}</option>)}
               </select>
             </label>
             <label className={label}><span>Σημειώσεις (εσωτερικά)</span><textarea name="message" rows={2} maxLength={2000} className={textarea} placeholder="π.χ. φέρνει σχέδια για την κουζίνα" /></label>
-            <label className={cn('flex items-center gap-2 text-[length:var(--fs-12)]', !email && 'opacity-50')}>
+            <label className={cn('flex items-center gap-2 text-(length:--fs-12)', !email && 'opacity-50')}>
               <Switch checked={notify && !!email} onCheckedChange={setNotify} disabled={!email} /> Email με πρόσκληση ημερολογίου (.ics) στον προσκεκλημένο{email ? ` (${email})` : ' — δεν υπάρχει email· θα ενημερωθείτε μόνο εσείς'}
             </label>
             {overlap && (
-              <p role="alert" className="flex items-start gap-2 rounded-md bg-[color-mix(in_srgb,#B45309_10%,var(--background))] px-3 py-2 text-[length:var(--fs-12)] text-[#92400E]">
+              <p role="alert" className="flex items-start gap-2 rounded-md bg-[color-mix(in_srgb,#B45309_10%,var(--background))] px-3 py-2 text-(length:--fs-12) text-[#92400E]">
                 <FiAlertTriangle className="mt-0.5 size-3.5 shrink-0" aria-hidden />{overlap}. Πατήστε ξανά «Κλείσιμο ραντεβού» για να το κρατήσετε παρ’ όλα αυτά.
               </p>
             )}
-            {error && <p role="alert" className="text-[length:var(--fs-12)] text-destructive">{error}</p>}
+            {error && <p role="alert" className="text-(length:--fs-12) text-destructive">{error}</p>}
           </DialogBody>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose}>Άκυρο</Button>

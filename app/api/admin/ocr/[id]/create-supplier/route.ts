@@ -12,6 +12,12 @@ interface FirmAct {
   firm_act_kind: string;          // "1" κύρια, "2" δευτερεύουσα
 }
 
+/** Υποσύνολο της απάντησης του afm2info που διαβάζουμε. */
+type AadeAfmInfo = {
+  basic_rec?: Record<string, unknown> | null;
+  firm_act_tab?: { item?: FirmAct | FirmAct[] } | null;
+} | null;
+
 /**
  * AADE/ΓΕΜΗ services return XML serialized to JSON. NULL XML elements come
  * through as `{ $: { 'xsi:nil': 'true' } }` rather than JSON null. Normalize.
@@ -21,7 +27,7 @@ function s(v: unknown): string | null {
   if (typeof v === 'string') return v.trim() || null;
   if (typeof v === 'number' || typeof v === 'boolean') return String(v);
   if (typeof v === 'object') {
-    const o = v as any;
+    const o = v as { $?: Record<string, unknown>; _?: unknown };
     // xsi:nil marker
     if (o.$ && (o.$['xsi:nil'] === 'true' || o.$.nil === 'true')) return null;
     // SOAP-style { _: 'value' }
@@ -53,7 +59,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     return NextResponse.json({ error: 'OCR is not completed yet' }, { status: 422 });
   }
 
-  const data = (doc.extractedData ?? {}) as any;
+  const data = (doc.extractedData ?? {}) as Record<string, unknown> | null;
   const sourceKey = role === 'CUSTOMER' ? 'customerVatNumber' : 'vatNumber';
   const afmRaw = String(data?.[sourceKey] ?? '').replace(/\D+/g, '');
 
@@ -94,7 +100,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   }
 
   // AADE lookup
-  let raw: any;
+  let raw: AadeAfmInfo;
   try {
     const r = await fetch('https://vat.wwa.gr/afm2info', {
       method: 'POST',
@@ -104,8 +110,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     });
     if (!r.ok) return NextResponse.json({ error: 'aade_http', status: r.status }, { status: 502 });
     raw = await r.json();
-  } catch (e: any) {
-    return NextResponse.json({ error: 'aade_unreachable', message: e?.message }, { status: 502 });
+  } catch (e) {
+    return NextResponse.json({ error: 'aade_unreachable', message: (e as Error)?.message }, { status: 502 });
   }
   const b = raw?.basic_rec;
   if (!b || !b.afm) return NextResponse.json({ error: 'ΑΦΜ δεν βρέθηκε στην ΑΑΔΕ', raw }, { status: 404 });

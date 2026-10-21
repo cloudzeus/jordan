@@ -38,14 +38,14 @@ const SAMPLE_TONE = '#B45309';
 
 const soft = (hex: string, pct: number) => `color-mix(in srgb, ${hex} ${pct}%, var(--background))`;
 const fmtSize = (b: number) => (b >= 1048576 ? `${(b / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(b / 1024))} KB`);
-const ITEM = 'cursor-pointer gap-2 text-[length:var(--fs-12)]';
+const ITEM = 'cursor-pointer gap-2 text-(length:--fs-12)';
 
 /** Ένα PDF στα «Αρχεία»: εικονίδιο + όνομα, άνοιγμα σε νέα καρτέλα. */
 function DocumentPreview({ m }: { m: ItemMediaDTO }) {
   return (
     <a href={m.url} target="_blank" rel="noopener" className="flex size-full cursor-pointer flex-col items-center justify-center gap-1.5 p-3 text-center transition-colors duration-150 hover:bg-muted/60" aria-label={`Άνοιγμα ${m.name}`}>
       <span className="grid size-12 place-items-center rounded-lg" style={{ backgroundColor: soft(SAMPLE_TONE, 14), color: SAMPLE_TONE }}><FiFileText className="size-6" aria-hidden /></span>
-      <span className="line-clamp-3 text-[length:var(--fs-11)] font-medium text-foreground">{m.name.replace(/\.pdf$/i, '')}</span>
+      <span className="line-clamp-3 text-(length:--fs-11) font-medium text-foreground">{m.name.replace(/\.pdf$/i, '')}</span>
     </a>
   );
 }
@@ -65,30 +65,29 @@ function MediaCard({
       )}
       style={m.isInstallSample ? { borderColor: SAMPLE_TONE, boxShadow: `0 0 0 2px ${soft(SAMPLE_TONE, 35)}` } : undefined}
     >
-      <div className={cn('relative bg-muted', m.kind === 'PANORAMA' ? 'aspect-[2/1]' : 'aspect-square')}>
+      <div className={cn('relative bg-muted', m.kind === 'PANORAMA' ? 'aspect-2/1' : 'aspect-square')}>
         {m.kind === 'DOCUMENT' ? <DocumentPreview m={m} /> : m.kind === 'VIDEO' ? (
           <video src={`${m.url}#t=0.5`} preload="metadata" muted playsInline controls className="size-full object-contain" aria-label={m.name} />
         ) : (
-          // eslint-disable-next-line @next/next/no-img-element
           <img src={m.thumbUrl ?? m.url} alt={m.name} loading="lazy" className="size-full object-cover" />
         )}
         {m.isPrimary && (
-          <span className="absolute left-1.5 top-1.5 inline-flex items-center gap-1 rounded-full bg-amber-400 px-2 py-0.5 text-[length:var(--fs-10)] font-semibold text-amber-950 shadow-sm">
+          <span className="absolute left-1.5 top-1.5 inline-flex items-center gap-1 rounded-full bg-amber-400 px-2 py-0.5 text-(length:--fs-10) font-semibold text-amber-950 shadow-xs">
             <FiStar className="size-3 fill-current" aria-hidden /> Κύρια
           </span>
         )}
         {m.isInstallSample && (
-          <span className="absolute bottom-1.5 left-1.5 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[length:var(--fs-10)] font-semibold text-white shadow-sm" style={{ backgroundColor: SAMPLE_TONE }}>
+          <span className="absolute bottom-1.5 left-1.5 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-(length:--fs-10) font-semibold text-white shadow-xs" style={{ backgroundColor: SAMPLE_TONE }}>
             <FiTool className="size-3" aria-hidden /> Δείγμα εγκατάστασης
           </span>
         )}
         {m.kind === 'PANORAMA' && (
-          <span className="absolute left-1.5 top-1.5 rounded-full bg-emerald-700 px-2 py-0.5 text-[length:var(--fs-10)] font-semibold text-white">360°</span>
+          <span className="absolute left-1.5 top-1.5 rounded-full bg-emerald-700 px-2 py-0.5 text-(length:--fs-10) font-semibold text-white">360°</span>
         )}
         {/* Οι ενέργειες ζουν ΠΑΝΤΑ σε dropdown (κανόνας του project). */}
         <DropdownMenu>
           <DropdownMenuTrigger
-            className="absolute right-1.5 top-1.5 inline-flex size-8 cursor-pointer items-center justify-center rounded-md bg-background/90 text-foreground shadow-sm backdrop-blur transition-colors duration-150 hover:bg-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring data-[state=open]:bg-background"
+            className="absolute right-1.5 top-1.5 inline-flex size-8 cursor-pointer items-center justify-center rounded-md bg-background/90 text-foreground shadow-xs backdrop-blur-sm transition-colors duration-150 hover:bg-background focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring data-[state=open]:bg-background"
             aria-label={`Ενέργειες για ${m.name}`}
           >
             <FiMoreVertical className="size-4" aria-hidden />
@@ -139,8 +138,8 @@ function MediaCard({
         </DropdownMenu>
       </div>
       <figcaption className="flex items-center gap-1 px-2 py-1">
-        <span className="min-w-0 flex-1 truncate text-[length:var(--fs-11)] text-foreground" title={m.name}>{m.name}</span>
-        <span className="shrink-0 text-[length:var(--fs-10)] tabular-nums text-muted-foreground">{fmtSize(m.size)}</span>
+        <span className="min-w-0 flex-1 truncate text-(length:--fs-11) text-foreground" title={m.name}>{m.name}</span>
+        <span className="shrink-0 text-(length:--fs-10) tabular-nums text-muted-foreground">{fmtSize(m.size)}</span>
       </figcaption>
     </figure>
   );
@@ -162,12 +161,12 @@ function DropZone({ kind, onFiles, disabled }: { kind: (typeof KINDS)[number]; o
     >
       <input {...getInputProps()} aria-label={`Επιλογή αρχείων: ${kind.label}`} />
       <Icon className="size-4 shrink-0" style={{ color: kind.tone }} aria-hidden />
-      <span className="min-w-0 flex-1 text-[length:var(--fs-12)] text-muted-foreground">
+      <span className="min-w-0 flex-1 text-(length:--fs-12) text-muted-foreground">
         {isDragActive ? 'Άφησε τα αρχεία εδώ…' : <>Σύρε αρχεία εδώ ή <span className="font-medium text-foreground">επίλεξε πολλά μαζί</span>. {kind.hint}</>}
       </span>
       <button
         type="button" onClick={open} disabled={disabled}
-        className="inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-md px-3 text-[length:var(--fs-12)] font-medium text-white transition-opacity duration-150 hover:opacity-90 disabled:opacity-50"
+        className="inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-md px-3 text-(length:--fs-12) font-medium text-white transition-opacity duration-150 hover:opacity-90 disabled:opacity-50"
         style={{ backgroundColor: kind.tone }}
       >
         <FiUploadCloud className="size-3.5" aria-hidden /> Μεταφόρτωση
@@ -197,34 +196,35 @@ export function StockStrip({ mtrl }: { mtrl: number }) {
       setBusy(false);
     }
   }, [mtrl]);
-  React.useEffect(() => { void load(false); }, [load]);
+  // Το load ξεκινά σε microtask: τα setState του γίνονται σε callback, όχι σύγχρονα στο σώμα του effect.
+  React.useEffect(() => { void Promise.resolve().then(() => load(false)); }, [load]);
 
   if (!data) return <div className="h-14 animate-pulse rounded-md bg-muted motion-reduce:animate-none" aria-busy="true" aria-label="Φόρτωση υπολοίπων" />;
   const unit = data.unit ? ` ${data.unit}` : '';
   return (
     <div className="flex flex-wrap items-stretch gap-2">
       {data.warehouses.map((w) => (
-        <div key={w.whouse} className="min-w-[8.5rem] flex-1 rounded-md border border-border bg-background px-3 py-1.5 sm:flex-none">
-          <p className="flex items-center gap-1 truncate text-[length:var(--fs-11)] font-medium text-muted-foreground" title={w.name}>
+        <div key={w.whouse} className="min-w-34 flex-1 rounded-md border border-border bg-background px-3 py-1.5 sm:flex-none">
+          <p className="flex items-center gap-1 truncate text-(length:--fs-11) font-medium text-muted-foreground" title={w.name}>
             <FiArchive className="size-3 shrink-0" aria-hidden /> {w.name}
           </p>
-          <p className={cn('text-[length:var(--fs-14)] font-semibold tabular-nums', w.qty < 0 ? 'text-destructive' : w.qty === 0 ? 'text-muted-foreground' : 'text-foreground')}>
-            {qtyFmt.format(w.qty)}<span className="text-[length:var(--fs-11)] font-normal text-muted-foreground">{unit}</span>
+          <p className={cn('text-(length:--fs-14) font-semibold tabular-nums', w.qty < 0 ? 'text-destructive' : w.qty === 0 ? 'text-muted-foreground' : 'text-foreground')}>
+            {qtyFmt.format(w.qty)}<span className="text-(length:--fs-11) font-normal text-muted-foreground">{unit}</span>
           </p>
         </div>
       ))}
       <div
-        className="min-w-[8.5rem] flex-1 rounded-md border px-3 py-1.5 sm:flex-none"
+        className="min-w-34 flex-1 rounded-md border px-3 py-1.5 sm:flex-none"
         style={{ backgroundColor: soft(STOCK_TONE, 8), borderColor: soft(STOCK_TONE, 30), boxShadow: `inset 3px 0 0 ${STOCK_TONE}` }}
       >
-        <p className="text-[length:var(--fs-11)] font-semibold" style={{ color: STOCK_TONE }}>Σύνολο</p>
-        <p className={cn('text-[length:var(--fs-14)] font-bold tabular-nums', data.total < 0 ? 'text-destructive' : 'text-foreground')}>
-          {qtyFmt.format(data.total)}<span className="text-[length:var(--fs-11)] font-normal text-muted-foreground">{unit}</span>
+        <p className="text-(length:--fs-11) font-semibold" style={{ color: STOCK_TONE }}>Σύνολο</p>
+        <p className={cn('text-(length:--fs-14) font-bold tabular-nums', data.total < 0 ? 'text-destructive' : 'text-foreground')}>
+          {qtyFmt.format(data.total)}<span className="text-(length:--fs-11) font-normal text-muted-foreground">{unit}</span>
         </p>
       </div>
       <button
         type="button" onClick={() => load(true)} disabled={busy}
-        className="ml-auto inline-flex h-8 cursor-pointer items-center gap-1 self-start rounded-md px-2 text-[length:var(--fs-11)] text-muted-foreground transition-colors duration-150 hover:bg-muted hover:text-foreground disabled:opacity-50"
+        className="ml-auto inline-flex h-8 cursor-pointer items-center gap-1 self-start rounded-md px-2 text-(length:--fs-11) text-muted-foreground transition-colors duration-150 hover:bg-muted hover:text-foreground disabled:opacity-50"
         title={data.syncedAt ? `Χρήση ${data.fiscPrd ?? '—'} · ενημέρωση ${new Date(data.syncedAt).toLocaleString('el-GR')}` : 'Χωρίς συγχρονισμό'}
       >
         <FiRefreshCw className={cn('size-3.5', busy && 'animate-spin motion-reduce:animate-none')} aria-hidden /> Ανανέωση υπολοίπων
@@ -234,9 +234,9 @@ export function StockStrip({ mtrl }: { mtrl: number }) {
 }
 
 const TRIGGER = cn(
-  '!h-8 flex-none cursor-pointer gap-1 rounded-none px-1.5 text-[length:var(--fs-12)] text-muted-foreground sm:gap-1.5 sm:px-2.5',
-  'hover:text-foreground data-[state=active]:font-semibold data-[state=active]:!text-[color:var(--tab-tone)]',
-  'after:bg-[var(--tab-tone)] after:!h-[2px] after:!bottom-0',
+  'h-8! flex-none cursor-pointer gap-1 rounded-none px-1.5 text-(length:--fs-12) text-muted-foreground sm:gap-1.5 sm:px-2.5',
+  'hover:text-foreground data-[state=active]:font-semibold data-[state=active]:text-(--tab-tone)!',
+  'after:bg-(--tab-tone) after:h-[2px]! after:bottom-0!',
 );
 
 /** Πολυμέσα ενός είδους: tabs Φωτογραφίες / Βίντεο / 360°, μεταφόρτωση πολλών αρχείων, editor. */
@@ -257,7 +257,8 @@ export function ItemMediaPanel({ mtrl, canManage, showStock = false }: { mtrl: n
       setError((e as Error).message);
     }
   }, [mtrl]);
-  React.useEffect(() => { void load(); }, [load]);
+  // Το load ξεκινά σε microtask: τα setState του γίνονται σε callback, όχι σύγχρονα στο σώμα του effect.
+  React.useEffect(() => { void Promise.resolve().then(load); }, [load]);
 
   const call = async (url: string, init: RequestInit, ok: string) => {
     const res = await fetch(url, { ...init, headers: { 'Content-Type': 'application/json' } });
@@ -285,7 +286,7 @@ export function ItemMediaPanel({ mtrl, canManage, showStock = false }: { mtrl: n
 
   if (error && !media) {
     return (
-      <div role="alert" className="flex items-center gap-2 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-[length:var(--fs-12)]">
+      <div role="alert" className="flex items-center gap-2 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-(length:--fs-12)">
         <FiAlertTriangle className="size-4 text-destructive" aria-hidden /><span className="flex-1">{error}</span>
         <button type="button" onClick={load} className="inline-flex h-8 cursor-pointer items-center gap-1 rounded-md border border-border bg-background px-2.5 hover:bg-muted">
           <FiRefreshCw className="size-3.5" aria-hidden /> Δοκιμή ξανά
@@ -320,25 +321,25 @@ export function ItemMediaPanel({ mtrl, canManage, showStock = false }: { mtrl: n
         <div className="mb-2 flex flex-wrap items-center gap-2">
           <button
             type="button" onClick={() => setGuideOpen(true)}
-            className="inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-md border px-3 text-[length:var(--fs-12)] font-medium transition-colors duration-150 hover:bg-muted"
+            className="inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-md border px-3 text-(length:--fs-12) font-medium transition-colors duration-150 hover:bg-muted"
             style={{ borderColor: soft(SAMPLE_TONE, 45), color: SAMPLE_TONE }}
           >
             <FiTool className="size-3.5" aria-hidden /> Οδηγίες εγκατάστασης
           </button>
-          <span className="text-[length:var(--fs-11)] text-muted-foreground">
+          <span className="text-(length:--fs-11) text-muted-foreground">
             {samples ? `${samples} δείγματα εγκατάστασης` : 'Ηχογράφησε οδηγίες, μάρκαρε δείγματα και φτιάξε PDF για τα μαστόρια.'}
           </span>
         </div>
       )}
       <Tabs defaultValue="images" className="gap-2">
-        <TabsList variant="line" className="!h-auto min-h-8 flex-wrap w-full justify-start gap-0 border-b border-border p-0">
+        <TabsList variant="line" className="h-auto! min-h-8 flex-wrap w-full justify-start gap-0 border-b border-border p-0">
           {KINDS.map((k) => {
             const Icon = k.icon;
             const n = byKind(k.kind).length;
             return (
               <TabsTrigger key={k.kind} value={k.tab} className={TRIGGER} style={{ ['--tab-tone' as string]: k.tone }}>
                 <Icon className="hidden size-3.5 sm:inline" aria-hidden /> {k.label}
-                <span className="rounded-full px-1.5 text-[length:var(--fs-10)] font-semibold tabular-nums leading-4" style={{ color: k.tone, backgroundColor: soft(k.tone, 14) }}>{n}</span>
+                <span className="rounded-full px-1.5 text-(length:--fs-10) font-semibold tabular-nums leading-4" style={{ color: k.tone, backgroundColor: soft(k.tone, 14) }}>{n}</span>
               </TabsTrigger>
             );
           })}
@@ -350,7 +351,7 @@ export function ItemMediaPanel({ mtrl, canManage, showStock = false }: { mtrl: n
             <TabsContent key={k.kind} value={k.tab} className="space-y-2">
               {canManage && <DropZone kind={k} onFiles={(files) => setUpload({ kind: k.kind, files })} disabled={!!upload} />}
               {list.length === 0 ? (
-                <p className="rounded-md border border-dashed border-border px-3 py-5 text-center text-[length:var(--fs-12)] text-muted-foreground">
+                <p className="rounded-md border border-dashed border-border px-3 py-5 text-center text-(length:--fs-12) text-muted-foreground">
                   Δεν υπάρχουν {k.label.toLowerCase() === '360°' ? 'πανοράματα 360°' : k.label.toLowerCase()} για αυτό το είδος.
                 </p>
               ) : (

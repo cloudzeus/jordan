@@ -118,7 +118,7 @@ export async function renderStatementPdf(d: StatementDoc): Promise<Uint8Array> {
 
   // ── Κεφαλίδα: εταιρεία αριστερά, τίτλος + στοιχεία έκδοσης δεξιά ───────────────────────────
   p.rect(0, A4.h - 4, A4.w, 4, C.accent);
-  let y = p.y;
+  const y = p.y;
   p.text(upper(brand.name), M.x, y - 16, { size: 15, font: bold });
   const legal = [brand.legalName, brand.vat ? `ΑΦΜ ${brand.vat}` : null, brand.taxOffice ? `ΔΟΥ ${brand.taxOffice}` : null].filter(Boolean).join(' · ');
   const contact = [brand.address, (brand.phones ?? []).slice(0, 2).join(' · '), brand.email, brand.website?.replace(/^https?:\/\//, '').replace(/\/$/, '')].filter(Boolean) as string[];

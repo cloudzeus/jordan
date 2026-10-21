@@ -2,7 +2,13 @@
 
 import { labelPoint, type Pt } from '@/lib/floorplan/core';
 
-export type ExportRoom = { name: string; color: string; polygon: Pt[]; areaM2: number | null; perimeterM: number | null };
+export type ExportRoom = {
+  name: string; color: string; polygon: Pt[]; areaM2: number | null; perimeterM: number | null;
+  /** Πλακάκι και στους τοίχους: καθαρά m², ύψος πλακιδίων και m² ανοιγμάτων (null = όχι). */
+  walls?: { m2: number; heightM: number; openingsM2: number } | null;
+};
+
+const wallsTotal = (rooms: ExportRoom[]) => rooms.reduce((s, r) => s + (r.walls?.m2 ?? 0), 0);
 
 const nf2 = new Intl.NumberFormat('el-GR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 export const fmtM2 = (v: number) => `${nf2.format(v)} m²`;
@@ -12,17 +18,31 @@ export const fmtM = (v: number) => `${nf2.format(v)} m`;
 /** wallLenM: συνολικό μήκος τοίχων που σχεδίασε ο χρήστης (αξονικό), αν υπάρχουν. */
 export function roomsCsv(rooms: ExportRoom[], wallLenM: number | null = null): Blob {
   const esc = (s: string) => (/[;"\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s);
-  const rows = [['Χώρος', 'Εμβαδό (m²)', 'Περίμετρος (m)']];
-  for (const r of rooms) rows.push([r.name, r.areaM2 == null ? '' : nf2.format(r.areaM2), r.perimeterM == null ? '' : nf2.format(r.perimeterM)]);
+  const rows = [['Χώρος', 'Εμβαδό δαπέδου (m²)', 'Περίμετρος (m)', 'Ύψος πλακιδίων τοίχων (m)', 'Ανοίγματα (m²)', 'Τοίχοι (m²)']];
+  for (const r of rooms) {
+    rows.push([
+      r.name, r.areaM2 == null ? '' : nf2.format(r.areaM2), r.perimeterM == null ? '' : nf2.format(r.perimeterM),
+      r.walls ? nf2.format(r.walls.heightM) : '', r.walls ? nf2.format(r.walls.openingsM2) : '', r.walls ? nf2.format(r.walls.m2) : '',
+    ]);
+  }
   const total = rooms.reduce((s, r) => s + (r.areaM2 ?? 0), 0);
-  rows.push(['Σύνολο', nf2.format(total), '']);
-  if (wallLenM != null) rows.push(['Μήκος σχεδιασμένων τοίχων (m)', '', nf2.format(wallLenM)]);
+  const walls = wallsTotal(rooms);
+  rows.push(['Σύνολο', nf2.format(total), '', '', '', walls ? nf2.format(walls) : '']);
+  if (walls) rows.push(['Δάπεδο + τοίχοι (m²)', nf2.format(total + walls), '', '', '', '']);
+  if (wallLenM != null) rows.push(['Μήκος σχεδιασμένων τοίχων (m)', '', nf2.format(wallLenM), '', '', '']);
   return new Blob(['﻿' + rows.map((r) => r.map(esc).join(';')).join('\r\n')], { type: 'text/csv;charset=utf-8' });
 }
 
 export function roomsText(rooms: ExportRoom[], title: string, wallLenM: number | null = null): string {
   const total = rooms.reduce((s, r) => s + (r.areaM2 ?? 0), 0);
-  return [title, ...rooms.map((r) => `• ${r.name}: ${r.areaM2 == null ? '—' : fmtM2(r.areaM2)}`), `Σύνολο: ${fmtM2(total)}`, ...(wallLenM != null ? [`Μήκος τοίχων: ${fmtM(wallLenM)}`] : [])].join('\n');
+  const walls = wallsTotal(rooms);
+  return [
+    title,
+    ...rooms.map((r) => `• ${r.name}: ${r.areaM2 == null ? '—' : fmtM2(r.areaM2)}${r.walls ? ` · τοίχοι ${fmtM2(r.walls.m2)} (ύψος ${fmtM(r.walls.heightM)})` : ''}`),
+    `Σύνολο δαπέδου: ${fmtM2(total)}`,
+    ...(walls ? [`Σύνολο τοίχων: ${fmtM2(walls)}`, `Δάπεδο + τοίχοι: ${fmtM2(total + walls)}`] : []),
+    ...(wallLenM != null ? [`Μήκος τοίχων: ${fmtM(wallLenM)}`] : []),
+  ].join('\n');
 }
 
 /**
@@ -76,7 +96,8 @@ export async function annotatedPng(o: {
   g.textAlign = 'left'; g.textBaseline = 'top';
   g.fillStyle = '#fff'; g.font = `700 ${lf}px ui-sans-serif, system-ui, sans-serif`;
   const total = o.rooms.reduce((s, r) => s + (r.areaM2 ?? 0), 0);
-  g.fillText(`${o.title} — Σύνολο ${fmtM2(total)}`, lf, y0 + lf * 0.6);
+  const wallsM2 = wallsTotal(o.rooms);
+  g.fillText(`${o.title} — Δάπεδο ${fmtM2(total)}${wallsM2 ? `  ·  Τοίχοι ${fmtM2(wallsM2)}` : ''}`, lf, y0 + lf * 0.6);
   g.font = `400 ${lf * 0.8}px ui-sans-serif, system-ui, sans-serif`;
   g.fillStyle = '#94A3B8';
   g.fillText(o.scaleNote, lf, y0 + lf * 2);
@@ -84,7 +105,7 @@ export async function annotatedPng(o: {
     const y = y0 + lf * (3.4 + i * 1.3);
     g.fillStyle = r.color; g.fillRect(lf, y, lf * 0.8, lf * 0.8);
     g.fillStyle = '#E2E8F0'; g.font = `500 ${lf * 0.85}px ui-sans-serif, system-ui, sans-serif`;
-    g.fillText(`${r.name}  ·  ${r.areaM2 == null ? '—' : fmtM2(r.areaM2)}${r.perimeterM == null ? '' : `  ·  περίμετρος ${fmtM(r.perimeterM)}`}`, lf * 2.2, y);
+    g.fillText(`${r.name}  ·  ${r.areaM2 == null ? '—' : fmtM2(r.areaM2)}${r.perimeterM == null ? '' : `  ·  περίμετρος ${fmtM(r.perimeterM)}`}${r.walls ? `  ·  τοίχοι ${fmtM2(r.walls.m2)} (ύψος ${fmtM(r.walls.heightM)})` : ''}`, lf * 2.2, y);
   });
   return new Promise((res, rej) => c.toBlob((b) => (b ? res(b) : rej(new Error('PNG export failed'))), 'image/png'));
 }

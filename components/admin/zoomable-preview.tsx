@@ -24,6 +24,8 @@ export function ZoomablePreview({
   const [t, setT] = React.useState({ s: 1, x: 0, y: 0 });
   const [errored, setErrored] = React.useState(false);
   const drag = React.useRef<{ x: number; y: number; ox: number; oy: number } | null>(null);
+  // Για τον κέρσορα (το ref δεν διαβάζεται στο render).
+  const [dragging, setDragging] = React.useState(false);
 
   const clamp = (v: number, min: number, max: number) => Math.min(max, Math.max(min, v));
 
@@ -53,13 +55,14 @@ export function ZoomablePreview({
   const onMouseDown = (e: React.MouseEvent) => {
     if (t.s <= 1) return;
     drag.current = { x: e.clientX, y: e.clientY, ox: t.x, oy: t.y };
+    setDragging(true);
   };
   const onMouseMove = (e: React.MouseEvent) => {
     if (!drag.current) return;
     const d = drag.current;
     setT((p) => ({ ...p, x: d.ox + (e.clientX - d.x), y: d.oy + (e.clientY - d.y) }));
   };
-  const endDrag = () => { drag.current = null; };
+  const endDrag = () => { drag.current = null; setDragging(false); };
   const reset = () => setT({ s: 1, x: 0, y: 0 });
 
   const transform = `translate(${t.x}px, ${t.y}px) scale(${t.s})`;
@@ -77,13 +80,13 @@ export function ZoomablePreview({
       style={{
         position: 'relative',
         overflow: 'hidden',
-        cursor: zoomed ? (drag.current ? 'grabbing' : 'grab') : 'zoom-in',
+        cursor: zoomed ? (dragging ? 'grabbing' : 'grab') : 'zoom-in',
         touchAction: 'none',
       }}
       title="Κύλισε για zoom · σύρε για μετακίνηση · διπλό κλικ για επαναφορά"
     >
       {errored ? (
-        <div className="flex size-full flex-col items-center justify-center gap-2 p-4 text-center text-[length:var(--fs-12)] text-muted-foreground">
+        <div className="flex size-full flex-col items-center justify-center gap-2 p-4 text-center text-(length:--fs-12) text-muted-foreground">
           <span>Δεν ήταν δυνατή η προεπισκόπηση.</span>
           {fallbackHref && (
             <a href={fallbackHref} target="_blank" rel="noreferrer" className="font-semibold text-sisyphus-600 hover:underline">
@@ -93,7 +96,6 @@ export function ZoomablePreview({
         </div>
       ) : (
         <div style={{ width: '100%', height: '100%', transform, transformOrigin: '0 0' }}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={src}
             alt={alt}
@@ -110,14 +112,14 @@ export function ZoomablePreview({
           <button
             type="button"
             onClick={reset}
-            className="pointer-events-auto inline-flex items-center gap-1 rounded-md bg-black/65 px-1.5 py-0.5 text-[length:var(--fs-10)] font-semibold text-white backdrop-blur-sm hover:bg-black/80"
+            className="pointer-events-auto inline-flex items-center gap-1 rounded-md bg-black/65 px-1.5 py-0.5 text-(length:--fs-10) font-semibold text-white backdrop-blur-xs hover:bg-black/80"
             title="Επαναφορά zoom"
           >
             <FiMaximize className="size-3" /> {Math.round(t.s * 100)}%
           </button>
         )}
         {!zoomed && (
-          <span className="inline-flex items-center gap-1 rounded-md bg-black/45 px-1.5 py-0.5 text-[length:var(--fs-10)] font-medium text-white backdrop-blur-sm">
+          <span className="inline-flex items-center gap-1 rounded-md bg-black/45 px-1.5 py-0.5 text-(length:--fs-10) font-medium text-white backdrop-blur-xs">
             <FiZoomIn className="size-3" /> Κύλισε για zoom
           </span>
         )}

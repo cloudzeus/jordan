@@ -29,8 +29,8 @@ export function FormSection({ tone = 'slate', icon, title, aside, children, clas
     <section aria-labelledby={id} className={cn('overflow-hidden rounded-lg border bg-card', t.box, className)}>
       <header className={cn('flex min-h-8 items-center gap-2 px-3 py-1.5', t.head)}>
         {icon && <span aria-hidden className={cn('grid size-5 shrink-0 place-items-center rounded [&_svg]:size-3', t.icon)}>{icon}</span>}
-        <h3 id={id} className="text-[length:var(--fs-11)] font-semibold uppercase tracking-wide">{title}</h3>
-        {aside && <div className="ml-auto min-w-0 text-[length:var(--fs-11)] font-normal normal-case tracking-normal">{aside}</div>}
+        <h3 id={id} className="text-(length:--fs-11) font-semibold uppercase tracking-wide">{title}</h3>
+        {aside && <div className="ml-auto min-w-0 text-(length:--fs-11) font-normal normal-case tracking-normal">{aside}</div>}
       </header>
       <div className="space-y-2.5 px-3 py-2.5">{children}</div>
     </section>
@@ -43,22 +43,22 @@ export function Field({ label, required, htmlFor, className, children, error }: 
 }) {
   return (
     <div className={cn('grid min-w-0 content-start gap-1', className)}>
-      <label htmlFor={htmlFor} className="truncate text-[length:var(--fs-11)] font-medium text-muted-foreground">
+      <label htmlFor={htmlFor} className="truncate text-(length:--fs-11) font-medium text-muted-foreground">
         {label}{required && <span className="text-destructive"> *</span>}
       </label>
       {children}
-      {error && <p role="alert" className="text-[length:var(--fs-11)] text-destructive">{error}</p>}
+      {error && <p role="alert" className="text-(length:--fs-11) text-destructive">{error}</p>}
     </div>
   );
 }
 
 /** Ίδιο ύψος/μέγεθος για κάθε input των φορμών. */
-export const fieldCls = 'h-8 text-[length:var(--fs-13)]';
+export const fieldCls = 'h-8 text-(length:--fs-13)';
 
 /** Βοήθεια κάτω από μια ΣΕΙΡΑ πεδίων (όχι μέσα στη στήλη — δεν σπάει τη στοίχιση). */
 export function RowHint({ children, tone = 'muted' }: { children: React.ReactNode; tone?: 'muted' | 'warn' | 'bad' | 'ok' }) {
   const color = tone === 'warn' ? 'text-amber-800 dark:text-amber-300' : tone === 'bad' ? 'text-destructive' : tone === 'ok' ? 'text-emerald-700 dark:text-emerald-300' : 'text-muted-foreground';
-  return <p className={cn('text-[length:var(--fs-11)] leading-snug', color)}>{children}</p>;
+  return <p className={cn('text-(length:--fs-11) leading-snug', color)}>{children}</p>;
 }
 
 /** Select της φόρμας: πλάτος στήλης, ύψος 8, κείμενο 13 — όχι native (δεν «φουσκώνει» σε στενή οθόνη). */
@@ -68,12 +68,12 @@ export function FormSelect({ id, value, onChange, opts, placeholder = 'Επιλ�
 }) {
   return (
     <Select value={value || ''} onValueChange={onChange} disabled={disabled}>
-      <SelectTrigger id={id} aria-label={ariaLabel} aria-invalid={invalid || undefined} className={cn('h-8 w-full min-w-0 overflow-hidden text-[length:var(--fs-13)] *:data-[slot=select-value]:min-w-0 *:data-[slot=select-value]:truncate *:data-[slot=select-value]:block', className)}>
+      <SelectTrigger id={id} aria-label={ariaLabel} aria-invalid={invalid || undefined} className={cn('h-8 w-full min-w-0 overflow-hidden text-(length:--fs-13) *:data-[slot=select-value]:min-w-0 *:data-[slot=select-value]:truncate *:data-[slot=select-value]:block', className)}>
         <SelectValue placeholder={placeholder} />
       </SelectTrigger>
       <SelectContent className="max-h-72">
-        {opts.length === 0 && <div className="px-2 py-1.5 text-[length:var(--fs-12)] text-muted-foreground">— κενό —</div>}
-        {opts.map((o) => <SelectItem key={o.id} value={o.id} className="text-[length:var(--fs-13)]">{o.name}</SelectItem>)}
+        {opts.length === 0 && <div className="px-2 py-1.5 text-(length:--fs-12) text-muted-foreground">— κενό —</div>}
+        {opts.map((o) => <SelectItem key={o.id} value={o.id} className="text-(length:--fs-13)">{o.name}</SelectItem>)}
       </SelectContent>
     </Select>
   );
@@ -88,8 +88,8 @@ export function Segmented<T extends string>({ value, onChange, options, ariaLabe
       {options.map((o) => (
         <button
           key={o.value} type="button" role="radio" aria-checked={value === o.value} onClick={() => onChange(o.value)}
-          className={cn('h-7 cursor-pointer rounded px-2 text-[length:var(--fs-11)] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-            value === o.value ? 'bg-card text-foreground shadow-sm ring-1 ring-border' : 'text-muted-foreground hover:text-foreground')}
+          className={cn('h-7 cursor-pointer rounded px-2 text-(length:--fs-11) font-medium transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring',
+            value === o.value ? 'bg-card text-foreground shadow-xs ring-1 ring-border' : 'text-muted-foreground hover:text-foreground')}
         >
           {o.label}
         </button>

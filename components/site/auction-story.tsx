@@ -46,7 +46,7 @@ const Scene = React.memo(function Scene({ capacity, perPallet, unit, filled, pic
       labels={{ container: 'Container', pallet: 'ΠΑΛ', base: unit }}
       heightClass="h-full" expandable={false} fitScale={0.92}
       selectedSlots={picked} maxSelectable={MY_PALLETS}
-      className="h-full [&>div>.pointer-events-none]:hidden [&>div]:rounded-none [&>div]:border-0 [&>div]:![background:transparent] [&_figcaption]:hidden"
+      className="h-full [&>div>.pointer-events-none]:hidden [&>div]:rounded-none [&>div]:border-0 [&>div]:[background:transparent]! [&_figcaption]:hidden"
     />
   );
 });
@@ -74,6 +74,7 @@ export function AuctionStory({ capacity = 20, tiers, product, unit = 'τ.μ.', p
   React.useLayoutEffect(() => {
     const el = root.current;
     if (!el || !desktop) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- προτίμηση reduced-motion (εξωτερικό σύστημα): τελική κατάσταση χωρίς animation, πριν το paint
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) { setFilled(capacity); setSceneFilled(capacity); return; }
 
     const proxy = { v: 0 };
@@ -127,7 +128,6 @@ export function AuctionStory({ capacity = 20, tiers, product, unit = 'τ.μ.', p
   const color = tierColor(idx, tiers.length);
   const pct = (filled / capacity) * 100;
   const chapter = CHAPTERS.reduce((a, c, i) => (filled + 1e-9 >= c.at ? i : a), 0);
-  const ch = CHAPTERS[chapter];
   const events = EVENTS.filter((e) => filled + 1e-9 >= e.at).slice(-3).reverse();
   const saving = (base - cur.price) * MY_PALLETS * perPallet;
 
@@ -141,46 +141,46 @@ export function AuctionStory({ capacity = 20, tiers, product, unit = 'τ.μ.', p
   return (
     <>
     <MobileStory tiers={tiers} capacity={capacity} product={product} unit={unit} perPallet={perPallet} />
-    <div ref={root} className="relative hidden h-[270vh] bg-[var(--s-paper)] lg:block">
+    <div ref={root} className="relative hidden h-[270vh] bg-(--s-paper) lg:block">
       <div className="sticky top-16 flex h-[calc(100dvh-4rem)] items-center overflow-hidden md:top-20 md:h-[calc(100dvh-5rem)]">
-        <div aria-hidden className="pointer-events-none absolute inset-0 opacity-[0.06] [background-image:linear-gradient(#1C3241_1px,transparent_1px),linear-gradient(90deg,#1C3241_1px,transparent_1px)] [background-size:48px_48px]" />
+        <div aria-hidden className="pointer-events-none absolute inset-0 opacity-[0.06] bg-[linear-gradient(#1C3241_1px,transparent_1px),linear-gradient(90deg,#1C3241_1px,transparent_1px)] bg-size-[48px_48px]" />
         <div aria-hidden className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_55%_60%_at_32%_50%,rgba(255,255,255,0.95),transparent_70%)]" />
 
         {/* Πρόοδος κεφαλαίων (πάνω) */}
         <ol className="absolute inset-x-0 top-0 z-10 mx-auto flex w-full max-w-[1280px] gap-1.5 px-5 pt-4 sm:px-8 lg:px-12" aria-label="Κεφάλαια">
           {CHAPTERS.map((c, i) => (
-            <li key={c.t} className="h-0.5 flex-1 bg-[var(--s-line)]" aria-current={i === chapter ? 'step' : undefined}>
-              <span className="block h-full bg-[var(--s-ink)] transition-[width] duration-300" style={{ width: i < chapter ? '100%' : i === chapter ? '55%' : '0%' }} />
+            <li key={c.t} className="h-0.5 flex-1 bg-(--s-line)" aria-current={i === chapter ? 'step' : undefined}>
+              <span className="block h-full bg-(--s-ink) transition-[width] duration-300" style={{ width: i < chapter ? '100%' : i === chapter ? '55%' : '0%' }} />
             </li>
           ))}
         </ol>
 
-        <button type="button" onClick={skip} className={cn('absolute bottom-4 right-5 z-10 inline-flex min-h-11 cursor-pointer items-center gap-2 border border-[var(--s-line)] bg-white/90 px-4 text-[length:var(--fs-13)] text-[var(--s-ink-2)] transition-colors hover:border-[var(--s-ink)] hover:text-[var(--s-ink)] sm:right-8 lg:right-12', chapter === 4 && 'pointer-events-none opacity-0')}>
+        <button type="button" onClick={skip} className={cn('absolute bottom-4 right-5 z-10 inline-flex min-h-11 cursor-pointer items-center gap-2 border border-(--s-line) bg-white/90 px-4 text-(length:--fs-13) text-(--s-ink-2) transition-colors hover:border-(--s-ink) hover:text-(--s-ink) sm:right-8 lg:right-12', chapter === 4 && 'pointer-events-none opacity-0')}>
           Παράλειψη <FiArrowDown className="size-3.5" aria-hidden />
         </button>
 
         <div className="relative mx-auto grid w-full max-w-[1360px] items-center gap-4 px-5 sm:px-8 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)] lg:gap-10 lg:px-12">
           <div className="min-w-0">
-            <p className="s-kicker text-[var(--s-accent)]">Δυναμική προσφορά · {String(chapter + 1).padStart(2, '0')} / 05</p>
-            <div className="relative mt-3 min-h-[7.5rem] lg:min-h-[10rem]" aria-live="polite">
+            <p className="s-kicker text-(--s-accent)">Δυναμική προσφορά · {String(chapter + 1).padStart(2, '0')} / 05</p>
+            <div className="relative mt-3 min-h-30 lg:min-h-40" aria-live="polite">
               {CHAPTERS.map((c, i) => (
                 <div key={c.t} className={cn('absolute inset-x-0 top-0 transition-[opacity,transform] duration-500 ease-[cubic-bezier(0.2,0,0,1)]', i === chapter ? 'translate-y-0 opacity-100' : i < chapter ? '-translate-y-4 opacity-0' : 'translate-y-4 opacity-0')} aria-hidden={i !== chapter}>
-                  <h2 className="font-display text-[length:var(--fs-32)] lg:text-[length:var(--fs-48)]">{c.t}</h2>
-                  <p className="mt-2 hidden max-w-xl text-[length:var(--fs-16)] text-[var(--s-ink-2)] sm:block">{c.d}</p>
+                  <h2 className="font-display text-(length:--fs-32) lg:text-(length:--fs-48)">{c.t}</h2>
+                  <p className="mt-2 hidden max-w-xl text-(length:--fs-16) text-(--s-ink-2) sm:block">{c.d}</p>
                 </div>
               ))}
             </div>
-            <div className="relative aspect-[16/10] w-full lg:aspect-[16/9]">
+            <div className="relative aspect-16/10 w-full lg:aspect-video">
               {desktop && <Scene capacity={capacity} perPallet={perPallet} unit={unit} filled={sceneFilled} picked={chapter === 3 ? MY_PALLETS : 0} />}
               {/* «Κέρσορας» που κλείνει θέσεις στο κεφάλαιο 4 */}
               <span aria-hidden className={cn('pointer-events-none absolute left-[62%] top-[46%] transition-[opacity,transform] duration-700', chapter === 3 ? 'scale-100 opacity-100' : 'scale-75 opacity-0')}>
                 <span className="absolute -left-3 -top-3 size-8 animate-ping rounded-full bg-[#7A5C43]/40 motion-reduce:hidden" />
-                <FiMousePointer className="relative size-7 fill-white text-[var(--s-ink)] drop-shadow" />
+                <FiMousePointer className="relative size-7 fill-white text-(--s-ink) drop-shadow-sm" />
               </span>
               {/* Γεγονότα της πύλης */}
-              <ul className="absolute bottom-1 left-0 hidden w-[19rem] flex-col gap-2 sm:flex" aria-label="Δραστηριότητα">
+              <ul className="absolute bottom-1 left-0 hidden w-76 flex-col gap-2 sm:flex" aria-label="Δραστηριότητα">
                 {events.map((e, i) => (
-                  <li key={e.t} className="flex items-center gap-3 border border-[var(--s-line)] bg-white/95 px-3 py-2 text-[length:var(--fs-13)] shadow-[0_12px_30px_-18px_rgba(28,50,65,0.5)] transition-opacity duration-500" style={{ opacity: 1 - i * 0.28 }}>
+                  <li key={e.t} className="flex items-center gap-3 border border-(--s-line) bg-white/95 px-3 py-2 text-(length:--fs-13) shadow-[0_12px_30px_-18px_rgba(28,50,65,0.5)] transition-opacity duration-500" style={{ opacity: 1 - i * 0.28 }}>
                     <span className="grid size-7 shrink-0 place-items-center rounded-full" style={{ background: `${e.tone}14`, color: e.tone }}><e.icon className="size-3.5" aria-hidden /></span>
                     <span className="min-w-0 truncate">{e.t}</span>
                   </li>
@@ -189,38 +189,38 @@ export function AuctionStory({ capacity = 20, tiers, product, unit = 'τ.μ.', p
             </div>
           </div>
 
-          <div className="min-w-0 border border-[var(--s-line)] bg-white p-4 shadow-[0_24px_60px_-28px_rgba(28,50,65,0.35)] sm:p-6 lg:p-8">
+          <div className="min-w-0 border border-(--s-line) bg-white p-4 shadow-[0_24px_60px_-28px_rgba(28,50,65,0.35)] sm:p-6 lg:p-8">
             <div className="flex items-start justify-between gap-3">
-              <p className="text-[length:var(--fs-12)] uppercase tracking-[0.18em] text-[var(--s-mute)]">Τιμή για όλους<span className="mt-1 block normal-case tracking-normal text-[length:var(--fs-14)] text-[var(--s-ink)]">{product}</span></p>
-              <span className="inline-flex shrink-0 items-center gap-2 border border-[#FCA5A5] px-2 py-0.5 text-[length:var(--fs-12)] font-medium uppercase tracking-[0.16em] text-[#B42318]">
+              <p className="text-(length:--fs-12) uppercase tracking-[0.18em] text-(--s-mute)">Τιμή για όλους<span className="mt-1 block normal-case tracking-normal text-(length:--fs-14) text-(--s-ink)">{product}</span></p>
+              <span className="inline-flex shrink-0 items-center gap-2 border border-[#FCA5A5] px-2 py-0.5 text-(length:--fs-12) font-medium uppercase tracking-[0.16em] text-[#B42318]">
                 <span className="relative flex size-2"><span className="absolute inline-flex size-full animate-ping rounded-full bg-[#F87171] opacity-75 motion-reduce:hidden" /><span className="relative inline-flex size-2 rounded-full bg-[#EF4444]" /></span>{chapter === 4 ? 'Έκλεισε' : 'Ζωντανά'}
               </span>
             </div>
             <div className="mt-2 flex flex-wrap items-end gap-x-3">
-              <p className="font-num text-[length:var(--fs-48)] font-light leading-none tabular-nums transition-colors duration-500 lg:text-[length:var(--fs-72)]" style={{ color }}>{eur(cur.price)}</p>
-              <p className="pb-1 text-[length:var(--fs-14)] text-[var(--s-mute)] lg:pb-2">/ {unit}</p>
+              <p className="font-num text-(length:--fs-48) font-light leading-none tabular-nums transition-colors duration-500 lg:text-(length:--fs-72)" style={{ color }}>{eur(cur.price)}</p>
+              <p className="pb-1 text-(length:--fs-14) text-(--s-mute) lg:pb-2">/ {unit}</p>
             </div>
-            <div className="mt-2 flex h-7 items-center gap-2 text-[length:var(--fs-13)]">
+            <div className="mt-2 flex h-7 items-center gap-2 text-(length:--fs-13)">
               {drop > 0
-                ? <><s className="text-[var(--s-mute)]">{eur(base)}</s><span className="inline-flex items-center gap-1 px-2 py-0.5 font-medium" style={{ background: `${color}1f`, color }}><FiTrendingDown className="size-3.5" aria-hidden />−{num(drop)}%</span></>
-                : <span className="text-[var(--s-mute)]">Βασική τιμή</span>}
+                ? <><s className="text-(--s-mute)">{eur(base)}</s><span className="inline-flex items-center gap-1 px-2 py-0.5 font-medium" style={{ background: `${color}1f`, color }}><FiTrendingDown className="size-3.5" aria-hidden />−{num(drop)}%</span></>
+                : <span className="text-(--s-mute)">Βασική τιμή</span>}
             </div>
 
             <div className="mt-4 lg:mt-6">
-              <div className="flex justify-between text-[length:var(--fs-13)] text-[var(--s-ink-2)]"><span>Γέμισμα · <b className="font-num font-normal tabular-nums text-[var(--s-ink)]">{num(filled)}</b> / {capacity} παλέτες</span><span className="tabular-nums">{Math.round(pct)}%</span></div>
-              <div className="relative mt-2 h-2 bg-[var(--s-line)]" role="progressbar" aria-valuemin={0} aria-valuemax={capacity} aria-valuenow={filled} aria-label="Γέμισμα container">
+              <div className="flex justify-between text-(length:--fs-13) text-(--s-ink-2)"><span>Γέμισμα · <b className="font-num font-normal tabular-nums text-(--s-ink)">{num(filled)}</b> / {capacity} παλέτες</span><span className="tabular-nums">{Math.round(pct)}%</span></div>
+              <div className="relative mt-2 h-2 bg-(--s-line)" role="progressbar" aria-valuemin={0} aria-valuemax={capacity} aria-valuenow={filled} aria-label="Γέμισμα container">
                 <div className="absolute inset-y-0 left-0" style={{ width: `${pct}%`, background: `linear-gradient(90deg, ${tierColor(0, tiers.length)}, ${color})` }} />
                 {tiers.slice(1).map((t, i) => (
                   <span key={t.from} className="absolute -top-1 h-4 w-0.5" style={{ left: `${(t.from / capacity) * 100}%`, background: filled >= t.from ? tierColor(i + 1, tiers.length) : '#CFC9C0' }} aria-hidden />
                 ))}
               </div>
-              <p className="mt-3 min-h-6 text-[length:var(--fs-14)] text-[var(--s-ink-2)]">
-                {next ? <>Επόμενη πτώση σε <b className="font-num font-normal text-[var(--s-ink)]">{num(Math.max(0.5, next.from - filled))}</b> παλέτες → <b className="font-num font-normal" style={{ color: tierColor(idx + 1, tiers.length) }}>{eur(next.price)}</b></> : 'Χαμηλότερο κλιμάκιο — η καλύτερη τιμή για όλους.'}
+              <p className="mt-3 min-h-6 text-(length:--fs-14) text-(--s-ink-2)">
+                {next ? <>Επόμενη πτώση σε <b className="font-num font-normal text-(--s-ink)">{num(Math.max(0.5, next.from - filled))}</b> παλέτες → <b className="font-num font-normal" style={{ color: tierColor(idx + 1, tiers.length) }}>{eur(next.price)}</b></> : 'Χαμηλότερο κλιμάκιο — η καλύτερη τιμή για όλους.'}
               </p>
             </div>
 
-            <figure className="mt-4 hidden border-t border-[var(--s-line)] pt-4 md:block lg:mt-6 lg:pt-5">
-              <figcaption className="text-[length:var(--fs-12)] uppercase tracking-[0.18em] text-[var(--s-mute)]">Η σκάλα της τιμής</figcaption>
+            <figure className="mt-4 hidden border-t border-(--s-line) pt-4 md:block lg:mt-6 lg:pt-5">
+              <figcaption className="text-(length:--fs-12) uppercase tracking-[0.18em] text-(--s-mute)">Η σκάλα της τιμής</figcaption>
               <svg viewBox={`0 0 ${W} ${H}`} className="mt-3 h-auto w-full overflow-visible" role="img" aria-label={`Η τιμή πέφτει από ${eur(base)} σε ${eur(pMin)} όσο γεμίζει το container`}>
                 <defs><clipPath id="as-clip"><rect x="0" y="-10" height={H + 20} width={x(filled)} /></clipPath></defs>
                 {tiers.map((t) => <line key={t.from} x1={x(t.from)} x2={x(t.from)} y1={0} y2={H} stroke="#E7E3DD" strokeDasharray="2 4" />)}
@@ -232,15 +232,15 @@ export function AuctionStory({ capacity = 20, tiers, product, unit = 'τ.μ.', p
             </figure>
 
             {/* Τι σημαίνει για εσάς */}
-            <div className={cn('mt-4 border-t border-[var(--s-line)] pt-4 transition-opacity duration-500 lg:mt-5', chapter >= 3 ? 'opacity-100' : 'opacity-40')}>
-              <p className="text-[length:var(--fs-12)] uppercase tracking-[0.18em] text-[var(--s-mute)]">Για τις {MY_PALLETS} παλέτες σας ({MY_PALLETS * perPallet} {unit})</p>
-              <p className="mt-1 flex items-baseline gap-2"><span className="font-num text-[length:var(--fs-32)] tabular-nums" style={{ color: saving > 0 ? '#15803D' : undefined }}>{eur(saving, 0)}</span><span className="text-[length:var(--fs-14)] text-[var(--s-ink-2)]">εξοικονόμηση</span></p>
+            <div className={cn('mt-4 border-t border-(--s-line) pt-4 transition-opacity duration-500 lg:mt-5', chapter >= 3 ? 'opacity-100' : 'opacity-40')}>
+              <p className="text-(length:--fs-12) uppercase tracking-[0.18em] text-(--s-mute)">Για τις {MY_PALLETS} παλέτες σας ({MY_PALLETS * perPallet} {unit})</p>
+              <p className="mt-1 flex items-baseline gap-2"><span className="font-num text-(length:--fs-32) tabular-nums" style={{ color: saving > 0 ? '#15803D' : undefined }}>{eur(saving, 0)}</span><span className="text-(length:--fs-14) text-(--s-ink-2)">εξοικονόμηση</span></p>
             </div>
             <div className={cn('grid transition-[grid-template-rows,opacity] duration-500', chapter === 4 ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0')}>
               <div className="overflow-hidden">
                 <div className="mt-5 flex flex-wrap gap-3">
-                  <a href="/auth/register" tabIndex={chapter === 4 ? 0 : -1} className="inline-flex min-h-12 flex-1 items-center justify-center gap-2 bg-[var(--s-ink)] px-5 text-[length:var(--fs-15)] font-medium text-white hover:bg-[#2C4556]">Αίτημα πρόσβασης <FiArrowRight className="size-4" aria-hidden /></a>
-                  <a href="/auth/signin" tabIndex={chapter === 4 ? 0 : -1} className="inline-flex min-h-12 items-center justify-center border border-[var(--s-ink)] px-5 text-[length:var(--fs-15)] font-medium hover:bg-[var(--s-ink)] hover:text-white">Είσοδος</a>
+                  <a href="/auth/register" tabIndex={chapter === 4 ? 0 : -1} className="inline-flex min-h-12 flex-1 items-center justify-center gap-2 bg-(--s-ink) px-5 text-(length:--fs-15) font-medium text-white hover:bg-[#2C4556]">Αίτημα πρόσβασης <FiArrowRight className="size-4" aria-hidden /></a>
+                  <a href="/auth/signin" tabIndex={chapter === 4 ? 0 : -1} className="inline-flex min-h-12 items-center justify-center border border-(--s-ink) px-5 text-(length:--fs-15) font-medium hover:bg-(--s-ink) hover:text-white">Είσοδος</a>
                 </div>
               </div>
             </div>
@@ -265,13 +265,13 @@ function MobileStory({ tiers, capacity, product, unit, perPallet }: { tiers: Tie
   const final = tiers[tiers.length - 1].price;
   const at = (f: number) => tiers.reduce((acc, t, i) => (f + 1e-9 >= t.from ? i : acc), 0);
   return (
-    <div className="relative overflow-hidden bg-[var(--s-paper)] px-5 py-16 sm:px-8 lg:hidden">
-      <div aria-hidden className="pointer-events-none absolute inset-0 opacity-[0.06] [background-image:linear-gradient(#1C3241_1px,transparent_1px),linear-gradient(90deg,#1C3241_1px,transparent_1px)] [background-size:48px_48px]" />
+    <div className="relative overflow-hidden bg-(--s-paper) px-5 py-16 sm:px-8 lg:hidden">
+      <div aria-hidden className="pointer-events-none absolute inset-0 opacity-[0.06] bg-[linear-gradient(#1C3241_1px,transparent_1px),linear-gradient(90deg,#1C3241_1px,transparent_1px)] bg-size-[48px_48px]" />
       <div className="relative mx-auto max-w-xl">
-        <p className="s-kicker text-[var(--s-accent)]">Δυναμική προσφορά · βήμα-βήμα</p>
-        <h2 className="font-display mt-4 text-[length:var(--fs-40)]">Πώς πέφτει η τιμή — <em>για όλους.</em></h2>
-        <p className="mt-3 text-[length:var(--fs-16)] text-[var(--s-ink-2)]">Παράδειγμα: {product}, {capacity} παλέτες, τιμή ανά {unit}.</p>
-        <ol className="relative mt-10 border-l border-[var(--s-line)] pl-6">
+        <p className="s-kicker text-(--s-accent)">Δυναμική προσφορά · βήμα-βήμα</p>
+        <h2 className="font-display mt-4 text-(length:--fs-40)">Πώς πέφτει η τιμή — <em>για όλους.</em></h2>
+        <p className="mt-3 text-(length:--fs-16) text-(--s-ink-2)">Παράδειγμα: {product}, {capacity} παλέτες, τιμή ανά {unit}.</p>
+        <ol className="relative mt-10 border-l border-(--s-line) pl-6">
           {CHAPTERS.map((c, i) => {
             const f = CHAPTER_FILL[i];
             const k = at(f);
@@ -279,21 +279,21 @@ function MobileStory({ tiers, capacity, product, unit, perPallet }: { tiers: Tie
             const ev = CHAPTER_EVENT[i];
             return (
               <li key={c.t} className="relative pb-10 last:pb-0">
-                <span className="font-num absolute -left-[37px] grid size-6 place-items-center rounded-full border border-[var(--s-ink)] bg-[var(--s-paper)] text-[length:var(--fs-12)]">{i + 1}</span>
-                <h3 className="font-display text-[length:var(--fs-24)] leading-tight">{c.t}</h3>
-                <p className="mt-2 text-[length:var(--fs-15)] text-[var(--s-ink-2)]">{c.d}</p>
-                <div className="mt-4 border border-[var(--s-line)] bg-white p-4 shadow-[0_18px_40px_-28px_rgba(28,50,65,0.45)]">
+                <span className="font-num absolute left-[-37px] grid size-6 place-items-center rounded-full border border-(--s-ink) bg-(--s-paper) text-(length:--fs-12)">{i + 1}</span>
+                <h3 className="font-display text-(length:--fs-24) leading-tight">{c.t}</h3>
+                <p className="mt-2 text-(length:--fs-15) text-(--s-ink-2)">{c.d}</p>
+                <div className="mt-4 border border-(--s-line) bg-white p-4 shadow-[0_18px_40px_-28px_rgba(28,50,65,0.45)]">
                   <div className="flex items-end justify-between gap-3">
-                    <p className="font-num text-[length:var(--fs-32)] leading-none tabular-nums" style={{ color: col }}>{eur(tiers[k].price)}<span className="text-[length:var(--fs-13)] text-[var(--s-mute)]"> /{unit}</span></p>
-                    {k > 0 && <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[length:var(--fs-13)] font-medium" style={{ background: `${col}1f`, color: col }}><FiTrendingDown className="size-3.5" aria-hidden />−{num(((base - tiers[k].price) / base) * 100)}%</span>}
+                    <p className="font-num text-(length:--fs-32) leading-none tabular-nums" style={{ color: col }}>{eur(tiers[k].price)}<span className="text-(length:--fs-13) text-(--s-mute)"> /{unit}</span></p>
+                    {k > 0 && <span className="inline-flex items-center gap-1 px-2 py-0.5 text-(length:--fs-13) font-medium" style={{ background: `${col}1f`, color: col }}><FiTrendingDown className="size-3.5" aria-hidden />−{num(((base - tiers[k].price) / base) * 100)}%</span>}
                   </div>
-                  <div className="relative mt-3 h-1.5 bg-[var(--s-line)]" aria-hidden>
+                  <div className="relative mt-3 h-1.5 bg-(--s-line)" aria-hidden>
                     <div className="absolute inset-y-0 left-0" style={{ width: `${(f / capacity) * 100}%`, background: `linear-gradient(90deg, ${tierColor(0, tiers.length)}, ${col})` }} />
                     {tiers.slice(1).map((t, j) => <span key={t.from} className="absolute -top-1 h-3.5 w-0.5" style={{ left: `${(t.from / capacity) * 100}%`, background: f >= t.from ? tierColor(j + 1, tiers.length) : '#CFC9C0' }} />)}
                   </div>
-                  <p className="mt-2 text-[length:var(--fs-13)] tabular-nums text-[var(--s-ink-2)]">{f} / {capacity} παλέτες</p>
+                  <p className="mt-2 text-(length:--fs-13) tabular-nums text-(--s-ink-2)">{f} / {capacity} παλέτες</p>
                   {ev && (
-                    <p className="mt-3 flex items-center gap-2 border-t border-[var(--s-line)] pt-3 text-[length:var(--fs-13)]">
+                    <p className="mt-3 flex items-center gap-2 border-t border-(--s-line) pt-3 text-(length:--fs-13)">
                       <span className="grid size-6 shrink-0 place-items-center rounded-full" style={{ background: `${ev.tone}14`, color: ev.tone }}><ev.icon className="size-3" aria-hidden /></span>{ev.t}
                     </p>
                   )}
@@ -302,12 +302,12 @@ function MobileStory({ tiers, capacity, product, unit, perPallet }: { tiers: Tie
             );
           })}
         </ol>
-        <div className="mt-10 border-t border-[var(--s-ink)] pt-5">
-          <p className="text-[length:var(--fs-12)] uppercase tracking-[0.18em] text-[var(--s-mute)]">Για {MY_PALLETS} παλέτες ({MY_PALLETS * perPallet} {unit})</p>
-          <p className="mt-1 flex items-baseline gap-2"><span className="font-num text-[length:var(--fs-40)] tabular-nums text-[#15803D]">{eur((base - final) * MY_PALLETS * perPallet, 0)}</span><span className="text-[length:var(--fs-15)] text-[var(--s-ink-2)]">εξοικονόμηση</span></p>
+        <div className="mt-10 border-t border-(--s-ink) pt-5">
+          <p className="text-(length:--fs-12) uppercase tracking-[0.18em] text-(--s-mute)">Για {MY_PALLETS} παλέτες ({MY_PALLETS * perPallet} {unit})</p>
+          <p className="mt-1 flex items-baseline gap-2"><span className="font-num text-(length:--fs-40) tabular-nums text-[#15803D]">{eur((base - final) * MY_PALLETS * perPallet, 0)}</span><span className="text-(length:--fs-15) text-(--s-ink-2)">εξοικονόμηση</span></p>
           <div className="mt-6 grid gap-3 sm:grid-cols-2">
-            <a href="/auth/register" className="inline-flex min-h-12 items-center justify-center gap-2 bg-[var(--s-ink)] px-5 text-[length:var(--fs-16)] font-medium text-white">Αίτημα πρόσβασης <FiArrowRight className="size-4" aria-hidden /></a>
-            <a href="/auth/signin" className="inline-flex min-h-12 items-center justify-center border border-[var(--s-ink)] px-5 text-[length:var(--fs-16)] font-medium">Είσοδος</a>
+            <a href="/auth/register" className="inline-flex min-h-12 items-center justify-center gap-2 bg-(--s-ink) px-5 text-(length:--fs-16) font-medium text-white">Αίτημα πρόσβασης <FiArrowRight className="size-4" aria-hidden /></a>
+            <a href="/auth/signin" className="inline-flex min-h-12 items-center justify-center border border-(--s-ink) px-5 text-(length:--fs-16) font-medium">Είσοδος</a>
           </div>
         </div>
       </div>

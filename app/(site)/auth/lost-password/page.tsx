@@ -17,8 +17,8 @@ export default async function LostPasswordPage({ searchParams }: { searchParams:
   return (
     <div>
       <Eyebrow>Βήμα 1 από 2</Eyebrow>
-      <h1 className="font-display mt-4 text-[length:var(--fs-48)]">Ξεχάσατε τον κωδικό;</h1>
-      <p className="mt-4 text-[length:var(--fs-15)] text-[var(--s-ink-2)]">Γράψτε το email του λογαριασμού σας. Θα σας στείλουμε εξαψήφιο κωδικό για να ορίσετε νέο.</p>
+      <h1 className="font-display mt-4 text-(length:--fs-48)">Ξεχάσατε τον κωδικό;</h1>
+      <p className="mt-4 text-(length:--fs-15) text-(--s-ink-2)">Γράψτε το email του λογαριασμού σας. Θα σας στείλουμε εξαψήφιο κωδικό για να ορίσετε νέο.</p>
 
       <form action="/api/auth/otp/send" method="post" className="mt-8 space-y-6">
         {err && <Notice tone="error">{err}</Notice>}
@@ -29,8 +29,8 @@ export default async function LostPasswordPage({ searchParams }: { searchParams:
         <SubmitButton className={cn(btn.primary, 'w-full')} pendingLabel="Αποστολή…">Στείλτε μου κωδικό</SubmitButton>
       </form>
 
-      <p className="mt-10 border-t border-[var(--s-line)] pt-6 text-[length:var(--fs-14)]">
-        <Link href="/auth/signin" className="s-link text-[var(--s-ink)]">← Πίσω στην είσοδο</Link>
+      <p className="mt-10 border-t border-(--s-line) pt-6 text-(length:--fs-14)">
+        <Link href="/auth/signin" className="s-link text-(--s-ink)">← Πίσω στην είσοδο</Link>
       </p>
     </div>
   );

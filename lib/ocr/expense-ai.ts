@@ -196,7 +196,7 @@ export interface ParsedAnswer {
 export function parseAiAnswer(raw: string): ParsedAnswer[] {
   const text = String(raw ?? '').trim();
   const body = text.replace(/^```(?:json)?/i, '').replace(/```$/, '').trim();
-  let parsed: unknown = null;
+  let parsed: unknown;
   try {
     parsed = JSON.parse(body);
   } catch {

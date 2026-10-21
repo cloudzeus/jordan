@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { ColumnDef } from '@tanstack/react-table';
 import {
   FiEdit2, FiTrash2, FiShield, FiCheck, FiX, FiMail,
-  FiAlertTriangle, FiKey, FiMoreVertical, FiUser, FiGlobe, FiLock, FiLink,
+  FiAlertTriangle, FiKey, FiMoreVertical, FiUser, FiGlobe, FiLock, FiLink, FiEye,
 } from 'react-icons/fi';
 import { toast } from 'sonner';
 import { DataTable } from '@/components/ui/data-table';
@@ -23,6 +23,7 @@ import {
 import { Field, FormSection, FormSelect, RowHint, fieldCls } from '@/components/admin/form-kit';
 import { LocaleMultiSelect } from '@/components/i18n/locale-multi-select';
 import { SoftoneLinkDialog, type LinkTarget } from './softone-link-dialog';
+import { useViewAs } from '@/components/admin/view-as-button';
 
 type UserRow = {
   id: string; email: string; name: string;
@@ -33,7 +34,8 @@ type UserRow = {
 };
 type RoleOpt = { id: string; name: string };
 
-export function UsersTable({ rows, roles, canLinkSoftone = false }: { rows: UserRow[]; roles: RoleOpt[]; canLinkSoftone?: boolean }) {
+export function UsersTable({ rows, roles, canLinkSoftone = false, canViewAs = false }: { rows: UserRow[]; roles: RoleOpt[]; canLinkSoftone?: boolean; canViewAs?: boolean }) {
+  const viewAs = useViewAs('/admin/users');
   const router = useRouter();
   const [linkUser, setLinkUser] = React.useState<LinkTarget | null>(null);
   const [editUser, setEditUser] = React.useState<UserRow | null>(null);
@@ -56,17 +58,17 @@ export function UsersTable({ rows, roles, canLinkSoftone = false }: { rows: User
         const initials = (row.original.name || row.original.email).slice(0, 2).toUpperCase();
         return (
           <div className="flex items-center gap-2 min-w-0">
-            <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground text-[length:var(--fs-10)] font-semibold shrink-0">
+            <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground text-(length:--fs-10) font-semibold shrink-0">
               {initials}
             </span>
-            <span className="font-medium text-foreground truncate text-[length:var(--fs-12)]">{row.original.name || '—'}</span>
+            <span className="font-medium text-foreground truncate text-(length:--fs-12)">{row.original.name || '—'}</span>
           </div>
         );
       },
     },
     {
       accessorKey: 'email', header: 'Email', size: 260,
-      cell: ({ row }) => <span className="text-muted-foreground truncate text-[length:var(--fs-12)]">{row.original.email}</span>,
+      cell: ({ row }) => <span className="text-muted-foreground truncate text-(length:--fs-12)">{row.original.email}</span>,
     },
     {
       accessorKey: 'roleName', header: 'Ρόλος', size: 140,
@@ -87,13 +89,13 @@ export function UsersTable({ rows, roles, canLinkSoftone = false }: { rows: User
     {
       id: 'softone', accessorFn: (u) => u.softoneUserName ?? '', header: 'SoftOne', size: 130,
       cell: ({ row }) => (row.original.softoneUserName
-        ? <span className="inline-flex items-center gap-1 text-[length:var(--fs-12)]"><FiLink className="size-3 text-muted-foreground" aria-hidden />{row.original.softoneUserName}</span>
+        ? <span className="inline-flex items-center gap-1 text-(length:--fs-12)"><FiLink className="size-3 text-muted-foreground" aria-hidden />{row.original.softoneUserName}</span>
         : <span className="text-muted-foreground/40">—</span>),
     },
     {
       accessorKey: 'createdAt', header: 'Δημιουργία', size: 120,
       cell: ({ row }) => (
-        <span className="text-muted-foreground tabular-nums text-[length:var(--fs-12)]">
+        <span className="text-muted-foreground tabular-nums text-(length:--fs-12)">
           {new Date(row.original.createdAt).toLocaleDateString('el-GR')}
         </span>
       ),
@@ -106,7 +108,7 @@ export function UsersTable({ rows, roles, canLinkSoftone = false }: { rows: User
           <DropdownMenu>
             <DropdownMenuTrigger
               aria-label="Ενέργειες"
-              className="inline-flex h-7 w-7 items-center justify-center rounded-sm border border-transparent text-muted-foreground hover:bg-muted hover:text-foreground hover:border-border data-[state=open]:bg-muted data-[state=open]:text-foreground data-[state=open]:border-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring transition-colors duration-150"
+              className="inline-flex h-7 w-7 items-center justify-center rounded-sm border border-transparent text-muted-foreground hover:bg-muted hover:text-foreground hover:border-border data-[state=open]:bg-muted data-[state=open]:text-foreground data-[state=open]:border-border focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring transition-colors duration-150"
             >
               <FiMoreVertical className="h-4 w-4" />
             </DropdownMenuTrigger>
@@ -118,6 +120,11 @@ export function UsersTable({ rows, roles, canLinkSoftone = false }: { rows: User
               <DropdownMenuItem onClick={() => setPwUser(u)}>
                 <FiKey /> Αλλαγή κωδικού
               </DropdownMenuItem>
+              {canViewAs && !u.isStaff && u.isActive && (
+                <DropdownMenuItem disabled={viewAs.pending} onClick={() => viewAs.open(u.id)}>
+                  <FiEye /> Προβολή portal (ως ο χρήστης)
+                </DropdownMenuItem>
+              )}
               {canLinkSoftone && u.isStaff && (
                 <DropdownMenuItem onClick={() => setLinkUser({ id: u.id, name: u.name, email: u.email, softoneUserId: u.softoneUserId })}>
                   <FiLink /> Χρήστης SoftOne…
@@ -149,13 +156,13 @@ export function UsersTable({ rows, roles, canLinkSoftone = false }: { rows: User
         searchPlaceholder="Αναζήτηση χρηστών..."
         enableSelection
         expandable={(u) => (
-          <div className="grid sm:grid-cols-2 gap-4 text-[length:var(--fs-12)] px-1 py-1">
+          <div className="grid sm:grid-cols-2 gap-4 text-(length:--fs-12) px-1 py-1">
             <div>
-              <div className="text-[length:var(--fs-10)] uppercase tracking-wider text-muted-foreground font-semibold mb-0.5">Δημιουργήθηκε</div>
+              <div className="text-(length:--fs-10) uppercase tracking-wider text-muted-foreground font-semibold mb-0.5">Δημιουργήθηκε</div>
               <div className="text-foreground">{new Date(u.createdAt).toLocaleString('el-GR')}</div>
             </div>
             <div>
-              <div className="text-[length:var(--fs-10)] uppercase tracking-wider text-muted-foreground font-semibold mb-0.5">Email επιβεβαιωμένο</div>
+              <div className="text-(length:--fs-10) uppercase tracking-wider text-muted-foreground font-semibold mb-0.5">Email επιβεβαιωμένο</div>
               <div className="text-foreground">{u.emailVerified ? new Date(u.emailVerified).toLocaleString('el-GR') : '—'}</div>
             </div>
           </div>
@@ -193,13 +200,16 @@ function EditUserDialog({
   const [locales, setLocales] = React.useState<string[]>([]);
   const [saving, setSaving] = React.useState(false);
 
-  React.useEffect(() => {
+  // Γέμισμα της φόρμας όταν ανοίγει για χρήστη (adjust-state-while-rendering)
+  const [prevUser, setPrevUser] = React.useState<UserRow | null>(null);
+  if (user !== prevUser) {
+    setPrevUser(user);
     if (user) {
       setName(user.name); setEmail(user.email);
       setRoleId(user.roleId); setIsActive(user.isActive);
       setLocales(user.preferredLocales ?? []);
     }
-  }, [user]);
+  }
 
   const save = async () => {
     if (!user) return;
@@ -227,8 +237,8 @@ function EditUserDialog({
         <DialogHeader className="flex-row items-center gap-3 border-b border-border px-4 py-2.5 pr-12">
           <span aria-hidden className="grid size-8 shrink-0 place-items-center rounded-lg bg-sisyphus-50 text-sisyphus-600 dark:bg-sisyphus-500/15"><FiEdit2 className="size-4" /></span>
           <div className="min-w-0 flex-1">
-            <DialogTitle className="text-[length:var(--fs-15)]">Επεξεργασία χρήστη</DialogTitle>
-            <DialogDescription className="truncate text-[length:var(--fs-11)]">Άλλαξε όνομα, email, ρόλο ή κατάσταση.</DialogDescription>
+            <DialogTitle className="text-(length:--fs-15)">Επεξεργασία χρήστη</DialogTitle>
+            <DialogDescription className="truncate text-(length:--fs-11)">Άλλαξε όνομα, email, ρόλο ή κατάσταση.</DialogDescription>
           </div>
         </DialogHeader>
         <div className="max-h-[66vh] space-y-3 overflow-auto bg-muted/20 px-4 py-3">
@@ -249,13 +259,13 @@ function EditUserDialog({
               </Field>
               <label className="col-span-12 flex h-8 w-fit cursor-pointer items-center gap-2 sm:col-span-5">
                 <Checkbox checked={isActive} onCheckedChange={(v) => setIsActive(!!v)} />
-                <span className="text-[length:var(--fs-13)] text-foreground">Ενεργός λογαριασμός</span>
+                <span className="text-(length:--fs-13) text-foreground">Ενεργός λογαριασμός</span>
               </label>
             </div>
           </FormSection>
           <FormSection tone="violet" icon={<FiGlobe />} title="Γλώσσες">
             <div role="group" aria-labelledby="edit-locales" className="grid min-w-0 gap-1">
-              <span id="edit-locales" className="text-[length:var(--fs-11)] font-medium text-muted-foreground">Προτιμώμενες γλώσσες</span>
+              <span id="edit-locales" className="text-(length:--fs-11) font-medium text-muted-foreground">Προτιμώμενες γλώσσες</span>
               <LocaleMultiSelect value={locales} onChange={setLocales} />
             </div>
           </FormSection>
@@ -274,7 +284,8 @@ function PasswordDialog({ user, onClose, onSaved }: { user: UserRow | null; onCl
   const [pw2, setPw2] = React.useState('');
   const [saving, setSaving] = React.useState(false);
 
-  React.useEffect(() => { if (user) { setPw(''); setPw2(''); } }, [user]);
+  const [prevUser, setPrevUser] = React.useState<UserRow | null>(null);
+  if (user !== prevUser) { setPrevUser(user); if (user) { setPw(''); setPw2(''); } }
 
   const save = async () => {
     if (!user) return;
@@ -296,8 +307,8 @@ function PasswordDialog({ user, onClose, onSaved }: { user: UserRow | null; onCl
         <DialogHeader className="flex-row items-center gap-3 border-b border-border px-4 py-2.5 pr-12">
           <span aria-hidden className="grid size-8 shrink-0 place-items-center rounded-lg bg-sisyphus-50 text-sisyphus-600 dark:bg-sisyphus-500/15"><FiKey className="size-4" /></span>
           <div className="min-w-0 flex-1">
-            <DialogTitle className="text-[length:var(--fs-15)]">Αλλαγή κωδικού</DialogTitle>
-            <DialogDescription className="truncate text-[length:var(--fs-11)]">
+            <DialogTitle className="text-(length:--fs-15)">Αλλαγή κωδικού</DialogTitle>
+            <DialogDescription className="truncate text-(length:--fs-11)">
               Όρισε νέο κωδικό για τον χρήστη <strong className="text-foreground">{user?.name || user?.email}</strong>.
             </DialogDescription>
           </div>
@@ -341,10 +352,10 @@ function DeleteUserDialog({ user, onClose, onDeleted }: { user: UserRow | null; 
       <DialogContent className="w-[95vw] gap-0 overflow-hidden p-0 sm:max-w-md">
         <DialogHeader className="flex-row items-center gap-3 border-b border-border px-4 py-2.5 pr-12">
           <span aria-hidden className="grid size-8 shrink-0 place-items-center rounded-lg bg-destructive/10 text-destructive"><FiAlertTriangle className="size-4" /></span>
-          <DialogTitle className="min-w-0 flex-1 truncate text-[length:var(--fs-15)] text-destructive">Διαγραφή χρήστη</DialogTitle>
+          <DialogTitle className="min-w-0 flex-1 truncate text-(length:--fs-15) text-destructive">Διαγραφή χρήστη</DialogTitle>
         </DialogHeader>
         <div className="bg-muted/20 px-4 py-3">
-          <DialogDescription className="rounded-lg border border-destructive/30 bg-destructive/[0.06] px-3 py-2.5 text-[length:var(--fs-13)] text-foreground">
+          <DialogDescription className="rounded-lg border border-destructive/30 bg-destructive/6 px-3 py-2.5 text-(length:--fs-13) text-foreground">
             Σίγουρα θες να διαγραφεί ο χρήστης{' '}
             <strong className="text-foreground">{user?.name || user?.email}</strong>;
             Αυτή η ενέργεια δεν μπορεί να αναιρεθεί.

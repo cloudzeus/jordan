@@ -30,7 +30,6 @@ export async function generateMetadata(): Promise<Metadata> {
 const NAV = [
   { href: '/#auctions', label: 'Δυναμικές προσφορές' },
   { href: '/#b2b', label: 'Η πύλη' },
-  { href: '/products', label: 'Κατάλογος' },
   { href: '/#contact', label: 'Επικοινωνία' },
 ];
 
@@ -53,7 +52,7 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
     <div className="site flex min-h-dvh flex-col">
       {/* Πριν το πρώτο paint: ενεργοποιεί την απόκρυψη στοιχείων που θα «αποκαλυφθούν» (βλ. globals.css). */}
       <script dangerouslySetInnerHTML={{ __html: "document.documentElement.classList.add('js')" }} />
-      <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:bg-white focus:px-4 focus:py-2">Μετάβαση στο περιεχόμενο</a>
+      <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-100 focus:bg-white focus:px-4 focus:py-2">Μετάβαση στο περιεχόμενο</a>
       <SiteHeader nav={NAV} account={account} signedIn={!!user} />
       <SiteMotion />
       <AccessModalHost />
@@ -68,42 +67,42 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
           <div className="grid gap-14 lg:grid-cols-[1.3fr_1fr_1fr_1fr]">
             <div className="max-w-sm">
               <Image src="/site/brand/logo-white.png" alt={c.brand} width={180} height={94} className="h-auto w-[150px]" />
-              <p className="mt-6 text-[length:var(--fs-15)] leading-relaxed text-white/70">{c.tagline}</p>
+              <p className="mt-6 text-(length:--fs-15) leading-relaxed text-white/70">{c.tagline}</p>
             </div>
             <div>
               <p className="s-kicker text-[#D6B796]">Πλοήγηση</p>
               <ul className="mt-5 space-y-1">
-                {NAV.map((n) => <li key={n.href}><Link href={n.href} className="inline-flex min-h-10 items-center text-[length:var(--fs-15)] text-white/80 hover:text-white">{n.label}</Link></li>)}
-                <li><Link href="/auth/register" className="inline-flex min-h-10 items-center text-[length:var(--fs-15)] text-white/80 hover:text-white">Αίτημα πρόσβασης</Link></li>
+                {NAV.map((n) => <li key={n.href}><Link href={n.href} className="inline-flex min-h-10 items-center text-(length:--fs-15) text-white/80 hover:text-white">{n.label}</Link></li>)}
+                <li><Link href="/auth/register" className="inline-flex min-h-10 items-center text-(length:--fs-15) text-white/80 hover:text-white">Αίτημα πρόσβασης</Link></li>
               </ul>
             </div>
             <address className="not-italic">
               <p className="s-kicker text-[#D6B796]">Atelier · Αθήνα</p>
-              <ul className="mt-5 space-y-1 text-[length:var(--fs-15)] text-white/80">
+              <ul className="mt-5 space-y-1 text-(length:--fs-15) text-white/80">
                 {c.phones.map((p) => <li key={p}><a href={`tel:${p.replace(/\s/g, '')}`} className="inline-flex min-h-10 items-center tabular-nums hover:text-white">{p}</a></li>)}
                 <li><a href={`mailto:${c.salesEmail}`} className="inline-flex min-h-10 items-center hover:text-white">{c.salesEmail}</a></li>
                 <li className="pt-2 text-white/60">{c.address}</li>
-                <li className="pt-2 text-[length:var(--fs-12)] font-medium uppercase tracking-[0.18em] text-[#D6B796]">{c.hours}</li>
+                <li className="pt-2 text-(length:--fs-12) font-medium uppercase tracking-[0.18em] text-[#D6B796]">{c.hours}</li>
                 <li><Link href="/appointment" className="inline-flex min-h-10 items-center gap-2 font-medium text-white hover:text-[#E8D5BF]">Κλείστε ραντεβού <span aria-hidden>→</span></Link></li>
               </ul>
             </address>
             <div>
               <p className="s-kicker text-[#D6B796]">Νομικά</p>
               <ul className="mt-5 space-y-1">
-                {LEGAL.map((n) => <li key={n.href}><Link href={n.href} className="inline-flex min-h-10 items-center text-[length:var(--fs-15)] text-white/80 hover:text-white">{n.label}</Link></li>)}
+                {LEGAL.map((n) => <li key={n.href}><Link href={n.href} className="inline-flex min-h-10 items-center text-(length:--fs-15) text-white/80 hover:text-white">{n.label}</Link></li>)}
               </ul>
             </div>
           </div>
           <div className="mt-16 grid gap-6 border-t border-white/10 pt-10 lg:grid-cols-[1.3fr_2fr] lg:items-start">
             <div>
               <p className="s-kicker text-[#D6B796]">Newsletter</p>
-              <p className="font-display mt-3 text-[length:var(--fs-28)] text-white">Νέα υλικά & δυναμικές προσφορές, πρώτοι εσείς.</p>
+              <p className="font-display mt-3 text-(length:--fs-28) text-white">Νέα υλικά & δυναμικές προσφορές, πρώτοι εσείς.</p>
             </div>
             <div className="max-w-xl lg:justify-self-end lg:w-full"><NewsletterForm tone="dark" source="footer" idPrefix="nlf" /></div>
           </div>
           <DimLine label={`${c.legal}${c.vat ? ` · ΑΦΜ ${c.vat}` : ''}`} className="mt-20 text-white/35" />
-          <p aria-hidden className="font-display pointer-events-none mt-6 select-none whitespace-nowrap text-center text-[length:var(--fs-120)] leading-[0.8] text-white/[0.06]">Atelier</p>
-          <div className="flex flex-wrap justify-between gap-2 border-t border-white/10 py-6 text-[length:var(--fs-13)] text-white/50">
+          <p aria-hidden className="font-display pointer-events-none mt-6 select-none whitespace-nowrap text-center text-(length:--fs-120) leading-[0.8] text-white/6">Atelier</p>
+          <div className="flex flex-wrap justify-between gap-2 border-t border-white/10 py-6 text-(length:--fs-13) text-white/50">
             <span>© {year} {c.legal}</span>
             <span>Φωτογραφίες & βίντεο: Atelier by Damask</span>
           </div>

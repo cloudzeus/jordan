@@ -581,7 +581,7 @@ export async function runTool(name: string, args: Record<string, unknown>, ctx: 
     case 'propose_appointment': {
       if (!ctx.canSchedule) return { data: { error: 'Ο χρήστης δεν έχει δικαίωμα να κλείνει ραντεβού (appointments.schedule).' }, refs: [] };
       // 1. Με ποιον
-      let party: { kind: 'trader' | 'contact' | 'partner' | 'partnerContact'; id: string } | null = null;
+      let party: { kind: 'trader' | 'contact' | 'partner' | 'partnerContact'; id: string };
       const kinds = ['trader', 'contact', 'partner', 'partnerContact'] as const;
       if (str(args.party_id) && kinds.includes(args.party_kind as (typeof kinds)[number])) party = { kind: args.party_kind as (typeof kinds)[number], id: String(args.party_id) };
       else {

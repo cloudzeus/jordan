@@ -54,7 +54,13 @@ export default async function OcrPostedPage() {
   };
 
   const rows: Row[] = docs.map((d) => {
-    const doc = (d.document ?? {}) as any;
+    // Το κανονικό JSON του παραστατικού — μόνο ό,τι διαβάζει η λίστα.
+    const doc = (d.document ?? {}) as {
+      issuer?: { name?: string | null; vat?: string | null } | null;
+      type?: { number?: string | null } | null;
+      date?: string | null;
+      totals?: { total?: number | string | null } | null;
+    };
     const object = d.seriesSource ? OBJECTS_FOR_SOSOURCE[Number(d.seriesSource)] : undefined;
     return {
       id: d.id, fileName: d.fileName, postedAt: d.postedAt, postedRef: d.postedRef,
@@ -91,7 +97,7 @@ export default async function OcrPostedPage() {
         actions={
           <Link
             href="/admin/ocr"
-            className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-3 py-1.5 text-[length:var(--fs-12)] font-medium hover:bg-muted"
+            className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-3 py-1.5 text-(length:--fs-12) font-medium hover:bg-muted"
           >
             Λίστα OCR <FiArrowRight className="size-3.5" />
           </Link>
@@ -118,18 +124,18 @@ export default async function OcrPostedPage() {
               <section key={label} className="overflow-hidden rounded-lg border border-border bg-card shadow-fluent-2">
                 <div className="flex items-center gap-2 border-b border-border bg-muted/40 px-4 py-2.5">
                   <FiUploadCloud className="size-4 text-emerald-600" />
-                  <span className="text-[length:var(--fs-13)] font-semibold text-foreground">{label}</span>
-                  <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[length:var(--fs-11)] font-semibold text-emerald-700 dark:text-emerald-300">
+                  <span className="text-(length:--fs-13) font-semibold text-foreground">{label}</span>
+                  <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-(length:--fs-11) font-semibold text-emerald-700 dark:text-emerald-300">
                     {items.length}
                   </span>
-                  <span className="ml-auto text-[length:var(--fs-12)] font-semibold tabular-nums text-muted-foreground">
+                  <span className="ml-auto text-(length:--fs-12) font-semibold tabular-nums text-muted-foreground">
                     {eur(items.reduce((t, r) => t + (r.total ?? 0), 0))}
                   </span>
                 </div>
 
                 <div className="overflow-x-auto">
-                  <table className="w-full text-[length:var(--fs-12)]">
-                    <thead className="bg-muted/20 text-[length:var(--fs-11)] uppercase tracking-wide text-muted-foreground">
+                  <table className="w-full text-(length:--fs-12)">
+                    <thead className="bg-muted/20 text-(length:--fs-11) uppercase tracking-wide text-muted-foreground">
                       <tr>
                         <th className="px-3 py-2 text-left font-semibold">Κωδ. SoftOne</th>
                         <th className="px-3 py-2 text-left font-semibold">Εκδότης</th>
@@ -153,15 +159,15 @@ export default async function OcrPostedPage() {
                               συμβολοσειρά («…ΕΤΑΙΡΕΙΑ999717970»), που δεν διαβάζεται. */}
                           <td className="px-3 py-2">
                             <div className="font-medium text-foreground">{r.supplier}</div>
-                            <div className="font-mono text-[length:var(--fs-11)] text-muted-foreground">{r.afm}</div>
+                            <div className="font-mono text-(length:--fs-11) text-muted-foreground">{r.afm}</div>
                           </td>
                           <td className="px-3 py-2">
                             <div className="text-foreground">{r.number}</div>
-                            <div className="text-[length:var(--fs-11)] text-muted-foreground">{r.docDate}</div>
+                            <div className="text-(length:--fs-11) text-muted-foreground">{r.docDate}</div>
                           </td>
                           <td className="px-3 py-2">
-                            <div className="font-mono text-[length:var(--fs-11)] text-foreground">{r.object}</div>
-                            <div className="text-[length:var(--fs-11)] text-muted-foreground">
+                            <div className="font-mono text-(length:--fs-11) text-foreground">{r.object}</div>
+                            <div className="text-(length:--fs-11) text-muted-foreground">
                               σειρά {r.series} · {r.linesLabel}
                             </div>
                           </td>
@@ -172,7 +178,7 @@ export default async function OcrPostedPage() {
                             <Link
                               href={`/admin/ocr/${r.id}`}
                               title={r.fileName}
-                              className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-[length:var(--fs-11)] font-medium hover:bg-muted"
+                              className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-(length:--fs-11) font-medium hover:bg-muted"
                             >
                               Άνοιγμα <FiExternalLink className="size-3" />
                             </Link>

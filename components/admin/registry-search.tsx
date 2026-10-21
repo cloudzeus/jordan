@@ -70,7 +70,8 @@ export function RegistrySearch({
 }) {
   const [q, setQ] = React.useState(initialQuery ?? '');
   // Νέα αφετηρία (άλλη κατηγορία στον οδηγό) ⇒ νέα αναζήτηση.
-  React.useEffect(() => { setQ(initialQuery ?? ''); }, [initialQuery]);
+  const [prevInitialQuery, setPrevInitialQuery] = React.useState(initialQuery);
+  if (initialQuery !== prevInitialQuery) { setPrevInitialQuery(initialQuery); setQ(initialQuery ?? ''); }
   const [results, setResults] = React.useState<Result[]>([]);
   const [loading, setLoading] = React.useState(false);
   const [failed, setFailed] = React.useState(false);
@@ -81,14 +82,27 @@ export function RegistrySearch({
   const listId = `${id}-list`;
 
   // Αλλαγή μητρώου (segmented) ⇒ τα προηγούμενα αποτελέσματα δεν ισχύουν πια.
-  React.useEffect(() => { setResults([]); setOpen(false); setActive(0); setFailed(false); }, [kind, category]);
+  // («Adjust state while rendering» αντί για setState σε effect.)
+  const [prevKind, setPrevKind] = React.useState(kind);
+  const [prevCategory, setPrevCategory] = React.useState(category);
+  if (kind !== prevKind || category !== prevCategory) {
+    setPrevKind(kind); setPrevCategory(category);
+    setResults([]); setOpen(false); setActive(0); setFailed(false);
+  }
+
+  // Προετοιμασία της αναζήτησης (αρχικό `[]` ⇒ και στο πρώτο render, όπως το effect).
+  const searchDeps = [q, kind, category, reload];
+  const [prevSearchDeps, setPrevSearchDeps] = React.useState<readonly unknown[]>([]);
+  if (searchDeps.length !== prevSearchDeps.length || searchDeps.some((x, i) => !Object.is(x, prevSearchDeps[i]))) {
+    setPrevSearchDeps(searchDeps);
+    if (q.trim().length < 2) { setResults([]); setLoading(false); setFailed(false); } else setLoading(true);
+  }
 
   React.useEffect(() => {
     const term = q.trim();
-    if (term.length < 2) { setResults([]); setLoading(false); setFailed(false); return; }
+    if (term.length < 2) return;
     // `ignore` ώστε μια αργή απάντηση να μην προσπεράσει μια νεότερη.
     let ignore = false;
-    setLoading(true);
     const h = setTimeout(() => {
       const cat = kind === 'lineitem' && category ? `&category=${category}` : '';
       fetch(`/api/admin/softone/search?type=${ENDPOINT[kind]}&q=${encodeURIComponent(term)}${cat}`)
@@ -183,7 +197,7 @@ export function RegistrySearch({
           aria-activedescendant={showList ? `${listId}-${active}` : undefined}
           placeholder={PLACEHOLDER[kind]}
           autoComplete="off"
-          className="h-9 pl-8 pr-8 text-[length:var(--fs-13)]"
+          className="h-9 pl-8 pr-8 text-(length:--fs-13)"
         />
         {loading && (
           <FiLoader
@@ -212,12 +226,12 @@ export function RegistrySearch({
                 className={cn(
                   'flex w-full cursor-pointer flex-col items-start gap-0.5 px-3 py-1.5 text-left',
                   'cx-transition motion-reduce:transition-none',
-                  i === active ? 'bg-sisyphus-50' : 'hover:bg-[var(--cx-hover)]',
+                  i === active ? 'bg-sisyphus-50' : 'hover:bg-(--cx-hover)',
                 )}
               >
-                <span className="line-clamp-1 text-[length:var(--fs-13)] font-medium text-foreground">
+                <span className="line-clamp-1 text-(length:--fs-13) font-medium text-foreground">
                   {r.inactive && (
-                    <span className="mr-1.5 rounded bg-amber-500/15 px-1.5 py-px align-middle text-[length:var(--fs-10)] font-semibold text-amber-800">ανενεργή</span>
+                    <span className="mr-1.5 rounded bg-amber-500/15 px-1.5 py-px align-middle text-(length:--fs-10) font-semibold text-amber-800">ανενεργή</span>
                   )}
                   {r.name}
                 </span>
@@ -248,7 +262,7 @@ export function RegistrySearch({
           <button
             type="button"
             onClick={() => { setFailed(false); setReload((n) => n + 1); }}
-            className="ml-auto inline-flex cursor-pointer items-center gap-1 rounded-sm px-1.5 py-0.5 text-caption font-medium text-sisyphus-700 outline-none hover:bg-[var(--cx-hover)] focus-visible:ring-2 focus-visible:ring-sisyphus-500"
+            className="ml-auto inline-flex cursor-pointer items-center gap-1 rounded-sm px-1.5 py-0.5 text-caption font-medium text-sisyphus-700 outline-hidden hover:bg-(--cx-hover) focus-visible:ring-2 focus-visible:ring-sisyphus-500"
           >
             <FiRefreshCw aria-hidden className="size-3" /> Δοκίμασε ξανά
           </button>

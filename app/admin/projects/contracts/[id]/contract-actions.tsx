@@ -18,7 +18,7 @@ import { confirmAction } from '@/components/ui/confirm-dialog';
 import { canTransition, type ContractAction } from '@/lib/contracts/core';
 import type { ContractView } from '@/lib/contracts/service';
 
-const ITEM = 'cursor-pointer gap-2 text-[length:var(--fs-12)]';
+const ITEM = 'cursor-pointer gap-2 text-(length:--fs-12)';
 
 const ACTIONS: { action: ContractAction; label: string; icon: React.ReactNode; confirm?: string }[] = [
   { action: 'accept', label: 'Αποδοχή από τον πελάτη → Σύμβαση', icon: <FiCheck className="size-3.5" /> },
@@ -58,16 +58,16 @@ export function ContractActions({ contract: c }: { contract: ContractView }) {
   return (
     <>
       <DropdownMenu>
-        <DropdownMenuTrigger className="inline-flex size-9 cursor-pointer items-center justify-center rounded-md border border-border text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring data-[state=open]:bg-muted" aria-label="Ενέργειες σύμβασης" disabled={busy}>
+        <DropdownMenuTrigger className="inline-flex size-9 cursor-pointer items-center justify-center rounded-md border border-border text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring data-[state=open]:bg-muted" aria-label="Ενέργειες σύμβασης" disabled={busy}>
           {busy ? <FiLoader className="size-4 animate-spin" /> : <FiMoreVertical className="size-4" />}
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="min-w-64">
-          <DropdownMenuLabel className="text-[length:var(--fs-11)] text-muted-foreground">Κατάσταση</DropdownMenuLabel>
+          <DropdownMenuLabel className="text-(length:--fs-11) text-muted-foreground">Κατάσταση</DropdownMenuLabel>
           {available.map((a) => (
             <DropdownMenuItem key={a.action} className={ITEM} variant={a.action === 'cancel' ? 'destructive' : 'default'} onSelect={() => void run(a)}>{a.icon}{a.label}</DropdownMenuItem>
           ))}
           <DropdownMenuSeparator />
-          <DropdownMenuLabel className="text-[length:var(--fs-11)] text-muted-foreground">Έργο SoftOne</DropdownMenuLabel>
+          <DropdownMenuLabel className="text-(length:--fs-11) text-muted-foreground">Έργο SoftOne</DropdownMenuLabel>
           <DropdownMenuItem className={ITEM} onSelect={() => setLink(true)} disabled={c.status === 'ACTIVE'}><FiLink className="size-3.5" />{c.prjc ? 'Αλλαγή συνδεδεμένου έργου' : 'Σύνδεση με υπάρχον έργο'}</DropdownMenuItem>
           {!c.prjc && <DropdownMenuItem className={ITEM} onSelect={() => setCreate(true)} disabled={!c.trdr}><FiDatabase className="size-3.5" />Δημιουργία έργου στο SoftOne…</DropdownMenuItem>}
           {c.status !== 'ACTIVE' && (
@@ -124,12 +124,12 @@ function LinkDialog({ open, onOpenChange, contract: c }: { open: boolean; onOpen
             {opts.map((p) => (
               <li key={p.prjc}>
                 <button type="button" disabled={busy} onClick={() => pick(p.prjc)} className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-muted">
-                  <span className="font-mono text-[length:var(--fs-11)] text-muted-foreground">{p.code}</span>
-                  <span className="truncate text-[length:var(--fs-13)]">{p.name}</span>
+                  <span className="font-mono text-(length:--fs-11) text-muted-foreground">{p.code}</span>
+                  <span className="truncate text-(length:--fs-13)">{p.name}</span>
                 </button>
               </li>
             ))}
-            {!opts.length && <li className="px-3 py-3 text-[length:var(--fs-12)] text-muted-foreground">Κανένα έργο.</li>}
+            {!opts.length && <li className="px-3 py-3 text-(length:--fs-12) text-muted-foreground">Κανένα έργο.</li>}
           </ul>
         </DialogBody>
       </DialogContent>
@@ -144,9 +144,14 @@ function CreatePrjcDialog({ open, onOpenChange, contract: c }: { open: boolean; 
   const [error, setError] = React.useState<string | null>(null);
   const [agree, setAgree] = React.useState(false);
   const [busy, setBusy] = React.useState(false);
+  // Επαναφορά στο άνοιγμα (adjust-state-while-rendering)· η προεπισκόπηση στο effect.
+  const [prevDeps, setPrevDeps] = React.useState({ open: false, id: c.id });
+  if (prevDeps.open !== open || prevDeps.id !== c.id) {
+    setPrevDeps({ open, id: c.id });
+    if (open) { setPlan(null); setError(null); setAgree(false); }
+  }
   React.useEffect(() => {
     if (!open) return;
-    setPlan(null); setError(null); setAgree(false);
     void (async () => {
       const r = await fetch(`/api/admin/contracts/${c.id}/softone`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mode: 'create' }) });
       const b = await r.json().catch(() => ({}));
@@ -172,12 +177,12 @@ function CreatePrjcDialog({ open, onOpenChange, contract: c }: { open: boolean; 
           <DialogDescription>Θα γραφτεί νέα εγγραφή «Έργα» (PRJC) στο SoftOne με τα παρακάτω στοιχεία.</DialogDescription>
         </DialogHeader>
         <DialogBody className="space-y-3">
-          {error && <p role="alert" className="flex items-start gap-2 rounded-md bg-destructive/10 p-2.5 text-[length:var(--fs-12)] text-destructive"><FiAlertTriangle className="mt-0.5 size-3.5 shrink-0" />{error}</p>}
-          {!plan && !error && <p className="text-[length:var(--fs-12)] text-muted-foreground"><FiLoader className="mr-1 inline size-3 animate-spin" />Προεπισκόπηση…</p>}
+          {error && <p role="alert" className="flex items-start gap-2 rounded-md bg-destructive/10 p-2.5 text-(length:--fs-12) text-destructive"><FiAlertTriangle className="mt-0.5 size-3.5 shrink-0" />{error}</p>}
+          {!plan && !error && <p className="text-(length:--fs-12) text-muted-foreground"><FiLoader className="mr-1 inline size-3 animate-spin" />Προεπισκόπηση…</p>}
           {plan && (
             <>
-              <pre className="max-h-64 overflow-auto rounded-md bg-muted p-3 font-mono text-[length:var(--fs-11)]">{JSON.stringify(plan.payload, null, 2)}</pre>
-              <label className="flex items-start gap-2 text-[length:var(--fs-13)]">
+              <pre className="max-h-64 overflow-auto rounded-md bg-muted p-3 font-mono text-(length:--fs-11)">{JSON.stringify(plan.payload, null, 2)}</pre>
+              <label className="flex items-start gap-2 text-(length:--fs-13)">
                 <input type="checkbox" checked={agree} onChange={(e) => setAgree(e.target.checked)} className="mt-1" />
                 <span>Επιβεβαιώνω ότι θέλω να <strong>γραφτεί</strong> το έργο {plan.code} στο SoftOne.</span>
               </label>

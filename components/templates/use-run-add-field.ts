@@ -69,7 +69,8 @@ export function useRunAddField({ docId, run, onRun, onAdded }: Args): RunAddFiel
   // Switching runs (history list) drops a half-finished addition: the box was drawn over another
   // run's page, and the template the dialog previewed keys against is the other run's template.
   const runId = run?.id ?? null;
-  React.useEffect(() => { setMarking(false); setRegion(null); }, [runId]);
+  const [prevRunId, setPrevRunId] = React.useState(runId);
+  if (runId !== prevRunId) { setPrevRunId(runId); setMarking(false); setRegion(null); }
 
   const takenKeys = React.useMemo(() => run?.template.fields.map((f) => f.key) ?? [], [run]);
 

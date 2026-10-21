@@ -50,7 +50,7 @@ function GroupBadge({ g }: { g: ItemGroupTag }) {
   return (
     <span
       title={`${g.path}${applied ? '' : ' · πρόταση (δεν έχει περάσει στο SoftOne)'}${g.review ? ' · θέλει έλεγχο' : ''}`}
-      className={cn('inline-flex max-w-full items-center gap-1 truncate rounded-full border px-1.5 py-px text-[length:var(--fs-10)] font-medium leading-tight', !applied && 'border-dashed')}
+      className={cn('inline-flex max-w-full items-center gap-1 truncate rounded-full border px-1.5 py-px text-(length:--fs-10) font-medium leading-tight', !applied && 'border-dashed')}
       style={{ color, borderColor: `color-mix(in srgb, ${color} 45%, transparent)`, background: `color-mix(in srgb, ${color} ${applied ? 14 : 7}%, transparent)` }}
     >
       <span aria-hidden className="size-1.5 shrink-0 rounded-full" style={{ background: color }} />
@@ -62,7 +62,7 @@ function GroupBadge({ g }: { g: ItemGroupTag }) {
 const qtyFmt = new Intl.NumberFormat('el-GR', { maximumFractionDigits: 3 });
 /** Ποσότητα: 0 αχνό, αρνητικό κόκκινο με σύμβολο (όχι μόνο χρώμα). */
 function Qty({ v, strong }: { v: number; strong?: boolean }) {
-  if (v === 0) return <span className="block text-right tabular-nums text-muted-foreground/50">0</span>;
+  if (v === 0) return <span className="block text-right tabular-nums text-muted-foreground">0</span>;
   return (
     <span className={cn('block text-right tabular-nums', v < 0 ? 'font-semibold text-destructive' : strong ? 'font-semibold text-foreground' : 'text-foreground')}>
       {qtyFmt.format(v)}
@@ -114,24 +114,24 @@ function ItemActions({ row, onDone }: { row: ItemRecord; onDone: () => void }) {
       {/* Οι ενέργειες διαχείρισης ζουν ΠΑΝΤΑ σε dropdown (κανόνας του project). */}
       <DropdownMenu>
         <DropdownMenuTrigger
-          className="inline-flex size-8 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors duration-150 hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring data-[state=open]:bg-muted"
+          className="inline-flex size-8 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors duration-150 hover:bg-muted hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring data-[state=open]:bg-muted"
           aria-label={`Ενέργειες για ${row.code}`}
         >
           <FiMoreVertical className="size-4" aria-hidden />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-56">
-          <DropdownMenuLabel className="truncate text-[length:var(--fs-11)] font-semibold text-muted-foreground">{row.code} · {row.name}</DropdownMenuLabel>
-          <DropdownMenuItem className="cursor-pointer gap-2 text-[length:var(--fs-12)]" onSelect={() => setEditing(true)}>
+          <DropdownMenuLabel className="truncate text-(length:--fs-11) font-semibold text-muted-foreground">{row.code} · {row.name}</DropdownMenuLabel>
+          <DropdownMenuItem className="cursor-pointer gap-2 text-(length:--fs-12)" onSelect={() => setEditing(true)}>
             <FiEdit3 className="size-3.5" aria-hidden /> Επεξεργασία στοιχείων
           </DropdownMenuItem>
-          <DropdownMenuItem className="cursor-pointer gap-2 text-[length:var(--fs-12)]" onSelect={() => setGuide(true)}>
+          <DropdownMenuItem className="cursor-pointer gap-2 text-(length:--fs-12)" onSelect={() => setGuide(true)}>
             <FiTool className="size-3.5 text-amber-700 dark:text-amber-400" aria-hidden /> Οδηγίες εγκατάστασης
           </DropdownMenuItem>
-          <DropdownMenuItem className="cursor-pointer gap-2 text-[length:var(--fs-12)]" onSelect={() => void openCode()}>
+          <DropdownMenuItem className="cursor-pointer gap-2 text-(length:--fs-12)" onSelect={() => void openCode()}>
             <FiEdit2 className="size-3.5" aria-hidden /> Αλλαγή κωδικού
           </DropdownMenuItem>
           <DropdownMenuItem
-            className="cursor-pointer gap-2 text-[length:var(--fs-12)]"
+            className="cursor-pointer gap-2 text-(length:--fs-12)"
             onSelect={() => { navigator.clipboard.writeText(row.code).then(() => toast.success(`Αντιγράφηκε ο κωδικός ${row.code}`), () => toast.error('Δεν επετράπη η αντιγραφή')); }}
           >
             <FiCopy className="size-3.5" aria-hidden /> Αντιγραφή κωδικού
@@ -139,7 +139,7 @@ function ItemActions({ row, onDone }: { row: ItemRecord; onDone: () => void }) {
           {row.isActive !== false && (
             <>
               <DropdownMenuSeparator />
-              <DropdownMenuItem variant="destructive" className="cursor-pointer gap-2 text-[length:var(--fs-12)]" onSelect={() => setMode('deactivate')}>
+              <DropdownMenuItem variant="destructive" className="cursor-pointer gap-2 text-(length:--fs-12)" onSelect={() => setMode('deactivate')}>
                 <FiSlash className="size-3.5" aria-hidden /> Αδρανοποίηση
               </DropdownMenuItem>
             </>
@@ -156,8 +156,8 @@ function ItemActions({ row, onDone }: { row: ItemRecord; onDone: () => void }) {
               {mode === 'deactivate' ? <FiSlash /> : <FiEdit2 />}
             </span>
             <div className="min-w-0 flex-1">
-              <DialogTitle className="text-[length:var(--fs-15)]">{mode === 'code' ? 'Αλλαγή κωδικού' : 'Αδρανοποίηση εγγραφής'}</DialogTitle>
-              <DialogDescription className="truncate text-[length:var(--fs-11)]" title={`${row.code} — ${row.name}`}>
+              <DialogTitle className="text-(length:--fs-15)">{mode === 'code' ? 'Αλλαγή κωδικού' : 'Αδρανοποίηση εγγραφής'}</DialogTitle>
+              <DialogDescription className="truncate text-(length:--fs-11)" title={`${row.code} — ${row.name}`}>
                 {row.code} — {row.name}
               </DialogDescription>
             </div>
@@ -179,7 +179,7 @@ function ItemActions({ row, onDone }: { row: ItemRecord; onDone: () => void }) {
             ) : (
               <div role="note" className="flex gap-2.5 rounded-lg border border-red-500/25 bg-red-50/60 px-3 py-2.5 dark:bg-red-500/10">
                 <FiAlertTriangle aria-hidden className="mt-0.5 size-4 shrink-0 text-red-600 dark:text-red-300" />
-                <p className="text-[length:var(--fs-13)] text-foreground">
+                <p className="text-(length:--fs-13) text-foreground">
                   Η εγγραφή θα γίνει <strong>ανενεργή</strong> στο SoftOne και δεν θα προτείνεται για νέες γραμμές. Δεν διαγράφεται:
                   αν χρειαστεί, ενεργοποιείται ξανά από το SoftOne.
                 </p>
@@ -201,7 +201,7 @@ function ItemActions({ row, onDone }: { row: ItemRecord; onDone: () => void }) {
 
 const DASH = <span className="text-muted-foreground/40">—</span>;
 const mono = (v: string | null) =>
-  v ? <span className="font-mono text-[length:var(--fs-12)] tabular-nums text-muted-foreground">{v}</span> : DASH;
+  v ? <span className="font-mono text-(length:--fs-12) tabular-nums text-muted-foreground">{v}</span> : DASH;
 
 function fmtPrice(n: number | null) {
   if (n == null || n === 0) return DASH;
@@ -253,22 +253,21 @@ export function ItemsTableClient({
     const base: ColumnDef<ItemRecord>[] = [
       {
         accessorKey: 'code', header: 'Κωδικός', size: 130,
-        cell: ({ row }) => <span className="font-mono text-[length:var(--fs-12)] tabular-nums text-foreground">{row.original.code || '—'}</span>,
+        cell: ({ row }) => <span className="font-mono text-(length:--fs-12) tabular-nums text-foreground">{row.original.code || '—'}</span>,
       },
       {
         accessorKey: 'name', header: 'Περιγραφή', size: 320,
         cell: ({ row }) => (
           <div className="flex min-w-0 items-center gap-2">
             {row.original.thumbUrl
-              // eslint-disable-next-line @next/next/no-img-element
               ? <img src={row.original.thumbUrl} alt="" loading="lazy" className="size-7 shrink-0 rounded border border-border object-cover" />
               : <span aria-hidden className="size-7 shrink-0 rounded border border-dashed border-border bg-muted/40" />}
           <div className="min-w-0">
-            <div className="font-medium text-foreground text-[length:var(--fs-12)] truncate">
+            <div className="font-medium text-foreground text-(length:--fs-12) truncate">
               {row.original.name || '—'}
-              {row.original.isActive === false && <span className="ml-1.5 rounded bg-muted px-1.5 py-px text-[length:var(--fs-10)] font-semibold text-muted-foreground">ανενεργό</span>}
+              {row.original.isActive === false && <span className="ml-1.5 rounded bg-muted px-1.5 py-px text-(length:--fs-10) font-semibold text-muted-foreground">ανενεργό</span>}
             </div>
-            {row.original.name2 && <div className="text-[length:var(--fs-10)] text-muted-foreground truncate">{row.original.name2}</div>}
+            {row.original.name2 && <div className="text-(length:--fs-10) text-muted-foreground truncate">{row.original.name2}</div>}
             {row.original.group && <div className="mt-0.5 flex min-w-0"><GroupBadge g={row.original.group} /></div>}
           </div>
           </div>
@@ -316,7 +315,7 @@ export function ItemsTableClient({
         <MultiSelectCombo id={`items-groups-${variant}`} label="Κατηγορία" groups={groupOptions} value={groupFilter} onChange={setGroupFilter} placeholder="Όλες" className="max-w-[18rem]" />
       )}
       {groupFilter.length > 0 && (
-        <span className="text-[length:var(--fs-12)] tabular-nums text-muted-foreground">
+        <span className="text-(length:--fs-12) tabular-nums text-muted-foreground">
           {shownRows.length.toLocaleString('el-GR')} από {rows.length.toLocaleString('el-GR')}
         </span>
       )}
@@ -343,7 +342,7 @@ export function ItemsTableClient({
         pageSize={50}
       />
       {lastSync && (
-        <p className="text-[length:var(--fs-11)] text-muted-foreground">
+        <p className="text-(length:--fs-11) text-muted-foreground">
           Τελευταίος συγχρονισμός: {new Date(lastSync).toLocaleString('el-GR')}
         </p>
       )}

@@ -68,16 +68,16 @@ export async function GET() {
   try {
     const text = await extractDigitalPdfText(pdf);
     digital = { ok: text.includes(EXPECTED), text };
-  } catch (err: any) {
-    digital = { ok: false, error: err?.message ?? String(err) };
+  } catch (err) {
+    digital = { ok: false, error: (err as Error)?.message ?? String(err) };
   }
 
   let positioned: { ok: boolean; count?: number; first?: unknown; error?: string };
   try {
     const items = await extractPdfTextItems(pdf, 0);
     positioned = { ok: items.some((i) => i.str.includes(EXPECTED)), count: items.length, first: items[0] ?? null };
-  } catch (err: any) {
-    positioned = { ok: false, error: err?.message ?? String(err) };
+  } catch (err) {
+    positioned = { ok: false, error: (err as Error)?.message ?? String(err) };
   }
 
   const ok = digital.ok && positioned.ok;

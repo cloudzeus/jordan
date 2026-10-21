@@ -11,8 +11,8 @@ const RED = '#B91C1C';
 const AMBER = '#B45309';
 
 export function AccountLine({ line, compact = false }: { line: AccountCheckLine; compact?: boolean }) {
-  const code = line.account ? <code className="font-mono text-[length:var(--fs-11)]">{line.account}</code> : null;
-  const wrap = 'flex items-start gap-1 text-[length:var(--fs-11)] leading-snug';
+  const code = line.account ? <code className="font-mono text-(length:--fs-11)">{line.account}</code> : null;
+  const wrap = 'flex items-start gap-1 text-(length:--fs-11) leading-snug';
 
   switch (line.status) {
     case 'ok':

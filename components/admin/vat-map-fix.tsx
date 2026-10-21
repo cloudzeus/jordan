@@ -33,12 +33,19 @@ export function VatMapFix({
   const [busy, setBusy] = React.useState(false);
   const [open, setOpen] = React.useState(false);
 
-  React.useEffect(() => { setRate(rates[0] ?? null); }, [missing.join(',')]); // eslint-disable-line react-hooks/exhaustive-deps
+  const missingKey = missing.join(',');
+  const [prevMissingKey, setPrevMissingKey] = React.useState(missingKey);
+  if (missingKey !== prevMissingKey) { setPrevMissingKey(missingKey); setRate(rates[0] ?? null); }
 
+  // («Adjust state while rendering»· αρχικό `[]` ⇒ και στο πρώτο render, όπως το effect.)
+  const [prevDeps, setPrevDeps] = React.useState<readonly unknown[]>([]);
+  if (prevDeps.length === 0 || !Object.is(prevDeps[0], open) || !Object.is(prevDeps[1], rate)) {
+    setPrevDeps([open, rate]);
+    if (open && rate != null) setOptions(null);
+  }
   React.useEffect(() => {
     if (!open || rate == null) return;
     let ignore = false;
-    setOptions(null);
     fetch(`/api/admin/ocr/vat-map?rate=${rate}`)
       .then((r) => (r.ok ? r.json() : null))
       .then((d: { options?: Option[] } | null) => { if (!ignore) setOptions(d?.options ?? []); })
@@ -71,7 +78,7 @@ export function VatMapFix({
   // Γραμμή χωρίς κανέναν συντελεστή δεν λύνεται με αντιστοίχιση — λύνεται διορθώνοντας τη γραμμή.
   if (rates.length === 0) {
     return (
-      <span className="inline-flex items-center gap-1 text-[length:var(--fs-11)] font-medium" title="Διόρθωσε τον συντελεστή στη γραμμή">
+      <span className="inline-flex items-center gap-1 text-(length:--fs-11) font-medium" title="Διόρθωσε τον συντελεστή στη γραμμή">
         <FiAlertTriangle aria-hidden className="size-3" /> Γραμμή χωρίς ΦΠΑ
       </span>
     );
@@ -81,11 +88,11 @@ export function VatMapFix({
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <button type="button" data-testid="vat-map-fix"
-          className="inline-flex cursor-pointer items-center gap-1 rounded-md border border-current/20 px-2 py-1 text-[length:var(--fs-11)] font-semibold hover:bg-current/5">
+          className="inline-flex cursor-pointer items-center gap-1 rounded-md border border-current/20 px-2 py-1 text-(length:--fs-11) font-semibold hover:bg-current/5">
           Αντιστοίχισε <FiChevronDown className="size-3" />
         </button>
       </PopoverTrigger>
-      <PopoverContent align="end" className="w-[26rem] space-y-2">
+      <PopoverContent align="end" className="w-104 space-y-2">
         <p className="text-caption text-muted-foreground">
           Το μητρώο ΦΠΑ είναι συγχρονισμένο, αλλά οι κατηγορίες αυτού του συντελεστή δεν δηλώνουν
           ποσοστό στο SoftOne — γι' αυτό δεν βρίσκεται μόνο του. Διάλεξε ποια ισχύει· η επιλογή
@@ -96,7 +103,7 @@ export function VatMapFix({
           <label className="grid gap-1">
             <span className="text-caption font-medium text-muted-foreground">Συντελεστής</span>
             <select value={rate ?? ''} onChange={(e) => setRate(Number(e.target.value))}
-              className="h-9 w-full cursor-pointer rounded-lg border border-input bg-background px-2.5 text-[length:var(--fs-13)]">
+              className="h-9 w-full cursor-pointer rounded-lg border border-input bg-background px-2.5 text-(length:--fs-13)">
               {rates.map((r) => <option key={r} value={r}>{r} %</option>)}
             </select>
           </label>
@@ -118,8 +125,8 @@ export function VatMapFix({
             {options.map((o) => (
               <li key={o.code}>
                 <button type="button" disabled={busy} onClick={() => void save(o.code)}
-                  className="flex w-full cursor-pointer flex-col items-start gap-0.5 rounded-md border border-border px-2 py-1.5 text-left outline-none hover:bg-[var(--cx-hover)] focus-visible:ring-2 focus-visible:ring-sisyphus-500 disabled:cursor-not-allowed disabled:opacity-50">
-                  <span className="text-[length:var(--fs-13)] font-medium text-foreground">{o.descr || o.code}</span>
+                  className="flex w-full cursor-pointer flex-col items-start gap-0.5 rounded-md border border-border px-2 py-1.5 text-left outline-hidden hover:bg-(--cx-hover) focus-visible:ring-2 focus-visible:ring-sisyphus-500 disabled:cursor-not-allowed disabled:opacity-50">
+                  <span className="text-(length:--fs-13) font-medium text-foreground">{o.descr || o.code}</span>
                   <span className="text-caption text-muted-foreground">
                     κωδικός <span className="font-mono">{o.code}</span>
                     {o.rate != null ? ` · δηλώνει ${o.rate} %` : ' · χωρίς δηλωμένο ποσοστό'}

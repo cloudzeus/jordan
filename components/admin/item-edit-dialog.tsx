@@ -169,7 +169,8 @@ export function ItemEditDialog({ mtrl, open, onOpenChange, onSaved }: {
     }
   }, [mtrl]);
 
-  React.useEffect(() => { if (open) void load(); }, [open, load]);
+  // Το load ξεκινά σε microtask: τα setState του γίνονται σε callback, όχι σύγχρονα στο σώμα του effect.
+  React.useEffect(() => { if (open) void Promise.resolve().then(load); }, [open, load]);
 
   const set = (k: keyof Form) => (v: string | boolean) => setForm((f) => (f ? { ...f, [k]: v } : f));
   const text = (k: keyof Form) => ({
@@ -324,10 +325,10 @@ export function ItemEditDialog({ mtrl, open, onOpenChange, onSaved }: {
             <FiEdit3 />
           </span>
           <div className="min-w-0 flex-1">
-            <DialogTitle className="text-[length:var(--fs-15)]">
+            <DialogTitle className="text-(length:--fs-15)">
               {rec ? (rec.isService ? 'Επεξεργασία υπηρεσίας' : 'Επεξεργασία είδους') : 'Επεξεργασία'}
             </DialogTitle>
-            <DialogDescription className="truncate text-[length:var(--fs-11)]">
+            <DialogDescription className="truncate text-(length:--fs-11)">
               {rec ? `${rec.code} — ${rec.name ?? ''} · ζωντανά από το SoftOne` : 'Φόρτωση από το SoftOne…'}
             </DialogDescription>
           </div>
@@ -335,7 +336,7 @@ export function ItemEditDialog({ mtrl, open, onOpenChange, onSaved }: {
 
         <DialogBody className="space-y-3 bg-muted/20 px-4 py-3">
           {loadError && (
-            <div role="alert" className="flex flex-wrap items-center gap-2 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-[length:var(--fs-12)]">
+            <div role="alert" className="flex flex-wrap items-center gap-2 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-(length:--fs-12)">
               <FiAlertTriangle className="size-4 text-destructive" aria-hidden />
               <span className="flex-1">{loadError}</span>
               <Button size="sm" variant="outline" onClick={load}>Δοκιμή ξανά</Button>
@@ -449,7 +450,7 @@ export function ItemEditDialog({ mtrl, open, onOpenChange, onSaved }: {
               <FormSection tone="violet" icon={<FiTag />} title="Χαρακτηριστικά" aside={<span>αποθηκεύονται στην εφαρμογή</span>}>
                 <datalist id="attr-names">{ATTR_SUGGESTIONS.map((n) => <option key={n} value={n} />)}</datalist>
                 {attrs.length === 0 && (
-                  <p className="text-[length:var(--fs-12)] text-muted-foreground">Κανένα χαρακτηριστικό. Πρόσθεσε π.χ. «Χρώμα: Λευκό» ή «Πάχος: 10 mm».</p>
+                  <p className="text-(length:--fs-12) text-muted-foreground">Κανένα χαρακτηριστικό. Πρόσθεσε π.χ. «Χρώμα: Λευκό» ή «Πάχος: 10 mm».</p>
                 )}
                 {attrs.map((a, i) => (
                   <div key={i} className="grid grid-cols-12 items-end gap-x-2 gap-y-1">
@@ -466,20 +467,20 @@ export function ItemEditDialog({ mtrl, open, onOpenChange, onSaved }: {
                       {/* Οι ενέργειες ζουν ΠΑΝΤΑ σε dropdown (κανόνας του project). */}
                       <DropdownMenu>
                         <DropdownMenuTrigger
-                          className="inline-flex size-8 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors duration-150 hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring data-[state=open]:bg-muted"
+                          className="inline-flex size-8 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors duration-150 hover:bg-muted hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring data-[state=open]:bg-muted"
                           aria-label={`Ενέργειες για χαρακτηριστικό ${a.name || i + 1}`}
                         >
                           <FiMoreVertical className="size-4" aria-hidden />
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="w-48">
-                          <DropdownMenuItem className="cursor-pointer gap-2 text-[length:var(--fs-12)]" disabled={i === 0} onSelect={() => moveAttr(i, -1)}>
+                          <DropdownMenuItem className="cursor-pointer gap-2 text-(length:--fs-12)" disabled={i === 0} onSelect={() => moveAttr(i, -1)}>
                             <FiArrowUp className="size-3.5" aria-hidden /> Μετακίνηση πάνω
                           </DropdownMenuItem>
-                          <DropdownMenuItem className="cursor-pointer gap-2 text-[length:var(--fs-12)]" disabled={i === attrs.length - 1} onSelect={() => moveAttr(i, 1)}>
+                          <DropdownMenuItem className="cursor-pointer gap-2 text-(length:--fs-12)" disabled={i === attrs.length - 1} onSelect={() => moveAttr(i, 1)}>
                             <FiArrowDown className="size-3.5" aria-hidden /> Μετακίνηση κάτω
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
-                          <DropdownMenuItem variant="destructive" className="cursor-pointer gap-2 text-[length:var(--fs-12)]" onSelect={() => setAttrs((x) => x.filter((_, j) => j !== i))}>
+                          <DropdownMenuItem variant="destructive" className="cursor-pointer gap-2 text-(length:--fs-12)" onSelect={() => setAttrs((x) => x.filter((_, j) => j !== i))}>
                             <FiTrash2 className="size-3.5" aria-hidden /> Αφαίρεση
                           </DropdownMenuItem>
                         </DropdownMenuContent>
@@ -498,23 +499,23 @@ export function ItemEditDialog({ mtrl, open, onOpenChange, onSaved }: {
               <FormSection tone="slate" icon={<FiSliders />} title="Παρατηρήσεις">
                 <textarea
                   id="it-rem" rows={2} maxLength={2000} {...text('remarks')} aria-label="Παρατηρήσεις"
-                  className="w-full rounded-lg border border-input bg-transparent px-2.5 py-1.5 text-[length:var(--fs-13)] outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                  className="w-full rounded-lg border border-input bg-transparent px-2.5 py-1.5 text-(length:--fs-13) outline-hidden focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
                 />
               </FormSection>
 
               {saveError && (
-                <p role="alert" className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-[length:var(--fs-12)] text-destructive">
+                <p role="alert" className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-(length:--fs-12) text-destructive">
                   {saveError}
                 </p>
               )}
               {unit2Locked && (
-                <div className="flex flex-wrap items-center gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-[length:var(--fs-12)] text-amber-900 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-200">
+                <div className="flex flex-wrap items-center gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-(length:--fs-12) text-amber-900 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-200">
                   <FiAlertTriangle className="size-4 shrink-0" aria-hidden />
                   <span className="min-w-0 flex-1">Το SoftOne ζητά επιβεβαίωση για αλλαγή Μ.Μ.2 σε είδος με παραστατικά — μέσω Web Services δεν γίνεται. Διαχειριστές μπορούν να την περάσουν με το εγκεκριμένο script.</span>
                   <DropdownMenu>
                     <DropdownMenuTrigger className="inline-flex size-8 cursor-pointer items-center justify-center rounded-md hover:bg-amber-100 dark:hover:bg-amber-500/20" aria-label="Ενέργειες Μ.Μ.2"><FiMoreVertical className="size-4" aria-hidden /></DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="w-60">
-                      <DropdownMenuItem className="cursor-pointer gap-2 text-[length:var(--fs-12)]" disabled={busy} onSelect={() => void applyUnit2ViaScript()}><FiLayers className="size-3.5" aria-hidden /> Αλλαγή Μ.Μ.2 μέσω script</DropdownMenuItem>
+                      <DropdownMenuItem className="cursor-pointer gap-2 text-(length:--fs-12)" disabled={busy} onSelect={() => void applyUnit2ViaScript()}><FiLayers className="size-3.5" aria-hidden /> Αλλαγή Μ.Μ.2 μέσω script</DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </div>
@@ -524,7 +525,7 @@ export function ItemEditDialog({ mtrl, open, onOpenChange, onSaved }: {
         </DialogBody>
 
         <DialogFooter className="mx-0 mb-0 items-center gap-2 border-t border-border bg-card px-4 py-2.5">
-          <span className="mr-auto text-[length:var(--fs-11)] text-muted-foreground" aria-live="polite">
+          <span className="mr-auto text-(length:--fs-11) text-muted-foreground" aria-live="polite">
             {!anyChange ? 'Καμία αλλαγή' : [...changes.map((k) => LABEL[k] ?? k), ...(attrsChanged ? ['Χαρακτηριστικά'] : [])].join(', ')}
           </span>
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={busy}>Άκυρο</Button>

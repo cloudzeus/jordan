@@ -24,7 +24,7 @@ export function DeleteButton({ id }: { id: string }) {
           router.refresh();
         });
       }}
-      className="inline-flex h-8 items-center gap-1.5 rounded-md border border-destructive/40 bg-destructive/5 px-3 text-[length:var(--fs-12)] font-medium text-destructive hover:bg-destructive/10 disabled:opacity-60"
+      className="inline-flex h-8 items-center gap-1.5 rounded-md border border-destructive/40 bg-destructive/5 px-3 text-(length:--fs-12) font-medium text-destructive hover:bg-destructive/10 disabled:opacity-60"
     >
       <FiTrash2 className="size-3.5" /> Διαγραφή
     </button>

@@ -62,7 +62,7 @@ const job = (over: Record<string, unknown> = {}) => ({
 });
 
 /** Ό,τι γράφτηκε στη γραμμή ενός αρχείου, από την τελευταία `templateJobItem.update`. */
-const itemUpdate = () => db.templateJobItem.updateMany.mock.calls.at(-1)![0] as { where: Record<string, any>; data: Record<string, any> };
+const itemUpdate = () => db.templateJobItem.updateMany.mock.calls.at(-1)![0];
 
 beforeEach(() => {
   vi.clearAllMocks();

@@ -15,8 +15,8 @@ import { formatSlotEl, normalizeRanges, SLOT_LENGTHS, WEEKDAYS_EL, type Availabi
 import type { BlockView } from '@/lib/appointments';
 
 const ORDER = ['1', '2', '3', '4', '5', '6', '0'] as const;
-const label = 'block space-y-1 text-[length:var(--fs-12)] font-medium';
-const hint = 'text-[length:var(--fs-11)] font-normal text-muted-foreground';
+const label = 'block space-y-1 text-(length:--fs-12) font-medium';
+const hint = 'text-(length:--fs-11) font-normal text-muted-foreground';
 const dateFmt = new Intl.DateTimeFormat('el-GR', { timeZone: 'Europe/Athens', weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
 
 function blockLabel(b: BlockView) {
@@ -51,7 +51,7 @@ function BlockDialog({ open, today, onClose, onDone }: { open: boolean; today: s
             <DialogDescription>Αργία, έκθεση, άδεια — οι ώρες αυτές δεν θα φαίνονται ελεύθερες στο website.</DialogDescription>
           </DialogHeader>
           <DialogBody className="space-y-3">
-            <label className="flex items-center gap-2 text-[length:var(--fs-12)]"><Switch checked={allDay} onCheckedChange={setAllDay} /> Όλη η μέρα</label>
+            <label className="flex items-center gap-2 text-(length:--fs-12)"><Switch checked={allDay} onCheckedChange={setAllDay} /> Όλη η μέρα</label>
             <div className="grid grid-cols-2 gap-3">
               <label className={label}><span>{allDay ? 'Από' : 'Ημερομηνία'}</span><Input type="date" name="date" required min={today} defaultValue={today} /></label>
               {allDay && <label className={label}><span>Έως (προαιρετικό)</span><Input type="date" name="toDate" min={today} /></label>}
@@ -103,28 +103,28 @@ export function AvailabilityClient({ availability, blocks, today }: { availabili
     <div className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
       <div className="space-y-4">
         <Card>
-          <CardHeader className="flex-row items-center justify-between gap-2"><CardTitle className="text-[length:var(--fs-14)]">Εβδομαδιαίο ωράριο</CardTitle></CardHeader>
+          <CardHeader className="flex-row items-center justify-between gap-2"><CardTitle className="text-(length:--fs-14)">Εβδομαδιαίο ωράριο</CardTitle></CardHeader>
           <CardContent className="divide-y divide-border">
             {ORDER.map((k) => {
               const ranges = a.weekly[k];
               const open = ranges.length > 0;
               return (
                 <div key={k} className="flex flex-col gap-2 py-2.5 sm:flex-row sm:items-start">
-                  <label className="flex w-40 shrink-0 items-center gap-2 pt-1 text-[length:var(--fs-13)] font-medium">
+                  <label className="flex w-40 shrink-0 items-center gap-2 pt-1 text-(length:--fs-13) font-medium">
                     <Switch checked={open} onCheckedChange={(on) => setDay(k, on ? [{ from: '10:00', to: '17:00' }] : [])} aria-label={`${WEEKDAYS_EL[Number(k)]} ανοιχτά`} />
                     {WEEKDAYS_EL[Number(k)]}
                   </label>
                   <div className="flex flex-1 flex-wrap items-center gap-2">
-                    {!open && <span className="pt-1 text-[length:var(--fs-12)] text-muted-foreground">Κλειστά</span>}
+                    {!open && <span className="pt-1 text-(length:--fs-12) text-muted-foreground">Κλειστά</span>}
                     {ranges.map((r, i) => (
                       <div key={i} className="flex items-center gap-1">
-                        <Input type="time" step={900} value={r.from} aria-label="Από" className="h-8 w-[7.75rem]" onChange={(e) => setDay(k, ranges.map((x, j) => (j === i ? { ...x, from: e.target.value } : x)))} />
+                        <Input type="time" step={900} value={r.from} aria-label="Από" className="h-8 w-31" onChange={(e) => setDay(k, ranges.map((x, j) => (j === i ? { ...x, from: e.target.value } : x)))} />
                         <span className="text-muted-foreground">–</span>
-                        <Input type="time" step={900} value={r.to} aria-label="Έως" className="h-8 w-[7.75rem]" onChange={(e) => setDay(k, ranges.map((x, j) => (j === i ? { ...x, to: e.target.value } : x)))} />
+                        <Input type="time" step={900} value={r.to} aria-label="Έως" className="h-8 w-31" onChange={(e) => setDay(k, ranges.map((x, j) => (j === i ? { ...x, to: e.target.value } : x)))} />
                         <Button type="button" variant="ghost" size="icon" className="size-8" aria-label="Αφαίρεση διαστήματος" onClick={() => setDay(k, ranges.filter((_, j) => j !== i))}><FiX className="size-3.5" aria-hidden /></Button>
                       </div>
                     ))}
-                    {open && <Button type="button" variant="ghost" size="sm" className="h-8 text-[length:var(--fs-12)]" onClick={() => setDay(k, [...ranges, { from: '17:00', to: '19:00' }])}><FiPlus className="size-3.5" aria-hidden /> διάστημα</Button>}
+                    {open && <Button type="button" variant="ghost" size="sm" className="h-8 text-(length:--fs-12)" onClick={() => setDay(k, [...ranges, { from: '17:00', to: '19:00' }])}><FiPlus className="size-3.5" aria-hidden /> διάστημα</Button>}
                   </div>
                 </div>
               );
@@ -133,11 +133,11 @@ export function AvailabilityClient({ availability, blocks, today }: { availabili
         </Card>
 
         <Card>
-          <CardHeader><CardTitle className="text-[length:var(--fs-14)]">Κανόνες κράτησης</CardTitle></CardHeader>
+          <CardHeader><CardTitle className="text-(length:--fs-14)">Κανόνες κράτησης</CardTitle></CardHeader>
           <CardContent className="grid gap-4 sm:grid-cols-2">
             <label className={label}>
               <span>Διάρκεια ραντεβού</span>
-              <select value={a.slotMinutes} onChange={(e) => setA({ ...a, slotMinutes: Number(e.target.value) })} className="h-9 w-full rounded-md border border-input bg-background px-2 text-[length:var(--fs-13)] font-normal">
+              <select value={a.slotMinutes} onChange={(e) => setA({ ...a, slotMinutes: Number(e.target.value) })} className="h-9 w-full rounded-md border border-input bg-background px-2 text-(length:--fs-13) font-normal">
                 {SLOT_LENGTHS.map((m) => <option key={m} value={m}>{m < 60 ? `${m} λεπτά` : `${m / 60} ${m === 60 ? 'ώρα' : 'ώρες'}`.replace('1.5 ώρες', '1½ ώρα')}</option>)}
               </select>
               <span className={hint}>Το βήμα των ωρών που βλέπει ο επισκέπτης.</span>
@@ -157,7 +157,7 @@ export function AvailabilityClient({ availability, blocks, today }: { availabili
               <Input type="number" min={1} max={180} value={a.horizonDays} onChange={(e) => setA({ ...a, horizonDays: Math.max(1, Number(e.target.value) || 1) })} />
               <span className={hint}>Πόσο μπροστά φαίνονται διαθέσιμες ώρες.</span>
             </label>
-            <label className="flex items-start gap-2 text-[length:var(--fs-12)] sm:col-span-2">
+            <label className="flex items-start gap-2 text-(length:--fs-12) sm:col-span-2">
               <Switch checked={a.autoConfirm} onCheckedChange={(v) => setA({ ...a, autoConfirm: v })} className="mt-0.5" />
               <span><span className="font-medium">Αυτόματη επιβεβαίωση</span><span className={`block ${hint}`}>Ανοιχτό: το ραντεβού κλείνει αμέσως. Κλειστό: ο επισκέπτης κάνει αίτημα και το επιβεβαιώνετε από το ημερολόγιο.</span></span>
             </label>
@@ -165,7 +165,7 @@ export function AvailabilityClient({ availability, blocks, today }: { availabili
         </Card>
 
         <div className="flex flex-wrap items-center justify-end gap-3">
-          {problems.length > 0 && <p className="text-[length:var(--fs-12)] text-destructive">{WEEKDAYS_EL[Number(problems[0].k)]}: {problems[0].p}</p>}
+          {problems.length > 0 && <p className="text-(length:--fs-12) text-destructive">{WEEKDAYS_EL[Number(problems[0].k)]}: {problems[0].p}</p>}
           {dirty && <Button type="button" variant="outline" onClick={() => setA(availability)}>Αναίρεση</Button>}
           <Button type="button" onClick={save} disabled={!dirty || saving || problems.length > 0}><FiSave className="size-3.5" aria-hidden /> Αποθήκευση ωραρίου</Button>
         </div>
@@ -173,24 +173,24 @@ export function AvailabilityClient({ availability, blocks, today }: { availabili
 
       <Card className="self-start">
         <CardHeader className="flex-row items-center justify-between gap-2">
-          <CardTitle className="text-[length:var(--fs-14)]">Κλειστές μέρες & ώρες</CardTitle>
+          <CardTitle className="text-(length:--fs-14)">Κλειστές μέρες & ώρες</CardTitle>
           <Button size="sm" onClick={() => setBlockOpen(true)}><FiPlus className="size-3.5" aria-hidden /> Αποκλεισμός</Button>
         </CardHeader>
         <CardContent>
           {blocks.length === 0 ? (
-            <p className="py-6 text-center text-[length:var(--fs-13)] text-muted-foreground">Κανένας αποκλεισμός. Προσθέστε αργίες ή μέρες που το atelier είναι κλειστό.</p>
+            <p className="py-6 text-center text-(length:--fs-13) text-muted-foreground">Κανένας αποκλεισμός. Προσθέστε αργίες ή μέρες που το atelier είναι κλειστό.</p>
           ) : (
             <ul className="divide-y divide-border">
               {blocks.map((b) => (
                 <li key={b.id} className="flex items-center justify-between gap-2 py-2">
                   <span className="min-w-0">
-                    <span className="block truncate text-[length:var(--fs-13)] font-medium">{blockLabel(b)}</span>
-                    {b.reason && <span className="block truncate text-[length:var(--fs-11)] text-muted-foreground">{b.reason}</span>}
+                    <span className="block truncate text-(length:--fs-13) font-medium">{blockLabel(b)}</span>
+                    {b.reason && <span className="block truncate text-(length:--fs-11) text-muted-foreground">{b.reason}</span>}
                   </span>
                   <DropdownMenu>
                     <DropdownMenuTrigger className="inline-flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground" aria-label="Ενέργειες αποκλεισμού"><FiMoreVertical className="size-4" aria-hidden /></DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="w-48">
-                      <DropdownMenuItem variant="destructive" className="cursor-pointer gap-2 text-[length:var(--fs-12)]" onSelect={() => removeBlock(b)}><FiTrash2 className="size-3.5" aria-hidden /> Διαγραφή…</DropdownMenuItem>
+                      <DropdownMenuItem variant="destructive" className="cursor-pointer gap-2 text-(length:--fs-12)" onSelect={() => removeBlock(b)}><FiTrash2 className="size-3.5" aria-hidden /> Διαγραφή…</DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </li>

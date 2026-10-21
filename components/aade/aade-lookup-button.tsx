@@ -56,7 +56,13 @@ export function AadeLookupButton({ initialAfm, onApply, size = 'sm', label = 'Ά
   const [data, setData] = React.useState<AadeResult | null>(null);
   const [error, setError] = React.useState<string | null>(null);
 
-  React.useEffect(() => { if (open) { setAfm(initialAfm ?? ''); setData(null); setError(null); } }, [open, initialAfm]);
+  // Reset όταν ανοίγει (ή αλλάζει το αρχικό ΑΦΜ ενώ είναι ανοιχτό) — «adjust state while rendering».
+  const [prevOpen, setPrevOpen] = React.useState(open);
+  const [prevInitialAfm, setPrevInitialAfm] = React.useState(initialAfm);
+  if (open !== prevOpen || initialAfm !== prevInitialAfm) {
+    setPrevOpen(open); setPrevInitialAfm(initialAfm);
+    if (open) { setAfm(initialAfm ?? ''); setData(null); setError(null); }
+  }
 
   const fetchAade = async () => {
     setError(null); setData(null);
@@ -109,8 +115,8 @@ export function AadeLookupButton({ initialAfm, onApply, size = 'sm', label = 'Ά
           <DialogHeader className="flex-row items-center gap-3 border-b border-border px-4 py-2.5 pr-12">
             <span aria-hidden className="grid size-8 shrink-0 place-items-center rounded-lg bg-sisyphus-50 text-sisyphus-600 dark:bg-sisyphus-500/15"><FiDownloadCloud className="size-4" /></span>
             <div className="min-w-0 flex-1">
-              <DialogTitle className="text-[length:var(--fs-15)]">Στοιχεία από ΑΕΔΕΕ</DialogTitle>
-              <DialogDescription className="truncate text-[length:var(--fs-11)]">
+              <DialogTitle className="text-(length:--fs-15)">Στοιχεία από ΑΕΔΕΕ</DialogTitle>
+              <DialogDescription className="truncate text-(length:--fs-11)">
                 Εισάγετε ΑΦΜ για ανάκτηση των επίσημων στοιχείων από το Μητρώο.
               </DialogDescription>
             </div>
@@ -129,12 +135,12 @@ export function AadeLookupButton({ initialAfm, onApply, size = 'sm', label = 'Ά
                     placeholder="123456789" inputMode="numeric"
                   />
                 </Field>
-                <Button className="col-span-12 h-8 text-[length:var(--fs-13)] sm:col-span-4" onClick={fetchAade} disabled={loading || afm.length !== 9}>
+                <Button className="col-span-12 h-8 text-(length:--fs-13) sm:col-span-4" onClick={fetchAade} disabled={loading || afm.length !== 9}>
                   <FiSearch className="mr-1" /> {loading ? 'Αναζήτηση…' : 'Αναζήτηση'}
                 </Button>
               </div>
               {error && (
-                <div role="alert" className="flex items-center gap-2 rounded-md border border-destructive/40 bg-destructive/5 px-3 py-1.5 text-[length:var(--fs-12)] text-destructive">
+                <div role="alert" className="flex items-center gap-2 rounded-md border border-destructive/40 bg-destructive/5 px-3 py-1.5 text-(length:--fs-12) text-destructive">
                   <FiAlertCircle aria-hidden className="shrink-0" /> {error}
                 </div>
               )}
@@ -150,12 +156,12 @@ export function AadeLookupButton({ initialAfm, onApply, size = 'sm', label = 'Ά
                 }
               >
                 <div className="min-w-0">
-                  <div className="text-[length:var(--fs-13)] font-semibold text-foreground">{data.mapped.name}</div>
+                  <div className="text-(length:--fs-13) font-semibold text-foreground">{data.mapped.name}</div>
                   {data.mapped.shortName && (
-                    <div className="truncate text-[length:var(--fs-11)] text-muted-foreground">{data.mapped.shortName}</div>
+                    <div className="truncate text-(length:--fs-11) text-muted-foreground">{data.mapped.shortName}</div>
                   )}
                 </div>
-                <dl className="grid grid-cols-[7rem_minmax(0,1fr)] gap-x-3 gap-y-1.5 text-[length:var(--fs-12)]">
+                <dl className="grid grid-cols-[7rem_minmax(0,1fr)] gap-x-3 gap-y-1.5 text-(length:--fs-12)">
                   <Row label="ΑΦΜ"><span className="font-mono tabular-nums">{data.mapped.afm}</span></Row>
                   <Row label="ΔΟΥ">{data.mapped.doy ? `${data.mapped.doy}${data.mapped.doyCode ? ` (${data.mapped.doyCode})` : ''}` : '—'}</Row>
                   <Row label="Νομική μορφή">{data.mapped.legalForm ?? '—'}</Row>
@@ -171,11 +177,11 @@ export function AadeLookupButton({ initialAfm, onApply, size = 'sm', label = 'Ά
                 <ul className="-mx-3 -my-2.5 max-h-40 divide-y divide-border overflow-y-auto">
                   {data.activities.map((a) => (
                     <li key={a.code} className="flex items-center gap-2 px-3 py-1">
-                      <span className="w-20 shrink-0 font-mono text-[length:var(--fs-11)] tabular-nums">{a.code}</span>
-                      <span className="min-w-0 flex-1 truncate text-[length:var(--fs-11)]" title={a.description}>{a.description}</span>
+                      <span className="w-20 shrink-0 font-mono text-(length:--fs-11) tabular-nums">{a.code}</span>
+                      <span className="min-w-0 flex-1 truncate text-(length:--fs-11)" title={a.description}>{a.description}</span>
                       <Badge
                         variant="outline"
-                        className={a.kind === 'PRIMARY' ? 'text-[length:var(--fs-9)] border-emerald-300 text-emerald-700 dark:border-emerald-500/40 dark:text-emerald-300' : 'text-[length:var(--fs-9)]'}
+                        className={a.kind === 'PRIMARY' ? 'text-(length:--fs-9) border-emerald-300 text-emerald-700 dark:border-emerald-500/40 dark:text-emerald-300' : 'text-(length:--fs-9)'}
                       >
                         {a.kind === 'PRIMARY' ? 'ΚΥΡΙΑ' : 'ΔΕΥΤ.'}
                       </Badge>

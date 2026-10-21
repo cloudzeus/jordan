@@ -82,7 +82,6 @@ const NAV_GROUPS: NavGroup[] = [
       { href: '/admin/expenses', label: 'Έξοδα & λογιστικά', icon: FiBookOpen, permissions: ['metadata.read'] },
       { href: '/admin/doc-series', label: 'Σειρές παραστατικών', icon: FiList, permissions: ['metadata.read'] },
       { href: '/admin/reference-data', label: 'Μητρώα αναφοράς', icon: FiLayers, permissions: ['metadata.read'] },
-      { href: '/admin/document-types', label: 'Τύποι Δικαιολογητικών', icon: FiFileText, permissions: ['metadata.read'] },
       { href: '/admin/business-types', label: 'Νομικές Μορφές', icon: FiBriefcase, permissions: ['metadata.read'] },
       { href: '/admin/media', label: 'Media', icon: FiImage },
       { href: '/admin/ocr', label: 'OCR / Έγγραφα', icon: FiCpu, permissions: ['ocr.read'], exact: true },
@@ -172,8 +171,8 @@ export function AdminSidebar({ user, roleName, roleKey, locale, permissionKeys, 
   React.useEffect(() => {
     let saved: string | null = null;
     try { saved = window.localStorage.getItem('admin.sidebar.collapsed'); } catch { /* private mode */ }
-    if (saved === '1' || saved === '0') { setCollapsed(saved === '1'); return; }
-    setCollapsed(window.innerWidth < 1440);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- ανάγνωση εξωτερικής κατάστασης (localStorage/window) μετά το hydration
+    setCollapsed(saved === '1' || saved === '0' ? saved === '1' : window.innerWidth < 1440);
   }, []);
   const toggleCollapsed = React.useCallback(() => {
     setCollapsed((c) => {
@@ -185,16 +184,19 @@ export function AdminSidebar({ user, roleName, roleKey, locale, permissionKeys, 
   React.useEffect(() => {
     try {
       const saved = JSON.parse(localStorage.getItem(OPEN_GROUPS_KEY) ?? '{}') as Record<string, boolean>;
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- ανάγνωση localStorage μετά το hydration
       setOpen(saved);
     } catch { /* ignore */ }
   }, []);
-  React.useEffect(() => {
+  // Σε κάθε πλοήγηση η ομάδα της τρέχουσας σελίδας ανοίγει — «adjust state while rendering».
+  const [prevPath, setPrevPath] = React.useState(path);
+  if (path !== prevPath) {
+    setPrevPath(path);
     const current = NAV_GROUPS.find((g) => g.items.some(isActive));
     if (current && open[current.label] === false) {
       setOpen((o) => ({ ...o, [current.label]: true }));
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [path]);
+  }
   const toggleGroup = (label: string) => {
     setOpen((o) => {
       // `undefined` σημαίνει «αυτόματο» (ανοιχτό αν είσαι μέσα). Το πρώτο κλικ πρέπει να
@@ -258,7 +260,7 @@ export function AdminSidebar({ user, roleName, roleKey, locale, permissionKeys, 
           <img src={BRAND_LOGO_URL} alt="DGsoft" className="h-7 w-auto" />
         </Link>
         {!collapsed && (
-          <span className="ml-auto inline-flex items-center gap-1 rounded-sm border border-border px-1.5 py-0.5 text-[length:var(--fs-10)] font-medium uppercase tracking-wide text-muted-foreground">
+          <span className="ml-auto inline-flex items-center gap-1 rounded-sm border border-border px-1.5 py-0.5 text-(length:--fs-10) font-medium uppercase tracking-wide text-muted-foreground">
             <FiShield className="size-3" /> Admin
           </span>
         )}
@@ -268,7 +270,7 @@ export function AdminSidebar({ user, roleName, roleKey, locale, permissionKeys, 
           aria-label={collapsed ? 'Άνοιγμα πλαϊνού μενού' : 'Σύμπτυξη πλαϊνού μενού'}
           title={collapsed ? 'Άνοιγμα μενού' : 'Σύμπτυξη μενού'}
           className={cn(
-            'grid size-7 shrink-0 place-items-center rounded-sm text-muted-foreground cx-transition hover:bg-[var(--cx-hover)] hover:text-foreground',
+            'grid size-7 shrink-0 place-items-center rounded-sm text-muted-foreground cx-transition hover:bg-(--cx-hover) hover:text-foreground',
             collapsed ? 'mx-auto' : 'ml-1',
           )}
         >
@@ -278,12 +280,12 @@ export function AdminSidebar({ user, roleName, roleKey, locale, permissionKeys, 
 
       <div className={cn('shrink-0 border-b border-sidebar-border px-4 py-2.5', collapsed && 'hidden')}>
         <p className="cx-eyebrow">Ρόλος</p>
-        <p className="mt-0.5 truncate text-[length:var(--fs-13)] font-medium text-foreground">{roleName}</p>
+        <p className="mt-0.5 truncate text-(length:--fs-13) font-medium text-foreground">{roleName}</p>
       </div>
 
       {/* Κλειστές ομάδες = το μενού χωράει. Όταν ο χρήστης ανοίξει πολλές, κυλάει ΜΟΝΟ η λίστα
           (κεφαλίδα/υποσέλιδο μένουν ορατά) — αλλιώς τα κάτω links έβγαιναν εκτός οθόνης χωρίς τρόπο πρόσβασης. */}
-      <nav className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overscroll-contain px-2 py-3 [scrollbar-width:thin]">
+      <nav className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overscroll-contain px-2 py-3 scrollbar-thin">
         {NAV_GROUPS.map((group) => {
           const visible = group.items.filter(allowedItem);
           if (visible.length === 0) return null;
@@ -297,14 +299,14 @@ export function AdminSidebar({ user, roleName, roleKey, locale, permissionKeys, 
           const expanded = open[group.label] ?? group.items.some(isActive);
           const groupId = `nav-group-${group.label.replace(/\s+/g, '-')}`;
           return (
-            <div key={group.label} className={cn('rounded-md cx-transition', expanded && !collapsed && 'bg-[var(--cx-expanded-bg)] pb-1 shadow-[inset_3px_0_0_var(--cx-expanded-edge)]')}>
+            <div key={group.label} className={cn('rounded-md cx-transition', expanded && !collapsed && 'bg-(--cx-expanded-bg) pb-1 shadow-[inset_3px_0_0_var(--cx-expanded-edge)]')}>
               <button
                 type="button"
                 onClick={() => toggleGroup(group.label)}
                 aria-expanded={expanded}
                 aria-controls={groupId}
                 className={cn(
-                  'mb-1 flex h-7 w-full items-center gap-1 rounded-sm px-2 text-left cx-transition hover:bg-[var(--cx-hover)]',
+                  'mb-1 flex h-7 w-full items-center gap-1 rounded-sm px-2 text-left cx-transition hover:bg-(--cx-hover)',
                   // Μαζεμένο: ο τίτλος ομάδας φεύγει, αλλά η ομάδα ΔΕΝ κλείνει — αλλιώς τα
                   // εικονίδια θα κρύβονταν κι αυτά και το μενού θα ήταν άχρηστο.
                   collapsed && 'hidden',
@@ -327,21 +329,21 @@ export function AdminSidebar({ user, roleName, roleKey, locale, permissionKeys, 
                         title={collapsed ? item.label : undefined}
                         aria-label={collapsed ? item.label : undefined}
                         className={cn(
-                          'group/item relative flex h-8 items-center rounded-sm text-[length:var(--fs-13)] font-medium cx-transition',
+                          'group/item relative flex h-8 items-center rounded-sm text-(length:--fs-13) font-medium cx-transition',
                           collapsed ? 'justify-center px-0' : 'gap-2.5 px-2',
                           active
-                            ? 'bg-[var(--cx-accent-soft)] text-foreground'
-                            : 'text-muted-foreground hover:bg-[var(--cx-hover)] hover:text-foreground',
+                            ? 'bg-(--cx-accent-soft) text-foreground'
+                            : 'text-muted-foreground hover:bg-(--cx-hover) hover:text-foreground',
                         )}
                       >
                         <span
                           aria-hidden
                           className={cn(
-                            'absolute left-0 top-1/2 h-4 w-0.5 -translate-y-1/2 rounded-r-full bg-[var(--cx-accent)] cx-transition',
+                            'absolute left-0 top-1/2 h-4 w-0.5 -translate-y-1/2 rounded-r-full bg-(--cx-accent) cx-transition',
                             active ? 'opacity-100' : 'opacity-0',
                           )}
                         />
-                        <item.icon className={cn('size-3.5', active ? 'text-[var(--cx-accent)]' : 'text-muted-foreground/80')} />
+                        <item.icon className={cn('size-3.5', active ? 'text-(--cx-accent)' : 'text-muted-foreground/80')} />
                         {!collapsed && <span className="flex-1 truncate">{item.label}</span>}
                         {badge !== undefined && badge > 0 && (
                           collapsed
@@ -351,11 +353,11 @@ export function AdminSidebar({ user, roleName, roleKey, locale, permissionKeys, 
                               <span
                                 aria-hidden
                                 title={`${item.label}: ${badge}`}
-                                className="absolute right-1.5 top-1.5 size-1.5 rounded-full bg-[var(--cx-accent)]"
+                                className="absolute right-1.5 top-1.5 size-1.5 rounded-full bg-(--cx-accent)"
                               />
                             )
                             : (
-                              <span className="min-w-[18px] rounded-full px-1 text-center text-[length:var(--fs-10)] font-medium tabular-nums text-muted-foreground ring-1 ring-inset ring-border/70">
+                              <span className="min-w-[18px] rounded-full px-1 text-center text-(length:--fs-10) font-medium tabular-nums text-muted-foreground ring-1 ring-inset ring-border/70">
                                 {badge > 99 ? '99+' : badge}
                               </span>
                             )
@@ -377,19 +379,19 @@ export function AdminSidebar({ user, roleName, roleKey, locale, permissionKeys, 
           </div>
         )}
         <div className={cn('flex items-center rounded-sm py-1.5', collapsed ? 'flex-col gap-1 px-0' : 'gap-2.5 px-2')}>
-          <span aria-hidden className="grid size-7 shrink-0 place-items-center rounded-full bg-muted text-[length:var(--fs-10)] font-medium text-foreground">
+          <span aria-hidden className="grid size-7 shrink-0 place-items-center rounded-full bg-muted text-(length:--fs-10) font-medium text-foreground">
             {initials || 'U'}
           </span>
           {!collapsed && (
             <div className="min-w-0 flex-1">
-              <p className="truncate text-[length:var(--fs-12)] font-medium text-foreground">{user.name ?? user.email ?? 'User'}</p>
-              <p className="truncate text-[length:var(--fs-10)] uppercase tracking-wide text-muted-foreground">{roleName.toLowerCase()}</p>
+              <p className="truncate text-(length:--fs-12) font-medium text-foreground">{user.name ?? user.email ?? 'User'}</p>
+              <p className="truncate text-(length:--fs-10) uppercase tracking-wide text-muted-foreground">{roleName.toLowerCase()}</p>
             </div>
           )}
           <Link
             href="/api/auth/signout"
             title="Αποσύνδεση"
-            className="grid size-7 place-items-center rounded-sm text-muted-foreground cx-transition hover:bg-[var(--cx-hover)] hover:text-foreground"
+            className="grid size-7 place-items-center rounded-sm text-muted-foreground cx-transition hover:bg-(--cx-hover) hover:text-foreground"
           >
             <FiLogOut className="size-3.5" />
           </Link>
@@ -418,7 +420,8 @@ const MOBILE_SHORTCUTS: NavItem[] = [
 export function AdminBottomNav({ permissionKeys, roleKey, roleName, user, badges = {} }: Pick<Props, 'permissionKeys' | 'roleKey' | 'roleName' | 'user' | 'badges'>) {
   const path = usePathname();
   const [open, setOpen] = React.useState(false);
-  React.useEffect(() => { setOpen(false); }, [path]);
+  const [prevPath, setPrevPath] = React.useState(path);
+  if (path !== prevPath) { setPrevPath(path); setOpen(false); }
   const allowed = (it: NavItem) => (!it.permissions || it.permissions.length === 0 || it.permissions.some((p) => permissionKeys.includes(p)))
     && (!it.requireRoleKey || it.requireRoleKey === roleKey) && (!it.roleKeys || (!!roleKey && it.roleKeys.includes(roleKey)));
   const isActive = (it: NavItem) => (it.exact ? path === it.href : path === it.href || path.startsWith(`${it.href}/`));
@@ -426,7 +429,7 @@ export function AdminBottomNav({ permissionKeys, roleKey, roleName, user, badges
   const inShortcut = shortcuts.some(isActive);
 
   const tab = (active: boolean) => cn(
-    'relative flex min-h-11 flex-col items-center justify-center gap-0.5 px-1 text-[length:var(--fs-10)] font-medium cx-transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+    'relative flex min-h-11 flex-col items-center justify-center gap-0.5 px-1 text-(length:--fs-10) font-medium cx-transition focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring',
     active ? 'text-primary' : 'text-muted-foreground hover:text-foreground',
   );
 
@@ -440,7 +443,7 @@ export function AdminBottomNav({ permissionKeys, roleKey, roleName, user, badges
             <Link key={item.href} href={item.href} aria-current={isActive(item) ? 'page' : undefined} className={tab(isActive(item))}>
               <item.icon className="size-4" />
               <span className="w-full truncate text-center">{item.label}</span>
-              {badge !== undefined && badge > 0 && <span className="absolute right-[calc(50%-1.1rem)] top-1 size-2 rounded-full bg-[var(--cx-accent)]" aria-label={`${badge} σε αναμονή`} />}
+              {badge !== undefined && badge > 0 && <span className="absolute right-[calc(50%-1.1rem)] top-1 size-2 rounded-full bg-(--cx-accent)" aria-label={`${badge} σε αναμονή`} />}
             </Link>
           );
         })}
@@ -453,12 +456,12 @@ export function AdminBottomNav({ permissionKeys, roleKey, roleName, user, badges
       <DialogPrimitive.Root open={open} onOpenChange={setOpen}>
         <DialogPrimitive.Portal>
           <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/50 lg:hidden data-[state=open]:animate-in data-[state=open]:fade-in-0" />
-          <DialogPrimitive.Content className="fixed inset-y-0 left-0 z-50 flex h-dvh max-h-dvh w-[min(20rem,88vw)] flex-col border-r border-sidebar-border bg-sidebar shadow-xl outline-none lg:hidden data-[state=open]:animate-in data-[state=open]:slide-in-from-left">
+          <DialogPrimitive.Content className="fixed inset-y-0 left-0 z-50 flex h-dvh max-h-dvh w-[min(20rem,88vw)] flex-col border-r border-sidebar-border bg-sidebar shadow-xl outline-hidden lg:hidden data-[state=open]:animate-in data-[state=open]:slide-in-from-left">
             <div className="flex h-[calc(3.5rem+env(safe-area-inset-top))] shrink-0 items-center gap-2 border-b border-sidebar-border px-4 pt-[env(safe-area-inset-top)]">
               <img src={BRAND_LOGO_URL} alt="DGsoft" className="h-7 w-auto" />
               <DialogPrimitive.Title className="sr-only">Μενού διαχείρισης</DialogPrimitive.Title>
               <DialogPrimitive.Description className="sr-only">Όλες οι ενότητες της διαχείρισης</DialogPrimitive.Description>
-              <DialogPrimitive.Close className="ml-auto grid size-11 place-items-center rounded-md text-muted-foreground hover:bg-[var(--cx-hover)] hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" aria-label="Κλείσιμο μενού">
+              <DialogPrimitive.Close className="ml-auto grid size-11 place-items-center rounded-md text-muted-foreground hover:bg-(--cx-hover) hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring" aria-label="Κλείσιμο μενού">
                 <FiX className="size-5" />
               </DialogPrimitive.Close>
             </div>
@@ -477,11 +480,11 @@ export function AdminBottomNav({ permissionKeys, roleKey, roleName, user, badges
                         return (
                           <li key={item.href}>
                             <Link href={item.href} aria-current={active ? 'page' : undefined}
-                              className={cn('flex min-h-11 items-center gap-3 rounded-md px-2 text-[length:var(--fs-14)] font-medium cx-transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                                active ? 'bg-[var(--cx-accent-soft)] text-foreground' : 'text-muted-foreground hover:bg-[var(--cx-hover)] hover:text-foreground')}>
-                              <item.icon className={cn('size-4', active ? 'text-[var(--cx-accent)]' : '')} />
+                              className={cn('flex min-h-11 items-center gap-3 rounded-md px-2 text-(length:--fs-14) font-medium cx-transition focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring',
+                                active ? 'bg-(--cx-accent-soft) text-foreground' : 'text-muted-foreground hover:bg-(--cx-hover) hover:text-foreground')}>
+                              <item.icon className={cn('size-4', active ? 'text-(--cx-accent)' : '')} />
                               <span className="flex-1 truncate">{item.label}</span>
-                              {badge !== undefined && badge > 0 && <span className="min-w-[20px] rounded-full px-1.5 text-center text-[length:var(--fs-11)] tabular-nums ring-1 ring-inset ring-border">{badge > 99 ? '99+' : badge}</span>}
+                              {badge !== undefined && badge > 0 && <span className="min-w-[20px] rounded-full px-1.5 text-center text-(length:--fs-11) tabular-nums ring-1 ring-inset ring-border">{badge > 99 ? '99+' : badge}</span>}
                             </Link>
                           </li>
                         );
@@ -493,10 +496,10 @@ export function AdminBottomNav({ permissionKeys, roleKey, roleName, user, badges
             </nav>
             <div className="flex shrink-0 items-center gap-2.5 border-t border-sidebar-border px-4 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
               <div className="min-w-0 flex-1">
-                <p className="truncate text-[length:var(--fs-13)] font-medium text-foreground">{user.name ?? user.email ?? 'User'}</p>
-                <p className="truncate text-[length:var(--fs-11)] uppercase tracking-wide text-muted-foreground">{roleName.toLowerCase()}</p>
+                <p className="truncate text-(length:--fs-13) font-medium text-foreground">{user.name ?? user.email ?? 'User'}</p>
+                <p className="truncate text-(length:--fs-11) uppercase tracking-wide text-muted-foreground">{roleName.toLowerCase()}</p>
               </div>
-              <Link href="/api/auth/signout" className="inline-flex min-h-11 items-center gap-1.5 rounded-md px-3 text-[length:var(--fs-13)] font-medium text-muted-foreground hover:bg-[var(--cx-hover)] hover:text-foreground">
+              <Link href="/api/auth/signout" className="inline-flex min-h-11 items-center gap-1.5 rounded-md px-3 text-(length:--fs-13) font-medium text-muted-foreground hover:bg-(--cx-hover) hover:text-foreground">
                 <FiLogOut className="size-4" /> Αποσύνδεση
               </Link>
             </div>

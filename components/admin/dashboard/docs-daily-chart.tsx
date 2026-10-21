@@ -157,7 +157,7 @@ export function DocsDailyChart({ data }: { data: DocsDailyPoint[] }) {
                   aria-label={`${d.label}: ${fmtInt(d.created)} νέα, ${fmtInt(d.posted)} καταχωρήθηκαν`}
                   onFocus={() => setHover(i)}
                   onBlur={() => setHover(null)}
-                  className="cursor-default outline-none focus-visible:stroke-[var(--ring)] focus-visible:[stroke-width:2]"
+                  className="cursor-default outline-hidden focus-visible:stroke-(--ring) focus-visible:stroke-2"
                 >
                   <title>{`${d.label} — ${fmtInt(d.created)} νέα έγγραφα, ${fmtInt(d.posted)} καταχωρήθηκαν`}</title>
                 </rect>
@@ -204,7 +204,7 @@ export function DocsDailyChart({ data }: { data: DocsDailyPoint[] }) {
 
         {hover != null && hp && (
           <div
-            className="pointer-events-none absolute top-1 z-10 -translate-x-1/2 whitespace-nowrap rounded-lg border border-border bg-card/95 px-2.5 py-1.5 shadow-pop backdrop-blur-sm"
+            className="pointer-events-none absolute top-1 z-10 -translate-x-1/2 whitespace-nowrap rounded-lg border border-border bg-card/95 px-2.5 py-1.5 shadow-pop backdrop-blur-xs"
             style={{ left: `${tooltipLeft}%` }}
           >
             <div className="mb-1 text-caption font-semibold text-foreground">{hp.label}</div>

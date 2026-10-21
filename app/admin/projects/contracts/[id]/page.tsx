@@ -21,7 +21,7 @@ export default async function ContractPage({ params }: { params: Promise<{ id: s
   const closed = c.status === 'COMPLETED' || c.status === 'CANCELLED';
   return (
     <div className="mx-auto w-full max-w-5xl">
-      <Link href="/admin/projects/contracts" className="mb-2 inline-flex items-center gap-1 text-[length:var(--fs-12)] text-muted-foreground hover:text-foreground"><FiArrowLeft className="size-3.5" /> Συμβάσεις & Προσφορές</Link>
+      <Link href="/admin/projects/contracts" className="mb-2 inline-flex items-center gap-1 text-(length:--fs-12) text-muted-foreground hover:text-foreground"><FiArrowLeft className="size-3.5" /> Συμβάσεις & Προσφορές</Link>
       <PageHeader
         icon={<FiFileText />}
         title={c.title}
@@ -29,7 +29,7 @@ export default async function ContractPage({ params }: { params: Promise<{ id: s
         helpAnchor="contracts"
         actions={canManage ? <ContractActions contract={c} /> : null}
       />
-      <div className="mb-4 flex flex-wrap items-center gap-2 text-[length:var(--fs-12)]">
+      <div className="mb-4 flex flex-wrap items-center gap-2 text-(length:--fs-12)">
         <StatusBadge stage={c.stage} status={c.status as ContractStatus} />
         {c.project
           ? <Link href={`/admin/projects/${c.prjc}`} className="rounded bg-muted px-1.5 py-0.5 font-medium hover:underline">Έργο SoftOne {c.project.code}</Link>

@@ -4,7 +4,7 @@ import { requireUser } from '@/lib/rbac';
 import { getModulesTree } from '@/lib/wiki/loader';
 import { filterPagesForRole } from '@/lib/wiki/access';
 import type { WikiRoleKey } from '@/lib/wiki/types';
-import { getModuleMeta, gradientStyle } from '@/lib/wiki/modules-meta';
+import { getModuleMeta } from '@/lib/wiki/modules-meta';
 
 export default async function WikiIndexPage() {
   const user = await requireUser();
@@ -27,20 +27,20 @@ export default async function WikiIndexPage() {
         <div className="absolute -right-10 -top-10 size-40 rounded-full bg-white/10 blur-3xl" />
         <div className="absolute -bottom-16 -left-10 size-56 rounded-full bg-white/10 blur-3xl" />
         <div className="relative">
-          <div className="inline-flex items-center gap-2 rounded-full bg-white/20 px-3 py-1 text-[length:var(--fs-11)] font-medium uppercase tracking-wide backdrop-blur">
+          <div className="inline-flex items-center gap-2 rounded-full bg-white/20 px-3 py-1 text-(length:--fs-11) font-medium uppercase tracking-wide backdrop-blur-sm">
             <FiBookOpen className="size-3.5" />
             Οδηγός Χρήστη
           </div>
           <h1 className="mt-4 text-3xl font-bold tracking-tight text-white lg:text-4xl">
             Γεια σου{firstName ? `, ${firstName}` : ''} 👋
           </h1>
-          <p className="mt-2 max-w-2xl text-[length:var(--fs-15)] text-white/90 lg:text-base">
+          <p className="mt-2 max-w-2xl text-(length:--fs-15) text-white/90 lg:text-base">
             Εδώ θα βρεις βήμα-βήμα οδηγίες για όλες τις λειτουργίες της εφαρμογής.
             Διάλεξε μια κατηγορία παρακάτω ή χρησιμοποίησε την αναζήτηση αριστερά.
           </p>
 
-          <div className="mt-6 flex flex-wrap items-center gap-4 text-[length:var(--fs-13)] text-white/85">
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-white/20 px-2.5 py-1 backdrop-blur">
+          <div className="mt-6 flex flex-wrap items-center gap-4 text-(length:--fs-13) text-white/85">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-white/20 px-2.5 py-1 backdrop-blur-sm">
               <span className="size-1.5 rounded-full bg-white" />
               {user.role.name}
             </span>
@@ -55,7 +55,7 @@ export default async function WikiIndexPage() {
         <Tip icon="🎯" title="Προσαρμοσμένο για σένα" text="Βλέπεις μόνο τα τμήματα που αφορούν τον ρόλο σου." />
       </div>
 
-      <h2 className="mt-10 mb-4 text-[length:var(--fs-18)] font-semibold tracking-tight text-foreground">Κατηγορίες οδηγού</h2>
+      <h2 className="mt-10 mb-4 text-(length:--fs-18) font-semibold tracking-tight text-foreground">Κατηγορίες οδηγού</h2>
 
       {modules.length === 0 ? (
         <div className="rounded-lg border border-dashed border-border p-8 text-center text-muted-foreground">
@@ -71,7 +71,7 @@ export default async function WikiIndexPage() {
               <Link
                 key={m.module}
                 href={`/wiki/${m.module}/${firstPage.frontmatter.slug}`}
-                className="group relative overflow-hidden rounded-xl border border-border bg-card p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+                className="group relative overflow-hidden rounded-xl border border-border bg-card p-5 shadow-xs transition hover:-translate-y-0.5 hover:shadow-md"
                 style={{ borderTop: `4px solid ${meta.accent}` }}
               >
                 <div
@@ -80,14 +80,14 @@ export default async function WikiIndexPage() {
                 >
                   <Icon className="size-5" />
                 </div>
-                <h3 className="mt-3 text-[length:var(--fs-15)] font-semibold tracking-tight text-foreground">{meta.label || m.title}</h3>
-                <p className="mt-1 text-[length:var(--fs-12-5)] text-muted-foreground line-clamp-2">{meta.description}</p>
+                <h3 className="mt-3 text-(length:--fs-15) font-semibold tracking-tight text-foreground">{meta.label || m.title}</h3>
+                <p className="mt-1 text-(length:--fs-12-5) text-muted-foreground line-clamp-2">{meta.description}</p>
                 <div className="mt-4 flex items-center justify-between border-t border-border pt-3">
-                  <span className="text-[length:var(--fs-11)] font-medium uppercase tracking-wide text-muted-foreground">
+                  <span className="text-(length:--fs-11) font-medium uppercase tracking-wide text-muted-foreground">
                     {m.pages.length} {m.pages.length === 1 ? 'σελίδα' : 'σελίδες'}
                   </span>
                   <span
-                    className="inline-flex items-center gap-1 text-[length:var(--fs-12)] font-semibold opacity-0 transition group-hover:opacity-100"
+                    className="inline-flex items-center gap-1 text-(length:--fs-12) font-semibold opacity-0 transition group-hover:opacity-100"
                     style={{ color: meta.accent }}
                   >
                     Άνοιγμα <FiArrowRight className="size-3.5" />
@@ -107,8 +107,8 @@ function Tip({ icon, title, text }: { icon: string; title: string; text: string 
     <div className="flex items-start gap-3 rounded-lg border border-border bg-card p-3">
       <span aria-hidden className="text-xl leading-none">{icon}</span>
       <div className="min-w-0">
-        <p className="text-[length:var(--fs-13)] font-semibold text-foreground">{title}</p>
-        <p className="mt-0.5 text-[length:var(--fs-12)] text-muted-foreground">{text}</p>
+        <p className="text-(length:--fs-13) font-semibold text-foreground">{title}</p>
+        <p className="mt-0.5 text-(length:--fs-12) text-muted-foreground">{text}</p>
       </div>
     </div>
   );

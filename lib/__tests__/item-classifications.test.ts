@@ -23,8 +23,8 @@ const readBack = (row: Record<string, string>) => ({ success: true, data: { ITEC
 beforeEach(() => {
   vi.clearAllMocks();
   db.softoneClassification.findFirst.mockResolvedValue(null);
-  db.softoneClassification.upsert.mockImplementation(async ({ create }: any) => create);
-  db.softoneClassification.update.mockImplementation(async ({ data }: any) => data);
+  db.softoneClassification.upsert.mockImplementation(async ({ create }: { create: unknown }) => create);
+  db.softoneClassification.update.mockImplementation(async ({ data }: { data: unknown }) => data);
 });
 
 describe('createCategory', () => {

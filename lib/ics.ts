@@ -30,8 +30,15 @@ const VTIMEZONE = [
   'END:VTIMEZONE',
 ];
 
-/** Κείμενο RFC 5545: escape \ ; , και αλλαγές γραμμής. */
-export const icsText = (s: string) => s.replace(/\\/g, '\\\\').replace(/;/g, '\;').replace(/,/g, '\\,').replace(/\r?\n/g, '\\n');
+/** Κείμενο RFC 5545 (§3.3.11): escape \ ; , και αλλαγές γραμμής. */
+export const icsText = (s: string) => s.replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\r?\n/g, '\\n');
+
+/**
+ * Τιμή παραμέτρου RFC 5545 (§3.2, π.χ. CN=…): ΔΕΝ γίνεται escape με «\» — αν περιέχει ; : , μπαίνει
+ * σε εισαγωγικά. Εισαγωγικά και χαρακτήρες ελέγχου/αλλαγές γραμμής δεν επιτρέπονται καθόλου.
+ */
+// eslint-disable-next-line no-control-regex -- σκόπιμα: αφαιρούνται χαρακτήρες ελέγχου που απαγορεύει το RFC 5545
+export const icsParam = (s: string) => { const v = s.replace(/["\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim(); return /[;:,]/.test(v) ? `"${v}"` : v; };
 
 /** Γραμμές ≤ 75 octets (UTF-8), συνέχεια με κενό — χωρίς να κόβεται χαρακτήρας στη μέση. */
 export function foldLine(line: string) {
@@ -65,8 +72,8 @@ export function buildIcs(e: IcsEvent): string {
     `SUMMARY:${icsText(e.summary)}`,
     ...(e.description ? [`DESCRIPTION:${icsText(e.description)}`] : []),
     ...(e.location ? [`LOCATION:${icsText(e.location)}`] : []),
-    ...(e.organizer ? [`ORGANIZER;CN=${icsText(e.organizer.name)}:mailto:${e.organizer.email}`] : []),
-    ...(e.attendees ?? []).map((a) => `ATTENDEE;CN=${icsText(a.name || a.email)};ROLE=REQ-PARTICIPANT:mailto:${a.email}`),
+    ...(e.organizer ? [`ORGANIZER;CN=${icsParam(e.organizer.name)}:mailto:${e.organizer.email}`] : []),
+    ...(e.attendees ?? []).map((a) => `ATTENDEE;CN=${icsParam(a.name || a.email)};ROLE=REQ-PARTICIPANT:mailto:${a.email}`),
     ...(e.cancelled ? [] : ['BEGIN:VALARM', 'ACTION:DISPLAY', 'DESCRIPTION:Υπενθύμιση ραντεβού', 'TRIGGER:-PT1H', 'END:VALARM']),
     'END:VEVENT',
     'END:VCALENDAR',

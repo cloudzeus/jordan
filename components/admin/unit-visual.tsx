@@ -187,7 +187,8 @@ export function UnitThumb({ kind, size = 40, className, title, src }: { kind: Un
   const [url, setUrl] = React.useState<string | null>(null);
   const [failed, setFailed] = React.useState(false);
   const [srcFailed, setSrcFailed] = React.useState(false);
-  React.useEffect(() => { setSrcFailed(false); }, [src]);
+  const [prevSrc, setPrevSrc] = React.useState(src);
+  if (src !== prevSrc) { setPrevSrc(src); setSrcFailed(false); }
   const custom = src && !srcFailed ? src : null;
   const iconOnly = kind === 'hour' || kind === 'service';
   React.useEffect(() => {
@@ -197,7 +198,7 @@ export function UnitThumb({ kind, size = 40, className, title, src }: { kind: Un
     return () => { alive = false; };
   }, [kind, iconOnly, custom]);
   const label = title ?? UNIT_VISUAL_LABEL[kind];
-  const box = cn('inline-grid shrink-0 place-items-center overflow-hidden rounded-md bg-gradient-to-b from-white to-slate-100 ring-1 ring-border dark:from-slate-700 dark:to-slate-800', className);
+  const box = cn('inline-grid shrink-0 place-items-center overflow-hidden rounded-md bg-linear-to-b from-white to-slate-100 ring-1 ring-border dark:from-slate-700 dark:to-slate-800', className);
   if (custom) {
     return (
       <span className={cn(box, 'bg-none bg-white')} style={{ width: size, height: size }} title={label}>

@@ -5,7 +5,7 @@ import dynamic from 'next/dynamic';
 import { FiList, FiMap, FiPackage } from 'react-icons/fi';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
-const TradersMap = dynamic(() => import('./traders-map').then((m) => m.TradersMap), { ssr: false, loading: () => <p className="py-10 text-center text-[length:var(--fs-12)] text-muted-foreground">Φόρτωση χάρτη…</p> });
+const TradersMap = dynamic(() => import('./traders-map').then((m) => m.TradersMap), { ssr: false, loading: () => <p className="py-10 text-center text-(length:--fs-12) text-muted-foreground">Φόρτωση χάρτη…</p> });
 
 /**
  * Συναλλασσόμενοι: «Λίστα» (ο πίνακας), «Χάρτης» και «Προϊόντα προμηθευτών». Ο χάρτης φορτώνει μόνο όταν

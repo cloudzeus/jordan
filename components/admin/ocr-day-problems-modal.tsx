@@ -45,7 +45,7 @@ const GROUP_TONE_FALLBACK = { box: 'border-border', head: 'bg-muted/50 text-mute
 const PICK_ROW = 'grid grid-cols-[2.25rem_minmax(0,1fr)] items-center gap-x-3 gap-y-1 px-3 py-1 md:grid-cols-[2.25rem_minmax(0,1fr)_13rem_minmax(0,1.4fr)]';
 /** Στήλες 3–4 σε στενή οθόνη: κάτω από το όνομα (στήλη 2). */
 const PICK_SUB = 'col-start-2 md:col-start-auto';
-const ROW_SELECT = 'h-8 w-full min-w-0 rounded-md border border-input bg-background px-2 text-[length:var(--fs-13)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60';
+const ROW_SELECT = 'h-8 w-full min-w-0 rounded-md border border-input bg-background px-2 text-(length:--fs-13) focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60';
 const RETRY_OPTS = [
   { id: 'retry', name: 'Επανανάγνωση (κανονικό μοντέλο)' },
   { id: 'hq', name: 'Επανασκανάρισμα HQ (~8× κόστος)' },
@@ -111,9 +111,14 @@ export function OcrDayProblemsModal({
   const idsKey = rows.map((r) => r.id).join(',');
 
   // Προτάσεις: μία κλήση για όλη την ημέρα, όταν ανοίγει το παράθυρο.
+  // Reset με «adjust state while rendering» (αρχικό `[]` ⇒ και στο πρώτο render, όπως το effect).
+  const [prevDeps, setPrevDeps] = React.useState<readonly unknown[]>([]);
+  if (prevDeps.length === 0 || !Object.is(prevDeps[0], open) || !Object.is(prevDeps[1], idsKey)) {
+    setPrevDeps([open, idsKey]);
+    if (open && idsKey) { setSuggestions(null); setDone(new Set()); }
+  }
   React.useEffect(() => {
     if (!open || !idsKey) return;
-    setSuggestions(null); setDone(new Set());
     let cancelled = false;
     fetch('/api/admin/ocr/problem-suggestions', {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids: idsKey.split(',') }),
@@ -196,7 +201,7 @@ export function OcrDayProblemsModal({
               return (
                 <li key={r.id} className={PICK_ROW}>
                   {isDone ? <FiCheck className="mx-2.5 size-4 text-emerald-600" aria-label="Ολοκληρώθηκε" /> : <Pick checked={selected.has(r.id)} disabled={!!busy || !category[r.id]} onChange={(v) => toggle(r.id, v)} label={`Επιλογή ${r.fileName}`} />}
-                  <div className="min-w-0 text-[length:var(--fs-12)]"><DocLink id={r.id} fileName={r.fileName} /></div>
+                  <div className="min-w-0 text-(length:--fs-12)"><DocLink id={r.id} fileName={r.fileName} /></div>
                   <select
                     value={category[r.id] ?? ''} disabled={!!busy || isDone}
                     onChange={(e) => { const v = e.target.value as OcrCategoryValue | ''; setCategory((p) => ({ ...p, [r.id]: v })); if (v) toggle(r.id, true); }}
@@ -206,7 +211,7 @@ export function OcrDayProblemsModal({
                     <option value="">— Κατηγορία —</option>
                     {CATEGORIES.map((c) => <option key={c} value={c}>{CATEGORY_LABEL[c]}</option>)}
                   </select>
-                  <div className={cn('flex min-w-0 items-center gap-1.5 text-[length:var(--fs-11)] leading-snug text-muted-foreground', PICK_SUB)}>
+                  <div className={cn('flex min-w-0 items-center gap-1.5 text-(length:--fs-11) leading-snug text-muted-foreground', PICK_SUB)}>
                     {loading ? <FiLoader className="size-3 animate-spin motion-reduce:animate-none" aria-hidden /> : s ? (
                       <>
                         <span className={`shrink-0 rounded-full border px-1.5 py-0.5 font-semibold ${CONFIDENCE[s.confidence].cls}`}>{CONFIDENCE[s.confidence].text}</span>
@@ -241,7 +246,7 @@ export function OcrDayProblemsModal({
               return (
                 <li key={r.id} className={PICK_ROW}>
                   {isDone ? <FiCheck className="mx-2.5 size-4 text-emerald-600" aria-label="Ολοκληρώθηκε" /> : <Pick checked={selected.has(r.id)} disabled={!!busy} onChange={(v) => toggle(r.id, v)} label={`Επιλογή ${r.fileName}`} />}
-                  <div className="min-w-0 text-[length:var(--fs-12)]"><DocLink id={r.id} fileName={r.fileName} /></div>
+                  <div className="min-w-0 text-(length:--fs-12)"><DocLink id={r.id} fileName={r.fileName} /></div>
                   <FormSelect
                     value={retry[r.id] ?? 'retry'} disabled={!!busy || isDone}
                     onChange={(v) => setRetry((p) => ({ ...p, [r.id]: v as 'retry' | 'hq' }))}
@@ -249,7 +254,7 @@ export function OcrDayProblemsModal({
                     className={PICK_SUB}
                     ariaLabel={`Τρόπος επανανάγνωσης για ${r.fileName}`}
                   />
-                  <div className={cn('min-w-0 text-[length:var(--fs-11)] leading-snug text-muted-foreground', PICK_SUB)}>
+                  <div className={cn('min-w-0 text-(length:--fs-11) leading-snug text-muted-foreground', PICK_SUB)}>
                     {e ? <>{e.reason} <span className="font-mono opacity-70" title={e.message}>· {e.message.slice(0, 60)}</span></> : null}
                   </div>
                 </li>
@@ -264,7 +269,7 @@ export function OcrDayProblemsModal({
               {busy === 'read' ? <FiLoader className="size-4 animate-spin motion-reduce:animate-none" aria-hidden /> : <FiRefreshCw className="size-4" aria-hidden />}
               Επανανάγνωση {ids.length}
             </button>
-            <span className="text-[length:var(--fs-11)] text-muted-foreground">Μία-μία, όχι ταυτόχρονα· κάθε ανάγνωση παίρνει λίγα δευτερόλεπτα.</span>
+            <span className="text-(length:--fs-11) text-muted-foreground">Μία-μία, όχι ταυτόχρονα· κάθε ανάγνωση παίρνει λίγα δευτερόλεπτα.</span>
           </>)}
         </>
       );
@@ -277,7 +282,7 @@ export function OcrDayProblemsModal({
             {g.rows.map((r) => (
               <li key={r.id} className="flex items-center gap-3 px-3 py-1">
                 {done.has(r.id) ? <FiCheck className="mx-2.5 size-4 text-emerald-600" aria-label="Ολοκληρώθηκε" /> : <Pick checked={selected.has(r.id)} disabled={!!busy} onChange={(v) => toggle(r.id, v)} label={`Επιλογή ${r.fileName}`} />}
-                <div className="min-w-0 flex-1 text-[length:var(--fs-12)]"><DocLink id={r.id} fileName={r.fileName} /></div>
+                <div className="min-w-0 flex-1 text-(length:--fs-12)"><DocLink id={r.id} fileName={r.fileName} /></div>
               </li>
             ))}
           </ul>
@@ -288,7 +293,7 @@ export function OcrDayProblemsModal({
             >
               Σήμανση {ids.length} ως ήδη καταχωρισμένα (αγνόηση)
             </button>
-            <span className="text-[length:var(--fs-11)] text-muted-foreground">Επίλεξε μόνο όσα επιβεβαίωσες ότι υπάρχουν ήδη στο SoftOne.</span>
+            <span className="text-(length:--fs-11) text-muted-foreground">Επίλεξε μόνο όσα επιβεβαίωσες ότι υπάρχουν ήδη στο SoftOne.</span>
           </>)}
         </>
       );
@@ -319,12 +324,12 @@ export function OcrDayProblemsModal({
       : status === 'NO_SUPPLIER'
         ? <Link href="/admin/ocr/new-traders" className={BTN_PRIMARY}>Νέοι συναλλασσόμενοι <FiExternalLink className="size-3" aria-hidden /></Link>
         : status === 'READY'
-          ? <span className="text-[length:var(--fs-11)] text-muted-foreground">Μαζική ανάρτηση: κουμπί «Ανάρτηση» στην κεφαλίδα της ημέρας.</span>
+          ? <span className="text-(length:--fs-11) text-muted-foreground">Μαζική ανάρτηση: κουμπί «Ανάρτηση» στην κεφαλίδα της ημέρας.</span>
           : null;
     return (
       <>
         <ul className="-mx-3 -mt-2.5 grid grid-cols-1 gap-x-4 gap-y-1 border-b border-border px-3 py-2 sm:grid-cols-2">
-          {g.rows.map((r) => <li key={r.id} className="min-w-0 text-[length:var(--fs-12)]"><DocLink id={r.id} fileName={r.fileName} /></li>)}
+          {g.rows.map((r) => <li key={r.id} className="min-w-0 text-(length:--fs-12)"><DocLink id={r.id} fileName={r.fileName} /></li>)}
         </ul>
         {action && <div className="flex flex-wrap items-center gap-2">{action}</div>}
       </>
@@ -339,8 +344,8 @@ export function OcrDayProblemsModal({
             <FiTool className="size-4" />
           </span>
           <div className="min-w-0 flex-1">
-            <DialogTitle className="text-[length:var(--fs-15)]">Προβλήματα & λύσεις — {dayLabel}</DialogTitle>
-            <DialogDescription className="truncate text-[length:var(--fs-11)]">
+            <DialogTitle className="text-(length:--fs-15)">Προβλήματα & λύσεις — {dayLabel}</DialogTitle>
+            <DialogDescription className="truncate text-(length:--fs-11)">
               {totalPending > 0
                 ? `${totalPending} ${totalPending === 1 ? 'παραστατικό χρειάζεται' : 'παραστατικά χρειάζονται'} ενέργεια. Η εφαρμογή προτείνει λύση· επίλεξε και εφάρμοσε μαζικά.`
                 : 'Καμία εκκρεμότητα για αυτή την ημέρα.'}
@@ -349,7 +354,7 @@ export function OcrDayProblemsModal({
         </DialogHeader>
 
         {progress && (
-          <div className="flex items-center gap-3 border-b border-border bg-card px-4 py-2 text-[length:var(--fs-12)] text-muted-foreground" aria-live="polite">
+          <div className="flex items-center gap-3 border-b border-border bg-card px-4 py-2 text-(length:--fs-12) text-muted-foreground" aria-live="polite">
             <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
               <div className="h-full bg-sisyphus-500 transition-[width]" style={{ width: `${(progress.n / progress.of) * 100}%` }} />
             </div>
@@ -360,7 +365,7 @@ export function OcrDayProblemsModal({
         {totalPending === 0 ? (
           <div className="flex flex-col items-center gap-2 bg-muted/20 px-4 py-8 text-center">
             <FiCheckCircle className="size-8 text-emerald-500" aria-hidden />
-            <p className="text-[length:var(--fs-13)] text-muted-foreground">Όλα τα παραστατικά της ημέρας είναι εντάξει.</p>
+            <p className="text-(length:--fs-13) text-muted-foreground">Όλα τα παραστατικά της ημέρας είναι εντάξει.</p>
           </div>
         ) : (
           <div className="min-h-0 flex-1 space-y-3 overflow-auto bg-muted/20 px-4 py-3">
@@ -370,13 +375,13 @@ export function OcrDayProblemsModal({
                 <section key={g.meta.status} aria-label={g.meta.label} className={cn('overflow-hidden rounded-lg border bg-card', t.box)}>
                   <header className={cn('flex min-h-8 items-center gap-2 px-3 py-1.5', t.head)}>
                     <span aria-hidden className={cn('grid size-5 shrink-0 place-items-center rounded [&_svg]:size-3', t.icon)}><FiAlertTriangle /></span>
-                    <h3 className="text-[length:var(--fs-11)] font-semibold uppercase tracking-wide">{g.meta.label}</h3>
-                    <span className="ml-auto rounded-full border border-black/10 bg-card/70 px-1.5 py-0.5 text-[length:var(--fs-10)] font-semibold tabular-nums dark:border-white/15">
+                    <h3 className="text-(length:--fs-11) font-semibold uppercase tracking-wide">{g.meta.label}</h3>
+                    <span className="ml-auto rounded-full border border-black/10 bg-card/70 px-1.5 py-0.5 text-(length:--fs-10) font-semibold tabular-nums dark:border-white/15">
                       {pending(g).length}{done.size && pending(g).length !== g.rows.length ? ` / ${g.rows.length}` : ''}
                     </span>
                   </header>
                   {(g.meta.problem || g.meta.solution) && (
-                    <div className="grid gap-x-4 gap-y-0.5 border-b border-border px-3 py-1.5 text-[length:var(--fs-12)] leading-snug md:grid-cols-2">
+                    <div className="grid gap-x-4 gap-y-0.5 border-b border-border px-3 py-1.5 text-(length:--fs-12) leading-snug md:grid-cols-2">
                       {g.meta.problem && <p className="text-foreground/80">{g.meta.problem}</p>}
                       {g.meta.solution && (
                         <p>

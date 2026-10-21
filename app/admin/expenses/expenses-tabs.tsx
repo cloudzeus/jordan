@@ -73,16 +73,16 @@ export function ExpensesTabs({
   return (
     <Tabs value={tab} onValueChange={choose} className="w-full">
       {/* Τα 7 μητρώα σε δύο ομάδες, σε μία γραμμή που κυλά οριζόντια (όχι αναδίπλωση/κόψιμο). */}
-      <div className="-mx-1 overflow-x-auto px-1 pb-1 [scrollbar-width:thin]">
+      <div className="-mx-1 overflow-x-auto px-1 pb-1 scrollbar-thin">
         <TabsList className="h-auto w-max flex-nowrap gap-0.5">
           {GROUPS.map((g, gi) => (
             <React.Fragment key={g.label}>
               {gi > 0 && <span aria-hidden className="mx-1 h-5 w-px shrink-0 bg-border" />}
-              <span className="hidden px-1.5 text-[length:var(--fs-10)] font-semibold uppercase tracking-wide text-muted-foreground/70 lg:inline">{g.label}</span>
+              <span className="hidden px-1.5 text-(length:--fs-10) font-semibold uppercase tracking-wide text-muted-foreground/70 lg:inline">{g.label}</span>
               {g.tabs.map((t) => (
                 <TabsTrigger key={t.value} value={t.value} className="flex-none cursor-pointer gap-1.5 px-2.5">
                   {t.label}
-                  <span className="rounded bg-foreground/5 px-1 text-[length:var(--fs-10)] tabular-nums text-muted-foreground">{count(t.n)}</span>
+                  <span className="rounded bg-foreground/5 px-1 text-(length:--fs-10) tabular-nums text-muted-foreground">{count(t.n)}</span>
                 </TabsTrigger>
               ))}
             </React.Fragment>

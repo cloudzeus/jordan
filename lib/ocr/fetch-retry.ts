@@ -56,7 +56,7 @@ export async function fetchWithRetry(
     try {
       res = await doFetch(url, init);
     } catch (err) {
-      if (isLast) { console.error(`${tag} network error on final attempt ${attempt + 1}/${attempts}:`, (err as any)?.message ?? err); throw err; }
+      if (isLast) { console.error(`${tag} network error on final attempt ${attempt + 1}/${attempts}:`, (err as Error)?.message ?? err); throw err; }
       const delay = nextDelayMs(attempt, baseMs, rand);
       console.warn(`${tag} network error on attempt ${attempt + 1}/${attempts}, retrying in ${delay}ms`);
       await sleep(delay);

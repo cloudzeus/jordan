@@ -38,7 +38,7 @@ function barPath(x: number, y0: number, w: number, y1: number): string {
 export function Legend({ series }: { series: Series[] }) {
   if (series.length < 2) return null;
   return (
-    <ul className="flex flex-wrap gap-x-4 gap-y-1 text-[length:var(--fs-12)] text-muted-foreground">
+    <ul className="flex flex-wrap gap-x-4 gap-y-1 text-(length:--fs-12) text-muted-foreground">
       {series.map((s) => (
         <li key={s.key} className="inline-flex items-center gap-1.5">
           <span aria-hidden className="inline-block size-2.5 rounded-sm" style={{ backgroundColor: s.color }} />
@@ -93,7 +93,7 @@ export function ColumnChart({
       <Legend series={series} />
       <div ref={wrap} className="relative" onMouseLeave={() => setHover(null)}>
         {empty ? (
-          <p className="grid place-items-center text-[length:var(--fs-13)] text-muted-foreground" style={{ height: H }}>Δεν υπάρχουν κινήσεις στην περίοδο.</p>
+          <p className="grid place-items-center text-(length:--fs-13) text-muted-foreground" style={{ height: H }}>Δεν υπάρχουν κινήσεις στην περίοδο.</p>
         ) : (
           <svg viewBox={`0 0 ${W} ${H}`} width="100%" height={H} role="img" aria-label={caption} className="block overflow-visible">
             {tickVals.map((t) => (
@@ -125,7 +125,7 @@ export function ColumnChart({
                     x={padL + slot * i} y={padT} width={slot} height={innerH} fill="transparent" tabIndex={0}
                     aria-label={`${p.label}: ${p.values.map((v, s) => `${series[s].name} ${format(v)}`).join(', ')}`}
                     onMouseEnter={() => setHover(i)} onFocus={() => setHover(i)} onBlur={() => setHover(null)}
-                    className="outline-none"
+                    className="outline-hidden"
                   />
                 </g>
               );
@@ -135,7 +135,7 @@ export function ColumnChart({
         {hover != null && !empty && (
           <div
             role="presentation"
-            className="pointer-events-none absolute top-0 z-10 min-w-[9rem] rounded-md border border-border bg-popover px-2.5 py-2 text-[length:var(--fs-12)] shadow-fluent-8"
+            className="pointer-events-none absolute top-0 z-10 min-w-36 rounded-md border border-border bg-popover px-2.5 py-2 text-(length:--fs-12) shadow-fluent-8"
             style={{ left: Math.min(Math.max(0, padL + slot * hover + slot / 2 - 72), Math.max(0, W - 150)) }}
           >
             <div className="mb-1 font-semibold text-foreground">{points[hover].label}</div>
@@ -178,11 +178,11 @@ export function BarRows({
         const pct = max > 0 ? (r.value / max) * 100 : 0;
         const body = (
           <>
-            <div className="flex items-baseline justify-between gap-2 text-[length:var(--fs-12)]">
+            <div className="flex items-baseline justify-between gap-2 text-(length:--fs-12)">
               <span className="truncate text-muted-foreground">{r.label}</span>
               <span className="shrink-0 font-semibold tabular-nums text-foreground">{format(r.value)}</span>
             </div>
-            <div className="mt-1 h-2 rounded-full bg-[var(--viz-track)]">
+            <div className="mt-1 h-2 rounded-full bg-(--viz-track)">
               <div
                 className="h-full rounded-r-[4px] rounded-l-[2px] transition-[width,opacity] duration-300"
                 style={{ width: `${r.value > 0 ? Math.max(2, pct) : 0}%`, backgroundColor: r.color ?? color, opacity: hover == null || hover === i ? 1 : 0.45 }}
@@ -192,7 +192,7 @@ export function BarRows({
         );
         return (
           <div key={r.label} onMouseEnter={() => setHover(i)} onMouseLeave={() => setHover(null)} title={`${r.label}: ${format(r.value)}`}>
-            {r.href ? <a href={r.href} className="block rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">{body}</a> : body}
+            {r.href ? <a href={r.href} className="block rounded-sm focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring">{body}</a> : body}
           </div>
         );
       })}

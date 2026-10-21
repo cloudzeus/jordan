@@ -1,6 +1,21 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import 'tailwindcss';
+
+/* Tailwind 4 με το υπάρχον JS config (preset design system, plugins forms/typography, darkMode). */
+@config '../tailwind.config.ts';
+
+/*
+  Tailwind 4: το προεπιλεγμένο χρώμα περιγράμματος έγινε `currentcolor` — κρατάμε το gray-200 του v3,
+  ώστε τα `border` χωρίς ρητό χρώμα να μοιάζουν όπως πριν.
+*/
+@layer base {
+  *,
+  ::after,
+  ::before,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: var(--color-gray-200, currentcolor);
+  }
+}
 
 /* ============================================================
    DGEspa — SmartMove-aligned brand system
@@ -121,13 +136,12 @@ body {
 }
 * { box-sizing: border-box; }
 
-@layer utilities {
-  .bg-sidebar            { background-color: var(--sidebar); }
-  .border-sidebar-border { border-color: var(--sidebar-border); }
-  .shadow-card           { box-shadow: var(--shadow-card); }
-  .shadow-pop            { box-shadow: var(--shadow-pop); }
-  .shadow-cta            { box-shadow: var(--shadow-cta); }
-}
+/* Tailwind 4: οι δικές μας κλάσεις-εργαλεία δηλώνονται με @utility (για να δουλεύουν και με variants, π.χ. hover:). */
+@utility bg-sidebar { background-color: var(--sidebar); }
+@utility border-sidebar-border { border-color: var(--sidebar-border); }
+@utility shadow-card { box-shadow: var(--shadow-card); }
+@utility shadow-pop { box-shadow: var(--shadow-pop); }
+@utility shadow-cta { box-shadow: var(--shadow-cta); }
 
 @layer components {
   /* Expanded / accordion — ενιαία οπτική σε όλη την εφαρμογή.
@@ -145,23 +159,23 @@ body {
     background-color: var(--cx-expanded-bg);
     color: var(--foreground);
   }
+}
 
-  .cx-transition {
-    transition-property: background-color, color, border-color, box-shadow, opacity, transform;
-    transition-duration: var(--cx-duration);
-    transition-timing-function: var(--cx-ease);
-  }
-  .cx-eyebrow {
-    font-size: 10px; line-height: 1.2; font-weight: 600;
-    text-transform: uppercase; letter-spacing: 0.06em;
-    color: var(--muted-foreground);
-  }
-  .cx-card {
-    background: var(--card);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    box-shadow: var(--shadow-card);
-  }
+@utility cx-transition {
+  transition-property: background-color, color, border-color, box-shadow, opacity, transform;
+  transition-duration: var(--cx-duration);
+  transition-timing-function: var(--cx-ease);
+}
+@utility cx-eyebrow {
+  font-size: 10px; line-height: 1.2; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.06em;
+  color: var(--muted-foreground);
+}
+@utility cx-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: var(--shadow-card);
 }
 
 /* ===========================

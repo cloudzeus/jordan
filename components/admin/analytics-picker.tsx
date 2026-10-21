@@ -62,13 +62,24 @@ export function AnalyticsPicker({
   const rootRef = React.useRef<HTMLDivElement>(null);
   const listId = `${id}-list`;
 
-  React.useEffect(() => { setResults([]); setOpen(false); setActive(0); setFailed(false); }, [kind, trdr, scopeAll]);
+  // «Adjust state while rendering» αντί για setState μέσα σε effect: reset όταν αλλάζει το
+  // πλαίσιο (kind/trdr/scopeAll) και προετοιμασία της αναζήτησης όταν αλλάζει και το q.
+  const [prevKind, setPrevKind] = React.useState(kind);
+  const [prevTrdr, setPrevTrdr] = React.useState(trdr);
+  const [prevScopeAll, setPrevScopeAll] = React.useState(scopeAll);
+  const [prevQ, setPrevQ] = React.useState(q);
+  const ctxChanged = kind !== prevKind || trdr !== prevTrdr || scopeAll !== prevScopeAll;
+  if (ctxChanged || q !== prevQ) {
+    setPrevKind(kind); setPrevTrdr(trdr); setPrevScopeAll(scopeAll); setPrevQ(q);
+    if (ctxChanged) { setResults([]); setOpen(false); setActive(0); setFailed(false); }
+    if (q.trim().length < 2) { setResults([]); setLoading(false); setFailed(false); }
+    else setLoading(true);
+  }
 
   React.useEffect(() => {
     const term = q.trim();
-    if (term.length < 2) { setResults([]); setLoading(false); setFailed(false); return; }
+    if (term.length < 2) return;
     let ignore = false;
-    setLoading(true);
     const h = setTimeout(() => {
       const extra = kind === 'projects'
         ? `${trdr && !scopeAll ? `&trdr=${trdr}` : ''}${scopeAll ? '&scope=all' : ''}`
@@ -125,7 +136,7 @@ export function AnalyticsPicker({
 
       {value.id != null ? (
         <div className="mt-1 flex items-center gap-1.5 rounded-lg border border-input bg-background px-2.5 py-1.5">
-          <span className="min-w-0 flex-1 truncate text-[length:var(--fs-13)] text-foreground">{value.label ?? value.id}</span>
+          <span className="min-w-0 flex-1 truncate text-(length:--fs-13) text-foreground">{value.label ?? value.id}</span>
           {suggested && (
             <span className="shrink-0 text-caption" style={{ color: '#B45309' }}>
               {SOURCE_LABEL[value.source as 'memory' | 'ai']}
@@ -162,7 +173,7 @@ export function AnalyticsPicker({
             aria-autocomplete="list"
             placeholder={`Αναζήτηση: ${label.toLowerCase()}…`}
             autoComplete="off"
-            className="h-9 pl-8 pr-8 text-[length:var(--fs-13)]"
+            className="h-9 pl-8 pr-8 text-(length:--fs-13)"
           />
           {loading && (
             <FiLoader aria-hidden className="absolute right-2.5 top-1/2 size-3.5 -translate-y-1/2 animate-spin text-muted-foreground motion-reduce:animate-none" />
@@ -189,10 +200,10 @@ export function AnalyticsPicker({
                 onClick={() => choose(r)}
                 className={cn(
                   'flex w-full cursor-pointer flex-col items-start gap-0.5 px-3 py-1.5 text-left',
-                  i === active ? 'bg-sisyphus-50' : 'hover:bg-[var(--cx-hover)]',
+                  i === active ? 'bg-sisyphus-50' : 'hover:bg-(--cx-hover)',
                 )}
               >
-                <span className="line-clamp-1 text-[length:var(--fs-13)] font-medium text-foreground">{r.name}</span>
+                <span className="line-clamp-1 text-(length:--fs-13) font-medium text-foreground">{r.name}</span>
                 <span className="text-caption text-muted-foreground">
                   <span className="font-mono">{r.code}</span>{r.sub ? ` · ${r.sub}` : ''}
                 </span>

@@ -46,7 +46,8 @@ export function BookingForm({ idPrefix = 'bk', onDone, TitleAs = 'h2' }: { idPre
       setError('Δεν φορτώθηκαν οι διαθέσιμες ώρες. Δοκιμάστε ξανά ή τηλεφωνήστε μας.');
     } finally { setLoading(false); }
   }, []);
-  React.useEffect(() => { void load(null); }, [load]);
+  // Το load ξεκινά σε microtask: τα setState του γίνονται σε callback, όχι σύγχρονα στο σώμα του effect.
+  React.useEffect(() => { void Promise.resolve().then(() => load(null)); }, [load]);
 
   const current = data?.days.find((d) => d.date === day) ?? null;
   const canPrev = !!data && !!from && from > data.today;
@@ -80,12 +81,12 @@ export function BookingForm({ idPrefix = 'bk', onDone, TitleAs = 'h2' }: { idPre
   if (done) {
     const confirmed = done.status === 'CONFIRMED';
     return (
-      <div className="flex min-h-[24rem] flex-col justify-center" role="status">
+      <div className="flex min-h-96 flex-col justify-center" role="status">
         <span className="grid size-14 place-items-center rounded-full bg-[#15803D]/10 text-[#15803D]"><FiCheck className="size-6" aria-hidden /></span>
-        <TitleAs className="font-display mt-6 text-[length:var(--fs-40)]">{confirmed ? 'Το ραντεβού κλείστηκε' : 'Λάβαμε το αίτημά σας'}</TitleAs>
-        <p className="mt-3 text-[length:var(--fs-18)] text-[var(--s-ink)]">{done.when}</p>
-        <p className="mt-1 text-[length:var(--fs-13)] tabular-nums uppercase tracking-[0.18em] text-[var(--s-mute)]">{done.code}</p>
-        <p className="mt-5 max-w-md text-[length:var(--fs-15)] text-[var(--s-ink-2)]">
+        <TitleAs className="font-display mt-6 text-(length:--fs-40)">{confirmed ? 'Το ραντεβού κλείστηκε' : 'Λάβαμε το αίτημά σας'}</TitleAs>
+        <p className="mt-3 text-(length:--fs-18) text-(--s-ink)">{done.when}</p>
+        <p className="mt-1 text-(length:--fs-13) tabular-nums uppercase tracking-[0.18em] text-(--s-mute)">{done.code}</p>
+        <p className="mt-5 max-w-md text-(length:--fs-15) text-(--s-ink-2)">
           {confirmed ? 'Σας στείλαμε email με τις λεπτομέρειες. Σας περιμένουμε στο atelier.' : 'Θα σας επιβεβαιώσουμε την ώρα με email — συνήθως την ίδια εργάσιμη. Μέχρι τότε η ώρα κρατιέται για εσάς.'}
         </p>
       </div>
@@ -93,8 +94,8 @@ export function BookingForm({ idPrefix = 'bk', onDone, TitleAs = 'h2' }: { idPre
   }
 
   const dayBtn = (on: boolean, has: boolean) => cn(
-    'flex min-h-[4.5rem] min-w-0 flex-1 cursor-pointer flex-col items-center justify-center gap-0.5 border px-1 transition-colors disabled:cursor-not-allowed',
-    on ? 'border-[var(--s-ink)] bg-[var(--s-ink)] text-white' : has ? 'border-[var(--s-line)] bg-white text-[var(--s-ink)] hover:border-[var(--s-ink)]' : 'border-transparent bg-[var(--s-paper)] text-[#A8A29E]',
+    'flex min-h-18 min-w-0 flex-1 cursor-pointer flex-col items-center justify-center gap-0.5 border px-1 transition-colors disabled:cursor-not-allowed',
+    on ? 'border-(--s-ink) bg-(--s-ink) text-white' : has ? 'border-(--s-line) bg-white text-(--s-ink) hover:border-(--s-ink)' : 'border-transparent bg-(--s-paper) text-[#A8A29E]',
   );
 
   return (
@@ -105,12 +106,12 @@ export function BookingForm({ idPrefix = 'bk', onDone, TitleAs = 'h2' }: { idPre
       <section aria-labelledby={`${idPrefix}-when`}>
         <div className="flex items-end justify-between gap-3">
           <div>
-            <p className="s-kicker text-[var(--s-accent)]">01 · Μέρα & ώρα</p>
-            <h3 id={`${idPrefix}-when`} className="mt-1 text-[length:var(--fs-16)] font-medium capitalize">{from ? monthFmt.format(new Date(`${from}T00:00:00Z`)) : '…'}</h3>
+            <p className="s-kicker text-(--s-accent)">01 · Μέρα & ώρα</p>
+            <h3 id={`${idPrefix}-when`} className="mt-1 text-(length:--fs-16) font-medium capitalize">{from ? monthFmt.format(new Date(`${from}T00:00:00Z`)) : '…'}</h3>
           </div>
           <div className="flex gap-1">
-            <button type="button" className="grid size-11 cursor-pointer place-items-center border border-[var(--s-line)] hover:border-[var(--s-ink)] disabled:cursor-not-allowed disabled:opacity-30" disabled={!canPrev || loading} onClick={() => from && load(addDays(from, -SPAN))} aria-label="Προηγούμενες μέρες"><FiChevronLeft className="size-4" aria-hidden /></button>
-            <button type="button" className="grid size-11 cursor-pointer place-items-center border border-[var(--s-line)] hover:border-[var(--s-ink)] disabled:cursor-not-allowed disabled:opacity-30" disabled={!canNext || loading} onClick={() => from && load(addDays(from, SPAN))} aria-label="Επόμενες μέρες"><FiChevronRight className="size-4" aria-hidden /></button>
+            <button type="button" className="grid size-11 cursor-pointer place-items-center border border-(--s-line) hover:border-(--s-ink) disabled:cursor-not-allowed disabled:opacity-30" disabled={!canPrev || loading} onClick={() => from && load(addDays(from, -SPAN))} aria-label="Προηγούμενες μέρες"><FiChevronLeft className="size-4" aria-hidden /></button>
+            <button type="button" className="grid size-11 cursor-pointer place-items-center border border-(--s-line) hover:border-(--s-ink) disabled:cursor-not-allowed disabled:opacity-30" disabled={!canNext || loading} onClick={() => from && load(addDays(from, SPAN))} aria-label="Επόμενες μέρες"><FiChevronRight className="size-4" aria-hidden /></button>
           </div>
         </div>
 
@@ -122,9 +123,9 @@ export function BookingForm({ idPrefix = 'bk', onDone, TitleAs = 'h2' }: { idPre
               return (
                 <button key={d.date} type="button" role="option" aria-selected={on} disabled={!has || loading} className={dayBtn(on, has)} onClick={() => { setDay(d.date); setSlot(null); }}
                   aria-label={data ? `${dayFmt.format(new Date(`${d.date}T12:00:00Z`))} — ${has ? `${d.slots.length} ελεύθερες ώρες` : d.open ? 'πλήρες' : 'κλειστά'}` : undefined}>
-                  <span className="text-[length:var(--fs-11)] uppercase tracking-[0.12em] opacity-80">{data ? WEEKDAYS_SHORT_EL[d.weekday] : ''}</span>
-                  <span className="font-display text-[length:var(--fs-24)] leading-none tabular-nums">{data ? Number(d.date.slice(8)) : ''}</span>
-                  <span className="text-[length:var(--fs-11)] opacity-80">{data ? (has ? <><span className="sm:hidden">{d.slots.length}</span><span className="hidden sm:inline">{d.slots.length} ώρες</span></> : d.open ? 'πλήρες' : '—') : ''}</span>
+                  <span className="text-(length:--fs-11) uppercase tracking-[0.12em] opacity-80">{data ? WEEKDAYS_SHORT_EL[d.weekday] : ''}</span>
+                  <span className="font-display text-(length:--fs-24) leading-none tabular-nums">{data ? Number(d.date.slice(8)) : ''}</span>
+                  <span className="text-(length:--fs-11) opacity-80">{data ? (has ? <><span className="sm:hidden">{d.slots.length}</span><span className="hidden sm:inline">{d.slots.length} ώρες</span></> : d.open ? 'πλήρες' : '—') : ''}</span>
                 </button>
               );
             })}
@@ -133,7 +134,7 @@ export function BookingForm({ idPrefix = 'bk', onDone, TitleAs = 'h2' }: { idPre
 
         <div className="mt-5 min-h-[3rem]" aria-live="polite">
           {loading && !data ? (
-            <p className="text-[length:var(--fs-14)] text-[var(--s-mute)]">Φόρτωση διαθέσιμων ωρών…</p>
+            <p className="text-(length:--fs-14) text-(--s-mute)">Φόρτωση διαθέσιμων ωρών…</p>
           ) : !data?.days.some((d) => d.slots.length) ? (
             <Notice tone="info">Δεν υπάρχουν ελεύθερες ώρες σε αυτές τις μέρες.{canNext ? ' Δείτε τις επόμενες με το βέλος.' : ' Τηλεφωνήστε μας για να βρούμε ώρα.'}</Notice>
           ) : current ? (
@@ -142,14 +143,14 @@ export function BookingForm({ idPrefix = 'bk', onDone, TitleAs = 'h2' }: { idPre
                 const on = slot?.start === s.start;
                 return (
                   <button key={s.start} type="button" role="option" aria-selected={on} onClick={() => pick(s)}
-                    className={cn('inline-flex min-h-12 cursor-pointer items-center justify-center gap-2 border text-[length:var(--fs-15)] tabular-nums transition-colors', on ? 'border-[var(--s-ink)] bg-[var(--s-ink)] text-white' : 'border-[var(--s-line)] hover:border-[var(--s-ink)]')}>
+                    className={cn('inline-flex min-h-12 cursor-pointer items-center justify-center gap-2 border text-(length:--fs-15) tabular-nums transition-colors', on ? 'border-(--s-ink) bg-(--s-ink) text-white' : 'border-(--s-line) hover:border-(--s-ink)')}>
                     {on && <FiCheck className="size-4" aria-hidden />}{s.time}
                   </button>
                 );
               })}
             </div>
           ) : (
-            <p className="text-[length:var(--fs-14)] text-[var(--s-mute)]">Διαλέξτε μέρα.</p>
+            <p className="text-(length:--fs-14) text-(--s-mute)">Διαλέξτε μέρα.</p>
           )}
         </div>
       </section>
@@ -157,11 +158,11 @@ export function BookingForm({ idPrefix = 'bk', onDone, TitleAs = 'h2' }: { idPre
       {/* 2 · στοιχεία */}
       <div ref={detailsRef} className="scroll-mt-6">
         {slot ? (
-          <section aria-labelledby={`${idPrefix}-who`} className="border-t border-[var(--s-line)] pt-8">
-            <p className="s-kicker text-[var(--s-accent)]">02 · Τα στοιχεία σας</p>
-            <div className="mt-3 flex flex-wrap items-center justify-between gap-3 bg-[var(--s-paper)] px-4 py-3">
-              <p id={`${idPrefix}-who`} className="flex items-center gap-2 text-[length:var(--fs-15)] font-medium"><FiCalendar className="size-4 text-[var(--s-accent)]" aria-hidden />{formatSlotEl(slot.start, slot.end)}</p>
-              <button type="button" onClick={() => setSlot(null)} className="inline-flex min-h-11 cursor-pointer items-center gap-1 text-[length:var(--fs-14)] text-[var(--s-ink-2)] hover:text-[var(--s-ink)]"><FiArrowLeft className="size-3.5" aria-hidden />Αλλαγή ώρας</button>
+          <section aria-labelledby={`${idPrefix}-who`} className="border-t border-(--s-line) pt-8">
+            <p className="s-kicker text-(--s-accent)">02 · Τα στοιχεία σας</p>
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-3 bg-(--s-paper) px-4 py-3">
+              <p id={`${idPrefix}-who`} className="flex items-center gap-2 text-(length:--fs-15) font-medium"><FiCalendar className="size-4 text-(--s-accent)" aria-hidden />{formatSlotEl(slot.start, slot.end)}</p>
+              <button type="button" onClick={() => setSlot(null)} className="inline-flex min-h-11 cursor-pointer items-center gap-1 text-(length:--fs-14) text-(--s-ink-2) hover:text-(--s-ink)"><FiArrowLeft className="size-3.5" aria-hidden />Αλλαγή ώρας</button>
             </div>
             <form onSubmit={submit} className="mt-6 space-y-5">
               <div className="grid gap-5 sm:grid-cols-2">
@@ -182,15 +183,15 @@ export function BookingForm({ idPrefix = 'bk', onDone, TitleAs = 'h2' }: { idPre
                 </Field>
               </div>
               <Field label="Πείτε μας για το έργο (προαιρετικά)" htmlFor={`${idPrefix}-msg`}><textarea id={`${idPrefix}-msg`} name="message" rows={3} maxLength={2000} className={cn(inputCls, 'h-auto py-3')} placeholder="π.χ. κατοικία 180 τ.μ., δάπεδα και μπάνια" /></Field>
-              <div aria-hidden className="absolute -left-[9999px]"><label>Website<input name="website" tabIndex={-1} autoComplete="off" /></label></div>
+              <div aria-hidden className="absolute left-[-9999px]"><label>Website<input name="website" tabIndex={-1} autoComplete="off" /></label></div>
               <div className="space-y-3">
-                <label className="flex cursor-pointer items-start gap-3 text-[length:var(--fs-14)] text-[var(--s-ink-2)]">
-                  <input type="checkbox" name="newsletter" value="1" className="mt-0.5 size-5 shrink-0 accent-[var(--s-ink)]" />
+                <label className="flex cursor-pointer items-start gap-3 text-(length:--fs-14) text-(--s-ink-2)">
+                  <input type="checkbox" name="newsletter" value="1" className="mt-0.5 size-5 shrink-0 accent-(--s-ink)" />
                   <span>Θέλω να λαμβάνω τα νέα του atelier (νέα υλικά, δυναμικές προσφορές). Θα σας στείλουμε email επιβεβαίωσης.</span>
                 </label>
-                <label className="flex cursor-pointer items-start gap-3 text-[length:var(--fs-14)] text-[var(--s-ink-2)]">
-                  <input type="checkbox" name="terms" value="1" required className="mt-0.5 size-5 shrink-0 accent-[var(--s-ink)]" />
-                  <span>Συμφωνώ να χρησιμοποιηθούν τα στοιχεία μου για το ραντεβού, σύμφωνα με την <Link href="/legal/privacy" target="_blank" className="s-link text-[var(--s-ink)]">πολιτική απορρήτου</Link>. *</span>
+                <label className="flex cursor-pointer items-start gap-3 text-(length:--fs-14) text-(--s-ink-2)">
+                  <input type="checkbox" name="terms" value="1" required className="mt-0.5 size-5 shrink-0 accent-(--s-ink)" />
+                  <span>Συμφωνώ να χρησιμοποιηθούν τα στοιχεία μου για το ραντεβού, σύμφωνα με την <Link href="/legal/privacy" target="_blank" className="s-link text-(--s-ink)">πολιτική απορρήτου</Link>. *</span>
                 </label>
               </div>
               <button type="submit" disabled={sending} className={cn(btn.primary, 'w-full')}>
@@ -199,7 +200,7 @@ export function BookingForm({ idPrefix = 'bk', onDone, TitleAs = 'h2' }: { idPre
             </form>
           </section>
         ) : (
-          <p className="flex items-center gap-2 border-t border-[var(--s-line)] pt-6 text-[length:var(--fs-14)] text-[var(--s-mute)]"><FiClock className="size-4" aria-hidden />Διαλέξτε ώρα για να συνεχίσετε με τα στοιχεία σας.</p>
+          <p className="flex items-center gap-2 border-t border-(--s-line) pt-6 text-(length:--fs-14) text-(--s-mute)"><FiClock className="size-4" aria-hidden />Διαλέξτε ώρα για να συνεχίσετε με τα στοιχεία σας.</p>
         )}
       </div>
     </div>

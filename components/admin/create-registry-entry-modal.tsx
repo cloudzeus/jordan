@@ -11,9 +11,6 @@ import { Input } from '@/components/ui/input';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from '@/components/ui/dialog';
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from '@/components/ui/select';
 import { RegistrySearch } from '@/components/admin/registry-search';
 import { OpenAccountDialog, type OpenRequest } from '@/components/admin/open-account-dialog';
 import { vatOfAccount } from '@/lib/ocr/scan-accounts';
@@ -88,34 +85,16 @@ const vatMatches = (v: VatOpt, rate: number): boolean => {
   return m ? parseFloat(m[1].replace(',', '.')) === rate : false;
 };
 
-type FormState = { code: string; name: string; vat: string; unit: string; price: string; group: string; category: string };
+/** Σύγκριση λιστών εξαρτήσεων όπως τα deps των hooks (`Object.is` ανά θέση). */
+const depsChanged = (a: readonly unknown[], b: readonly unknown[]) =>
+  a.length !== b.length || a.some((x, i) => !Object.is(x, b[i]));
 
-/**
- * Module-level, ΟΧΙ μέσα στο σώμα του component: ένα component ορισμένο στο render είναι νέος
- * τύπος σε κάθε render, οπότε το React ξεστήνει και ξαναστήνει κάθε `<Select>` — χάνοντας focus
- * και κλείνοντας το ανοιχτό dropdown στο πρώτο πάτημα πλήκτρου.
- */
-function Combo({
-  label, value, onChange, opts, ph = 'Επιλογή…',
-}: { label: string; value: string; onChange: (v: string) => void; opts: Opt[]; ph?: string }) {
-  return (
-    <label className="grid gap-1.5">
-      <span className="text-[length:var(--fs-11)] font-medium text-muted-foreground">{label}</span>
-      <Select value={value || ''} onValueChange={onChange}>
-        <SelectTrigger className="h-9 text-[length:var(--fs-13)]"><SelectValue placeholder={ph} /></SelectTrigger>
-        <SelectContent className="max-h-72">
-          {opts.length === 0 && <div className="px-2 py-1.5 text-[length:var(--fs-12)] text-muted-foreground">— κενό —</div>}
-          {opts.map((o) => <SelectItem key={o.id} value={o.id} className="text-[length:var(--fs-13)]">{o.name}</SelectItem>)}
-        </SelectContent>
-      </Select>
-    </label>
-  );
-}
+type FormState = { code: string; name: string; vat: string; unit: string; price: string; group: string; category: string };
 
 function Note({ children, tone = 'warn' }: { children: React.ReactNode; tone?: 'warn' | 'bad' | 'ok' }) {
   const color = tone === 'bad' ? '#B91C1C' : tone === 'ok' ? '#047857' : '#B45309';
   return (
-    <span className="flex items-start gap-1 text-[length:var(--fs-11)]" style={{ color }}>
+    <span className="flex items-start gap-1 text-(length:--fs-11)" style={{ color }}>
       {tone !== 'ok' && <FiAlertTriangle aria-hidden className="mt-0.5 h-3 w-3 shrink-0" />}
       {tone === 'ok' && <FiCheck aria-hidden className="mt-0.5 h-3 w-3 shrink-0" />}
       {children}
@@ -140,9 +119,12 @@ function AccountPicker({
   const [open, setOpen] = React.useState(false);
   const ref = React.useRef<HTMLDivElement>(null);
 
+  const [prevQ, setPrevQ] = React.useState(q);
+  if (q !== prevQ) { setPrevQ(q); if (q.trim().length < 2) setRows([]); }
+
   React.useEffect(() => {
     const term = q.trim();
-    if (term.length < 2) { setRows([]); return; }
+    if (term.length < 2) return;
     let ignore = false;
     const h = setTimeout(() => {
       fetch(`/api/admin/softone/search?type=accounts&q=${encodeURIComponent(term)}`)
@@ -168,7 +150,7 @@ function AccountPicker({
           id={id} value={q} disabled={disabled}
           onChange={(e) => { setQ(e.target.value); setOpen(true); }}
           placeholder={value ? `Αλλαγή (τώρα: ${value})` : 'Αναζήτηση λογαριασμού (κωδικός ή περιγραφή)…'}
-          className="h-9 pl-8 text-[length:var(--fs-13)]" autoComplete="off"
+          className="h-9 pl-8 text-(length:--fs-13)" autoComplete="off"
         />
       </div>
       {open && rows.length > 0 && (
@@ -178,16 +160,16 @@ function AccountPicker({
             <li key={r.id}>
               <button type="button"
                 onClick={() => { onPick({ code: r.code, name: r.name }); setQ(''); setRows([]); setOpen(false); }}
-                className="flex w-full cursor-pointer flex-col items-start gap-0.5 px-3 py-1.5 text-left hover:bg-[var(--cx-hover)]">
-                <span className="line-clamp-1 text-[length:var(--fs-13)] font-medium text-foreground">{r.name}</span>
-                <span className="font-mono text-[length:var(--fs-11)] text-muted-foreground">{r.code}</span>
+                className="flex w-full cursor-pointer flex-col items-start gap-0.5 px-3 py-1.5 text-left hover:bg-(--cx-hover)">
+                <span className="line-clamp-1 text-(length:--fs-13) font-medium text-foreground">{r.name}</span>
+                <span className="font-mono text-(length:--fs-11) text-muted-foreground">{r.code}</span>
               </button>
             </li>
           ))}
         </ul>
       )}
       {onMissing && FULL_ACCOUNT.test(q.trim()) && searched === q.trim() && !rows.some((r) => r.code === q.trim()) && (
-        <div className="mt-1.5 flex flex-wrap items-center gap-2 rounded-md border border-amber-500/40 bg-amber-500/[0.06] px-2.5 py-1.5 text-[length:var(--fs-12)] text-foreground">
+        <div className="mt-1.5 flex flex-wrap items-center gap-2 rounded-md border border-amber-500/40 bg-amber-500/6 px-2.5 py-1.5 text-(length:--fs-12) text-foreground">
           <span>Ο <span className="font-mono">{q.trim()}</span> δεν υπάρχει στο λογιστικό σχέδιο.</span>
           <button type="button" onClick={() => onMissing(q.trim())}
             className="inline-flex min-h-8 cursor-pointer items-center gap-1 rounded-md bg-sisyphus-500 px-2.5 font-semibold text-white hover:bg-sisyphus-600">
@@ -278,10 +260,15 @@ export function CreateRegistryEntryModal({
    * τη ροή τόσες φορές όσες και οι γραμμές του παραστατικού.
    */
   const [postingEnabled, setPostingEnabled] = React.useState<boolean | null>(null);
+  // «Adjust state while rendering» (αρχικό `[]` ⇒ τρέχει και στο πρώτο render, όπως ένα effect).
+  const [prevPostingDeps, setPrevPostingDeps] = React.useState<readonly unknown[]>([]);
+  if (depsChanged(prevPostingDeps, [open])) {
+    setPrevPostingDeps([open]);
+    if (open) setPostingEnabled(null);
+  }
   React.useEffect(() => {
     if (!open) return;
     let ignore = false;
-    setPostingEnabled(null);
     fetch('/api/admin/ocr/posting-enabled', { cache: 'no-store' })
       .then((r) => (r.ok ? r.json() : null))
       .then((d: { enabled?: boolean } | null) => {
@@ -293,21 +280,29 @@ export function CreateRegistryEntryModal({
     return () => { ignore = true; };
   }, [open]);
 
+  const resetDeps = [open, kind, initialCode, initialName, initialVatRate, initialUnit, initialEan, initialMfrCode, initialPrice];
+  const [prevResetDeps, setPrevResetDeps] = React.useState<readonly unknown[]>([]);
+  if (depsChanged(prevResetDeps, resetDeps)) {
+    setPrevResetDeps(resetDeps);
+    if (open) {
+      // Ξεκινά ΑΝΟΙΧΤΗ μέχρι να απαντήσει ο διακόπτης — ποτέ δεν υποθέτουμε «στείλ' το».
+      setTab('form'); setDryPayload(null); setDryRun(true);
+      setCodeError(null); setCodeOffer(null); setCodeSource(null);
+      setTemplate(null); setTemplateIssue(null);
+      setAccount({ code: '', name: null }); setAccountVerdict(null);
+      // Είδος/υπηρεσία: ο κωδικός της γραμμής είναι κωδικός ΠΡΟΜΗΘΕΥΤΗ — ο κωδικός του είδους
+      // ακολουθεί τη «Μορφή κωδικού» και την αρίθμηση (έρχεται από το next-code).
+      const itemKind = kind === 'product' || kind === 'service';
+      setF({ code: itemKind ? '' : initialCode ?? '', name: initialName ?? '', vat: '', unit: '', price: '', group: '', category: '' });
+      setCode1(lineEan(initialEan, initialCode) ?? '');
+      setCode2(initialMfrCode ?? '');
+      setSaveSupplierCode(true);
+      setCodeRule(null);
+    }
+  }
+
   React.useEffect(() => {
     if (!open) return;
-    // Ξεκινά ΑΝΟΙΧΤΗ μέχρι να απαντήσει ο διακόπτης — ποτέ δεν υποθέτουμε «στείλ' το».
-    setTab('form'); setDryPayload(null); setDryRun(true);
-    setCodeError(null); setCodeOffer(null); setCodeSource(null);
-    setTemplate(null); setTemplateIssue(null);
-    setAccount({ code: '', name: null }); setAccountVerdict(null);
-    // Είδος/υπηρεσία: ο κωδικός της γραμμής είναι κωδικός ΠΡΟΜΗΘΕΥΤΗ — ο κωδικός του είδους
-    // ακολουθεί τη «Μορφή κωδικού» και την αρίθμηση (έρχεται από το next-code).
-    const itemKind = kind === 'product' || kind === 'service';
-    setF({ code: itemKind ? '' : initialCode ?? '', name: initialName ?? '', vat: '', unit: '', price: '', group: '', category: '' });
-    setCode1(lineEan(initialEan, initialCode) ?? '');
-    setCode2(initialMfrCode ?? '');
-    setSaveSupplierCode(true);
-    setCodeRule(null);
     proposed.current = null;
 
     fetch('/api/admin/softone/item-meta')
@@ -383,11 +378,17 @@ export function CreateRegistryEntryModal({
    */
   const [inactiveOffer, setInactiveOffer] = React.useState<InactiveLineItem[]>([]);
   const [activating, setActivating] = React.useState<number | null>(null);
+  const inactiveDeps = [open, kind, account.code, f.code];
+  const [prevInactiveDeps, setPrevInactiveDeps] = React.useState<readonly unknown[]>([]);
+  if (depsChanged(prevInactiveDeps, inactiveDeps)) {
+    setPrevInactiveDeps(inactiveDeps);
+    if (!open || kind !== 'lineitem' || (!account.code.trim() && !f.code.trim())) setInactiveOffer([]);
+  }
   React.useEffect(() => {
-    if (!open || kind !== 'lineitem') { setInactiveOffer([]); return; }
+    if (!open || kind !== 'lineitem') return;
     const acc = account.code.trim();
     const code = f.code.trim();
-    if (!acc && !code) { setInactiveOffer([]); return; }
+    if (!acc && !code) return;
     let ignore = false;
     const h = setTimeout(() => {
       const qs = new URLSearchParams();
@@ -549,14 +550,14 @@ export function CreateRegistryEntryModal({
         <DialogHeader className="flex-row items-center gap-3 border-b border-border px-4 py-2.5 pr-12">
           <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-sisyphus-50 text-sisyphus-600 dark:bg-sisyphus-500/15">{KIND_ICON[kind]}</span>
           <div className="min-w-0 flex-1">
-            <DialogTitle className="text-[length:var(--fs-15)]">Νέα εγγραφή: {LINE_KIND_LABEL[kind]}</DialogTitle>
-            <DialogDescription className="truncate text-[length:var(--fs-11)]" title={KIND_WHERE[kind]}>{KIND_WHERE[kind]}</DialogDescription>
+            <DialogTitle className="text-(length:--fs-15)">Νέα εγγραφή: {LINE_KIND_LABEL[kind]}</DialogTitle>
+            <DialogDescription className="truncate text-(length:--fs-11)" title={KIND_WHERE[kind]}>{KIND_WHERE[kind]}</DialogDescription>
           </div>
           <div role="tablist" aria-label="Προβολή" className="inline-flex shrink-0 rounded-md border border-border bg-muted/50 p-0.5">
             {([['form', 'Στοιχεία', <FiEdit3 key="a" className="size-3.5" />], ['object', 'Αντικείμενο', <FiCode key="b" className="size-3.5" />]] as const).map(([v, lbl, ic]) => (
               <button key={v} onClick={() => setTab(v)} type="button" role="tab" aria-selected={tab === v}
-                className={cn('inline-flex h-7 cursor-pointer items-center gap-1 rounded px-2 text-[length:var(--fs-12)] font-medium transition-colors',
-                  tab === v ? 'bg-card text-foreground shadow-sm ring-1 ring-border' : 'text-muted-foreground hover:text-foreground')}>
+                className={cn('inline-flex h-7 cursor-pointer items-center gap-1 rounded px-2 text-(length:--fs-12) font-medium transition-colors',
+                  tab === v ? 'bg-card text-foreground shadow-xs ring-1 ring-border' : 'text-muted-foreground hover:text-foreground')}>
                 {ic} {lbl}
               </button>
             ))}
@@ -564,14 +565,14 @@ export function CreateRegistryEntryModal({
         </DialogHeader>
 
         {inactiveOffer.length > 0 && (
-          <div role="status" className="space-y-2 border-b border-amber-500/30 bg-amber-500/[0.06] px-5 py-3">
-            <p className="text-[length:var(--fs-12)] font-semibold text-foreground">
+          <div role="status" className="space-y-2 border-b border-amber-500/30 bg-amber-500/6 px-5 py-3">
+            <p className="text-(length:--fs-12) font-semibold text-foreground">
               Υπάρχει ήδη στο SoftOne, ανενεργή — καλύτερα να την ενεργοποιήσεις παρά να φτιάξεις νέα:
             </p>
             <ul className="space-y-1.5">
               {inactiveOffer.slice(0, 3).map((it) => (
                 <li key={it.mtrl} className="flex flex-wrap items-center justify-between gap-2">
-                  <span className="min-w-0 text-[length:var(--fs-12)] text-foreground">
+                  <span className="min-w-0 text-(length:--fs-12) text-foreground">
                     <span className="font-mono font-semibold">{it.code}</span> · {it.name}
                     <span className="text-muted-foreground"> · λογ. {it.acnmsk ?? '—'}{it.vat ? ` · ${it.vat}` : ''}</span>
                   </span>
@@ -586,12 +587,12 @@ export function CreateRegistryEntryModal({
 
 
         {!meta ? (
-          <div className="px-5 py-12 text-center text-[length:var(--fs-13)] text-muted-foreground">Φόρτωση πινάκων…</div>
+          <div className="px-5 py-12 text-center text-(length:--fs-13) text-muted-foreground">Φόρτωση πινάκων…</div>
         ) : tab === 'form' ? (
           <div className="max-h-[66vh] space-y-3 overflow-auto bg-muted/20 px-4 py-3">
             {needsTemplate && (
               <section className="space-y-2 rounded-xl border border-sisyphus-200 bg-sisyphus-50/40 p-3">
-                <p className="text-[length:var(--fs-11)] font-medium text-sisyphus-700">
+                <p className="text-(length:--fs-11) font-medium text-sisyphus-700">
                   Πρότυπο χρεοπίστωσης <span className="text-destructive">*</span> — από εκεί αντιγράφονται ο
                   «Τύπος» (<code>MTRTYPE</code>) και η <strong>«Κατηγορία τιμολόγησης»</strong>
                   (<code>LISOURCETYPE</code>), που ορίζει σε ποιων τύπων συναλλασσομένων τα παραστατικά
@@ -605,10 +606,10 @@ export function CreateRegistryEntryModal({
                 />
                 {template && (
                   <>
-                    <p className="flex items-center gap-1.5 text-[length:var(--fs-11)] text-emerald-700">
+                    <p className="flex items-center gap-1.5 text-(length:--fs-11) text-emerald-700">
                       <FiCheck className="h-3.5 w-3.5" /> Πρότυπο: <span className="font-medium">{template.code} — {template.name}</span>
                     </p>
-                    <div className="rounded-lg border border-border bg-card p-2 text-[length:var(--fs-11)]">
+                    <div className="rounded-lg border border-border bg-card p-2 text-(length:--fs-11)">
                       <p className="font-medium">
                         Κατηγορία τιμολόγησης: <span className="font-mono">{template.lisourceType || '—'}</span>
                         {lisource.length > 0 && (
@@ -648,19 +649,19 @@ export function CreateRegistryEntryModal({
             {/* Ο λογαριασμός ΓΕΝΙΚΗΣ είναι ρητό πεδίο, όχι αόρατη κληρονομιά. */}
             {needsTemplate && (
               <section className="space-y-2">
-                <p className="text-[length:var(--fs-10)] font-semibold uppercase tracking-wider text-muted-foreground">
+                <p className="text-(length:--fs-10) font-semibold uppercase tracking-wider text-muted-foreground">
                   Λογαριασμός γενικής λογιστικής <span className="text-destructive">*</span>
                 </p>
-                <p className="text-[length:var(--fs-11)] text-muted-foreground">
+                <p className="text-(length:--fs-11) text-muted-foreground">
                   Εκεί θα χρεωθεί κάθε γραμμή αυτής της χρεοπίστωσης. Προτείνεται ο λογαριασμός του
                   προτύπου — <strong>έλεγξέ τον</strong>: λάθος λογαριασμός δεν φαίνεται πουθενά μετά.
                 </p>
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="rounded-md border border-border bg-muted/40 px-2 py-1 font-mono text-[length:var(--fs-12)]">
+                  <span className="rounded-md border border-border bg-muted/40 px-2 py-1 font-mono text-(length:--fs-12)">
                     {account.code || '— κανένας —'}
                   </span>
                   {(account.name || accountVerdict?.accountName) && (
-                    <span className="text-[length:var(--fs-12)] text-foreground">{account.name ?? accountVerdict?.accountName}</span>
+                    <span className="text-(length:--fs-12) text-foreground">{account.name ?? accountVerdict?.accountName}</span>
                   )}
                 </div>
                 <AccountPicker
@@ -668,7 +669,7 @@ export function CreateRegistryEntryModal({
                   onPick={(a) => { setAccount({ code: a.code, name: a.name }); void revalidate(a.code); }}
                   onMissing={(code) => setOpenReq({ code, name: f.name, vatRate: vatOfAccount(code) })}
                 />
-                <p className="text-[length:var(--fs-11)] text-muted-foreground">
+                <p className="text-(length:--fs-11) text-muted-foreground">
                   Δεν υπάρχει ο λογαριασμός που χρειάζεσαι; Γράψε ολόκληρο τον κωδικό (π.χ. 64.00.00.0006) και άνοιξέ τον από εδώ.
                 </p>
                 {accountVerdict && (accountOk
@@ -678,7 +679,7 @@ export function CreateRegistryEntryModal({
                 {accountVerdict?.status === 'not_in_chart' && FULL_ACCOUNT.test(account.code) && (
                   <button type="button"
                     onClick={() => setOpenReq({ code: account.code, name: f.name, vatRate: vatOfAccount(account.code) })}
-                    className="inline-flex min-h-9 cursor-pointer items-center gap-1 rounded-md bg-sisyphus-500 px-3 text-[length:var(--fs-12)] font-semibold text-white hover:bg-sisyphus-600">
+                    className="inline-flex min-h-9 cursor-pointer items-center gap-1 rounded-md bg-sisyphus-500 px-3 text-(length:--fs-12) font-semibold text-white hover:bg-sisyphus-600">
                     Άνοιγμα του {account.code} στο SoftOne
                   </button>
                 )}
@@ -771,7 +772,7 @@ export function CreateRegistryEntryModal({
                   <RowHint tone="warn">Το EAN δεν μοιάζει έγκυρο (8/13 ψηφία με σωστό ψηφίο ελέγχου) — έλεγξέ το.</RowHint>
                 )}
                 {initialCode && (
-                  <label className="flex cursor-pointer items-start gap-2 rounded-md bg-amber-50/70 px-2.5 py-1.5 text-[length:var(--fs-12)] text-foreground dark:bg-amber-500/10">
+                  <label className="flex cursor-pointer items-start gap-2 rounded-md bg-amber-50/70 px-2.5 py-1.5 text-(length:--fs-12) text-foreground dark:bg-amber-500/10">
                     <input type="checkbox" checked={saveSupplierCode} onChange={(e) => setSaveSupplierCode(e.target.checked)} className="mt-0.5 size-3.5 accent-sisyphus-600" />
                     <span>
                       Το <span className="font-mono font-semibold">{initialCode}</span> ως <strong>κωδικός του προμηθευτή</strong>
@@ -800,17 +801,17 @@ export function CreateRegistryEntryModal({
         ) : (
           <div className="max-h-[60vh] space-y-2 overflow-auto px-5 py-4">
             {dryPayload != null
-              ? <p className="text-[length:var(--fs-11)] font-medium text-emerald-700">Object από τον server (dry-run) — αυτό ακριβώς θα σταλεί στο SoftOne:</p>
-              : <p className="text-[length:var(--fs-11)] text-muted-foreground">Πάτησε «Προετοιμασία object» για να δεις τι θα σταλεί.</p>}
+              ? <p className="text-(length:--fs-11) font-medium text-emerald-700">Object από τον server (dry-run) — αυτό ακριβώς θα σταλεί στο SoftOne:</p>
+              : <p className="text-(length:--fs-11) text-muted-foreground">Πάτησε «Προετοιμασία object» για να δεις τι θα σταλεί.</p>}
             {dryPayload != null && (
-              <pre className="overflow-auto rounded-xl border border-border bg-[#0E1626] p-4 font-mono text-[length:var(--fs-11-5)] leading-relaxed text-[#d6e2f5]">{JSON.stringify(dryPayload, null, 2)}</pre>
+              <pre className="overflow-auto rounded-xl border border-border bg-[#0E1626] p-4 font-mono text-(length:--fs-11-5) leading-relaxed text-[#d6e2f5]">{JSON.stringify(dryPayload, null, 2)}</pre>
             )}
           </div>
         )}
 
         {/* `mx-0 mb-0`: το DialogFooter έχει `-mx-4 -mb-4` για modal με padding· εδώ είναι `p-0`. */}
         <DialogFooter className="mx-0 mb-0 flex-col gap-2 border-t border-border bg-card px-4 py-2.5 sm:flex-row sm:items-center sm:justify-between">
-          <label className={cn('flex items-center gap-2 text-[length:var(--fs-12)] text-muted-foreground',
+          <label className={cn('flex items-center gap-2 text-(length:--fs-12) text-muted-foreground',
             postingEnabled === false ? 'cursor-not-allowed' : 'cursor-pointer')}>
             <input
               type="checkbox" checked={dryRun} disabled={postingEnabled === false}

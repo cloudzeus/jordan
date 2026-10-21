@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import {
+  Column,
   ColumnDef,
   ColumnFiltersState,
   ColumnOrderState,
@@ -38,7 +39,6 @@ import {
 } from '@/components/ui/select';
 import {
   DropdownMenu,
-  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuLabel,
   DropdownMenuSeparator,
@@ -120,7 +120,7 @@ const MIN_STORED = 32;
 export function DataTable<TData, TValue>({
   columns,
   data,
-  searchKey,
+  searchKey: _searchKey,
   searchPlaceholder = 'Αναζήτηση...',
   filterAllColumns = false,
   pageSize = 50,
@@ -324,6 +324,7 @@ export function DataTable<TData, TValue>({
     return total > availWidth;
   }, [enrichedColumns, effectiveVisibility, availWidth]);
 
+  // eslint-disable-next-line react-hooks/incompatible-library -- TanStack Table: γνωστή ασυμβατότητα με τον React Compiler
   const table = useReactTable({
     data,
     columns: enrichedColumns,
@@ -441,7 +442,7 @@ export function DataTable<TData, TValue>({
   // Full-height card: measure where the card starts and give it the rest of the
   // viewport, minus the page/app paddings below it (mobile bottom nav included).
   const cardRef = React.useRef<HTMLDivElement>(null);
-  const [minHeight, setMinHeight] = React.useState<number | undefined>(undefined);
+  const [, setMinHeight] = React.useState<number | undefined>(undefined);
   React.useLayoutEffect(() => {
     if (!fullHeight) { setMinHeight(undefined); return; }
     const el = cardRef.current;
@@ -797,7 +798,7 @@ function ColumnSortableList<T>({ table }: { table: ReturnType<typeof useReactTab
   );
 }
 
-function ColumnRow({ id, column }: { id: string; column: any }) {
+function ColumnRow<T>({ id, column }: { id: string; column: Column<T, unknown> }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
   const style: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),

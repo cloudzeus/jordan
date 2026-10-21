@@ -91,15 +91,22 @@ export function OfferWizard({ open, onOpenChange, offerId, onDone }: {
   const [options, setOptions] = React.useState<{ customers: Option[]; partners: Option[] } | null>(null);
   const [picked, setPicked] = React.useState<Set<string>>(new Set());
   const [rq, setRq] = React.useState('');
-  const [preview, setPreview] = React.useState<{ id: string; kind: 'publish' | 'drop' } | null>(null);
+  const [preview, setPreview] = React.useState<{ id: string; kind: 'publish' | 'drop'; t: number } | null>(null);
   const savedId = React.useRef<string | null>(null);
   const autoTitle = React.useRef(''); // ο αυτόματος τίτλος ακολουθεί τα προϊόντα όσο δεν τον άλλαξε ο χρήστης
 
-  const reset = React.useCallback(() => {
-    setStep(0); setBusy(null); setFilledNow(0); setStatus('DRAFT'); setQ(''); setHits([]); setRows([]); setMeta([]);
-    setCapacityTxt(''); setSyncUnits(false); setLevels([]); setChartItem(0); setTitle(''); setWhen('now'); setPublishAt(''); setClosesAt('');
-    setPicked(new Set()); setRq(''); savedId.current = null; autoTitle.current = '';
-  }, []);
+  // Επαναφορά στο άνοιγμα (ή αλλαγή προσφοράς): το state με adjust-state-while-rendering,
+  // τα refs και η φόρτωση στο effect παρακάτω.
+  const [prevDeps, setPrevDeps] = React.useState<{ open: boolean; offerId: string | null }>({ open: false, offerId });
+  if (prevDeps.open !== open || prevDeps.offerId !== offerId) {
+    setPrevDeps({ open, offerId });
+    if (open) {
+      setStep(0); setBusy(null); setFilledNow(0); setStatus('DRAFT'); setQ(''); setHits([]); setRows([]); setMeta([]);
+      setCapacityTxt(''); setSyncUnits(false); setLevels([]); setChartItem(0); setTitle(''); setWhen('now'); setPublishAt(''); setClosesAt('');
+      setPicked(new Set()); setRq('');
+      if (offerId) setBusy('Φόρτωση…');
+    }
+  }
 
   /** Ζωντανή καρτέλα του είδους (μονάδες, PRICEW, κινήσεις) → προτάσεις τ.μ./παλέτα και τιμών. */
   const loadRecord = React.useCallback((mtrl: number) => {
@@ -124,10 +131,9 @@ export function OfferWizard({ open, onOpenChange, offerId, onDone }: {
   // Επεξεργασία υπάρχουσας: φόρτωση όλων.
   React.useEffect(() => {
     if (!open) return;
-    reset();
+    savedId.current = null; autoTitle.current = '';
     if (!offerId) return;
     savedId.current = offerId;
-    setBusy('Φόρτωση…');
     fetch(`/api/admin/dynamic-offers/${offerId}`, { cache: 'no-store' }).then((r) => r.json()).then((d) => {
       const o = d.offer;
       const n = o.levels.length;
@@ -146,7 +152,7 @@ export function OfferWizard({ open, onOpenChange, offerId, onDone }: {
       setPicked(new Set(d.recipients.map((r: { kind: string; refId: string }) => `${r.kind}:${r.refId}`)));
       setStep(o.status === 'OPEN' ? 2 : 0);
     }).catch(() => toast.error('Αποτυχία φόρτωσης')).finally(() => setBusy(null));
-  }, [open, offerId, reset, loadRecord]);
+  }, [open, offerId, loadRecord]);
 
   // 1 · αναζήτηση προϊόντων (με καθυστέρηση πληκτρολόγησης)
   React.useEffect(() => {
@@ -268,7 +274,7 @@ export function OfferWizard({ open, onOpenChange, offerId, onDone }: {
       const id = await persist();
       if (mode === 'publish' && status !== 'OPEN') {
         const at = when === 'later' && publishAt ? new Date(publishAt) : null;
-        if (when === 'later' && (!at || at.getTime() < Date.now())) throw new Error('Διάλεξε μελλοντική ημερομηνία δημοσίευσης');
+        if (when === 'later' && (!at || at.getTime() < new Date().getTime())) throw new Error('Διάλεξε μελλοντική ημερομηνία δημοσίευσης');
         const fields = `PRICEW01…${priceField(nLevels)}`;
         const ok = await confirmAction({
           title: at ? 'Προγραμματισμός δημοσίευσης' : 'Δημοσίευση τώρα',
@@ -296,7 +302,7 @@ export function OfferWizard({ open, onOpenChange, offerId, onDone }: {
   };
 
   const openPreview = async (kind: 'publish' | 'drop') => {
-    try { const id = await persist(); setPreview({ id, kind }); } catch (e) { toast.error((e as Error).message); } finally { setBusy(null); }
+    try { const id = await persist(); setPreview({ id, kind, t: new Date().getTime() }); } catch (e) { toast.error((e as Error).message); } finally { setBusy(null); }
   };
 
   // ── Βήματα ──
@@ -310,20 +316,20 @@ export function OfferWizard({ open, onOpenChange, offerId, onDone }: {
               <li key={r.mtrl} className="grid grid-cols-[auto_1fr_auto] items-center gap-2.5 rounded-md border border-border bg-card px-2.5 py-2 sm:grid-cols-[auto_1fr_11rem_auto]">
                 {r.photo ? <img src={r.photo} alt="" className="size-10 rounded object-cover" /> : <span className="grid size-10 place-items-center rounded bg-muted"><FiPackage className="size-4 text-muted-foreground" aria-hidden /></span>}
                 <div className="min-w-0">
-                  <div className="truncate text-[length:var(--fs-13)] font-semibold">{r.name}</div>
-                  <div className="truncate text-[length:var(--fs-11)] text-muted-foreground">{r.code}{r.baseUnit ? ` · ${r.baseUnit}` : ''}{r.booked > 0 ? ` · ${fmt(r.booked)} παλ. σε κρατήσεις` : ''}</div>
+                  <div className="truncate text-(length:--fs-13) font-semibold">{r.name}</div>
+                  <div className="truncate text-(length:--fs-11) text-muted-foreground">{r.code}{r.baseUnit ? ` · ${r.baseUnit}` : ''}{r.booked > 0 ? ` · ${fmt(r.booked)} παλ. σε κρατήσεις` : ''}</div>
                 </div>
-                <label className="col-span-3 flex items-center gap-1.5 text-[length:var(--fs-12)] text-muted-foreground sm:col-span-1">
+                <label className="col-span-3 flex items-center gap-1.5 text-(length:--fs-12) text-muted-foreground sm:col-span-1">
                   <Input inputMode="decimal" value={r.sqmPerPallet} onChange={(e) => patchRow(r.mtrl, { sqmPerPallet: e.target.value })} className={cn(fieldCls, 'w-24 tabular-nums')} aria-label={`${r.baseUnit ?? 'τ.μ.'} ανά παλέτα για ${r.name}`} placeholder="—" />
                   {r.baseUnit ?? 'τ.μ.'}/παλ.
                 </label>
                 <DropdownMenu>
                   <DropdownMenuTrigger className="row-start-1 col-start-3 inline-flex size-8 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-muted sm:col-start-4" aria-label={`Ενέργειες για ${r.name}`}><FiMoreVertical className="size-4" aria-hidden /></DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-48">
-                    <DropdownMenuItem className="cursor-pointer gap-2 text-[length:var(--fs-12)]" disabled={i === 0} onSelect={() => moveRow(i, -1)}><FiArrowUp className="size-3.5" aria-hidden /> Πιο πάνω</DropdownMenuItem>
-                    <DropdownMenuItem className="cursor-pointer gap-2 text-[length:var(--fs-12)]" disabled={i === rows.length - 1} onSelect={() => moveRow(i, 1)}><FiArrowDown className="size-3.5" aria-hidden /> Πιο κάτω</DropdownMenuItem>
+                    <DropdownMenuItem className="cursor-pointer gap-2 text-(length:--fs-12)" disabled={i === 0} onSelect={() => moveRow(i, -1)}><FiArrowUp className="size-3.5" aria-hidden /> Πιο πάνω</DropdownMenuItem>
+                    <DropdownMenuItem className="cursor-pointer gap-2 text-(length:--fs-12)" disabled={i === rows.length - 1} onSelect={() => moveRow(i, 1)}><FiArrowDown className="size-3.5" aria-hidden /> Πιο κάτω</DropdownMenuItem>
                     <DropdownMenuSeparator />
-                    <DropdownMenuItem variant="destructive" className="cursor-pointer gap-2 text-[length:var(--fs-12)]" disabled={r.booked > 0} onSelect={() => setRows((cur) => cur.filter((x) => x.mtrl !== r.mtrl))}>
+                    <DropdownMenuItem variant="destructive" className="cursor-pointer gap-2 text-(length:--fs-12)" disabled={r.booked > 0} onSelect={() => setRows((cur) => cur.filter((x) => x.mtrl !== r.mtrl))}>
                       <FiTrash2 className="size-3.5" aria-hidden /> {r.booked > 0 ? 'Έχει κρατήσεις' : 'Αφαίρεση'}
                     </DropdownMenuItem>
                   </DropdownMenuContent>
@@ -347,15 +353,15 @@ export function OfferWizard({ open, onOpenChange, offerId, onDone }: {
                 className={cn('flex w-full cursor-pointer items-center gap-2.5 rounded-md border px-2.5 py-2 text-left transition-colors hover:bg-muted/60 disabled:cursor-default', on ? 'border-emerald-500 bg-emerald-50/50 dark:bg-emerald-500/10' : 'border-border bg-card')}>
                 {h.photo ? <img src={h.photo} alt="" className="size-10 shrink-0 rounded object-cover" /> : <span className="grid size-10 shrink-0 place-items-center rounded bg-muted"><FiPackage className="size-4 text-muted-foreground" aria-hidden /></span>}
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[length:var(--fs-13)] font-medium">{h.name}</span>
-                  <span className="block truncate text-[length:var(--fs-11)] text-muted-foreground">{h.code}{h.baseUnit ? ` · ${h.baseUnit}` : ''}</span>
+                  <span className="block truncate text-(length:--fs-13) font-medium">{h.name}</span>
+                  <span className="block truncate text-(length:--fs-11) text-muted-foreground">{h.code}{h.baseUnit ? ` · ${h.baseUnit}` : ''}</span>
                 </span>
                 {on ? <FiCheck className="size-4 shrink-0 text-emerald-600" aria-label="Προστέθηκε" /> : <FiPlus className="size-4 shrink-0 text-muted-foreground" aria-hidden />}
               </button>
             </li>
           );
         })}
-        {hits.length === 0 && <li className="col-span-full py-6 text-center text-[length:var(--fs-12)] text-muted-foreground">Κανένα προϊόν</li>}
+        {hits.length === 0 && <li className="col-span-full py-6 text-center text-(length:--fs-12) text-muted-foreground">Κανένα προϊόν</li>}
       </ul>
     </div>
   );
@@ -375,7 +381,7 @@ export function OfferWizard({ open, onOpenChange, offerId, onDone }: {
 
       {capacity > 0 && (
         <div className="overflow-x-auto rounded-md border border-border bg-card">
-          <table className="w-full text-[length:var(--fs-12)]">
+          <table className="w-full text-(length:--fs-12)">
             <thead className="bg-muted/40"><tr>
               <th className="px-2.5 py-1.5 text-left font-semibold text-muted-foreground">Προϊόν</th>
               <th className="px-2.5 py-1.5 text-right font-semibold text-muted-foreground">ανά παλέτα</th>
@@ -400,7 +406,7 @@ export function OfferWizard({ open, onOpenChange, offerId, onDone }: {
         <ContainerScene pallets={capacity} perPallet={perPallet0 || 1} filled={filledNow || undefined} load={sceneLoad} slab={slab}
           labels={{ container: 'Container', pallet: 'ΠΑΛ', base: first?.baseUnit ?? 'τ.μ.' }} heightClass="h-64 sm:h-72" />
       )}
-      <label className={cn('flex items-start gap-2 rounded-md border border-border bg-card px-3 py-2 text-[length:var(--fs-12)]', !ids && 'opacity-60')}>
+      <label className={cn('flex items-start gap-2 rounded-md border border-border bg-card px-3 py-2 text-(length:--fs-12)', !ids && 'opacity-60')}>
         <input type="checkbox" className="mt-0.5 size-4 accent-[#B45309]" checked={syncUnits} disabled={!ids} onChange={(e) => setSyncUnits(e.target.checked)} />
         <span>
           <strong>Ενημέρωση και των μονάδων των ειδών στο SoftOne</strong> — σε κάθε είδος: Μ.Μ.2 = Παλέτα (τα τ.μ. του), Μονάδα αγορών = Container ({fmt(capacity) || '…'} παλέτες).
@@ -418,7 +424,7 @@ export function OfferWizard({ open, onOpenChange, offerId, onDone }: {
   const stepPrices = (
     <div className="space-y-3">
       <FormSection tone="emerald" icon={<FiTrendingDown />} title="Κοινά σημεία πτώσης και τιμές" aside={(
-        <Button type="button" variant="outline" size="sm" className="h-7 text-[length:var(--fs-11)]" disabled={!(capacity > 0)}
+        <Button type="button" variant="outline" size="sm" className="h-7 text-(length:--fs-11)" disabled={!(capacity > 0)}
           onClick={() => {
             const n = nLevels > 1 ? nLevels : Math.min(5, MAX_TIERS);
             setLevelCount(n);
@@ -426,14 +432,14 @@ export function OfferWizard({ open, onOpenChange, offerId, onDone }: {
           }}
         ><FiZap className="mr-1 size-3" aria-hidden /> Πρόταση σημείων</Button>
       )}>
-        <p className="text-[length:var(--fs-12)] text-muted-foreground">
+        <p className="text-(length:--fs-12) text-muted-foreground">
           Τα σημεία είναι <strong>κοινά</strong>: «όταν κλειστούν Χ παλέτες (από οποιοδήποτε προϊόν), ισχύει η W0n» — για <strong>όλους</strong>. Η <strong>PRICEW01</strong> κάθε προϊόντος είναι η μεγαλύτερη· κάθε επόμενη φθηνότερη.
         </p>
         {nLevels === 0 ? (
           <Button type="button" variant="outline" size="sm" onClick={() => setLevelCount(1)}><FiPlus className="mr-1 size-3.5" aria-hidden /> Πρώτο κλιμάκιο</Button>
         ) : (
           <div className="overflow-x-auto rounded-md border border-border bg-card">
-            <table className="w-full min-w-[34rem] text-[length:var(--fs-12)]">
+            <table className="w-full min-w-136 text-(length:--fs-12)">
               <thead>
                 <tr className="bg-muted/40">
                   <th className="sticky left-0 z-10 bg-muted/40 px-2 py-1.5 text-left font-semibold text-muted-foreground">Σημείο</th>
@@ -442,11 +448,11 @@ export function OfferWizard({ open, onOpenChange, offerId, onDone }: {
                     return (
                       <th key={i} className="px-1.5 py-1.5 text-left align-top">
                         <div className="flex items-center justify-between gap-1">
-                          <span className="rounded-sm bg-emerald-100 px-1.5 py-0.5 font-mono text-[length:var(--fs-11)] text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-300">W0{i + 1}</span>
+                          <span className="rounded-sm bg-emerald-100 px-1.5 py-0.5 font-mono text-(length:--fs-11) text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-300">W0{i + 1}</span>
                           <DropdownMenu>
                             <DropdownMenuTrigger className="inline-flex size-6 cursor-pointer items-center justify-center rounded text-muted-foreground hover:bg-muted" aria-label={`Ενέργειες για W0${i + 1}`}><FiMoreVertical className="size-3.5" aria-hidden /></DropdownMenuTrigger>
                             <DropdownMenuContent align="end" className="w-40">
-                              <DropdownMenuItem variant="destructive" className="cursor-pointer gap-2 text-[length:var(--fs-12)]" disabled={nLevels === 1} onSelect={() => removeLevel(i)}><FiTrash2 className="size-3.5" aria-hidden /> Αφαίρεση</DropdownMenuItem>
+                              <DropdownMenuItem variant="destructive" className="cursor-pointer gap-2 text-(length:--fs-12)" disabled={nLevels === 1} onSelect={() => removeLevel(i)}><FiTrash2 className="size-3.5" aria-hidden /> Αφαίρεση</DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </div>
@@ -466,7 +472,7 @@ export function OfferWizard({ open, onOpenChange, offerId, onDone }: {
                   <tr key={r.mtrl}>
                     <th scope="row" className="sticky left-0 z-10 max-w-44 bg-card px-2 py-1.5 text-left font-medium">
                       <span className="block truncate" title={r.name}>{r.name}</span>
-                      <span className="block truncate text-[length:var(--fs-10)] font-normal text-muted-foreground">€/{r.baseUnit ?? 'τ.μ.'}</span>
+                      <span className="block truncate text-(length:--fs-10) font-normal text-muted-foreground">€/{r.baseUnit ?? 'τ.μ.'}</span>
                     </th>
                     {levels.map((_, i) => {
                       const bad = priceIssues[ri]?.some((x) => x.tier === i + 1 && x.level === 'error');
@@ -495,7 +501,7 @@ export function OfferWizard({ open, onOpenChange, offerId, onDone }: {
         <div className="flex flex-wrap gap-1.5" role="tablist" aria-label="Γράφημα για">
           {rows.map((r, i) => (
             <button key={r.mtrl} type="button" role="tab" aria-selected={chartItem === i} onClick={() => setChartItem(i)}
-              className={cn('h-7 max-w-56 cursor-pointer truncate rounded-md border px-2.5 text-[length:var(--fs-11)] font-medium', chartItem === i ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-background text-muted-foreground hover:text-foreground')}>
+              className={cn('h-7 max-w-56 cursor-pointer truncate rounded-md border px-2.5 text-(length:--fs-11) font-medium', chartItem === i ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-background text-muted-foreground hover:text-foreground')}>
               {r.name}
             </button>
           ))}
@@ -503,7 +509,7 @@ export function OfferWizard({ open, onOpenChange, offerId, onDone }: {
       )}
       {chartRow && <PriceLadder tiers={chartTiers} capacity={capacity} filled={filledNow} unit={chartRow.baseUnit ?? 'τ.μ.'} />}
       {chartTiers.length > 1 && errorsCount === 0 && (
-        <p className="rounded-md bg-emerald-50 px-3 py-2 text-[length:var(--fs-12)] text-emerald-900 dark:bg-emerald-500/10 dark:text-emerald-200">
+        <p className="rounded-md bg-emerald-50 px-3 py-2 text-(length:--fs-12) text-emerald-900 dark:bg-emerald-500/10 dark:text-emerald-200">
           {chartRow.name}: από {eur(chartTiers[0].price)} έως {eur(chartTiers[chartTiers.length - 1].price)}/{chartRow.baseUnit ?? 'τ.μ.'}
           ({Math.round((1 - chartTiers[chartTiers.length - 1].price / chartTiers[0].price) * 100)}%) όταν γεμίσει το container.
         </p>
@@ -523,9 +529,9 @@ export function OfferWizard({ open, onOpenChange, offerId, onDone }: {
       <div className="min-w-0 rounded-md border border-border bg-card">
         <div className="flex items-center gap-2 border-b border-border px-2.5 py-1.5">
           <span className="text-muted-foreground [&_svg]:size-3.5" aria-hidden>{icon}</span>
-          <span className="text-[length:var(--fs-12)] font-semibold">{t}</span>
-          <span className="text-[length:var(--fs-11)] text-muted-foreground">{opts.filter((o) => picked.has(`${o.kind}:${o.refId}`)).length}/{opts.length}</span>
-          <button type="button" className="ml-auto cursor-pointer text-[length:var(--fs-11)] text-sisyphus-600 hover:underline" onClick={() => setPicked((s) => { const n = new Set(s); for (const o of shown) { const k = `${o.kind}:${o.refId}`; if (allOn) n.delete(k); else if (o.email) n.add(k); } return n; })}>
+          <span className="text-(length:--fs-12) font-semibold">{t}</span>
+          <span className="text-(length:--fs-11) text-muted-foreground">{opts.filter((o) => picked.has(`${o.kind}:${o.refId}`)).length}/{opts.length}</span>
+          <button type="button" className="ml-auto cursor-pointer text-(length:--fs-11) text-sisyphus-600 hover:underline" onClick={() => setPicked((s) => { const n = new Set(s); for (const o of shown) { const k = `${o.kind}:${o.refId}`; if (allOn) n.delete(k); else if (o.email) n.add(k); } return n; })}>
             {allOn ? 'Καμία' : 'Όλοι με email'}
           </button>
         </div>
@@ -537,14 +543,14 @@ export function OfferWizard({ open, onOpenChange, offerId, onDone }: {
                 <label className="flex min-h-11 cursor-pointer items-center gap-2 px-2.5 py-1.5 hover:bg-muted/50">
                   <input type="checkbox" className="size-4 accent-[#0369A1]" checked={picked.has(k)} onChange={() => toggle(k)} />
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate text-[length:var(--fs-12)] font-medium">{o.name}</span>
-                    <span className="block truncate text-[length:var(--fs-11)] text-muted-foreground">{o.email ?? <span className="text-amber-700">χωρίς email</span>}{o.sub ? ` · ${o.sub}` : ''}</span>
+                    <span className="block truncate text-(length:--fs-12) font-medium">{o.name}</span>
+                    <span className="block truncate text-(length:--fs-11) text-muted-foreground">{o.email ?? <span className="text-amber-700">χωρίς email</span>}{o.sub ? ` · ${o.sub}` : ''}</span>
                   </span>
                 </label>
               </li>
             );
           })}
-          {shown.length === 0 && <li className="px-2.5 py-4 text-center text-[length:var(--fs-11)] text-muted-foreground">Κανένας</li>}
+          {shown.length === 0 && <li className="px-2.5 py-4 text-center text-(length:--fs-11) text-muted-foreground">Κανένας</li>}
         </ul>
       </div>
     );
@@ -587,7 +593,7 @@ export function OfferWizard({ open, onOpenChange, offerId, onDone }: {
       </FormSection>
       <div className="flex flex-wrap items-center gap-2 rounded-md border border-border bg-card px-3 py-2">
         <FiEye className="size-4 text-muted-foreground" aria-hidden />
-        <span className="text-[length:var(--fs-12)]">Προεπισκόπηση email (αποθηκεύει πρόχειρο):</span>
+        <span className="text-(length:--fs-12)">Προεπισκόπηση email (αποθηκεύει πρόχειρο):</span>
         <Button type="button" variant="outline" size="sm" onClick={() => openPreview('publish')} disabled={!!busy}>Προσφορά</Button>
         <Button type="button" variant="outline" size="sm" onClick={() => openPreview('drop')} disabled={!!busy}>«Η τιμή έπεσε»</Button>
       </div>
@@ -603,8 +609,8 @@ export function OfferWizard({ open, onOpenChange, offerId, onDone }: {
       <Dialog open={open} onOpenChange={(o) => !busy && onOpenChange(o)}>
         <DialogContent className="flex max-h-[94dvh] w-[97vw] flex-col gap-0 overflow-hidden p-0 sm:max-w-5xl">
           <DialogHeader className="border-b border-border px-4 py-3 pr-12 text-left">
-            <DialogTitle className="text-[length:var(--fs-16)]">{offerId ? 'Επεξεργασία δυναμικής προσφοράς' : 'Νέα δυναμική προσφορά'}</DialogTitle>
-            <DialogDescription className="text-[length:var(--fs-12)]">Κοινό container με ένα ή περισσότερα προϊόντα: όσο γεμίζει, οι τιμές πέφτουν για όλους.</DialogDescription>
+            <DialogTitle className="text-(length:--fs-16)">{offerId ? 'Επεξεργασία δυναμικής προσφοράς' : 'Νέα δυναμική προσφορά'}</DialogTitle>
+            <DialogDescription className="text-(length:--fs-12)">Κοινό container με ένα ή περισσότερα προϊόντα: όσο γεμίζει, οι τιμές πέφτουν για όλους.</DialogDescription>
             <ol className="mt-2 grid grid-cols-4 gap-1.5" aria-label="Βήματα">
               {STEPS.map((s, i) => {
                 const Icon = s.icon;
@@ -612,9 +618,9 @@ export function OfferWizard({ open, onOpenChange, offerId, onDone }: {
                 return (
                   <li key={s.title}>
                     <button type="button" disabled={i > step || !!busy} onClick={() => setStep(i)} aria-current={cur ? 'step' : undefined}
-                      className={cn('flex w-full items-center gap-1.5 rounded-md border px-2 py-1.5 text-left text-[length:var(--fs-12)] transition-colors',
+                      className={cn('flex w-full items-center gap-1.5 rounded-md border px-2 py-1.5 text-left text-(length:--fs-12) transition-colors',
                         cur ? 'border-sisyphus-500 bg-sisyphus-50 font-semibold text-sisyphus-700 dark:bg-sisyphus-500/15 dark:text-sisyphus-300' : done ? 'cursor-pointer border-emerald-500/40 bg-emerald-50/60 text-emerald-800 hover:bg-emerald-50 dark:bg-emerald-500/10 dark:text-emerald-300' : 'border-border text-muted-foreground')}>
-                      <span className={cn('grid size-5 shrink-0 place-items-center rounded-full text-[length:var(--fs-10)] font-bold', cur ? 'bg-sisyphus-600 text-white' : done ? 'bg-emerald-600 text-white' : 'bg-muted')}>{done ? <FiCheck className="size-3" aria-hidden /> : i + 1}</span>
+                      <span className={cn('grid size-5 shrink-0 place-items-center rounded-full text-(length:--fs-10) font-bold', cur ? 'bg-sisyphus-600 text-white' : done ? 'bg-emerald-600 text-white' : 'bg-muted')}>{done ? <FiCheck className="size-3" aria-hidden /> : i + 1}</span>
                       <Icon className="hidden size-3.5 shrink-0 sm:inline" aria-hidden />
                       <span className="truncate">{s.title}</span>
                     </button>
@@ -625,7 +631,7 @@ export function OfferWizard({ open, onOpenChange, offerId, onDone }: {
           </DialogHeader>
           <DialogBody className="bg-muted/20 px-4 py-3">{body}</DialogBody>
           <DialogFooter className="mx-0 mb-0 flex-row items-center gap-2 border-t border-border bg-card px-4 py-2.5">
-            <span className="mr-auto flex min-w-0 items-center gap-1.5 text-[length:var(--fs-11)] text-muted-foreground" aria-live="polite">
+            <span className="mr-auto flex min-w-0 items-center gap-1.5 text-(length:--fs-11) text-muted-foreground" aria-live="polite">
               {busy ? <><FiLoader className="size-3.5 animate-spin" aria-hidden /> {busy}</> : rows.length ? <span className="truncate">{rows.length === 1 ? `${rows[0].code} · ${rows[0].name}` : `${rows.length} προϊόντα`}{capacity > 0 ? ` · ${fmt(capacity)} παλ.` : ''}{nLevels ? ` · ${nLevels} κλιμάκια` : ''}</span> : null}
             </span>
             {step > 0 && <Button variant="outline" onClick={() => setStep((s) => s - 1)} disabled={!!busy}><FiChevronLeft className="mr-1 size-4" aria-hidden /> Πίσω</Button>}
@@ -637,7 +643,7 @@ export function OfferWizard({ open, onOpenChange, offerId, onDone }: {
             )}
           </DialogFooter>
           {last && when !== 'draft' && status !== 'OPEN' && picked.size === 0 && (
-            <p className="flex items-center gap-1.5 border-t border-border bg-amber-50 px-4 py-1.5 text-[length:var(--fs-11)] text-amber-900"><FiAlertTriangle className="size-3.5" aria-hidden /> Διάλεξε παραλήπτες για να δημοσιευτεί.</p>
+            <p className="flex items-center gap-1.5 border-t border-border bg-amber-50 px-4 py-1.5 text-(length:--fs-11) text-amber-900"><FiAlertTriangle className="size-3.5" aria-hidden /> Διάλεξε παραλήπτες για να δημοσιευτεί.</p>
           )}
         </DialogContent>
       </Dialog>
@@ -645,10 +651,10 @@ export function OfferWizard({ open, onOpenChange, offerId, onDone }: {
       <Dialog open={!!preview} onOpenChange={(o) => { if (!o) setPreview(null); }}>
         <DialogContent className="flex h-[92dvh] w-[96vw] flex-col gap-0 overflow-hidden p-0 sm:max-w-3xl">
           <DialogHeader className="border-b border-border px-4 py-2.5 pr-12 text-left">
-            <DialogTitle className="text-[length:var(--fs-15)]">Προεπισκόπηση email — {preview?.kind === 'drop' ? '«Η τιμή έπεσε»' : 'Προσφορά'}</DialogTitle>
-            <DialogDescription className="text-[length:var(--fs-11)]">Όπως θα το δει ο παραλήπτης (όνομα παραδείγματος).</DialogDescription>
+            <DialogTitle className="text-(length:--fs-15)">Προεπισκόπηση email — {preview?.kind === 'drop' ? '«Η τιμή έπεσε»' : 'Προσφορά'}</DialogTitle>
+            <DialogDescription className="text-(length:--fs-11)">Όπως θα το δει ο παραλήπτης (όνομα παραδείγματος).</DialogDescription>
           </DialogHeader>
-          {preview && <iframe title="Προεπισκόπηση email" src={`/api/admin/dynamic-offers/${preview.id}/email-preview?kind=${preview.kind}&t=${Date.now()}`} className="min-h-0 w-full flex-1 bg-slate-100" />}
+          {preview && <iframe title="Προεπισκόπηση email" src={`/api/admin/dynamic-offers/${preview.id}/email-preview?kind=${preview.kind}&t=${preview.t}`} className="min-h-0 w-full flex-1 bg-slate-100" />}
         </DialogContent>
       </Dialog>
     </>

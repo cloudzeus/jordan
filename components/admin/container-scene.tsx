@@ -621,7 +621,8 @@ export default function ContainerScene({
   const fitRef = React.useRef<(() => void) | null>(null);
   const builtRef = React.useRef<ReturnType<typeof buildScene> | null>(null);
   const pickRef = React.useRef({ onPickSlots, maxSelectable, selectedSlots, highlightSegment });
-  pickRef.current = { onPickSlots, maxSelectable, selectedSlots, highlightSegment };
+  // «Latest ref»: ενημέρωση μετά το commit (layout effect, πριν από τα passive effects που το διαβάζουν).
+  React.useLayoutEffect(() => { pickRef.current = { onPickSlots, maxSelectable, selectedSlots, highlightSegment }; });
   const info = containerLayout(pallets);
   const fill = filled ?? pallets;
   const fmt = (n: number) => n.toLocaleString('el-GR', { maximumFractionDigits: 2 });
@@ -634,6 +635,7 @@ export default function ContainerScene({
     try {
       renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
     } catch {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- αποτυχία εξωτερικού συστήματος (WebGL) κατά το στήσιμο
       setFailed(true);
       return;
     }
@@ -770,7 +772,7 @@ export default function ContainerScene({
 
   // Πόσο «κοντά» κάθεται η κάμερα (0.92 = ολόκληρο με αέρα· μικρότερο = πιο κοντινό κάδρο).
   const fitScaleRef = React.useRef(fitScale);
-  fitScaleRef.current = fitScale;
+  React.useLayoutEffect(() => { fitScaleRef.current = fitScale; });
 
   // Επιλεγμένες θέσεις (κράτηση με click): ενημέρωση χωρίς να ξαναχτιστεί η σκηνή.
   React.useEffect(() => { builtRef.current?.setPicked(selectedSlots); }, [selectedSlots]);
@@ -811,11 +813,11 @@ export default function ContainerScene({
     <figure className={className} aria-label={`1 ${labels.container} = ${fmt(pallets)} ${labels.pallet} = ${fmt(total)} ${labels.base}`}>
       <div className={`relative ${heightClass} overflow-hidden rounded-md border border-border bg-[radial-gradient(ellipse_at_50%_35%,#ffffff_0%,#eef1f4_55%,#dfe4ea_100%)] dark:bg-[radial-gradient(ellipse_at_50%_35%,#334155_0%,#1e293b_60%,#0f172a_100%)]`}>
         {failed ? (
-          <p className="grid h-full place-items-center px-4 text-center text-[length:var(--fs-12)] text-muted-foreground">Η τρισδιάστατη προβολή δεν υποστηρίζεται σε αυτή τη συσκευή.</p>
+          <p className="grid h-full place-items-center px-4 text-center text-(length:--fs-12) text-muted-foreground">Η τρισδιάστατη προβολή δεν υποστηρίζεται σε αυτή τη συσκευή.</p>
         ) : (
           <div ref={host} className="absolute inset-0 cursor-grab active:cursor-grabbing" />
         )}
-        <div className="pointer-events-none absolute left-2 top-2 rounded-md bg-background/85 px-2 py-1.5 text-[length:var(--fs-11)] leading-snug shadow-sm backdrop-blur-sm">
+        <div className="pointer-events-none absolute left-2 top-2 rounded-md bg-background/85 px-2 py-1.5 text-(length:--fs-11) leading-snug shadow-xs backdrop-blur-xs">
           <div className="font-semibold tabular-nums">1 {labels.container} ({info.size}) = {fmt(pallets)} {labels.pallet}</div>
           <div className="tabular-nums text-muted-foreground">1 {labels.pallet} = {fmt(perPallet)} {labels.base} · σύνολο {fmt(total)} {labels.base}</div>
           {partial && <div className="tabular-nums font-medium text-emerald-700 dark:text-emerald-300">Γεμάτες {fmt(filled)} / {fmt(pallets)} ({Math.round((filled / pallets) * 100)}%)</div>}
@@ -823,14 +825,14 @@ export default function ContainerScene({
         {!failed && expandable && (
           <button
             type="button" onClick={() => setExpanded(true)}
-            className="absolute bottom-2 right-2 inline-flex size-9 cursor-pointer items-center justify-center rounded-md bg-background/85 text-foreground shadow-sm backdrop-blur-sm transition-colors hover:bg-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="absolute bottom-2 right-2 inline-flex size-9 cursor-pointer items-center justify-center rounded-md bg-background/85 text-foreground shadow-xs backdrop-blur-xs transition-colors hover:bg-background focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
             aria-label="Πλήρης οθόνη" title="Πλήρης οθόνη"
           >
             <FiMaximize2 className="size-4" aria-hidden />
           </button>
         )}
         {info.hidden > 0 && (
-          <div className="pointer-events-none absolute right-2 top-2 rounded-md bg-amber-100/90 px-2 py-1 text-[length:var(--fs-11)] font-medium text-amber-900 shadow-sm">
+          <div className="pointer-events-none absolute right-2 top-2 rounded-md bg-amber-100/90 px-2 py-1 text-(length:--fs-11) font-medium text-amber-900 shadow-xs">
             +{info.hidden} {labels.pallet} δεν χωρούν στο σχέδιο
           </div>
         )}
@@ -846,14 +848,14 @@ export default function ContainerScene({
             />
             <button
               type="button" onClick={() => setExpanded(false)}
-              className="absolute bottom-4 right-4 inline-flex h-10 cursor-pointer items-center gap-2 rounded-md bg-background/90 px-3 text-[length:var(--fs-13)] font-medium shadow-md backdrop-blur-sm hover:bg-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="absolute bottom-4 right-4 inline-flex h-10 cursor-pointer items-center gap-2 rounded-md bg-background/90 px-3 text-(length:--fs-13) font-medium shadow-md backdrop-blur-xs hover:bg-background focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
             >
               <FiMinimize2 className="size-4" aria-hidden /> Κλείσιμο (Esc)
             </button>
           </DialogContent>
         </Dialog>
       )}
-      <figcaption className="mt-1 text-[length:var(--fs-11)] text-muted-foreground">
+      <figcaption className="mt-1 text-(length:--fs-11) text-muted-foreground">
         Σύρε για περιστροφή, ροδέλα για ζουμ.{' '}
         {load === 'stones'
           ? <>Πλάκα {fmt((slab ?? DEFAULT_SLAB).l * 100)}×{fmt((slab ?? DEFAULT_SLAB).w * 100)}×{fmt((slab ?? DEFAULT_SLAB).t * 100)} εκ.{slab ? '' : ' (ενδεικτική — δεν έχουν οριστεί διαστάσεις στο είδος)'} · {stoneInfo.perLayer} ανά στρώση × {stoneInfo.neededLayers} στρώσεις{stoneInfo.capped ? ' (σχεδιάζονται λιγότερες)' : ''}.</>

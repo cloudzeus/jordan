@@ -1,9 +1,8 @@
 'use client';
 
 import * as React from 'react';
-import { FiRefreshCw, FiCheck, FiAlertCircle } from 'react-icons/fi';
+import { FiRefreshCw } from 'react-icons/fi';
 import { toast } from 'sonner';
-import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 type Props = {

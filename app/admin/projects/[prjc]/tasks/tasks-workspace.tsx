@@ -15,17 +15,13 @@ import { cn } from '@/lib/utils';
 import { KanbanBoard, type TaskRef } from './kanban-board';
 import { TaskDialog } from './task-dialog';
 import { ApplyTemplateDialog, SaveTemplateDialog } from './template-dialogs';
+import { unwrap } from '@/lib/action-result';
+import { deleteTaskAction, moveTaskAction, saveTaskAction } from '../../actions';
 
-const ITEM = 'cursor-pointer gap-2 text-[length:var(--fs-12)]';
+const ITEM = 'cursor-pointer gap-2 text-(length:--fs-12)';
 const fmt = (d: string) => new Date(`${d}T00:00:00Z`).toLocaleDateString('el-GR', { timeZone: 'UTC', day: 'numeric', month: 'short', year: 'numeric' });
 const VIEW_KEY = 'admin.project-tasks.view';
 
-async function api(url: string, init: RequestInit) {
-  const res = await fetch(url, { headers: { 'Content-Type': 'application/json' }, ...init });
-  const body = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(body?.message || 'Η ενέργεια απέτυχε');
-  return body;
-}
 
 export function TasksWorkspace({ prjc, tasks: initial, options, templates, canManage, canFiles, today, openTaskId = null }: {
   prjc: number; tasks: TaskView[]; options: PartyOption[]; templates: TemplateView[]; canManage: boolean; canFiles: boolean; today: string;
@@ -36,16 +32,22 @@ export function TasksWorkspace({ prjc, tasks: initial, options, templates, canMa
   const refresh = () => router.refresh();
   // Αισιόδοξες αλλαγές (Kanban) πάνω στα δεδομένα του server· ο server ξαναστέλνει μετά το refresh.
   const [tasks, setTasks] = React.useState(initial);
-  React.useEffect(() => setTasks(initial), [initial]);
+  // Συγχρονισμός με νέα props (adjust-state-while-rendering)
+  const [prevInitial, setPrevInitial] = React.useState(initial);
+  if (initial !== prevInitial) { setPrevInitial(initial); setTasks(initial); }
   const [view, setView] = React.useState('board');
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- ανάγνωση localStorage μετά το hydration (στο SSR δεν υπάρχει)
   React.useEffect(() => { try { const v = localStorage.getItem(VIEW_KEY); if (v) setView(v); } catch { /* ιδιωτική περιήγηση */ } }, []);
   const changeView = (v: string) => { setView(v); try { localStorage.setItem(VIEW_KEY, v); } catch { /* */ } };
 
   const [editing, setEditing] = React.useState<{ open: boolean; task: TaskView | null; progress: number }>({ open: false, task: null, progress: 0 });
-  React.useEffect(() => {
+  // `?task=` → άνοιγμα της φόρμας όταν αλλάζει (και στο πρώτο render) — adjust-state-while-rendering
+  const [prevOpenTaskId, setPrevOpenTaskId] = React.useState<string | null>(null);
+  if (openTaskId !== prevOpenTaskId) {
+    setPrevOpenTaskId(openTaskId);
     const t = openTaskId ? initial.find((x) => x.id === openTaskId) : null;
     if (t && canManage) setEditing({ open: true, task: t, progress: 0 });
-  }, [openTaskId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }
   const [saveTpl, setSaveTpl] = React.useState(false);
   const [applyTpl, setApplyTpl] = React.useState(false);
 
@@ -65,7 +67,7 @@ export function TasksWorkspace({ prjc, tasks: initial, options, templates, canMa
     setTasks((ts) => ts.map((t) => (by.has(t.id) ? { ...t, progress: by.get(t.id)!.progress, phase: phaseOf(by.get(t.id)!.progress), sortOrder: by.get(t.id)!.sortOrder } : t)));
     const t = tasks.find((x) => x.id === id);
     try {
-      await api(`/api/admin/projects/${prjc}/tasks/${id}/move`, { method: 'POST', body: JSON.stringify({ to, beforeId }) });
+      await unwrap(moveTaskAction(prjc, id, { to, beforeId }));
       if (t && phaseOf(t.progress) !== to) {
         const waiting = t.dependsOn.filter((d) => names.has(d) && !names.get(d)!.done);
         if (to !== 'TODO' && waiting.length) toast.warning(`Η «${t.name}» περιμένει: ${waiting.map((d) => names.get(d)!.name).join(', ')}`);
@@ -80,7 +82,7 @@ export function TasksWorkspace({ prjc, tasks: initial, options, templates, canMa
 
   const setProgress = async (id: string, progress: number) => {
     try {
-      await api(`/api/admin/projects/${prjc}/tasks/${id}`, { method: 'PATCH', body: JSON.stringify({ progress }) });
+      await unwrap(saveTaskAction(prjc, id, { progress }));
       refresh();
     } catch (e) { toast.error((e as Error).message); }
   };
@@ -95,7 +97,7 @@ export function TasksWorkspace({ prjc, tasks: initial, options, templates, canMa
     });
     if (!ok) return;
     try {
-      await api(`/api/admin/projects/${prjc}/tasks/${id}`, { method: 'DELETE' });
+      await unwrap(deleteTaskAction(prjc, id));
       toast.success('Η εργασία διαγράφηκε');
       refresh();
     } catch (e) { toast.error((e as Error).message); }
@@ -108,29 +110,29 @@ export function TasksWorkspace({ prjc, tasks: initial, options, templates, canMa
   return (
     <>
       {/* Σύνοψη: συνολικό ποσοστό + μετρητές φάσεων */}
-      <section aria-label="Πρόοδος έργου" className="mb-4 rounded-xl border border-border bg-card px-4 py-3 shadow-sm">
+      <section aria-label="Πρόοδος έργου" className="mb-4 rounded-xl border border-border bg-card px-4 py-3 shadow-xs">
         <div className="flex flex-wrap items-end gap-x-8 gap-y-3">
           <div className="min-w-48 flex-1">
             <div className="flex items-baseline justify-between gap-2">
-              <span className="text-[length:var(--fs-12)] font-medium text-muted-foreground">Ολοκλήρωση έργου</span>
-              <span className="text-[length:var(--fs-24)] font-semibold tabular-nums">{total}%</span>
+              <span className="text-(length:--fs-12) font-medium text-muted-foreground">Ολοκλήρωση έργου</span>
+              <span className="text-(length:--fs-24) font-semibold tabular-nums">{total}%</span>
             </div>
             <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-muted" role="progressbar" aria-valuenow={total} aria-valuemin={0} aria-valuemax={100} aria-label="Ολοκλήρωση έργου">
               <div className="h-full rounded-full bg-primary transition-[width] duration-300" style={{ width: `${total}%` }} />
             </div>
-            <p className="mt-1 text-[length:var(--fs-11)] text-muted-foreground">Σταθμισμένο με τη διάρκεια κάθε εργασίας{finish ? ` · προβλεπόμενο τέλος ${fmt(finish)}` : ''}</p>
+            <p className="mt-1 text-(length:--fs-11) text-muted-foreground">Σταθμισμένο με τη διάρκεια κάθε εργασίας{finish ? ` · προβλεπόμενο τέλος ${fmt(finish)}` : ''}</p>
           </div>
           <dl className="flex flex-wrap gap-x-5 gap-y-2">
             {PHASES.map((p) => (
               <div key={p.key}>
-                <dt className="flex items-center gap-1.5 text-[length:var(--fs-11)] text-muted-foreground"><span className="size-2 rounded-full" style={{ background: p.color }} aria-hidden />{p.label}</dt>
-                <dd className="text-[length:var(--fs-18)] font-semibold tabular-nums">{counts[p.key]}</dd>
+                <dt className="flex items-center gap-1.5 text-(length:--fs-11) text-muted-foreground"><span className="size-2 rounded-full" style={{ background: p.color }} aria-hidden />{p.label}</dt>
+                <dd className="text-(length:--fs-18) font-semibold tabular-nums">{counts[p.key]}</dd>
               </div>
             ))}
           </dl>
         </div>
         {conflicts > 0 && (
-          <p role="status" className="mt-3 flex items-center gap-2 rounded-md bg-red-50 px-3 py-2 text-[length:var(--fs-12)] text-red-700 dark:bg-red-950/40 dark:text-red-300">
+          <p role="status" className="mt-3 flex items-center gap-2 rounded-md bg-red-50 px-3 py-2 text-(length:--fs-12) text-red-700 dark:bg-red-950/40 dark:text-red-300">
             <FiAlertTriangle className="size-3.5 shrink-0" aria-hidden /> {conflicts === 1 ? '1 εργασία ξεκινά' : `${conflicts} εργασίες ξεκινούν`} πριν ολοκληρωθούν οι εργασίες από τις οποίες εξαρτώνται — αδειάστε την ημερομηνία έναρξης για αυτόματο υπολογισμό.
           </p>
         )}
@@ -147,7 +149,7 @@ export function TasksWorkspace({ prjc, tasks: initial, options, templates, canMa
             {canManage && <Button size="sm" className="min-h-9" onClick={() => onNew()}><FiPlus className="size-3.5" aria-hidden /> Νέα εργασία</Button>}
             {canManage && (
               <DropdownMenu>
-                <DropdownMenuTrigger className="inline-flex size-9 cursor-pointer items-center justify-center rounded-md border border-border text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" aria-label="Templates εργασιών">
+                <DropdownMenuTrigger className="inline-flex size-9 cursor-pointer items-center justify-center rounded-md border border-border text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring" aria-label="Templates εργασιών">
                   <FiMoreVertical className="size-4" aria-hidden />
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-60">
@@ -165,8 +167,8 @@ export function TasksWorkspace({ prjc, tasks: initial, options, templates, canMa
         {tasks.length === 0 ? (
           <div className="rounded-xl border border-dashed border-border px-6 py-14 text-center">
             <FiTrello className="mx-auto size-8 text-muted-foreground opacity-50" aria-hidden />
-            <p className="mt-3 text-[length:var(--fs-14)] font-medium">Δεν υπάρχουν εργασίες στο έργο</p>
-            <p className="mt-1 text-[length:var(--fs-12)] text-muted-foreground">Ξεκινήστε με μια νέα εργασία ή φέρτε έτοιμη σειρά από template.</p>
+            <p className="mt-3 text-(length:--fs-14) font-medium">Δεν υπάρχουν εργασίες στο έργο</p>
+            <p className="mt-1 text-(length:--fs-12) text-muted-foreground">Ξεκινήστε με μια νέα εργασία ή φέρτε έτοιμη σειρά από template.</p>
             {canManage && (
               <div className="mt-4 flex flex-wrap justify-center gap-2">
                 <Button size="sm" className="min-h-9" onClick={() => onNew()}><FiPlus className="size-3.5" aria-hidden /> Νέα εργασία</Button>
@@ -206,9 +208,9 @@ export function TasksWorkspace({ prjc, tasks: initial, options, templates, canMa
 function TaskTable({ tasks, names, onOpen }: { tasks: TaskView[]; names: Map<string, TaskRef>; onOpen: (id: string) => void }) {
   return (
     <div className="overflow-x-auto rounded-xl border border-border bg-card">
-      <table className="w-full min-w-[720px] text-[length:var(--fs-12)]">
+      <table className="w-full min-w-[720px] text-(length:--fs-12)">
         <caption className="sr-only">Εργασίες έργου με ημερομηνίες, διάρκεια, εξαρτήσεις και ποσοστό</caption>
-        <thead className="border-b border-border text-left text-[length:var(--fs-11)] uppercase tracking-wide text-muted-foreground">
+        <thead className="border-b border-border text-left text-(length:--fs-11) uppercase tracking-wide text-muted-foreground">
           <tr>
             <th scope="col" className="px-3 py-2 font-medium">Εργασία</th>
             <th scope="col" className="px-3 py-2 font-medium">Έναρξη</th>
@@ -223,13 +225,13 @@ function TaskTable({ tasks, names, onOpen }: { tasks: TaskView[]; names: Map<str
           {tasks.map((t) => (
             <tr key={t.id} className="border-b border-border last:border-0 hover:bg-muted">
               <td className="px-3 py-2">
-                <button type="button" onClick={() => onOpen(t.id)} className="cursor-pointer text-left font-medium hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">{t.name}</button>
+                <button type="button" onClick={() => onOpen(t.id)} className="cursor-pointer text-left font-medium hover:underline focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring">{t.name}</button>
                 <span className="ml-1.5 inline-flex gap-1 align-middle text-muted-foreground">
                   {t.customerVisible && <FiEye className="size-3" aria-label="Ορατή στον πελάτη" />}
                   {t.inCalendar && <FiCalendar className="size-3" aria-label="Στο ημερολόγιο" />}
                 </span>
               </td>
-              <td className={cn('px-3 py-2 tabular-nums', t.sched.conflict && 'text-red-600')}>{fmt(t.sched.start)}{t.sched.auto && <span className="ml-1 text-[length:var(--fs-10)] text-muted-foreground">(αυτόμ.)</span>}</td>
+              <td className={cn('px-3 py-2 tabular-nums', t.sched.conflict && 'text-red-600')}>{fmt(t.sched.start)}{t.sched.auto && <span className="ml-1 text-(length:--fs-10) text-muted-foreground">(αυτόμ.)</span>}</td>
               <td className="px-3 py-2 tabular-nums">{fmt(t.sched.end)}</td>
               <td className="px-3 py-2">{durationLabel(t.durationValue, t.durationUnit)}</td>
               <td className="px-3 py-2 text-muted-foreground">{t.dependsOn.map((d) => names.get(d)?.name).filter(Boolean).join(', ') || '—'}</td>

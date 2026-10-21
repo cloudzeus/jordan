@@ -9,7 +9,7 @@ import { cn } from '@/lib/utils';
 /** Το χρώμα ΜΟΝΟ στο εικονίδιο· το κείμενο μένει στο χρώμα κειμένου για να διαβάζεται. */
 export function Line({ icon: Icon, fg, spin, children }: { icon: React.ElementType; fg: string; spin?: boolean; children: React.ReactNode }) {
   return (
-    <span className="flex items-start gap-1.5 text-[length:var(--fs-11)] text-foreground">
+    <span className="flex items-start gap-1.5 text-(length:--fs-11) text-foreground">
       <Icon className={cn('mt-0.5 size-3.5 shrink-0', spin && 'animate-spin')} style={{ color: fg }} aria-hidden />
       <span className="min-w-0">{children}</span>
     </span>
@@ -25,10 +25,10 @@ export function Chip({ icon: Icon, fg, children }: { icon: React.ElementType; fg
 }
 
 export const BTN_PRIMARY =
-  'inline-flex h-8 items-center gap-1.5 rounded-md bg-sisyphus-500 px-3.5 text-[length:var(--fs-12)] font-semibold text-white shadow-sm transition ' +
-  'hover:bg-sisyphus-600 active:bg-sisyphus-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sisyphus-500/40 focus-visible:ring-offset-1 ' +
+  'inline-flex h-8 items-center gap-1.5 rounded-md bg-sisyphus-500 px-3.5 text-(length:--fs-12) font-semibold text-white shadow-xs transition ' +
+  'hover:bg-sisyphus-600 active:bg-sisyphus-700 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-sisyphus-500/40 focus-visible:ring-offset-1 ' +
   'disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground disabled:shadow-none';
 
 export const BTN_GHOST =
-  'inline-flex h-8 items-center gap-1.5 rounded-md border border-input bg-background px-3 text-[length:var(--fs-12)] font-semibold text-foreground transition hover:bg-muted ' +
+  'inline-flex h-8 items-center gap-1.5 rounded-md border border-input bg-background px-3 text-(length:--fs-12) font-semibold text-foreground transition hover:bg-muted ' +
   'disabled:cursor-not-allowed disabled:opacity-60';

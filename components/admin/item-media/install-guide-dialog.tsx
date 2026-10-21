@@ -21,7 +21,7 @@ import { toggleInstallSample, uploadVideoFrames } from './video-frames';
 const TONE = '#B45309';
 const REC = '#DC2626';
 const soft = (hex: string, pct: number) => `color-mix(in srgb, ${hex} ${pct}%, var(--background))`;
-const ITEM = 'cursor-pointer gap-2 text-[length:var(--fs-12)]';
+const ITEM = 'cursor-pointer gap-2 text-(length:--fs-12)';
 const MAX_SECONDS = 10 * 60;
 const fmtDur = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 const fmtWhen = (iso: string) => new Date(iso).toLocaleString('el-GR', { dateStyle: 'short', timeStyle: 'short' });
@@ -35,10 +35,10 @@ function recorderMime(): string {
 function SectionTitle({ n, title, hint }: { n: number; title: string; hint?: string }) {
   return (
     <div className="mb-2 flex items-start gap-2">
-      <span className="grid size-6 shrink-0 place-items-center rounded-full text-[length:var(--fs-12)] font-bold text-white" style={{ backgroundColor: TONE }}>{n}</span>
+      <span className="grid size-6 shrink-0 place-items-center rounded-full text-(length:--fs-12) font-bold text-white" style={{ backgroundColor: TONE }}>{n}</span>
       <div className="min-w-0">
-        <h3 className="text-[length:var(--fs-14)] font-semibold text-foreground">{title}</h3>
-        {hint && <p className="text-[length:var(--fs-11)] text-muted-foreground">{hint}</p>}
+        <h3 className="text-(length:--fs-14) font-semibold text-foreground">{title}</h3>
+        {hint && <p className="text-(length:--fs-11) text-muted-foreground">{hint}</p>}
       </div>
     </div>
   );
@@ -125,7 +125,7 @@ function Recorder({ disabled, onRecorded }: { disabled: boolean; onRecorded: (bl
         onClick={recording ? stop : start}
         disabled={disabled || state === 'sending'}
         aria-label={recording ? 'Τέλος ηχογράφησης' : 'Έναρξη ηχογράφησης'}
-        className="relative grid size-12 shrink-0 cursor-pointer place-items-center rounded-full text-white shadow-sm transition-transform duration-150 hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none"
+        className="relative grid size-12 shrink-0 cursor-pointer place-items-center rounded-full text-white shadow-xs transition-transform duration-150 hover:scale-105 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 motion-reduce:transition-none"
         style={{ backgroundColor: REC }}
       >
         {recording && <span className="absolute inset-0 animate-ping rounded-full opacity-30 motion-reduce:hidden" style={{ backgroundColor: REC }} aria-hidden />}
@@ -133,10 +133,10 @@ function Recorder({ disabled, onRecorded }: { disabled: boolean; onRecorded: (bl
           : recording ? <FiSquare className="size-5 fill-current" aria-hidden /> : <FiMic className="size-5" aria-hidden />}
       </button>
       <div className="min-w-0 flex-1">
-        <p className="text-[length:var(--fs-13)] font-semibold text-foreground">
+        <p className="text-(length:--fs-13) font-semibold text-foreground">
           {state === 'sending' ? 'Απομαγνητοφώνηση…' : recording ? 'Ηχογράφηση — μίλα κανονικά' : 'Πάτα και εκφώνησε τις οδηγίες'}
         </p>
-        <p className="text-[length:var(--fs-11)] text-muted-foreground">
+        <p className="text-(length:--fs-11) text-muted-foreground">
           {state === 'sending' ? 'Ο ήχος αποθηκεύεται και γίνεται κείμενο (λίγα δευτερόλεπτα).'
             : recording ? `Πάτα ■ για τέλος · έως ${MAX_SECONDS / 60} λεπτά ανά ηχογράφηση`
               : 'Μπορείς να κάνεις πολλές ηχογραφήσεις — π.χ. μία ανά φάση της εργασίας.'}
@@ -149,7 +149,7 @@ function Recorder({ disabled, onRecorded }: { disabled: boolean; onRecorded: (bl
               <span key={i} className="w-1 rounded-sm transition-[height] duration-75" style={{ height: `${Math.max(12, Math.min(100, level * 140 - i * 6 + (i % 3) * 8))}%`, backgroundColor: REC, opacity: level * 8 > i ? 1 : 0.25 }} />
             ))}
           </div>
-          <span className="text-[length:var(--fs-14)] font-semibold tabular-nums" style={{ color: REC }}>{fmtDur(secs)}</span>
+          <span className="text-(length:--fs-14) font-semibold tabular-nums" style={{ color: REC }}>{fmtDur(secs)}</span>
         </div>
       )}
     </div>
@@ -163,7 +163,8 @@ function NoteCard({ mtrl, note, index, canManage, onSaved, onRetranscribe, onDel
   const [text, setText] = React.useState(note.transcript);
   const [saving, setSaving] = React.useState<'idle' | 'saving' | 'saved'>('idle');
   const [busy, setBusy] = React.useState(false);
-  React.useEffect(() => { setText(note.transcript); }, [note.transcript]);
+  const [prevTranscript, setPrevTranscript] = React.useState(note.transcript);
+  if (note.transcript !== prevTranscript) { setPrevTranscript(note.transcript); setText(note.transcript); }
 
   // Αποθήκευση στο blur — μόνο αν άλλαξε το κείμενο.
   const save = async () => {
@@ -182,21 +183,21 @@ function NoteCard({ mtrl, note, index, canManage, onSaved, onRetranscribe, onDel
   return (
     <li className="rounded-lg border border-border bg-background">
       <div className="flex flex-wrap items-center gap-2 border-b border-border/70 px-2.5 py-1.5">
-        <span className="rounded-full px-2 text-[length:var(--fs-11)] font-semibold tabular-nums" style={{ color: TONE, backgroundColor: soft(TONE, 14) }}>#{index + 1}</span>
+        <span className="rounded-full px-2 text-(length:--fs-11) font-semibold tabular-nums" style={{ color: TONE, backgroundColor: soft(TONE, 14) }}>#{index + 1}</span>
         {note.audioUrl ? (
           <audio src={note.audioUrl} controls preload="none" className="h-8 min-w-0 max-w-full flex-1 sm:max-w-xs" aria-label={`Ηχογράφηση ${index + 1}`} />
         ) : (
-          <span className="flex-1 text-[length:var(--fs-11)] text-muted-foreground"><FiEdit3 className="mr-1 inline size-3" aria-hidden />Γραπτή σημείωση</span>
+          <span className="flex-1 text-(length:--fs-11) text-muted-foreground"><FiEdit3 className="mr-1 inline size-3" aria-hidden />Γραπτή σημείωση</span>
         )}
-        <span className="text-[length:var(--fs-11)] tabular-nums text-muted-foreground">
+        <span className="text-(length:--fs-11) tabular-nums text-muted-foreground">
           {note.durationSec ? `${fmtDur(note.durationSec)} · ` : ''}{fmtWhen(note.createdAt)}
         </span>
-        <span className="min-w-[4.5rem] text-right text-[length:var(--fs-11)] text-muted-foreground" aria-live="polite">
+        <span className="min-w-18 text-right text-(length:--fs-11) text-muted-foreground" aria-live="polite">
           {busy ? 'Απομαγνητοφώνηση…' : saving === 'saving' ? 'Αποθήκευση…' : saving === 'saved' ? <><FiCheck className="inline size-3" aria-hidden /> Αποθηκεύτηκε</> : ''}
         </span>
         {canManage && (
           <DropdownMenu>
-            <DropdownMenuTrigger className="inline-flex size-8 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors duration-150 hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" aria-label={`Ενέργειες για την ηχογράφηση ${index + 1}`}>
+            <DropdownMenuTrigger className="inline-flex size-8 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors duration-150 hover:bg-muted hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring" aria-label={`Ενέργειες για την ηχογράφηση ${index + 1}`}>
               <FiMoreVertical className="size-4" aria-hidden />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56">
@@ -221,7 +222,7 @@ function NoteCard({ mtrl, note, index, canManage, onSaved, onRetranscribe, onDel
         rows={Math.min(10, Math.max(3, Math.ceil(text.length / 90)))}
         placeholder={note.audioUrl ? 'Κενό κείμενο — δοκίμασε «Νέα απομαγνητοφώνηση» ή γράψε εδώ.' : ''}
         aria-label={`Κείμενο ηχογράφησης ${index + 1}`}
-        className="block w-full resize-y rounded-b-lg bg-transparent px-3 py-2 text-[length:var(--fs-13)] leading-relaxed text-foreground outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+        className="block w-full resize-y rounded-b-lg bg-transparent px-3 py-2 text-(length:--fs-13) leading-relaxed text-foreground outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
       />
     </li>
   );
@@ -237,25 +238,23 @@ function SampleTile({ m, canManage, busy, onToggle, onFrames }: {
       <button
         type="button" disabled={!canManage || busy} onClick={onToggle} aria-pressed={on}
         aria-label={`${on ? 'Αφαίρεση από' : 'Σήμανση ως'} δείγμα εγκατάστασης: ${m.name}`}
-        className="block aspect-square w-full cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-default"
+        className="block aspect-square w-full cursor-pointer focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-default"
       >
         {m.kind === 'VIDEO' ? (
           m.sampleFrames[0] || m.thumbUrl
-            // eslint-disable-next-line @next/next/no-img-element
             ? <img src={m.sampleFrames[0] ?? m.thumbUrl ?? ''} alt="" className={cn('size-full object-cover', !on && 'opacity-70')} />
             : <video src={`${m.url}#t=0.5`} preload="metadata" muted playsInline className={cn('pointer-events-none size-full object-cover', !on && 'opacity-70')} />
         ) : (
-          // eslint-disable-next-line @next/next/no-img-element
           <img src={m.thumbUrl ?? m.url} alt="" loading="lazy" className={cn('size-full object-cover', !on && 'opacity-70')} />
         )}
         <span
-          className={cn('absolute left-1.5 top-1.5 grid size-6 place-items-center rounded-md border-2 shadow-sm', on ? 'text-white' : 'border-white bg-black/30 text-transparent')}
+          className={cn('absolute left-1.5 top-1.5 grid size-6 place-items-center rounded-md border-2 shadow-xs', on ? 'text-white' : 'border-white bg-black/30 text-transparent')}
           style={on ? { backgroundColor: TONE, borderColor: TONE } : undefined} aria-hidden
         >
           {busy ? <FiLoader className="size-3.5 animate-spin text-white motion-reduce:animate-none" /> : <FiCheck className="size-3.5" />}
         </span>
         {m.kind === 'VIDEO' && (
-          <span className="absolute bottom-1.5 left-1.5 inline-flex items-center gap-1 rounded-full bg-black/70 px-1.5 py-0.5 text-[length:var(--fs-10)] font-semibold text-white">
+          <span className="absolute bottom-1.5 left-1.5 inline-flex items-center gap-1 rounded-full bg-black/70 px-1.5 py-0.5 text-(length:--fs-10) font-semibold text-white">
             <FiFilm className="size-3" aria-hidden /> {m.sampleFrames.length ? `${m.sampleFrames.length} καρέ` : 'βίντεο'}
           </span>
         )}
@@ -263,7 +262,7 @@ function SampleTile({ m, canManage, busy, onToggle, onFrames }: {
       {noFrames && canManage && (
         <button
           type="button" onClick={onFrames} disabled={busy}
-          className="absolute inset-x-1.5 bottom-1.5 inline-flex cursor-pointer items-center justify-center gap-1 rounded-md bg-amber-500 px-1.5 py-1 text-[length:var(--fs-10)] font-semibold text-amber-950 shadow-sm hover:bg-amber-400"
+          className="absolute inset-x-1.5 bottom-1.5 inline-flex cursor-pointer items-center justify-center gap-1 rounded-md bg-amber-500 px-1.5 py-1 text-(length:--fs-10) font-semibold text-amber-950 shadow-xs hover:bg-amber-400"
         >
           <FiCamera className="size-3" aria-hidden /> Λήψη καρέ
         </button>
@@ -279,15 +278,15 @@ function GuideCard({ g, latest }: { g: InstallGuideDTO; latest: boolean }) {
       <div className="flex flex-wrap items-start gap-2 px-3 py-2">
         <span className="grid size-9 shrink-0 place-items-center rounded-md" style={{ backgroundColor: soft(TONE, 14), color: TONE }} aria-hidden><FiFileText className="size-4" /></span>
         <div className="min-w-0 flex-1">
-          <p className="text-[length:var(--fs-13)] font-semibold text-foreground">{c.title || 'Οδηγός εγκατάστασης'}</p>
-          <p className="text-[length:var(--fs-11)] text-muted-foreground">
+          <p className="text-(length:--fs-13) font-semibold text-foreground">{c.title || 'Οδηγός εγκατάστασης'}</p>
+          <p className="text-(length:--fs-11) text-muted-foreground">
             {fmtWhen(g.createdAt)} · {c.steps.length} βήματα · προφίλ {g.profileLabel}{c.difficulty ? ` · ${c.difficulty}` : ''}
           </p>
         </div>
         {g.pdfUrl && (
           <a
             href={g.pdfUrl} target="_blank" rel="noopener"
-            className="inline-flex h-8 shrink-0 cursor-pointer items-center gap-1.5 rounded-md px-3 text-[length:var(--fs-12)] font-medium text-white transition-opacity duration-150 hover:opacity-90"
+            className="inline-flex h-8 shrink-0 cursor-pointer items-center gap-1.5 rounded-md px-3 text-(length:--fs-12) font-medium text-white transition-opacity duration-150 hover:opacity-90"
             style={{ backgroundColor: TONE }}
           >
             <FiExternalLink className="size-3.5" aria-hidden /> Άνοιγμα PDF
@@ -296,10 +295,10 @@ function GuideCard({ g, latest }: { g: InstallGuideDTO; latest: boolean }) {
       </div>
       {latest && (
         <div className="border-t border-border/70 px-3 py-2">
-          {c.summary && <p className="mb-2 text-[length:var(--fs-12)] text-foreground">{c.summary}</p>}
+          {c.summary && <p className="mb-2 text-(length:--fs-12) text-foreground">{c.summary}</p>}
           <ol className="grid gap-x-4 gap-y-0.5 sm:grid-cols-2">
             {c.steps.map((s, i) => (
-              <li key={i} className="flex gap-1.5 text-[length:var(--fs-12)] text-muted-foreground">
+              <li key={i} className="flex gap-1.5 text-(length:--fs-12) text-muted-foreground">
                 <span className="font-semibold tabular-nums" style={{ color: TONE }}>{i + 1}.</span>
                 <span className="min-w-0 truncate" title={s.title}>{s.title}</span>
               </li>
@@ -339,7 +338,8 @@ export function InstallGuideDialog({ mtrl, open, onOpenChange, canManage, onChan
       return null;
     }
   }, [mtrl]);
-  React.useEffect(() => { if (open) void load(); }, [open, load]);
+  // Το load ξεκινά σε microtask: τα setState του γίνονται σε callback, όχι σύγχρονα στο σώμα του effect.
+  React.useEffect(() => { if (open) void Promise.resolve().then(load); }, [open, load]);
 
   const setNotes = (fn: (n: InstallNoteDTO[]) => InstallNoteDTO[]) => setState((s) => (s ? { ...s, notes: fn(s.notes) } : s));
 
@@ -431,13 +431,13 @@ export function InstallGuideDialog({ mtrl, open, onOpenChange, canManage, onChan
         <DialogHeader className="flex-row items-center gap-3 border-b border-border px-4 py-2.5 pr-12">
           <span aria-hidden className="grid size-9 shrink-0 place-items-center rounded-lg" style={{ backgroundColor: soft(TONE, 14), color: TONE }}><FiTool className="size-4" /></span>
           <div className="min-w-0 flex-1">
-            <DialogTitle className="text-[length:var(--fs-15)]">Οδηγίες εγκατάστασης</DialogTitle>
-            <DialogDescription className="truncate text-[length:var(--fs-11)]">
+            <DialogTitle className="text-(length:--fs-15)">Οδηγίες εγκατάστασης</DialogTitle>
+            <DialogDescription className="truncate text-(length:--fs-11)">
               {state ? `${state.item.code} · ${state.item.name}` : 'Φόρτωση…'}
             </DialogDescription>
           </div>
           {state && (
-            <span className="hidden shrink-0 rounded-full px-2.5 py-0.5 text-[length:var(--fs-11)] font-semibold sm:inline" style={{ color: TONE, backgroundColor: soft(TONE, 12) }} title={state.profile.focus.join(' · ')}>
+            <span className="hidden shrink-0 rounded-full px-2.5 py-0.5 text-(length:--fs-11) font-semibold sm:inline" style={{ color: TONE, backgroundColor: soft(TONE, 12) }} title={state.profile.focus.join(' · ')}>
               Προφίλ: {state.profile.label}
             </span>
           )}
@@ -453,7 +453,7 @@ export function InstallGuideDialog({ mtrl, open, onOpenChange, canManage, onChan
 
         <DialogBody className="space-y-5 py-4">
           {error && !state && (
-            <div role="alert" className="flex items-center gap-2 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-[length:var(--fs-12)]">
+            <div role="alert" className="flex items-center gap-2 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-(length:--fs-12)">
               <FiAlertTriangle className="size-4 text-destructive" aria-hidden /><span className="flex-1">{error}</span>
               <Button variant="outline" size="sm" onClick={() => void load()}><FiRefreshCw aria-hidden /> Δοκιμή ξανά</Button>
             </div>
@@ -483,7 +483,7 @@ export function InstallGuideDialog({ mtrl, open, onOpenChange, canManage, onChan
                     <textarea
                       value={draft} onChange={(e) => setDraft(e.target.value)} rows={4} autoFocus
                       placeholder="Γράψε οδηγίες ή συμπληρώσεις (π.χ. χρόνοι αναμονής, ποσότητες)…" aria-label="Νέα γραπτή σημείωση"
-                      className="block w-full resize-y rounded-md border border-input bg-background px-3 py-2 text-[length:var(--fs-13)] outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      className="block w-full resize-y rounded-md border border-input bg-background px-3 py-2 text-(length:--fs-13) outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
                     />
                     <div className="flex justify-end gap-2">
                       <Button variant="ghost" size="sm" onClick={() => { setWriting(false); setDraft(''); }}>Άκυρο</Button>
@@ -491,7 +491,7 @@ export function InstallGuideDialog({ mtrl, open, onOpenChange, canManage, onChan
                     </div>
                   </div>
                 ) : (
-                  <button type="button" onClick={() => setWriting(true)} className="mt-2 inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-md px-2 text-[length:var(--fs-12)] text-muted-foreground transition-colors duration-150 hover:bg-muted hover:text-foreground">
+                  <button type="button" onClick={() => setWriting(true)} className="mt-2 inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-md px-2 text-(length:--fs-12) text-muted-foreground transition-colors duration-150 hover:bg-muted hover:text-foreground">
                     <FiPlus className="size-3.5" aria-hidden /> Γραπτή σημείωση
                   </button>
                 ))}
@@ -521,7 +521,7 @@ export function InstallGuideDialog({ mtrl, open, onOpenChange, canManage, onChan
                   </div>
                 )}
                 {state.media.length === 0 ? (
-                  <p className="rounded-md border border-dashed border-border px-3 py-5 text-center text-[length:var(--fs-12)] text-muted-foreground">
+                  <p className="rounded-md border border-dashed border-border px-3 py-5 text-center text-(length:--fs-12) text-muted-foreground">
                     <FiImage className="mr-1 inline size-3.5" aria-hidden /> Το είδος δεν έχει ακόμη φωτογραφίες ή βίντεο.
                   </p>
                 ) : (
@@ -541,7 +541,7 @@ export function InstallGuideDialog({ mtrl, open, onOpenChange, canManage, onChan
                       {generating ? <FiLoader className="animate-spin motion-reduce:animate-none" aria-hidden /> : <FiFileText aria-hidden />}
                       {generating ? 'Δημιουργία…' : state.guides.length ? 'Νέος οδηγός & PDF' : 'Δημιουργία οδηγού & PDF'}
                     </Button>
-                    <p className="min-w-0 flex-1 text-[length:var(--fs-11)] text-muted-foreground" aria-live="polite">
+                    <p className="min-w-0 flex-1 text-(length:--fs-11) text-muted-foreground" aria-live="polite">
                       {generating ? 'Συνθέτω τον οδηγό και φτιάχνω το PDF — περίπου 30-60 δευτερόλεπτα.'
                         : !hasText ? 'Χρειάζεται τουλάχιστον μία ηχογράφηση με κείμενο.'
                           : `${state.notes.filter((n) => n.transcript.trim()).length} κείμενα · ${usable} δείγματα με εικόνα`}
@@ -553,7 +553,7 @@ export function InstallGuideDialog({ mtrl, open, onOpenChange, canManage, onChan
                     {state.guides.map((g, i) => <GuideCard key={g.id} g={g} latest={i === 0} />)}
                   </div>
                 ) : !canManage && (
-                  <p className="text-[length:var(--fs-12)] text-muted-foreground">Δεν υπάρχει ακόμη οδηγός.</p>
+                  <p className="text-(length:--fs-12) text-muted-foreground">Δεν υπάρχει ακόμη οδηγός.</p>
                 )}
               </section>
             </>

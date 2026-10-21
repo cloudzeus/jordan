@@ -14,7 +14,7 @@ import { ProjectSiteDialog } from './project-site-dialog';
 import { emitProjectRefresh } from './project-events';
 import { ExportItem, useFinancialsActions } from './financials-actions';
 
-const ITEM = 'cursor-pointer gap-2 text-[length:var(--fs-12)]';
+const ITEM = 'cursor-pointer gap-2 text-(length:--fs-12)';
 
 // three.js + pdfjs φορτώνονται μόνο όταν ανοίξει το εργαλείο.
 const FloorPlanDialog = dynamic(() => import('@/components/admin/floorplan/floor-plan-dialog').then((m) => m.FloorPlanDialog), { ssr: false });
@@ -63,14 +63,14 @@ export function ProjectRowActions({
     <>
       <DropdownMenu>
         <DropdownMenuTrigger
-          className="inline-flex size-8 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors duration-150 hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring data-[state=open]:bg-muted data-[state=open]:text-foreground"
+          className="inline-flex size-8 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors duration-150 hover:bg-muted hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring data-[state=open]:bg-muted data-[state=open]:text-foreground"
           aria-label={`Ενέργειες για το έργο ${code}`}
           onClick={(e) => e.stopPropagation()}
         >
           <FiMoreVertical className="size-4" aria-hidden />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-60">
-          <DropdownMenuLabel className="truncate text-[length:var(--fs-11)] font-semibold text-muted-foreground">
+          <DropdownMenuLabel className="truncate text-(length:--fs-11) font-semibold text-muted-foreground">
             {code} · {name}
           </DropdownMenuLabel>
           {canManage && (

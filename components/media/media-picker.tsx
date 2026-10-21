@@ -43,21 +43,20 @@ export function MediaPicker({
 
   return (
     <div className={`flex flex-col gap-1.5 ${className ?? ''}`}>
-      {label && <span className="text-[length:var(--fs-11)] font-medium text-muted-foreground">{label}</span>}
+      {label && <span className="text-(length:--fs-11) font-medium text-muted-foreground">{label}</span>}
 
       {value ? (
         <div className="flex items-center gap-2 rounded-lg border border-border bg-card p-1.5">
           <div className="relative flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-md bg-muted ring-1 ring-border">
             {value.isImage ? (
-              // eslint-disable-next-line @next/next/no-img-element
               <img src={value.publicUrl} alt={value.name} className="size-full object-cover" />
             ) : (
               <FiImage className="size-5 text-muted-foreground" aria-hidden />
             )}
           </div>
           <div className="flex-1 min-w-0">
-            <div className="truncate text-[length:var(--fs-13)] font-medium text-foreground" title={value.name}>{value.name}</div>
-            <div className="truncate text-[length:var(--fs-11)] tabular-nums text-muted-foreground">
+            <div className="truncate text-(length:--fs-13) font-medium text-foreground" title={value.name}>{value.name}</div>
+            <div className="truncate text-(length:--fs-11) tabular-nums text-muted-foreground">
               {value.mimeType}
               {value.width && value.height && ` · ${value.width}×${value.height}`}
             </div>
@@ -81,7 +80,7 @@ export function MediaPicker({
       ) : (
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
-            <Button type="button" variant="outline" className="h-8 w-full justify-start gap-2 text-[length:var(--fs-13)]">
+            <Button type="button" variant="outline" className="h-8 w-full justify-start gap-2 text-(length:--fs-13)">
               <FiFolder className="text-muted-foreground" /> {triggerLabel}
             </Button>
           </DialogTrigger>
@@ -102,8 +101,8 @@ function PickerDialogBody({
           <FiImage className="size-4" />
         </span>
         <div className="min-w-0 text-left">
-          <DialogTitle className="text-[length:var(--fs-15)]">Επιλογή από Media Gallery</DialogTitle>
-          <DialogDescription className="truncate text-[length:var(--fs-11)]">
+          <DialogTitle className="text-(length:--fs-15)">Επιλογή από Media Gallery</DialogTitle>
+          <DialogDescription className="truncate text-(length:--fs-11)">
             Διάλεξε υπάρχον αρχείο ή ανέβασε νέα. Click σε αρχείο για επιλογή.
           </DialogDescription>
         </div>

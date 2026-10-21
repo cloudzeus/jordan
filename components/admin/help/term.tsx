@@ -17,15 +17,15 @@ export function Term({ k, children }: { k: GlossaryKey; children?: React.ReactNo
       <PopoverTrigger asChild>
         <button
           type="button"
-          className="inline-flex cursor-help items-baseline gap-0.5 rounded-sm border-b border-dotted border-current font-medium text-sisyphus-700 outline-none hover:text-sisyphus-800 focus-visible:ring-2 focus-visible:ring-sisyphus-500/40 dark:text-sisyphus-300"
+          className="inline-flex cursor-help items-baseline gap-0.5 rounded-sm border-b border-dotted border-current font-medium text-sisyphus-700 outline-hidden hover:text-sisyphus-800 focus-visible:ring-2 focus-visible:ring-sisyphus-500/40 dark:text-sisyphus-300"
           aria-label={`Τι σημαίνει «${g.term}»;`}
         >
           {children ?? g.term}
           <FiHelpCircle aria-hidden className="size-3 self-center opacity-70" />
         </button>
       </PopoverTrigger>
-      <PopoverContent align="start" className="w-72 space-y-1.5 text-[length:var(--fs-12)]">
-        <p className="text-[length:var(--fs-13)] font-semibold text-foreground">{g.term}</p>
+      <PopoverContent align="start" className="w-72 space-y-1.5 text-(length:--fs-12)">
+        <p className="text-(length:--fs-13) font-semibold text-foreground">{g.term}</p>
         <p className="text-foreground/90">{g.what}</p>
         <p className="text-muted-foreground"><span className="font-medium text-foreground">Παράδειγμα:</span> {g.example}</p>
         {g.forYou && <p className="rounded-md bg-sisyphus-500/[0.07] px-2 py-1.5 text-foreground">{g.forYou}</p>}

@@ -56,9 +56,12 @@ export function SupplierProductsView({ groups, lastSync, canManage }: { groups: 
   }, [groups, deferredQ, sector]);
 
   // Όταν η αναζήτηση βρίσκει ΕΙΔΗ, οι προμηθευτές τους ανοίγουν μόνοι τους.
-  React.useEffect(() => {
+  // («Adjust state while rendering»· αρχικό `[]` ⇒ και στο πρώτο render, όπως το effect.)
+  const [prevDeps, setPrevDeps] = React.useState<readonly unknown[]>([]);
+  if (prevDeps.length === 0 || !Object.is(prevDeps[0], deferredQ) || !Object.is(prevDeps[1], filtered)) {
+    setPrevDeps([deferredQ, filtered]);
     if (deferredQ.trim()) setOpen(filtered.slice(0, 20).map((g) => String(g.trdr)));
-  }, [deferredQ, filtered]);
+  }
 
   const sync = async () => {
     setSyncing(true);
@@ -76,9 +79,9 @@ export function SupplierProductsView({ groups, lastSync, canManage }: { groups: 
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-2">
-        <div className="relative min-w-[14rem] flex-1">
+        <div className="relative min-w-56 flex-1">
           <FiSearch aria-hidden className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
-          <Input id="sp-search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Αναζήτηση προμηθευτή ή είδους…" className="h-8 pl-8 text-[length:var(--fs-13)]" />
+          <Input id="sp-search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Αναζήτηση προμηθευτή ή είδους…" className="h-8 pl-8 text-(length:--fs-13)" />
         </div>
         <div className="w-full sm:w-64">
           <FormSelect id="sp-sector" value={sector} onChange={(v) => setSector(v === '__all' ? '' : v)} ariaLabel="Κλάδος"
@@ -90,14 +93,14 @@ export function SupplierProductsView({ groups, lastSync, canManage }: { groups: 
           </Button>
         )}
       </div>
-      <p className="text-[length:var(--fs-12)] text-muted-foreground">
+      <p className="text-(length:--fs-12) text-muted-foreground">
         {filtered.length.toLocaleString('el-GR')} προμηθευτές · {totalProducts.toLocaleString('el-GR')} είδη
         {lastSync ? ` · ενημέρωση ${new Date(lastSync).toLocaleString('el-GR', { timeZone: 'Europe/Athens' })}` : ' · δεν έχει γίνει ακόμα συγχρονισμός'}
         {' · ποσότητα και αξία από τιμολόγια μείον πιστωτικά'}
       </p>
 
       {filtered.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-border px-4 py-10 text-center text-[length:var(--fs-13)] text-muted-foreground">
+        <div className="rounded-lg border border-dashed border-border px-4 py-10 text-center text-(length:--fs-13) text-muted-foreground">
           {groups.length === 0 ? 'Δεν υπάρχουν ακόμα δεδομένα — πάτα «Ανανέωση από SoftOne».' : 'Κανένα αποτέλεσμα για αυτή την αναζήτηση.'}
         </div>
       ) : (
@@ -108,17 +111,17 @@ export function SupplierProductsView({ groups, lastSync, canManage }: { groups: 
                 <span className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-1">
                   <span className="min-w-0 flex-1">
                     <span className="block truncate font-medium">{g.name}</span>
-                    <span className="block text-[length:var(--fs-11)] font-normal text-muted-foreground">
+                    <span className="block text-(length:--fs-11) font-normal text-muted-foreground">
                       <span className="font-mono">{g.code}</span>{g.afm ? ` · ΑΦΜ ${g.afm}` : ''}{g.city ? ` · ${g.city}` : ''}
                     </span>
                   </span>
                   {g.group && (
                     <span title={g.classProposed ? 'Αυτόματη πρόταση — δεν έχει εγκριθεί' : 'Εγκεκριμένη κατηγορία'}
-                      className={cn('rounded-full px-2 py-0.5 text-[length:var(--fs-11)] font-normal', g.classProposed ? 'border border-dashed border-amber-400 text-amber-800 dark:text-amber-300' : 'bg-amber-100 text-amber-900 dark:bg-amber-900/40 dark:text-amber-200')}>
+                      className={cn('rounded-full px-2 py-0.5 text-(length:--fs-11) font-normal', g.classProposed ? 'border border-dashed border-amber-400 text-amber-800 dark:text-amber-300' : 'bg-amber-100 text-amber-900 dark:bg-amber-900/40 dark:text-amber-200')}>
                       {g.group}
                     </span>
                   )}
-                  <span className="flex shrink-0 items-center gap-3 text-[length:var(--fs-12)] font-normal tabular-nums text-muted-foreground">
+                  <span className="flex shrink-0 items-center gap-3 text-(length:--fs-12) font-normal tabular-nums text-muted-foreground">
                     <span className="inline-flex items-center gap-1"><FiPackage aria-hidden className="size-3" />{g.products.length}</span>
                     <span className="w-28 text-right font-medium text-foreground">{eur.format(g.total)}</span>
                     <span className="hidden w-20 text-right sm:inline">{date(g.lastDate)}</span>
@@ -127,8 +130,8 @@ export function SupplierProductsView({ groups, lastSync, canManage }: { groups: 
               </AccordionTrigger>
               <AccordionContent>
                 <div className="-mx-3 overflow-x-auto">
-                  <table className="w-full min-w-[40rem] text-[length:var(--fs-12)]">
-                    <thead className="bg-muted/50 text-[length:var(--fs-11)] text-muted-foreground">
+                  <table className="w-full min-w-160 text-(length:--fs-12)">
+                    <thead className="bg-muted/50 text-(length:--fs-11) text-muted-foreground">
                       <tr>
                         <th className="px-3 py-1.5 text-left font-medium">Κωδικός</th>
                         <th className="px-2 py-1.5 text-left font-medium">Είδος</th>
@@ -145,7 +148,7 @@ export function SupplierProductsView({ groups, lastSync, canManage }: { groups: 
                           <td className="whitespace-nowrap px-3 py-1.5 font-mono text-muted-foreground">{p.code ?? '—'}</td>
                           <td className="px-2 py-1.5">
                             {p.name}
-                            {p.isService && <span className="ml-1.5 rounded bg-muted px-1 text-[length:var(--fs-11)] text-muted-foreground">υπηρεσία</span>}
+                            {p.isService && <span className="ml-1.5 rounded bg-muted px-1 text-(length:--fs-11) text-muted-foreground">υπηρεσία</span>}
                           </td>
                           <td className="px-2 py-1.5 text-right">{p.docs}</td>
                           <td className="px-2 py-1.5 text-right">{qtyFmt.format(p.qty)}</td>

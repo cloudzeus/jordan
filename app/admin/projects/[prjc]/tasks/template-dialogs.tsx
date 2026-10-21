@@ -12,15 +12,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogBody, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { applyTemplateItems, durationLabel } from '@/lib/project-tasks-core';
 import type { TaskView, TemplateView } from '@/lib/project-tasks';
+import { unwrap } from '@/lib/action-result';
+import { applyTemplateAction, createTemplateAction } from '../../actions';
 
 const fmt = (d: string) => new Date(`${d}T00:00:00Z`).toLocaleDateString('el-GR', { timeZone: 'UTC', weekday: 'short', day: 'numeric', month: 'short' });
 
-async function post(url: string, body: unknown) {
-  const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data?.message || 'Η ενέργεια απέτυχε');
-  return data;
-}
 
 /** «Αποθήκευση ως template»: όλα ή μέρος των tasks του έργου, με όνομα. */
 export function SaveTemplateDialog({ open, onOpenChange, prjc, tasks, onSaved }: { open: boolean; onOpenChange: (o: boolean) => void; prjc: number; tasks: TaskView[]; onSaved: () => void }) {
@@ -29,7 +25,12 @@ export function SaveTemplateDialog({ open, onOpenChange, prjc, tasks, onSaved }:
   const [picked, setPicked] = React.useState<string[]>([]);
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
-  React.useEffect(() => { if (open) { setName(''); setDescription(''); setPicked(tasks.map((t) => t.id)); setError(null); } }, [open, tasks]);
+  // Επαναφορά στο άνοιγμα (adjust-state-while-rendering)
+  const [prevDeps, setPrevDeps] = React.useState({ open: false, tasks });
+  if (prevDeps.open !== open || prevDeps.tasks !== tasks) {
+    setPrevDeps({ open, tasks });
+    if (open) { setName(''); setDescription(''); setPicked(tasks.map((t) => t.id)); setError(null); }
+  }
 
   const ordered = [...tasks].sort((a, b) => a.sched.start.localeCompare(b.sched.start));
   const missingDeps = ordered.filter((t) => picked.includes(t.id) && t.dependsOn.some((d) => !picked.includes(d)));
@@ -38,7 +39,7 @@ export function SaveTemplateDialog({ open, onOpenChange, prjc, tasks, onSaved }:
     if (!name.trim()) { setError('Δώστε όνομα στο template'); return; }
     setBusy(true); setError(null);
     try {
-      await post('/api/admin/task-templates', { name: name.trim(), description: description.trim() || null, prjc, taskIds: picked });
+      await unwrap(createTemplateAction({ name: name.trim(), description: description.trim() || null, prjc, taskIds: picked }));
       toast.success(`Αποθηκεύτηκε το template «${name.trim()}»`, { description: `${picked.length} εργασίες` });
       onSaved();
       onOpenChange(false);
@@ -64,25 +65,25 @@ export function SaveTemplateDialog({ open, onOpenChange, prjc, tasks, onSaved }:
             </div>
             <fieldset className="space-y-1.5">
               <div className="flex items-center justify-between">
-                <legend className="text-[length:var(--fs-13)] font-medium">Εργασίες ({picked.length}/{tasks.length})</legend>
-                <button type="button" className="min-h-8 cursor-pointer text-[length:var(--fs-12)] font-medium text-primary hover:underline" onClick={() => setPicked(picked.length === tasks.length ? [] : tasks.map((t) => t.id))}>
+                <legend className="text-(length:--fs-13) font-medium">Εργασίες ({picked.length}/{tasks.length})</legend>
+                <button type="button" className="min-h-8 cursor-pointer text-(length:--fs-12) font-medium text-primary hover:underline" onClick={() => setPicked(picked.length === tasks.length ? [] : tasks.map((t) => t.id))}>
                   {picked.length === tasks.length ? 'Καμία' : 'Όλες'}
                 </button>
               </div>
               <ul className="max-h-64 space-y-0.5 overflow-auto rounded-md border border-border p-1.5">
                 {ordered.map((t) => (
                   <li key={t.id}>
-                    <label className="flex min-h-9 cursor-pointer items-center gap-2 rounded px-2 text-[length:var(--fs-13)] hover:bg-muted">
+                    <label className="flex min-h-9 cursor-pointer items-center gap-2 rounded px-2 text-(length:--fs-13) hover:bg-muted">
                       <Checkbox checked={picked.includes(t.id)} onCheckedChange={(c) => setPicked((p) => (c ? [...p, t.id] : p.filter((x) => x !== t.id)))} />
                       <span className="min-w-0 flex-1 truncate">{t.name}</span>
-                      <span className="shrink-0 text-[length:var(--fs-11)] tabular-nums text-muted-foreground">{fmt(t.sched.start)}</span>
+                      <span className="shrink-0 text-(length:--fs-11) tabular-nums text-muted-foreground">{fmt(t.sched.start)}</span>
                     </label>
                   </li>
                 ))}
               </ul>
-              {missingDeps.length > 0 && <p className="text-[length:var(--fs-11)] text-amber-700 dark:text-amber-300">Εξαρτήσεις προς μη επιλεγμένες εργασίες δεν θα κρατηθούν ({missingDeps.map((t) => t.name).join(', ')}).</p>}
+              {missingDeps.length > 0 && <p className="text-(length:--fs-11) text-amber-700 dark:text-amber-300">Εξαρτήσεις προς μη επιλεγμένες εργασίες δεν θα κρατηθούν ({missingDeps.map((t) => t.name).join(', ')}).</p>}
             </fieldset>
-            {error && <p role="alert" className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-[length:var(--fs-12)] text-destructive">{error}</p>}
+            {error && <p role="alert" className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-(length:--fs-12) text-destructive">{error}</p>}
           </form>
         </DialogBody>
         <DialogFooter>
@@ -105,7 +106,12 @@ export function ApplyTemplateDialog({ open, onOpenChange, prjc, templates, today
   const [start, setStart] = React.useState(today);
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
-  React.useEffect(() => { if (open) { setTplId(templates[0]?.id ?? ''); setTarget(prjc ? String(prjc) : ''); setStart(today); setError(null); } }, [open, templates, today, prjc]);
+  // Επαναφορά στο άνοιγμα (adjust-state-while-rendering)
+  const [prevDeps, setPrevDeps] = React.useState({ open: false, templates, today, prjc });
+  if (prevDeps.open !== open || prevDeps.templates !== templates || prevDeps.today !== today || prevDeps.prjc !== prjc) {
+    setPrevDeps({ open, templates, today, prjc });
+    if (open) { setTplId(templates[0]?.id ?? ''); setTarget(prjc ? String(prjc) : ''); setStart(today); setError(null); }
+  }
 
   const tpl = templates.find((t) => t.id === tplId) ?? null;
   const preview = tpl && start ? applyTemplateItems(tpl.items, start) : [];
@@ -115,7 +121,7 @@ export function ApplyTemplateDialog({ open, onOpenChange, prjc, templates, today
     if (!tpl || !projectId || !start) return;
     setBusy(true); setError(null);
     try {
-      const r = await post(`/api/admin/task-templates/${tpl.id}/apply`, { prjc: projectId, startDate: start });
+      const r = await unwrap(applyTemplateAction(tpl.id, { prjc: projectId, startDate: start }));
       toast.success(`Προστέθηκαν ${r.count} εργασίες από «${tpl.name}»`, projects ? { action: { label: 'Άνοιγμα', onClick: () => { window.location.href = `/admin/projects/${projectId}/tasks`; } } } : undefined);
       onApplied();
       onOpenChange(false);
@@ -131,7 +137,7 @@ export function ApplyTemplateDialog({ open, onOpenChange, prjc, templates, today
         </DialogHeader>
         <DialogBody>
           {templates.length === 0 ? (
-            <p className="py-6 text-center text-[length:var(--fs-13)] text-muted-foreground">Δεν υπάρχουν templates ακόμη — αποθηκεύστε ένα από τις εργασίες ενός έργου.</p>
+            <p className="py-6 text-center text-(length:--fs-13) text-muted-foreground">Δεν υπάρχουν templates ακόμη — αποθηκεύστε ένα από τις εργασίες ενός έργου.</p>
           ) : (
             <div className="space-y-4">
               <div className="space-y-1.5">
@@ -156,8 +162,8 @@ export function ApplyTemplateDialog({ open, onOpenChange, prjc, templates, today
               </div>
               {preview.length > 0 && (
                 <div>
-                  <p className="mb-1 text-[length:var(--fs-12)] font-medium text-muted-foreground">Προεπισκόπηση (εργάσιμες ημέρες)</p>
-                  <ol className="max-h-56 space-y-0.5 overflow-auto rounded-md border border-border p-1.5 text-[length:var(--fs-12)]">
+                  <p className="mb-1 text-(length:--fs-12) font-medium text-muted-foreground">Προεπισκόπηση (εργάσιμες ημέρες)</p>
+                  <ol className="max-h-56 space-y-0.5 overflow-auto rounded-md border border-border p-1.5 text-(length:--fs-12)">
                     {preview.map((p) => (
                       <li key={p.key} className="flex min-h-8 items-center gap-2 px-2">
                         <span className="min-w-0 flex-1 truncate">{p.name}</span>
@@ -168,7 +174,7 @@ export function ApplyTemplateDialog({ open, onOpenChange, prjc, templates, today
                   </ol>
                 </div>
               )}
-              {error && <p role="alert" className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-[length:var(--fs-12)] text-destructive">{error}</p>}
+              {error && <p role="alert" className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-(length:--fs-12) text-destructive">{error}</p>}
             </div>
           )}
         </DialogBody>

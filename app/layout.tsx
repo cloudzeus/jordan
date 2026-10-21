@@ -37,8 +37,8 @@ const siteSerif = Noto_Serif_Display({
 export const metadata: Metadata = {
   // Τελική δημόσια διεύθυνση (lib/app-url.ts): απόλυτα URL για OG/canonical/εικόνες.
   metadataBase: new URL(appUrl()),
-  title: { default: 'DGEspa', template: '%s · DGEspa' },
-  description: 'DGEspa — διαχείριση και ροές εργασίας ΕΣΠΑ.',
+  title: { default: 'Atelier by Damask', template: '%s · Atelier by Damask' },
+  description: 'Atelier by Damask — έργα, προσφορές, συνταγές τοποθέτησης και SoftOne.',
 };
 
 export const viewport: Viewport = {
@@ -56,7 +56,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <Toaster
           position="top-right"
           toastOptions={{
-            className: '!rounded-xl !border !border-border !bg-card !text-foreground !shadow-pop !text-[length:var(--fs-13)]',
+            className: 'rounded-xl! border! border-border! bg-card! text-foreground! shadow-pop! text-(length:--fs-13)!',
           }}
         />
       </body>

@@ -18,19 +18,41 @@ export type GeocodeResult = {
   relevance?: number;
 };
 
-async function maptilerFetch(url: string): Promise<any> {
+/** Υποσύνολο της απάντησης του MapTiler Geocoding που διαβάζουμε. */
+type MaptilerContext = { id?: string; text?: string; country_code?: string; properties?: { country_code?: string } };
+type MaptilerFeature = {
+  center?: [number, number];
+  place_type?: string[];
+  place_name?: string;
+  text?: string;
+  address?: string;
+  relevance?: number;
+  context?: MaptilerContext[];
+  properties?: { country_code?: string };
+};
+export type MaptilerGeocodeResponse = { features?: MaptilerFeature[] };
+
+/** Υποσύνολο ενός αποτελέσματος Nominatim (jsonv2) που διαβάζουμε. */
+type NominatimResult = {
+  lat?: string | number;
+  lon?: string | number;
+  display_name?: string;
+  address?: Record<string, unknown>;
+};
+
+async function maptilerFetch(url: string): Promise<MaptilerGeocodeResponse> {
   if (!MAPTILER_KEY) throw new Error('MAPTILER_API_KEY is not configured');
   const res = await fetch(url, { cache: 'no-store' });
   if (!res.ok) throw new Error(`MapTiler ${res.status}: ${await res.text().catch(() => res.statusText)}`);
   return res.json();
 }
 
-export async function forwardGeocode(query: string, country = 'gr'): Promise<any> {
+export async function forwardGeocode(query: string, country = 'gr'): Promise<MaptilerGeocodeResponse> {
   const url = `https://api.maptiler.com/geocoding/${encodeURIComponent(query)}.json?key=${MAPTILER_KEY}&country=${country}&limit=1`;
   return maptilerFetch(url);
 }
 
-export async function reverseGeocode(lat: number, lng: number): Promise<any> {
+export async function reverseGeocode(lat: number, lng: number): Promise<MaptilerGeocodeResponse> {
   const url = `https://api.maptiler.com/geocoding/${lng},${lat}.json?key=${MAPTILER_KEY}`;
   return maptilerFetch(url);
 }
@@ -55,9 +77,9 @@ export async function geocodeAddress(parts: {
     return {
       lat, lng,
       formatted: f.place_name ?? query,
-      country: f.context?.find((c: any) => c.id?.startsWith('country'))?.text,
-      region: f.context?.find((c: any) => c.id?.startsWith('region'))?.text,
-      city: f.context?.find((c: any) => c.id?.startsWith('place'))?.text,
+      country: f.context?.find((c) => c.id?.startsWith('country'))?.text,
+      region: f.context?.find((c) => c.id?.startsWith('region'))?.text,
+      city: f.context?.find((c) => c.id?.startsWith('place'))?.text,
       relevance: f.relevance,
     };
   } catch {
@@ -131,7 +153,7 @@ export class GeocodeUnavailableError extends Error {
  * `fetch` με προθεσμία. Πετάει {@link GeocodeUnavailableError} όταν ο πάροχος δεν
  * απάντησε — ΠΟΤΕ `null`: το `null` θα ήταν αδιάκριτο από «κανένα αποτέλεσμα».
  */
-async function fetchJson(url: string, headers: Record<string, string> = {}): Promise<any> {
+async function fetchJson<T>(url: string, headers: Record<string, string> = {}): Promise<T> {
   const ac = new AbortController();
   const timer = setTimeout(() => ac.abort(), GEOCODE_TIMEOUT_MS);
   try {
@@ -200,7 +222,7 @@ type MapTilerEntry = { type: string; text: string | null; countryCode: string | 
 async function maptilerParts(q: string, key: string, countryHint?: string): Promise<AddressParts | null> {
   const params = new URLSearchParams({ key, limit: '1', language: 'el,en' });
   if (countryHint) params.set('country', countryHint.toLowerCase());
-  const data = await fetchJson(
+  const data = await fetchJson<MaptilerGeocodeResponse | null>(
     `https://api.maptiler.com/geocoding/${encodeURIComponent(q)}.json?${params.toString()}`,
   );
   const f = data?.features?.[0];
@@ -251,7 +273,7 @@ async function maptilerParts(q: string, key: string, countryHint?: string): Prom
 async function nominatimParts(q: string, countryHint?: string): Promise<AddressParts | null> {
   const params = new URLSearchParams({ format: 'jsonv2', addressdetails: '1', limit: '1', q });
   if (countryHint) params.set('countrycodes', countryHint.toLowerCase());
-  const data = await fetchJson(
+  const data = await fetchJson<NominatimResult[] | null>(
     `https://nominatim.openstreetmap.org/search?${params.toString()}`,
     { 'User-Agent': NOMINATIM_UA, 'Accept-Language': 'el,en' },
   );

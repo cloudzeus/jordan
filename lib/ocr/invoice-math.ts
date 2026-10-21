@@ -190,7 +190,7 @@ function impliedDiscount(l: RawLine): number | null {
 
 /** Εφαρμόζει βήματα με τη σειρά τους· ΚΑΘΑΡΟ — επιστρέφει νέα ποσά. */
 export function applySteps(input: TotalsInput, steps: FixStep[]): TotalsInput {
-  let cur: TotalsInput = { ...input, items: input.items.map((l) => ({ ...l })) };
+  const cur: TotalsInput = { ...input, items: input.items.map((l) => ({ ...l })) };
   for (const st of steps) {
     const rec = reconcileInvoice(cur);
     if (st.kind === 'line_discount') {

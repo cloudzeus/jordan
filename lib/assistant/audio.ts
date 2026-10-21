@@ -1,7 +1,6 @@
 // lib/assistant/audio.ts — ΚΑΘΑΡΟ. Μορφές ήχου και ανάγνωση της απάντησης μεταγραφής.
 
-const AUDIO_FORMATS = ['webm', 'mp4', 'wav', 'mp3', 'ogg', 'm4a', 'aac', 'flac'] as const;
-export type AudioFormat = (typeof AUDIO_FORMATS)[number];
+export type AudioFormat = 'webm' | 'mp4' | 'wav' | 'mp3' | 'ogg' | 'm4a' | 'aac' | 'flac';
 
 /** `audio/webm;codecs=opus` → `webm`, `audio/x-m4a` → `m4a`· άγνωστο → null. */
 export function audioFormatOf(mime: string): AudioFormat | null {

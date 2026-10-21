@@ -1,17 +1,12 @@
-import { requireUser } from '@/lib/rbac';
+import type { Metadata } from 'next';
+import { requireParty } from '@/lib/rbac';
+import { NotLinked, PartyHome } from '../_party/party-home';
 
 export const dynamic = 'force-dynamic';
+export const metadata: Metadata = { title: 'Συνεργείο' };
 
-// Προμηθευτές: το portal τους δεν υπάρχει ακόμη — ευγενικό μήνυμα αντί για 404.
+/** Συνεργεία (προμηθευτές SoftOne με ρόλο SUPPLIER): αναθέσεις, πρόγραμμα, πληρωμές. */
 export default async function SupplierHome() {
-  const u = await requireUser();
-  return (
-    <main className="grid min-h-dvh place-items-center bg-slate-50 p-6">
-      <div className="max-w-md rounded-xl border border-border bg-white p-6 text-center shadow-sm">
-        <h1 className="text-[length:var(--fs-20)] font-bold">Καλώς ήρθατε{u.name ? `, ${u.name}` : ''}</h1>
-        <p className="mt-2 text-[length:var(--fs-14)] text-muted-foreground">Η περιοχή προμηθευτών ετοιμάζεται. Θα σας ενημερώσουμε μόλις είναι διαθέσιμη.</p>
-        <form action="/api/auth/logout" method="post" className="mt-4"><button className="cursor-pointer text-[length:var(--fs-13)] text-sisyphus-700 underline">Αποσύνδεση</button></form>
-      </div>
-    </main>
-  );
+  const { user, party } = await requireParty();
+  return party ? <PartyHome user={user} party={party} /> : <NotLinked user={user} />;
 }

@@ -40,11 +40,11 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   let out: Buffer;
   try {
     out = await rasterizeToWebp(buf, 'application/pdf', { page, scale });
-  } catch (err: any) {
-    if (err?.message === 'page out of range') {
+  } catch (err) {
+    if ((err as Error)?.message === 'page out of range') {
       return NextResponse.json({ error: 'page out of range' }, { status: 422 });
     }
-    return NextResponse.json({ error: `render failed: ${err?.message ?? err}` }, { status: 502 });
+    return NextResponse.json({ error: `render failed: ${(err as Error)?.message ?? err}` }, { status: 502 });
   }
 
   return new NextResponse(new Uint8Array(out), {

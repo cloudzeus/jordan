@@ -53,7 +53,8 @@ export function ItemSupplierDialog({ open, onOpenChange, lineId }: { open: boole
 
   React.useEffect(() => {
     if (!open) return;
-    void load();
+    // Το load ξεκινά σε microtask: τα setState του γίνονται σε callback, όχι σύγχρονα στο σώμα του effect.
+    void Promise.resolve().then(load);
     fetch('/api/admin/ocr/posting-enabled', { cache: 'no-store' }).then((r) => (r.ok ? r.json() : null))
       .then((d) => setPostingEnabled(d?.enabled === true)).catch(() => setPostingEnabled(null));
   }, [open, load]);
@@ -105,10 +106,10 @@ export function ItemSupplierDialog({ open, onOpenChange, lineId }: { open: boole
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="flex max-h-[92dvh] flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl">
         <DialogHeader className="border-b border-border px-5 pt-4 pb-3 pr-12">
-          <DialogTitle className="flex items-center gap-2 text-[length:var(--fs-15)]">
+          <DialogTitle className="flex items-center gap-2 text-(length:--fs-15)">
             <FiTag aria-hidden className="size-4 text-sisyphus-600" /> Κωδικός & τιμή προμηθευτή
           </DialogTitle>
-          <DialogDescription className="text-[length:var(--fs-12)]">
+          <DialogDescription className="text-(length:--fs-12)">
             {data?.item ? <><span className="font-mono">{data.item.code}</span> — {data.item.name}</> : 'Είδος της γραμμής'}
             {data && <> · από <strong>{data.supplierName}</strong></>}
           </DialogDescription>
@@ -117,7 +118,7 @@ export function ItemSupplierDialog({ open, onOpenChange, lineId }: { open: boole
 
         {busy === 'load' && <div className="space-y-2" role="status"><span className="sr-only">Ανάγνωση από τη SoftOne…</span>{[0, 1, 2].map((i) => <div key={i} className="h-7 animate-pulse rounded bg-muted motion-reduce:animate-none" />)}</div>}
         {loadError && (
-          <p className="flex items-start gap-1.5 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-[length:var(--fs-12)] text-amber-900 dark:bg-amber-950/40 dark:text-amber-200" role="alert">
+          <p className="flex items-start gap-1.5 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-(length:--fs-12) text-amber-900 dark:bg-amber-950/40 dark:text-amber-200" role="alert">
             <FiAlertTriangle aria-hidden className="mt-0.5 size-4 shrink-0" /> {loadError}
             <button type="button" onClick={() => void load()} className="ml-auto cursor-pointer font-semibold underline">Ξανά</button>
           </p>
@@ -127,8 +128,8 @@ export function ItemSupplierDialog({ open, onOpenChange, lineId }: { open: boole
           <div className="space-y-3">
             <FormSection tone="blue" icon={<FiUsers />} title="Προμηθευτές του είδους" aside="όπως είναι τώρα στη SoftOne">
               <div className="-mx-3 -mt-2.5 overflow-x-auto border-b border-border">
-                <table className="w-full text-[length:var(--fs-12)]">
-                  <thead className="bg-muted/50 text-[length:var(--fs-11)] text-muted-foreground">
+                <table className="w-full text-(length:--fs-12)">
+                  <thead className="bg-muted/50 text-(length:--fs-11) text-muted-foreground">
                     <tr>
                       <th className="px-2 py-1.5 text-left font-medium">Προμηθευτής</th>
                       <th className="px-2 py-1.5 text-left font-medium">Κωδικός του</th>
@@ -141,13 +142,13 @@ export function ItemSupplierDialog({ open, onOpenChange, lineId }: { open: boole
                       <tr key={r.trdr} className={r.current ? 'bg-sisyphus-50/60 dark:bg-sisyphus-500/10' : undefined}>
                         <td className="px-2 py-1.5">
                           <span className={r.current ? 'font-semibold' : undefined}>{r.name}</span>
-                          {r.current && <span className="ml-1 text-[length:var(--fs-10)] text-sisyphus-700 dark:text-sisyphus-300">· αυτό το τιμολόγιο</span>}
+                          {r.current && <span className="ml-1 text-(length:--fs-10) text-sisyphus-700 dark:text-sisyphus-300">· αυτό το τιμολόγιο</span>}
                         </td>
-                        <td className="px-2 py-1.5 font-mono text-[length:var(--fs-11)]">{r.codes.join(', ') || <span className="text-muted-foreground">—</span>}</td>
+                        <td className="px-2 py-1.5 font-mono text-(length:--fs-11)">{r.codes.join(', ') || <span className="text-muted-foreground">—</span>}</td>
                         <td className="px-2 py-1.5 text-right tabular-nums">
                           {money(r.price?.price)}
                           {best && best.trdr === r.trdr && rows.filter((x) => x.price?.price != null).length > 1 && (
-                            <span className="ml-1 inline-flex items-center gap-0.5 text-[length:var(--fs-10)] font-semibold text-emerald-700 dark:text-emerald-300" title="Η χαμηλότερη τιμή συμφωνίας">
+                            <span className="ml-1 inline-flex items-center gap-0.5 text-(length:--fs-10) font-semibold text-emerald-700 dark:text-emerald-300" title="Η χαμηλότερη τιμή συμφωνίας">
                               <FiTrendingDown aria-hidden className="size-3" /> φθηνότερος
                             </span>
                           )}
@@ -182,17 +183,17 @@ export function ItemSupplierDialog({ open, onOpenChange, lineId }: { open: boole
             </FormSection>
 
             {preview && (
-              <section className="rounded-lg border border-sisyphus-500/25 bg-sisyphus-50/50 px-3 py-2 text-[length:var(--fs-12)] dark:bg-sisyphus-500/10" role="status" aria-live="polite">
+              <section className="rounded-lg border border-sisyphus-500/25 bg-sisyphus-50/50 px-3 py-2 text-(length:--fs-12) dark:bg-sisyphus-500/10" role="status" aria-live="polite">
                 {preview.changes.length ? (
                   <ul className="space-y-0.5">{preview.changes.map((c) => <li key={c} className="flex items-start gap-1.5"><FiCheckCircle aria-hidden className="mt-0.5 size-3.5 shrink-0 text-sisyphus-600" />{c}</li>)}</ul>
                 ) : <p>Η SoftOne έχει ήδη αυτόν τον κωδικό και αυτή την τιμή — τίποτα να αλλάξει.</p>}
                 {preview.payload != null && (
-                  <button type="button" onClick={() => setShowJson((v) => !v)} className="mt-1 cursor-pointer text-[length:var(--fs-11)] text-muted-foreground underline">
+                  <button type="button" onClick={() => setShowJson((v) => !v)} className="mt-1 cursor-pointer text-(length:--fs-11) text-muted-foreground underline">
                     {showJson ? 'Απόκρυψη object' : 'Δες το object που θα σταλεί'}
                   </button>
                 )}
                 {showJson && preview.payload != null && (
-                  <pre className="mt-1 max-h-56 overflow-auto rounded-md bg-[#0E1626] p-2 font-mono text-[length:var(--fs-11)] text-[#d6e2f5]">{JSON.stringify(preview.payload, null, 2)}</pre>
+                  <pre className="mt-1 max-h-56 overflow-auto rounded-md bg-[#0E1626] p-2 font-mono text-(length:--fs-11) text-[#d6e2f5]">{JSON.stringify(preview.payload, null, 2)}</pre>
                 )}
               </section>
             )}
@@ -203,7 +204,7 @@ export function ItemSupplierDialog({ open, onOpenChange, lineId }: { open: boole
 
         <DialogFooter className="m-0 px-5 py-3 gap-2">
           {postingEnabled === false && (
-            <span className="mr-auto self-center text-[length:var(--fs-11)] text-muted-foreground">Οι εγγραφές στη SoftOne είναι κλειστές — μόνο προεπισκόπηση.</span>
+            <span className="mr-auto self-center text-(length:--fs-11) text-muted-foreground">Οι εγγραφές στη SoftOne είναι κλειστές — μόνο προεπισκόπηση.</span>
           )}
           <Button variant="outline" onClick={() => onOpenChange(false)}>Κλείσιμο</Button>
           <Button variant="outline" onClick={() => void doPreview()} disabled={!data || invalid || busy != null}>

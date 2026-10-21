@@ -29,7 +29,9 @@ export function RolesList({ items, permissions }: { items: RoleItem[]; permissio
   const [local, setLocal] = React.useState(items);
   const [openRole, setOpenRole] = React.useState<RoleItem | null>(null);
 
-  React.useEffect(() => setLocal(items), [items]);
+  // Συγχρονισμός με νέα props (adjust-state-while-rendering)
+  const [prevItems, setPrevItems] = React.useState(items);
+  if (items !== prevItems) { setPrevItems(items); setLocal(items); }
 
   const handleReorder = async (next: RoleItem[]) => {
     setLocal(next);
@@ -56,17 +58,17 @@ export function RolesList({ items, permissions }: { items: RoleItem[]; permissio
         renderItem={(role, handle) => (
           <div className="flex items-center gap-3 px-3 py-2.5 bg-card border border-border rounded-xl shadow-card hover:border-primary cx-transition">
             {handle}
-            <span className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-[var(--cx-accent-soft)] text-primary shrink-0">
+            <span className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-(--cx-accent-soft) text-primary shrink-0">
               <FiShield className="h-4 w-4" />
             </span>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
-                <span className="font-semibold text-foreground truncate text-[length:var(--fs-13)]">{role.name}</span>
+                <span className="font-semibold text-foreground truncate text-(length:--fs-13)">{role.name}</span>
                 {role.isSystem && <Badge variant="outline"><FiLock /> System</Badge>}
               </div>
-              {role.description && <div className="text-[length:var(--fs-12)] text-muted-foreground truncate">{role.description}</div>}
+              {role.description && <div className="text-(length:--fs-12) text-muted-foreground truncate">{role.description}</div>}
             </div>
-            <div className="hidden sm:flex items-center gap-3 text-[length:var(--fs-12)] text-muted-foreground shrink-0">
+            <div className="hidden sm:flex items-center gap-3 text-(length:--fs-12) text-muted-foreground shrink-0">
               <span className="inline-flex items-center gap-1"><FiUsers className="h-3.5 w-3.5" /> {role.userCount}</span>
               <span className="inline-flex items-center gap-1"><FiKey className="h-3.5 w-3.5" /> {role.permissionCount}</span>
             </div>
@@ -95,11 +97,11 @@ export function RolesList({ items, permissions }: { items: RoleItem[]; permissio
           <DialogHeader className="flex-row items-center gap-3 border-b border-border px-4 py-2.5 pr-12">
             <span aria-hidden className="grid size-8 shrink-0 place-items-center rounded-lg bg-sisyphus-50 text-sisyphus-600 dark:bg-sisyphus-500/15"><FiShield className="size-4" /></span>
             <div className="min-w-0 flex-1">
-              <DialogTitle className="truncate text-[length:var(--fs-15)]">{openRole?.name}</DialogTitle>
-              <DialogDescription className="truncate text-[length:var(--fs-11)]">Επίλεξε τα δικαιώματα που έχει αυτός ο ρόλος.</DialogDescription>
+              <DialogTitle className="truncate text-(length:--fs-15)">{openRole?.name}</DialogTitle>
+              <DialogDescription className="truncate text-(length:--fs-11)">Επίλεξε τα δικαιώματα που έχει αυτός ο ρόλος.</DialogDescription>
             </div>
             {openRole && (
-              <div className="hidden shrink-0 items-center gap-3 text-[length:var(--fs-12)] text-muted-foreground sm:flex">
+              <div className="hidden shrink-0 items-center gap-3 text-(length:--fs-12) text-muted-foreground sm:flex">
                 <span className="inline-flex items-center gap-1"><FiUsers aria-hidden className="size-3.5" /> {openRole.userCount}</span>
                 {openRole.isSystem && <Badge variant="outline"><FiLock /> System</Badge>}
               </div>
@@ -134,7 +136,7 @@ function RolePermissionsEditor({
   const toggle = (id: string) => {
     setSelected((s) => {
       const next = new Set(s);
-      next.has(id) ? next.delete(id) : next.add(id);
+      if (next.has(id)) next.delete(id); else next.add(id);
       return next;
     });
   };
@@ -157,7 +159,7 @@ function RolePermissionsEditor({
   const toggleAllInResource = (perms: Permission[], on: boolean) => {
     setSelected((s) => {
       const next = new Set(s);
-      for (const p of perms) on ? next.add(p.id) : next.delete(p.id);
+      for (const p of perms) { if (on) next.add(p.id); else next.delete(p.id); }
       return next;
     });
   };
@@ -190,7 +192,7 @@ function RolePermissionsEditor({
                         toggleAllInResource(perms, !allOn);
                       }
                     }}
-                    className={`inline-flex size-4 shrink-0 items-center justify-center rounded-sm border cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                    className={`inline-flex size-4 shrink-0 items-center justify-center rounded-sm border cursor-pointer transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring ${
                       allOn || someOn
                         ? 'bg-primary border-primary text-primary-foreground'
                         : 'bg-card border-input hover:border-primary'
@@ -200,8 +202,8 @@ function RolePermissionsEditor({
                   </span>
                   <AccordionTrigger className="hover:no-underline py-1.5 flex-1 group min-w-0">
                     <div className="flex items-center gap-2 flex-1 min-w-0">
-                      <span className="truncate text-[length:var(--fs-11)] font-bold uppercase tracking-wider text-foreground" title={resource}>{RESOURCE_LABELS[resource] ?? resource}</span>
-                      <span className={`ml-auto mr-2 rounded px-1.5 font-mono text-[length:var(--fs-10)] tabular-nums ${allOn ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300' : someOn ? 'bg-amber-500/15 text-amber-800 dark:text-amber-300' : 'text-muted-foreground'}`}>
+                      <span className="truncate text-(length:--fs-11) font-bold uppercase tracking-wider text-foreground" title={resource}>{RESOURCE_LABELS[resource] ?? resource}</span>
+                      <span className={`ml-auto mr-2 rounded px-1.5 font-mono text-(length:--fs-10) tabular-nums ${allOn ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300' : someOn ? 'bg-amber-500/15 text-amber-800 dark:text-amber-300' : 'text-muted-foreground'}`}>
                         {sel}/{total}
                       </span>
                     </div>
@@ -220,12 +222,12 @@ function RolePermissionsEditor({
                           className="size-3.5"
                         />
                         <div className="flex-1 min-w-0">
-                          <div className="text-[length:var(--fs-11)] font-medium text-foreground leading-tight">{p.action}</div>
+                          <div className="text-(length:--fs-11) font-medium text-foreground leading-tight">{p.action}</div>
                           {p.description && (
-                            <div className="text-[length:var(--fs-10)] text-muted-foreground leading-tight">{p.description}</div>
+                            <div className="text-(length:--fs-10) text-muted-foreground leading-tight">{p.description}</div>
                           )}
                         </div>
-                        <code className="max-w-[40%] truncate text-[length:var(--fs-10)] text-muted-foreground/70 font-mono">{p.key}</code>
+                        <code className="max-w-[40%] truncate text-(length:--fs-10) text-muted-foreground/70 font-mono">{p.key}</code>
                       </label>
                     ))}
                   </div>

@@ -122,7 +122,8 @@ export function TraderEditDialog({ trdr, mode, open, onOpenChange, canManage }: 
       if (mode === 'vies') setViesOpen(true);
     } catch { setLoadError('Σφάλμα δικτύου.'); } finally { setBusy((b) => (b === 'load' ? null : b)); }
   }, [trdr, mode, runAade]);
-  React.useEffect(() => { if (open) void load(); }, [open, load]);
+  // Το load ξεκινά σε microtask: τα setState του γίνονται σε callback, όχι σύγχρονα στο σώμα του effect.
+  React.useEffect(() => { if (open) void Promise.resolve().then(load); }, [open, load]);
 
   // Αρχική κατηγορία: ό,τι έχει εγκριθεί στην εφαρμογή, αλλιώς ό,τι έχει η καρτέλα στο SoftOne.
   React.useEffect(() => {
@@ -143,11 +144,12 @@ export function TraderEditDialog({ trdr, mode, open, onOpenChange, canManage }: 
   const classDirty = !samePath(classInit, classSel);
 
   // Οι προτάσεις που διαφέρουν από τη φόρμα προεπιλέγονται.
-  React.useEffect(() => {
-    if (!proposals) return;
-    setPicked(new Set(proposals.items.filter((p) => p.value != null && s(p.value) !== s(form[p.key])).map((p) => p.key)));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [proposals]);
+  // («Adjust state while rendering» μόνο στην αλλαγή των προτάσεων· αρχικό `null` ⇒ και στο πρώτο render.)
+  const [prevProposals, setPrevProposals] = React.useState<readonly [typeof proposals] | null>(null);
+  if (prevProposals === null || prevProposals[0] !== proposals) {
+    setPrevProposals([proposals]);
+    if (proposals) setPicked(new Set(proposals.items.filter((p) => p.value != null && s(p.value) !== s(form[p.key])).map((p) => p.key)));
+  }
 
   const onVies = (r: ViesCheckResult) => {
     if (r.valid !== true) return;
@@ -259,10 +261,10 @@ export function TraderEditDialog({ trdr, mode, open, onOpenChange, canManage }: 
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="flex max-h-[92dvh] flex-col gap-0 overflow-hidden p-0 sm:max-w-3xl">
         <DialogHeader className="border-b border-border px-5 pt-4 pb-3 pr-12">
-          <DialogTitle className="flex items-center gap-2 text-[length:var(--fs-15)]">
+          <DialogTitle className="flex items-center gap-2 text-(length:--fs-15)">
             <FiEdit3 aria-hidden className="size-4 text-sisyphus-600" /> {readOnly ? 'Καρτέλα συναλλασσομένου' : 'Τροποποίηση συναλλασσομένου'}
           </DialogTitle>
-          <DialogDescription className="text-[length:var(--fs-12)]">
+          <DialogDescription className="text-(length:--fs-12)">
             {data ? <><span className="font-mono">{data.code}</span> — {s(data.values.name)} · τα στοιχεία διαβάστηκαν τώρα από τη SoftOne</> : 'Ανάγνωση από τη SoftOne…'}
           </DialogDescription>
         </DialogHeader>
@@ -270,7 +272,7 @@ export function TraderEditDialog({ trdr, mode, open, onOpenChange, canManage }: 
 
         {busy === 'load' && <div className="space-y-2" role="status"><span className="sr-only">Ανάγνωση…</span>{[0, 1, 2, 3].map((i) => <div key={i} className="h-8 animate-pulse rounded bg-muted motion-reduce:animate-none" />)}</div>}
         {loadError && (
-          <p role="alert" className="flex items-start gap-1.5 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-[length:var(--fs-12)] text-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
+          <p role="alert" className="flex items-start gap-1.5 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-(length:--fs-12) text-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
             <FiAlertTriangle aria-hidden className="mt-0.5 size-4 shrink-0" /> {loadError}
             <button type="button" onClick={() => void load()} className="ml-auto cursor-pointer font-semibold underline">Ξανά</button>
           </p>
@@ -294,7 +296,7 @@ export function TraderEditDialog({ trdr, mode, open, onOpenChange, canManage }: 
             {viesOpen && foreign && (
               <div className="rounded-lg border border-border bg-muted/30 px-3 py-2">
                 <ViesCheck autoRun vat={afm} trader={{ name: s(form.name), street: s(form.address), postalCode: s(form.zip), city: s(form.city) }} onResult={onVies} />
-                <p className="mt-1 text-[length:var(--fs-11)] text-muted-foreground">
+                <p className="mt-1 text-(length:--fs-11) text-muted-foreground">
                   Το μητρώο δίνει: αν ο ΑΦΜ είναι ενεργός, επωνυμία, διεύθυνση (σε μία γραμμή) και αριθμό ελέγχου — όχι Δ.Ο.Υ., τηλέφωνα ή ΤΚ/πόλη χωριστά. Γερμανία και Ισπανία κρύβουν επωνυμία/διεύθυνση.
                 </p>
               </div>
@@ -306,8 +308,8 @@ export function TraderEditDialog({ trdr, mode, open, onOpenChange, canManage }: 
                 {proposals.warning && <RowHint tone="bad">{proposals.warning}</RowHint>}
                 {proposals.items.length === 0 ? <RowHint>Δεν ήρθαν στοιχεία για σύγκριση.</RowHint> : (
                   <div className="-mx-3 overflow-x-auto">
-                    <table className="w-full text-[length:var(--fs-12)]">
-                      <thead className="bg-muted/50 text-[length:var(--fs-11)] text-muted-foreground">
+                    <table className="w-full text-(length:--fs-12)">
+                      <thead className="bg-muted/50 text-(length:--fs-11) text-muted-foreground">
                         <tr><th className="w-8 px-3 py-1.5" /><th className="px-2 py-1.5 text-left font-medium">Πεδίο</th><th className="px-2 py-1.5 text-left font-medium">Στη SoftOne</th><th className="px-3 py-1.5 text-left font-medium">{proposals.source}</th></tr>
                       </thead>
                       <tbody className="divide-y divide-border">
@@ -321,10 +323,10 @@ export function TraderEditDialog({ trdr, mode, open, onOpenChange, canManage }: 
                                   className="size-4 cursor-pointer accent-emerald-600" />
                               </td>
                               <td className="px-2 py-1.5 font-medium">{p.label}</td>
-                              <td className="max-w-[14rem] px-2 py-1.5"><span className="line-clamp-2">{shown(p.key, form[p.key])}</span></td>
+                              <td className="max-w-56 px-2 py-1.5"><span className="line-clamp-2">{shown(p.key, form[p.key])}</span></td>
                               <td className="max-w-[16rem] px-3 py-1.5">
                                 <span className={cn('line-clamp-2', !same && p.value != null && 'font-medium text-emerald-800 dark:text-emerald-300')}>{same ? '✓ ίδιο' : p.display}</span>
-                                {p.note && <span className="block text-[length:var(--fs-11)] text-amber-700 dark:text-amber-300">{p.note}</span>}
+                                {p.note && <span className="block text-(length:--fs-11) text-amber-700 dark:text-amber-300">{p.note}</span>}
                               </td>
                             </tr>
                           );
@@ -407,7 +409,7 @@ export function TraderEditDialog({ trdr, mode, open, onOpenChange, canManage }: 
                     className="block h-[180px] w-full border-0 sm:h-[220px]" loading="lazy" referrerPolicy="no-referrer"
                   />
                   <a href={`https://www.openstreetmap.org/?mlat=${coords.lat}&mlon=${coords.lng}#map=17/${coords.lat}/${coords.lng}`} target="_blank" rel="noopener noreferrer"
-                    className="flex items-center gap-1 border-t border-border px-2.5 py-1.5 text-[length:var(--fs-12)] text-muted-foreground hover:text-foreground">
+                    className="flex items-center gap-1 border-t border-border px-2.5 py-1.5 text-(length:--fs-12) text-muted-foreground hover:text-foreground">
                     <FiExternalLink aria-hidden className="size-3" /> Άνοιγμα σε χάρτη
                   </a>
                 </div>
@@ -429,7 +431,7 @@ export function TraderEditDialog({ trdr, mode, open, onOpenChange, canManage }: 
             {preview && (
               <FormSection tone="amber" icon={<FiEdit3 />} title={preview.length ? `Θα αλλάξουν ${preview.length} ${preview.length === 1 ? 'πεδίο' : 'πεδία'}` : 'Καμία αλλαγή'}>
                 {preview.length === 0 ? <RowHint>Η φόρμα είναι ίδια με την καρτέλα της SoftOne.</RowHint> : (
-                  <ul className="space-y-1 text-[length:var(--fs-12)]">
+                  <ul className="space-y-1 text-(length:--fs-12)">
                     {preview.map((c) => (
                       <li key={c.key} className="flex flex-wrap items-baseline gap-x-1.5">
                         <strong className="font-medium">{c.label}:</strong>

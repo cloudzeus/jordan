@@ -96,14 +96,31 @@ function pickerKind(items: DocWithItems['items'], target: PostingTarget | null):
   return defaultLineKind(target, seen);
 }
 
-function fmtNum(n: any): string {
+/** Το `extractedData` όπως το διαβάζει η οθόνη — χαλαρό σχήμα από το OCR, όλα προαιρετικά. */
+type ExtractedView = Record<string, unknown> & {
+  items?: ExtractedLineView[];
+  companyName?: string; storeName?: string; date?: string; time?: string; itemsCount?: number;
+  title?: string; summary?: string; keywords?: unknown; fullText?: string;
+  subtotal?: unknown; vatAmount?: unknown; otherCharges?: unknown; totalAmount?: unknown;
+  bankAccounts?: unknown;
+};
+/** Μία γραμμή του `extractedData.items` — μόνο ό,τι διαβάζει ο πίνακας. */
+interface ExtractedLineView {
+  unit?: string | null; ean?: string | null; mfrCode?: string | null;
+  customFields?: Record<string, unknown> | null;
+}
+interface BankAccountView { bank?: string | null; iban?: string | null }
+
+function fmtNum(n: unknown): string {
   if (n == null) return '-';
-  const v = typeof n === 'object' && typeof n.toNumber === 'function' ? n.toNumber() : Number(n);
+  const v = typeof n === 'object' && typeof (n as { toNumber?: unknown }).toNumber === 'function'
+    ? (n as { toNumber(): number }).toNumber()
+    : Number(n);
   if (Number.isNaN(v)) return '-';
   return new Intl.NumberFormat('el-GR', { maximumFractionDigits: 2 }).format(v);
 }
 
-function fmtMoney(n: any): string {
+function fmtMoney(n: unknown): string {
   const s = fmtNum(n);
   return s === '-' ? s : `${s} €`;
 }
@@ -113,7 +130,7 @@ function fmtMoney(n: any): string {
  * εδώ φαίνονται όλα όσα μπορεί να διορθώσει ο χρήστης στην καρτέλα «Γραμμές», μαζί με τη
  * μονάδα μέτρησης — που δεν είναι στήλη της βάσης αλλά ζει στο κανονικό JSON (`lines.unit`).
  */
-function LinesTable({ doc, data, match }: { doc: DocWithItems; data: any; match: LineMatchOptions }) {
+function LinesTable({ doc, data, match }: { doc: DocWithItems; data: ExtractedView; match: LineMatchOptions }) {
   const defaultKind = pickerKind(doc.items, match.target);
   return (
     <div className="overflow-hidden rounded-xl border border-border border-l-4 border-l-sisyphus-500 bg-card shadow-fluent-2">
@@ -137,9 +154,9 @@ function LinesTable({ doc, data, match }: { doc: DocWithItems; data: any; match:
           {doc.items.length === 0 ? (
             <tr><td colSpan={8} className="px-3 py-6 text-center text-muted-foreground">Δεν εξήχθησαν γραμμές.</td></tr>
           ) : doc.items.map((it, idx) => {
-            const line = (data.items?.[idx] ?? {}) as any;
+            const line = (data.items?.[idx] ?? {}) as ExtractedLineView;
             // Σειριακοί: από το κανονικό JSON, αλλιώς από την ίδια την περιγραφή (παλιά παραστατικά).
-            const canon = ((doc.document as any)?.lines?.[it.rowIndex] ?? null) as { serials?: string[] } | null;
+            const canon = ((doc.document as { lines?: ({ serials?: string[] } | null)[] } | null)?.lines?.[it.rowIndex] ?? null) as { serials?: string[] } | null;
             const serials = canon?.serials?.length ? canon.serials : extractSerials(it.name);
             const lineCf = (line.customFields ?? null) as Record<string, unknown> | null;
             return (
@@ -147,16 +164,16 @@ function LinesTable({ doc, data, match }: { doc: DocWithItems; data: any; match:
                 <tr className={`transition hover:bg-muted/40 ${idx > 0 ? 'border-t-2 border-border' : ''}`}>
                   <td className="px-3 py-2.5 font-mono text-xs text-muted-foreground">{it.code ?? '-'}</td>
                   <td className="px-3 py-2.5">
-                    <span className="mr-1.5 inline-flex size-4 items-center justify-center rounded bg-muted text-[length:var(--fs-10)] font-bold tabular-nums text-muted-foreground">{idx + 1}</span>
-                    <span className="text-[length:var(--fs-12)] font-semibold text-foreground">{it.name}</span>
+                    <span className="mr-1.5 inline-flex size-4 items-center justify-center rounded bg-muted text-(length:--fs-10) font-bold tabular-nums text-muted-foreground">{idx + 1}</span>
+                    <span className="text-(length:--fs-12) font-semibold text-foreground">{it.name}</span>
                     <UtilityChargeChip charge={match.utilityCharges?.[idx] ?? null} />
                     <SerialChips serials={serials} />
                   </td>
-                  <td className="px-3 py-2 text-right text-[length:var(--fs-12)]">{fmtNum(it.quantity)}</td>
-                  <td className="px-3 py-2 text-[length:var(--fs-12)] text-muted-foreground">{(line.unit ?? '') || '—'}</td>
-                  <td className="px-3 py-2 text-right text-[length:var(--fs-12)]">{fmtMoney(it.price)}</td>
-                  <td className="px-3 py-2 text-right text-[length:var(--fs-12)] text-destructive">{fmtNum(it.discount)}</td>
-                  <td className="px-3 py-2 text-right text-[length:var(--fs-12)] font-semibold">{fmtMoney(it.total)}</td>
+                  <td className="px-3 py-2 text-right text-(length:--fs-12)">{fmtNum(it.quantity)}</td>
+                  <td className="px-3 py-2 text-(length:--fs-12) text-muted-foreground">{(line.unit ?? '') || '—'}</td>
+                  <td className="px-3 py-2 text-right text-(length:--fs-12)">{fmtMoney(it.price)}</td>
+                  <td className="px-3 py-2 text-right text-(length:--fs-12) text-destructive">{fmtNum(it.discount)}</td>
+                  <td className="px-3 py-2 text-right text-(length:--fs-12) font-semibold">{fmtMoney(it.total)}</td>
                   <td className="px-3 py-2 min-w-[260px] align-top">
                     <LineMatchCell
                       lineId={it.id}
@@ -213,7 +230,7 @@ function LinesTable({ doc, data, match }: { doc: DocWithItems; data: any; match:
                 />
                 {hasLineCustomFields(lineCf) && (
                   <tr key={`${it.id}-cf`} className="bg-muted/20">
-                    <td colSpan={8} className="px-3 py-1.5 text-[length:var(--fs-11)] text-muted-foreground">
+                    <td colSpan={8} className="px-3 py-1.5 text-(length:--fs-11) text-muted-foreground">
                       <LineCustomFields cf={lineCf} />
                     </td>
                   </tr>
@@ -228,7 +245,7 @@ function LinesTable({ doc, data, match }: { doc: DocWithItems; data: any; match:
 }
 
 export function OcrResultView({ doc, match }: { doc: DocWithItems; match: LineMatchOptions }) {
-  const data = (doc.extractedData ?? {}) as any;
+  const data = (doc.extractedData ?? {}) as ExtractedView;
 
   if (doc.status !== 'COMPLETED') {
     return (
@@ -260,7 +277,7 @@ export function OcrResultView({ doc, match }: { doc: DocWithItems; match: LineMa
       docId={doc.id}
       mimeType={doc.mimeType}
       fileUrl={`/api/admin/ocr/${doc.id}/file`}
-      initialData={(doc.extractedData ?? {}) as any}
+      initialData={(doc.extractedData ?? {}) as Record<string, unknown>}
       fields={fieldList}
     />
   ) : null;
@@ -300,7 +317,7 @@ export function OcrResultView({ doc, match }: { doc: DocWithItems; match: LineMa
     return (
       <section className="space-y-4">
         {correction}
-        <div className="mx-auto max-w-sm rounded-xl border border-border bg-card p-5 font-mono space-y-3 shadow-sm">
+        <div className="mx-auto max-w-sm rounded-xl border border-border bg-card p-5 font-mono space-y-3 shadow-xs">
         <div className="border-b border-dashed border-border pb-3 text-center">
           <h3 className="text-base font-bold uppercase">{data.companyName ?? data.storeName ?? 'POS'}</h3>
           <p className="text-xs text-muted-foreground">
@@ -344,7 +361,7 @@ export function OcrResultView({ doc, match }: { doc: DocWithItems; match: LineMa
 
       {data.fullText && (
         <div className="rounded-xl border border-border bg-card p-4 space-y-2">
-          <p className="text-[length:var(--fs-11)] font-semibold uppercase tracking-wide text-muted-foreground">Verbatim</p>
+          <p className="text-(length:--fs-11) font-semibold uppercase tracking-wide text-muted-foreground">Verbatim</p>
           <textarea
             readOnly
             value={data.fullText}
@@ -357,39 +374,24 @@ export function OcrResultView({ doc, match }: { doc: DocWithItems; match: LineMa
   );
 }
 
-function BankAccounts({ accounts }: { accounts: any }) {
+function BankAccounts({ accounts }: { accounts: unknown }) {
   const list = Array.isArray(accounts)
-    ? accounts.filter((a) => a && (a.iban || a.bank))
+    ? (accounts as (BankAccountView | null | undefined)[]).filter((a): a is BankAccountView => !!a && !!(a.iban || a.bank))
     : [];
   if (list.length === 0) return null;
   return (
     <div className="rounded-xl border border-border bg-card p-4 space-y-2">
-      <p className="text-[length:var(--fs-11)] font-semibold uppercase tracking-wide text-muted-foreground">
+      <p className="text-(length:--fs-11) font-semibold uppercase tracking-wide text-muted-foreground">
         Τραπεζικοί λογαριασμοί εκδότη
       </p>
       <ul className="space-y-1">
-        {list.map((a: any, i: number) => (
+        {list.map((a, i: number) => (
           <li key={i} className="flex flex-wrap items-baseline gap-x-2 text-sm">
             <span className="font-semibold text-foreground">{a.bank ?? '—'}</span>
             <span className="font-mono text-body-sm text-muted-foreground">{a.iban ?? ''}</span>
           </li>
         ))}
       </ul>
-    </div>
-  );
-}
-
-function Field({ label, value, mono, accent }: { label: string; value: any; mono?: boolean; accent?: boolean }) {
-  return (
-    <div>
-      <span className="block text-caption uppercase tracking-wider font-semibold text-muted-foreground">{label}</span>
-      <p className={[
-        'mt-0.5 truncate',
-        mono ? 'font-mono text-body-sm' : 'text-body-sm',
-        accent ? 'text-primary font-bold' : 'text-foreground font-semibold',
-      ].join(' ')}>
-        {value ?? '-'}
-      </p>
     </div>
   );
 }

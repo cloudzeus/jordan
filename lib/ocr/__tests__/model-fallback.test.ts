@@ -11,7 +11,7 @@ describe('buildModelChain', () => {
 });
 
 describe('tryModels', () => {
-  const okWith = (v: any) => ({ ok: true as const, value: v });
+  const okWith = <T>(v: T) => ({ ok: true as const, value: v });
   const fail = (m: string) => ({ ok: false as const, error: new Error(m) });
 
   it('returns the first model that succeeds without calling the rest', async () => {

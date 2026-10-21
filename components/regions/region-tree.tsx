@@ -63,7 +63,7 @@ function RegionNode({
   return (
     <li>
       <div
-        className={`group flex items-center gap-2 rounded-lg border-2 ${styles.border} bg-white px-2.5 py-1.5 hover:shadow-sm transition-shadow ${onPick ? 'cursor-pointer' : ''}`}
+        className={`group flex items-center gap-2 rounded-lg border-2 ${styles.border} bg-white px-2.5 py-1.5 hover:shadow-xs transition-shadow ${onPick ? 'cursor-pointer' : ''}`}
         onClick={onPick ? () => onPick(node) : undefined}
       >
         <button
@@ -77,17 +77,17 @@ function RegionNode({
             node.hasChildren ? (expanded ? <FiChevronDown /> : <FiChevronRight />) : <span className="w-2 h-2" />}
         </button>
 
-        <span className="font-mono text-[length:var(--fs-11)] tabular-nums text-slate-500 w-24 shrink-0">{node.code}</span>
-        <span className="text-[length:var(--fs-11)] font-medium uppercase truncate text-slate-700">{node.nameEL}</span>
+        <span className="font-mono text-(length:--fs-11) tabular-nums text-slate-500 w-24 shrink-0">{node.code}</span>
+        <span className="text-(length:--fs-11) font-medium uppercase truncate text-slate-700">{node.nameEL}</span>
 
         <div className="ml-auto flex items-center gap-1.5 shrink-0">
           {node.level != null && (
-            <span className={`px-2 py-0.5 rounded text-[length:var(--fs-11)] font-medium border ${styles.badge}`}>
+            <span className={`px-2 py-0.5 rounded text-(length:--fs-11) font-medium border ${styles.badge}`}>
               {levelLabels[node.level] ?? `L${node.level}`}
             </span>
           )}
           {node.descendants > 0 && (
-            <span className="px-2 py-0.5 rounded text-[length:var(--fs-11)] font-medium bg-amber-100 text-amber-800 border border-amber-200">
+            <span className="px-2 py-0.5 rounded text-(length:--fs-11) font-medium bg-amber-100 text-amber-800 border border-amber-200">
               {node.descendants.toLocaleString('el-GR')}
             </span>
           )}

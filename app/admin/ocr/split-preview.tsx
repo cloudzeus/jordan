@@ -101,22 +101,22 @@ export function OcrSplitPreview({ data, onCancel }: { data: SplitPreviewData; on
       }
       router.push(`/admin/ocr/batches/${data.batchId}`);
       router.refresh();
-    } catch (err: any) {
-      toast.error(`Αποτυχία διαχωρισμού: ${err?.message ?? err}`);
+    } catch (err) {
+      toast.error(`Αποτυχία διαχωρισμού: ${(err as Error)?.message ?? err}`);
       setPhase('editing');
     }
   }
 
   return (
     <section className="overflow-hidden rounded-xl border border-border bg-card shadow-fluent-2">
-      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-border bg-gradient-to-r from-sisyphus-50 via-card to-card px-5 py-3">
+      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-border bg-linear-to-r from-sisyphus-50 via-card to-card px-5 py-3">
         <div className="flex items-center gap-2.5">
           <span className="inline-flex size-8 items-center justify-center rounded-md bg-sisyphus-500 text-white shadow-fluent-2">
             <FiScissors className="size-4" />
           </span>
           <div>
-            <h3 className="text-[length:var(--fs-14)] font-semibold tracking-tight text-foreground">Διαχωρισμός σε παραστατικά</h3>
-            <p className="text-[length:var(--fs-11)] text-muted-foreground">
+            <h3 className="text-(length:--fs-14) font-semibold tracking-tight text-foreground">Διαχωρισμός σε παραστατικά</h3>
+            <p className="text-(length:--fs-11) text-muted-foreground">
               {data.fileName} · {data.pageCount} σελίδες · {segments.length} παραστατικά
               {' · '}{UPLOAD_DOC_TYPE_LABELS[data.docType]}
             </p>
@@ -133,7 +133,7 @@ export function OcrSplitPreview({ data, onCancel }: { data: SplitPreviewData; on
       </header>
 
       {data.method === 'vision' && (
-        <p className="flex items-start gap-2 border-b border-border bg-sisyphus-500/[0.07] px-5 py-2.5 text-[length:var(--fs-12)] text-foreground">
+        <p className="flex items-start gap-2 border-b border-border bg-sisyphus-500/[0.07] px-5 py-2.5 text-(length:--fs-12) text-foreground">
           <FiZap className="mt-0.5 size-4 shrink-0 text-sisyphus-600" />
           <span>
             Τα όρια βρέθηκαν με <strong>ανάλυση των σελίδων</strong>: εκδότης, αριθμός και «σελ. k από N» σε κάθε σελίδα.
@@ -142,13 +142,13 @@ export function OcrSplitPreview({ data, onCancel }: { data: SplitPreviewData; on
         </p>
       )}
       {data.method !== 'vision' && !data.hasTextLayer && (
-        <p className="flex items-start gap-2 border-b border-border bg-amber-500/10 px-5 py-2.5 text-[length:var(--fs-12)] text-amber-900 dark:text-amber-200">
+        <p className="flex items-start gap-2 border-b border-border bg-amber-500/10 px-5 py-2.5 text-(length:--fs-12) text-amber-900 dark:text-amber-200">
           <FiAlertTriangle className="mt-0.5 size-4 shrink-0" />
           <span>
             Το PDF είναι σαρωμένο (χωρίς κείμενο){data.visionError ? ' και η ανάλυση των σελίδων δεν ολοκληρώθηκε' : ''}, οπότε δεν υπάρχουν ενδείξεις για το πού αλλάζει
             παραστατικό. Η πρόταση είναι <strong>ένα παραστατικό ανά σελίδα</strong> — έλεγξε τις
             σελίδες και ένωσε όσες ανήκουν στο ίδιο παραστατικό κλείνοντας το ψαλίδι.
-            {data.visionError && <span className="mt-0.5 block text-[length:var(--fs-11)] opacity-80">{data.visionError}</span>}
+            {data.visionError && <span className="mt-0.5 block text-(length:--fs-11) opacity-80">{data.visionError}</span>}
           </span>
         </p>
       )}
@@ -173,14 +173,14 @@ export function OcrSplitPreview({ data, onCancel }: { data: SplitPreviewData; on
                   title={isCut ? 'Ένωση με το προηγούμενο' : 'Κόψιμο εδώ'}
                   className={cn(
                     'mx-1 flex w-7 shrink-0 flex-col items-center justify-center gap-1 rounded-md border transition',
-                    'focus:outline-none focus-visible:ring-2 focus-visible:ring-sisyphus-500/40 disabled:opacity-50',
+                    'focus:outline-hidden focus-visible:ring-2 focus-visible:ring-sisyphus-500/40 disabled:opacity-50',
                     isCut
                       ? 'border-sisyphus-500 bg-sisyphus-500/10 text-sisyphus-600'
                       : 'border-dashed border-input text-muted-foreground hover:border-sisyphus-500/50 hover:text-sisyphus-600',
                   )}
                 >
                   <FiScissors className="size-4" />
-                  <span className="text-[length:var(--fs-9)] font-bold uppercase tracking-wider">
+                  <span className="text-(length:--fs-9) font-bold uppercase tracking-wider">
                     {isCut ? 'κοπή' : 'ένωση'}
                   </span>
                 </button>
@@ -194,23 +194,22 @@ export function OcrSplitPreview({ data, onCancel }: { data: SplitPreviewData; on
                     : 'border-border bg-neutral-6/40',
                 )}
               >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={page.thumbUrl}
                   alt={`Σελίδα ${page.index + 1}`}
                   loading="lazy"
                   className="h-[168px] w-full rounded bg-white object-contain"
                 />
-                <figcaption className="mt-1 text-center text-[length:var(--fs-10)] leading-tight text-muted-foreground">
+                <figcaption className="mt-1 text-center text-(length:--fs-10) leading-tight text-muted-foreground">
                   <span className="font-semibold text-foreground">Σελ. {page.index + 1}</span>
                   {isFirstOfSegment && seg && (
-                    <span className="mt-0.5 block text-[length:var(--fs-9)] font-bold uppercase leading-tight tracking-wider text-sisyphus-600">
+                    <span className="mt-0.5 block text-(length:--fs-9) font-bold uppercase leading-tight tracking-wider text-sisyphus-600">
                       Παραστατικό {segIndex + 1}, σελ. {seg.from + 1}
                       {seg.to > seg.from ? `-${seg.to + 1}` : ''}
                     </span>
                   )}
                   {page.info && (isFirstOfSegment ? (page.info.issuerName || page.info.docNumber) : page.info.pageOf) && (
-                    <span className="mt-0.5 block text-[length:var(--fs-10)] leading-tight text-foreground/80" title={[page.info.issuerName, page.info.docNumber, page.info.date].filter(Boolean).join(' · ')}>
+                    <span className="mt-0.5 block text-(length:--fs-10) leading-tight text-foreground/80" title={[page.info.issuerName, page.info.docNumber, page.info.date].filter(Boolean).join(' · ')}>
                       {isFirstOfSegment ? (
                         <>
                           <span className="block truncate font-medium">{page.info.issuerName ?? '—'}</span>
@@ -232,7 +231,7 @@ export function OcrSplitPreview({ data, onCancel }: { data: SplitPreviewData; on
       </div>
 
       <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-border bg-neutral-6/50 px-5 py-3">
-        <p className="text-[length:var(--fs-12)] text-muted-foreground">
+        <p className="text-(length:--fs-12) text-muted-foreground">
           {phase === 'reading'
             ? `Ανάγνωση ${readDone}/${readTotal}${failed ? ` · ${failed} αποτυχίες` : ''}…`
             : phase === 'splitting'

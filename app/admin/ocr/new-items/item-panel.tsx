@@ -7,7 +7,7 @@ import * as React from 'react';
 import Link from 'next/link';
 import {
   FiAlertCircle, FiAlertTriangle, FiCheck, FiCornerDownLeft, FiDollarSign, FiExternalLink,
-  FiCpu, FiInfo, FiLoader, FiPackage, FiPlus, FiPlusCircle, FiRefreshCw, FiSkipForward, FiTag, FiTool,
+  FiCpu, FiInfo, FiLoader, FiPackage, FiPlus, FiRefreshCw, FiSkipForward, FiTag, FiTool,
 } from 'react-icons/fi';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -163,6 +163,9 @@ function defaultVat(vats: VatOption[]): string {
 function initialAlt(_sample?: string) {
   return { buy: '', buyRatio: '', sell: '', sellRatio: '' };
 }
+/** Άλλαξε κάποια εξάρτηση από το προηγούμενο render; (ίδια σύγκριση με τα deps ενός effect) */
+const depsChanged = (a: readonly unknown[], b: readonly unknown[]) =>
+  a.length !== b.length || a.some((d, i) => !Object.is(d, b[i]));
 const ratioNum = (v: string): number | null => { const n = Number(String(v).replace(',', '.')); return Number.isFinite(n) && n > 0 ? n : null; };
 
 function defaultUnit(units: UnitOption[]): string {
@@ -239,7 +242,8 @@ export function ItemPanel({
   const canCreate = category != null && category !== 'lineitem';
   // Τα έργα του εκδότη είναι η χρήσιμη προεπιλογή· ο χρήστης βλέπει όλα με ένα κλικ.
   const [projectScopeAll, setProjectScopeAll] = React.useState(false);
-  React.useEffect(() => setProjectScopeAll(false), [group.key]);
+  const [prevGroupKey, setPrevGroupKey] = React.useState(group.key);
+  if (group.key !== prevGroupKey) { setPrevGroupKey(group.key); setProjectScopeAll(false); }
 
 
   const [creating, setCreating] = React.useState(false);
@@ -254,9 +258,6 @@ export function ItemPanel({
   const [codeOffer, setCodeOffer] = React.useState<string | null>(null);
   /** Η επαναπρόταση μετά από 409 ήρθε από τον καθρέφτη (το SoftOne δεν απάντησε). */
   const [codeOfferStale, setCodeOfferStale] = React.useState(false);
-  /** Η τελευταία πρόταση που γράψαμε ΕΜΕΙΣ — για να ξέρουμε τι επιτρέπεται να αντικατασταθεί. */
-  const lastProposal = React.useRef<string>('');
-
   const [form, setForm] = React.useState(() => ({
     // Ο κωδικός δεν «μαντεύεται» από την περιγραφή: μένει κενός ώσπου να απαντήσει ο server.
     code: '',
@@ -267,14 +268,19 @@ export function ItemPanel({
     itemGroup: '',
     itemCategory: '',
     ...initialAlt(group.sample),
+    /** Η τελευταία πρόταση που γράψαμε ΕΜΕΙΣ — για να ξέρουμε τι επιτρέπεται να αντικατασταθεί. */
+    lastProposal: '',
   }));
   const [dryPayload, setDryPayload] = React.useState<unknown>(null);
   const [dryLoading, setDryLoading] = React.useState(false);
   const [dryError, setDryError] = React.useState<string | null>(null);
   const [dryOpen, setDryOpen] = React.useState(false);
 
-  // Νέα ομάδα ⇒ καθαρή φόρμα με νέα προσυμπλήρωση.
-  React.useEffect(() => {
+  // Νέα ομάδα ⇒ καθαρή φόρμα με νέα προσυμπλήρωση (ρύθμιση state κατά το render, όχι σε effect).
+  const resetDeps = [group.key, group.code, group.sample, group.lines, vats, units] as const;
+  const [prevResetDeps, setPrevResetDeps] = React.useState<readonly unknown[]>(resetDeps);
+  if (depsChanged(resetDeps, prevResetDeps)) {
+    setPrevResetDeps(resetDeps);
     setCreating(false);
     setTouched({});
     setDryPayload(null);
@@ -282,7 +288,6 @@ export function ItemPanel({
     setDryOpen(false);
     setErpCodeError(null);
     setCodeOffer(null);
-    lastProposal.current = '';
     setForm({
       code: '',
       name: group.sample.trim().slice(0, 200),
@@ -292,11 +297,17 @@ export function ItemPanel({
       itemGroup: '',
       itemCategory: '',
       ...initialAlt(group.sample),
+      lastProposal: '',
     });
-  }, [group.key, group.code, group.sample, group.lines, vats, units]);
+  }
 
   // Μόλις ο χρήστης αγγίξει τον κωδικό (ή αλλάξει μητρώο), το μήνυμα του ERP παύει να ισχύει.
-  React.useEffect(() => { setErpCodeError(null); setCodeOffer(null); }, [form.code, category]);
+  const [prevCodeDeps, setPrevCodeDeps] = React.useState({ code: form.code, category });
+  if (form.code !== prevCodeDeps.code || category !== prevCodeDeps.category) {
+    setPrevCodeDeps({ code: form.code, category });
+    setErpCodeError(null);
+    setCodeOffer(null);
+  }
 
   /**
    * Ο **προτεινόμενος κωδικός** για (ομάδα, μητρώο), με φρέσκα δεδομένα από το SoftOne
@@ -306,11 +317,18 @@ export function ItemPanel({
    * Η πρόταση ΔΕΝ κλειδώνει το πεδίο: γράφεται μόνο όταν αυτό είναι άδειο ή κρατά ακόμη
    * προηγούμενη πρόταση. Ό,τι πληκτρολόγησε ο χρήστης μένει ανέγγιχτο.
    */
+  // Οι χρεοπιστώσεις δεν δημιουργούνται από εδώ — καμία πρόταση, καμία κλήση. Η σύγχρονη
+  // ρύθμιση (καθαρισμός / «φορτώνει») γίνεται κατά το render — και στο ΠΡΩΤΟ render, όπως το effect.
+  const proposalDeps = [group.key, group.code, category] as const;
+  const [prevProposalDeps, setPrevProposalDeps] = React.useState<readonly unknown[] | null>(null);
+  if (prevProposalDeps === null || depsChanged(proposalDeps, prevProposalDeps)) {
+    setPrevProposalDeps(proposalDeps);
+    if (category == null || category === 'lineitem') setCodeProposal(null);
+    else setCodeBusy(true);
+  }
   React.useEffect(() => {
-    // Οι χρεοπιστώσεις δεν δημιουργούνται από εδώ — καμία πρόταση, καμία κλήση.
-    if (category == null || category === 'lineitem') { setCodeProposal(null); return; }
+    if (category == null || category === 'lineitem') return;
     let ignore = false;
-    setCodeBusy(true);
     const qs = new URLSearchParams({ kind: category });
     if (group.code) qs.set('supplierCode', group.code);
     fetch(`/api/admin/ocr/new-items/next-code?${qs.toString()}`)
@@ -321,9 +339,8 @@ export function ItemPanel({
         const proposal = d?.code ? String(d.code) : '';
         setForm((f) => {
           const cur = f.code.trim();
-          if (cur !== '' && cur !== lastProposal.current) return f;
-          lastProposal.current = proposal;
-          return { ...f, code: proposal };
+          if (cur !== '' && cur !== f.lastProposal) return f;
+          return { ...f, code: proposal, lastProposal: proposal };
         });
       })
       .catch(() => { if (!ignore) setCodeProposal(null); })
@@ -349,7 +366,7 @@ export function ItemPanel({
   };
   const invalid = Object.values(errors).some(Boolean);
   // Το πεδίο κρατά ακόμη ΑΚΡΙΒΩΣ ό,τι προτείναμε — μόλις το αλλάξει ο χρήστης, το chip φεύγει.
-  const isProposedCode = !!lastProposal.current && form.code.trim() === lastProposal.current;
+  const isProposedCode = !!form.lastProposal && form.code.trim() === form.lastProposal;
   const codeChip = codeProposal ? CODE_CHIP[codeProposal.source] : null;
 
 
@@ -376,11 +393,19 @@ export function ItemPanel({
 
   // Όσο η προεπισκόπηση είναι ανοιχτή ακολουθεί τη φόρμα: κάθε αλλαγή ξαναζητά
   // το dry-run μετά από {@link DRY_DEBOUNCE_MS}, ώστε να μη δείχνει παλιό payload.
+  // Η σύγχρονη ρύθμιση (καθαρισμός σε άκυρη φόρμα / «φορτώνει») κατά το render, όχι στο effect.
+  const dryDeps = [dryOpen, invalid, body] as const;
+  const [prevDryDeps, setPrevDryDeps] = React.useState<readonly unknown[]>(dryDeps);
+  if (depsChanged(dryDeps, prevDryDeps)) {
+    setPrevDryDeps(dryDeps);
+    if (dryOpen) {
+      if (invalid) { setDryPayload(null); setDryError(null); setDryLoading(false); }
+      else setDryLoading(true);
+    }
+  }
   React.useEffect(() => {
-    if (!dryOpen) return;
-    if (invalid) { setDryPayload(null); setDryError(null); setDryLoading(false); return; }
+    if (!dryOpen || invalid) return;
     let ignore = false;
-    setDryLoading(true);
     const h = setTimeout(() => {
       fetch('/api/admin/ocr/new-items/create', {
         method: 'POST',
@@ -460,7 +485,7 @@ export function ItemPanel({
     <div className="divide-y divide-border">
       {/* ── Κεφαλίδα ομάδας ─────────────────────────────────────────── */}
       <header className="px-4 py-3">
-        <h2 className="text-[length:var(--fs-15)] font-semibold leading-snug text-foreground">{group.sample}</h2>
+        <h2 className="text-(length:--fs-15) font-semibold leading-snug text-foreground">{group.sample}</h2>
         <p className="mt-0.5 text-body-sm text-muted-foreground">
           {group.supplier ?? 'Άγνωστος εκδότης'}
           {group.afm && <span className="font-mono"> · ΑΦΜ {group.afm}</span>}
@@ -503,7 +528,7 @@ export function ItemPanel({
           Γραμμές όπως τυπώθηκαν
         </h3>
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[420px] text-[length:var(--fs-12)]">
+          <table className="w-full min-w-[420px] text-(length:--fs-12)">
             <thead>
               <tr className="border-b border-border text-left text-caption text-muted-foreground">
                 <th scope="col" className="py-1 pr-2 font-medium">Περιγραφή</th>
@@ -523,7 +548,7 @@ export function ItemPanel({
                   <td className="py-1 pl-2">
                     <Link
                       href={`/admin/ocr/${l.docId}`}
-                      className="inline-flex max-w-[160px] cursor-pointer items-center gap-1 truncate rounded-sm text-sisyphus-700 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-sisyphus-500"
+                      className="inline-flex max-w-[160px] cursor-pointer items-center gap-1 truncate rounded-sm text-sisyphus-700 outline-hidden hover:underline focus-visible:ring-2 focus-visible:ring-sisyphus-500"
                     >
                       <FiExternalLink aria-hidden className="size-3 shrink-0" />
                       <span className="truncate">{l.fileName ?? l.docId.slice(0, 8)}</span>
@@ -574,9 +599,9 @@ export function ItemPanel({
                 ref={(el) => { segmentRefs.current[k] = el; }}
                 onClick={() => onCategory(k)}
                 className={cn(
-                  'inline-flex h-8 cursor-pointer items-center justify-center gap-1.5 rounded-md text-[length:var(--fs-12)] font-medium',
+                  'inline-flex h-8 cursor-pointer items-center justify-center gap-1.5 rounded-md text-(length:--fs-12) font-medium',
                   'cx-transition motion-reduce:transition-none',
-                  'outline-none focus-visible:ring-2 focus-visible:ring-sisyphus-500',
+                  'outline-hidden focus-visible:ring-2 focus-visible:ring-sisyphus-500',
                   active
                     ? 'bg-card text-sisyphus-700 shadow-fluent-2'
                     : 'text-muted-foreground hover:text-foreground',
@@ -661,7 +686,7 @@ export function ItemPanel({
                 value={lineCategory ?? ''}
                 disabled={locked || lineCategories.length === 0}
                 onChange={(e) => onLineCategory(e.target.value ? Number(e.target.value) : null)}
-                className="mt-1 h-9 w-full cursor-pointer rounded-lg border border-input bg-background px-2.5 text-[length:var(--fs-13)]"
+                className="mt-1 h-9 w-full cursor-pointer rounded-lg border border-input bg-background px-2.5 text-(length:--fs-13)"
               >
                 <option value="">Όλες οι κατηγορίες</option>
                 {lineCategories.map((c) => (
@@ -775,7 +800,7 @@ export function ItemPanel({
                   onChange={(e) => set('name', e.target.value)}
                   onBlur={() => setTouched((t) => ({ ...t, name: true }))}
                   aria-invalid={touched.name && !!errors.name}
-                  className="h-8 min-w-0 flex-1 text-[length:var(--fs-13)]"
+                  className="h-8 min-w-0 flex-1 text-(length:--fs-13)"
                 />
                 {!locked && (tr.offer || tr.busy) && <TranslateButton busy={tr.busy} onClick={() => void tr.translate()} />}
               </div>
@@ -797,11 +822,11 @@ export function ItemPanel({
                     onChange={(e) => set('code', e.target.value)}
                     onBlur={() => setTouched((t) => ({ ...t, code: true }))}
                     aria-invalid={!!erpCodeError || (touched.code && !!errors.code)}
-                    className="h-9 flex-1 font-mono text-[length:var(--fs-13)]"
+                    className="h-9 flex-1 font-mono text-(length:--fs-13)"
                   />
                   {isProposedCode && codeChip && (
                     <span
-                      className="inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-[length:var(--fs-11)] font-medium"
+                      className="inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-(length:--fs-11) font-medium"
                       style={{ backgroundColor: '#EAF4FC', color: '#0078D4' }}
                     >
                       {codeChip}
@@ -814,7 +839,7 @@ export function ItemPanel({
                     <Button
                       type="button" variant="outline" size="sm"
                       className="h-7 w-fit cursor-pointer"
-                      onClick={() => { set('code', codeOffer); lastProposal.current = codeOffer; }}
+                      onClick={() => setForm((f) => ({ ...f, code: codeOffer, lastProposal: codeOffer }))}
                     >
                       <FiRefreshCw aria-hidden className="size-3" /> Χρήση του {codeOffer}
                     </Button>
@@ -835,7 +860,7 @@ export function ItemPanel({
                   onChange={(e) => set('vat', e.target.value)}
                   onBlur={() => setTouched((t) => ({ ...t, vat: true }))}
                   aria-invalid={touched.vat && !!errors.vat}
-                  className="h-9 w-full cursor-pointer rounded-md border border-border bg-background px-2 text-[length:var(--fs-13)] outline-none focus-visible:border-sisyphus-500 focus-visible:ring-2 focus-visible:ring-sisyphus-100"
+                  className="h-9 w-full cursor-pointer rounded-md border border-border bg-background px-2 text-(length:--fs-13) outline-hidden focus-visible:border-sisyphus-500 focus-visible:ring-2 focus-visible:ring-sisyphus-100"
                 >
                   <option value="">— επιλογή —</option>
                   {vats.map((v) => <option key={v.code} value={v.code}>{v.label}</option>)}
@@ -850,7 +875,7 @@ export function ItemPanel({
                       onChange={(e) => set('unit', e.target.value)}
                       onBlur={() => setTouched((t) => ({ ...t, unit: true }))}
                       aria-invalid={touched.unit && !!errors.unit}
-                      className="h-9 w-full cursor-pointer rounded-md border border-border bg-background px-2 text-[length:var(--fs-13)] outline-none focus-visible:border-sisyphus-500 focus-visible:ring-2 focus-visible:ring-sisyphus-100"
+                      className="h-9 w-full cursor-pointer rounded-md border border-border bg-background px-2 text-(length:--fs-13) outline-hidden focus-visible:border-sisyphus-500 focus-visible:ring-2 focus-visible:ring-sisyphus-100"
                     >
                       <option value="">— επιλογή —</option>
                       {units.map((u) => <option key={u.code} value={u.code}>{u.label}</option>)}
@@ -861,7 +886,7 @@ export function ItemPanel({
                       onChange={(e) => set('unit', e.target.value)}
                       onBlur={() => setTouched((t) => ({ ...t, unit: true }))}
                       aria-invalid={touched.unit && !!errors.unit}
-                      className="h-9 text-[length:var(--fs-13)]"
+                      className="h-9 text-(length:--fs-13)"
                     />
                   )}
                 </Field>
@@ -883,7 +908,7 @@ export function ItemPanel({
                     }}
                     ratioSuggestion={ratioFromText(group.sample)}
                   />
-                  {touched.unit && errors.unit && <p className="mt-1 text-[length:var(--fs-11)] text-destructive" role="alert">{errors.unit}</p>}
+                  {touched.unit && errors.unit && <p className="mt-1 text-(length:--fs-11) text-destructive" role="alert">{errors.unit}</p>}
                 </div>
               )}
 
@@ -895,7 +920,7 @@ export function ItemPanel({
                   <Input
                     id="ni-price" value={form.price} disabled={locked} inputMode="decimal" placeholder="0,00"
                     onChange={(e) => set('price', e.target.value)}
-                    className="h-9 text-right text-[length:var(--fs-13)] tabular-nums"
+                    className="h-9 text-right text-(length:--fs-13) tabular-nums"
                   />
                 </Field>
               )}
@@ -912,7 +937,7 @@ export function ItemPanel({
                   <select
                     id="ni-group" value={form.itemGroup} disabled={locked}
                     onChange={(e) => set('itemGroup', e.target.value)}
-                    className="h-9 w-full cursor-pointer rounded-md border border-border bg-background px-2 text-[length:var(--fs-13)] outline-none focus-visible:border-sisyphus-500 focus-visible:ring-2 focus-visible:ring-sisyphus-100"
+                    className="h-9 w-full cursor-pointer rounded-md border border-border bg-background px-2 text-(length:--fs-13) outline-hidden focus-visible:border-sisyphus-500 focus-visible:ring-2 focus-visible:ring-sisyphus-100"
                   >
                     <option value="">— καμία —</option>
                     {itemGroups.map((g) => <option key={g.code} value={g.code}>{g.label}</option>)}
@@ -924,7 +949,7 @@ export function ItemPanel({
                     <select
                       id="ni-cat" value={form.itemCategory} disabled={locked}
                       onChange={(e) => set('itemCategory', e.target.value)}
-                      className="h-9 flex-1 cursor-pointer rounded-md border border-border bg-background px-2 text-[length:var(--fs-13)] outline-none focus-visible:border-sisyphus-500 focus-visible:ring-2 focus-visible:ring-sisyphus-100"
+                      className="h-9 flex-1 cursor-pointer rounded-md border border-border bg-background px-2 text-(length:--fs-13) outline-hidden focus-visible:border-sisyphus-500 focus-visible:ring-2 focus-visible:ring-sisyphus-100"
                     >
                       <option value="">— καμία —</option>
                       {itemCategories.map((c) => <option key={c.code} value={c.code}>{c.label}</option>)}
@@ -953,7 +978,7 @@ export function ItemPanel({
                   <Input
                     id="ni-newcat-name" value={newCat.name} disabled={catBusy}
                     onChange={(e) => setNewCat({ ...newCat, name: e.target.value })}
-                    className="h-9 text-[length:var(--fs-13)]"
+                    className="h-9 text-(length:--fs-13)"
                   />
                 </Field>
                 <Field
@@ -963,7 +988,7 @@ export function ItemPanel({
                   <Input
                     id="ni-newcat-code" value={newCat.code} disabled={catBusy}
                     onChange={(e) => setNewCat({ ...newCat, code: e.target.value })}
-                    className="h-9 font-mono text-[length:var(--fs-13)]"
+                    className="h-9 font-mono text-(length:--fs-13)"
                   />
                 </Field>
                 {catError && (
@@ -988,7 +1013,7 @@ export function ItemPanel({
               className="rounded-lg border border-border bg-neutral-4 px-2.5 py-1.5"
               onToggle={(e) => setDryOpen((e.currentTarget as HTMLDetailsElement).open)}
             >
-              <summary className="cursor-pointer text-caption font-medium text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-sisyphus-500">
+              <summary className="cursor-pointer text-caption font-medium text-muted-foreground outline-hidden focus-visible:ring-2 focus-visible:ring-sisyphus-500">
                 Προεπισκόπηση setData (dry-run)
               </summary>
               {dryError ? (
@@ -1001,7 +1026,7 @@ export function ItemPanel({
                 </p>
               ) : dryPayload != null ? (
                 <>
-                  <pre className="mt-1.5 max-h-56 overflow-auto rounded-md bg-[#0E1626] p-2.5 font-mono text-[length:var(--fs-11)] leading-relaxed text-[#d6e2f5]">
+                  <pre className="mt-1.5 max-h-56 overflow-auto rounded-md bg-[#0E1626] p-2.5 font-mono text-(length:--fs-11) leading-relaxed text-[#d6e2f5]">
                     {JSON.stringify(dryPayload, null, 2)}
                   </pre>
                   {dryLoading && (
@@ -1111,7 +1136,7 @@ function SuggestionRow({
     >
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <p className="truncate text-[length:var(--fs-13)] font-medium text-foreground">{s.name}</p>
+          <p className="truncate text-(length:--fs-13) font-medium text-foreground">{s.name}</p>
           <p className="mt-0.5 flex flex-wrap items-center gap-1 text-caption text-muted-foreground">
             <span className="font-mono">{s.code}</span>
             <span aria-hidden>·</span>

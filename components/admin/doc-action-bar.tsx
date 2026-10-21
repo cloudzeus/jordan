@@ -73,12 +73,10 @@ export function DocActionBar({
     } finally { setMarkBusy(false); }
   }
 
-  const load = React.useCallback(async () => {
-    try {
-      const r = await fetch(`/api/admin/ocr/${docId}/post-softone?dryRun=1`, { cache: 'no-store' });
-      if (r.ok) setPreview(await r.json());
-    } catch { /* η μπάρα δείχνει «έλεγχος…» — δεν ρίχνει τη σελίδα */ }
-  }, [docId]);
+  const load = React.useCallback(() =>
+    fetch(`/api/admin/ocr/${docId}/post-softone?dryRun=1`, { cache: 'no-store' })
+      .then(async (r) => { if (r.ok) setPreview(await r.json()); })
+      .catch(() => { /* η μπάρα δείχνει «έλεγχος…» — δεν ρίχνει τη σελίδα */ }), [docId]);
   React.useEffect(() => { void load(); }, [load]);
   useDocLinesChanged(docId, () => { void load(); });
   React.useEffect(() => {
@@ -138,9 +136,9 @@ export function DocActionBar({
   const families = [...new Set(series.map((s) => s.family))];
 
   return (
-    <div className="sticky bottom-0 z-30 -mx-6 border-t border-border bg-card/95 px-6 py-2.5 shadow-[0_-2px_10px_rgba(0,0,0,0.06)] backdrop-blur">
+    <div className="sticky bottom-0 z-30 -mx-6 border-t border-border bg-card/95 px-6 py-2.5 shadow-[0_-2px_10px_rgba(0,0,0,0.06)] backdrop-blur-sm">
       <div className="flex flex-wrap items-end gap-x-3 gap-y-2">
-        <label className="flex min-w-[14rem] flex-[2] flex-col gap-0.5">
+        <label className="flex min-w-56 flex-2 flex-col gap-0.5">
           <span className={LABEL}>Είδος παραστατικού στο SoftOne</span>
           <select
             value={seriesKey} disabled={!canEdit || saving || posted}
@@ -165,7 +163,7 @@ export function DocActionBar({
             ))}
           </select>
         </label>
-        <label className="flex min-w-[10rem] flex-1 flex-col gap-0.5">
+        <label className="flex min-w-40 flex-1 flex-col gap-0.5">
           <span className={LABEL}>Κατηγορία</span>
           <select
             value={category} disabled={!canEdit || saving || posted}
@@ -188,7 +186,7 @@ export function DocActionBar({
               {canPost && (
                 <button
                   type="button" onClick={syncMark} disabled={markBusy}
-                  className="inline-flex min-h-8 items-center gap-1 rounded-md border border-input bg-background px-2.5 text-[length:var(--fs-12)] font-semibold text-foreground hover:bg-muted disabled:opacity-60"
+                  className="inline-flex min-h-8 items-center gap-1 rounded-md border border-input bg-background px-2.5 text-(length:--fs-12) font-semibold text-foreground hover:bg-muted disabled:opacity-60"
                   title="Γράφει τον ΜΑΡΚ της ανάγνωσης στο καταχωρισμένο παραστατικό, αν λείπει"
                 >
                   {markBusy ? <FiLoader className="size-3.5 animate-spin" aria-hidden /> : <FiDatabase className="size-3.5" aria-hidden />}
@@ -207,11 +205,11 @@ export function DocActionBar({
                   <span className="text-muted-foreground underline decoration-dotted underline-offset-2">ποια;</span>
                 </button>
               </PopoverTrigger>
-              <PopoverContent align="start" className="w-[28rem] max-w-[90vw]">
-                <ol className="space-y-1.5 text-[length:var(--fs-12)] text-foreground">
+              <PopoverContent align="start" className="w-md max-w-[90vw]">
+                <ol className="space-y-1.5 text-(length:--fs-12) text-foreground">
                   {blockers.map((b, i) => (
                     <li key={b.code} className="flex gap-2">
-                      <span className="mt-0.5 grid size-4 shrink-0 place-items-center rounded-full bg-muted text-[length:var(--fs-10)] font-bold">{i + 1}</span>
+                      <span className="mt-0.5 grid size-4 shrink-0 place-items-center rounded-full bg-muted text-(length:--fs-10) font-bold">{i + 1}</span>
                       <span>{b.message}</span>
                     </li>
                   ))}
@@ -224,7 +222,7 @@ export function DocActionBar({
         <div className="flex flex-wrap items-center gap-2">
           {confirm ? (
             <>
-              <span className="flex max-w-[26rem] items-start gap-1.5 text-[length:var(--fs-11)] font-semibold text-foreground">
+              <span className="flex max-w-104 items-start gap-1.5 text-(length:--fs-11) font-semibold text-foreground">
                 {dup?.status === 'duplicate'
                   ? <FiAlertTriangle className="mt-0.5 size-3.5 shrink-0" style={{ color: '#B91C1C' }} aria-hidden />
                   : dup?.status === 'clear'
@@ -264,13 +262,13 @@ export function DocActionBar({
   );
 }
 
-const LABEL = 'text-[length:var(--fs-11)] font-semibold text-muted-foreground';
+const LABEL = 'text-(length:--fs-11) font-semibold text-muted-foreground';
 const SELECT =
-  'h-8 w-full cursor-pointer rounded-md border border-input bg-background px-2 text-[length:var(--fs-12)] text-foreground ' +
-  'focus:border-sisyphus-500 focus:outline-none focus:ring-2 focus:ring-sisyphus-500/25 disabled:cursor-not-allowed disabled:opacity-60';
-const STATUS = 'inline-flex items-center gap-1.5 text-[length:var(--fs-12)] font-semibold text-foreground';
+  'h-8 w-full cursor-pointer rounded-md border border-input bg-background px-2 text-(length:--fs-12) text-foreground ' +
+  'focus:border-sisyphus-500 focus:outline-hidden focus:ring-2 focus:ring-sisyphus-500/25 disabled:cursor-not-allowed disabled:opacity-60';
+const STATUS = 'inline-flex items-center gap-1.5 text-(length:--fs-12) font-semibold text-foreground';
 const BTN_POST =
-  'inline-flex h-8 items-center gap-1.5 rounded-md bg-emerald-600 px-3 text-[length:var(--fs-12)] font-semibold text-white shadow-sm transition hover:bg-emerald-700 ' +
+  'inline-flex h-8 items-center gap-1.5 rounded-md bg-emerald-600 px-3 text-(length:--fs-12) font-semibold text-white shadow-xs transition hover:bg-emerald-700 ' +
   'disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground disabled:shadow-none';
 const BTN_GHOST =
-  'inline-flex h-8 items-center gap-1.5 rounded-md border border-input bg-background px-3 text-[length:var(--fs-12)] font-semibold text-foreground transition hover:bg-muted';
+  'inline-flex h-8 items-center gap-1.5 rounded-md border border-input bg-background px-3 text-(length:--fs-12) font-semibold text-foreground transition hover:bg-muted';

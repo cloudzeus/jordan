@@ -48,7 +48,7 @@ export function WikiSidebar({ modules }: { modules: WikiModule[] }) {
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder="Αναζήτηση στον οδηγό…"
-            className="w-full rounded-lg border border-border bg-background pl-8 pr-2 py-2 text-[length:var(--fs-12-5)] outline-none transition focus:border-sisyphus-500 focus:ring-2 focus:ring-sisyphus-100"
+            className="w-full rounded-lg border border-border bg-background pl-8 pr-2 py-2 text-(length:--fs-12-5) outline-hidden transition focus:border-sisyphus-500 focus:ring-2 focus:ring-sisyphus-100"
           />
         </div>
       </div>
@@ -56,7 +56,7 @@ export function WikiSidebar({ modules }: { modules: WikiModule[] }) {
       {/* ΧΩΡΙΣ scroller: κανόνας του design system — τα πλαϊνά μενού δεν κυλούν. */}
       <nav className="flex flex-1 flex-col gap-1 px-2 py-3">
         {filtered.length === 0 && (
-          <p className="px-2 text-[length:var(--fs-12)] text-muted-foreground">Δεν βρέθηκαν σελίδες.</p>
+          <p className="px-2 text-(length:--fs-12) text-muted-foreground">Δεν βρέθηκαν σελίδες.</p>
         )}
         {filtered.map((m) => {
           const meta = getModuleMeta(m.module);
@@ -76,8 +76,8 @@ export function WikiSidebar({ modules }: { modules: WikiModule[] }) {
                   });
                 }}
                 className={cn(
-                  'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[length:var(--fs-12-5)] font-semibold transition text-foreground hover:bg-[var(--cx-hover)]',
-                  inModule && 'bg-[var(--cx-accent-soft)]',
+                  'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-(length:--fs-12-5) font-semibold transition text-foreground hover:bg-(--cx-hover)',
+                  inModule && 'bg-(--cx-accent-soft)',
                 )}
               >
                 <span
@@ -99,7 +99,7 @@ export function WikiSidebar({ modules }: { modules: WikiModule[] }) {
                         <Link
                           href={href}
                           className={cn(
-                            'relative flex items-center rounded-md px-2 py-1 text-[length:var(--fs-12)] cx-transition',
+                            'relative flex items-center rounded-md px-2 py-1 text-(length:--fs-12) cx-transition',
                             active
                               ? 'font-medium text-foreground'
                               : 'text-muted-foreground hover:text-foreground',
@@ -108,7 +108,7 @@ export function WikiSidebar({ modules }: { modules: WikiModule[] }) {
                           {active && (
                             <span
                               aria-hidden
-                              className="absolute -left-[10px] top-1/2 h-3 w-0.5 -translate-y-1/2 rounded-full"
+                              className="absolute left-[-10px] top-1/2 h-3 w-0.5 -translate-y-1/2 rounded-full"
                               style={{ background: meta.accent }}
                             />
                           )}

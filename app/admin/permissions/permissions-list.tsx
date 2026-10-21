@@ -30,7 +30,9 @@ export function PermissionsList({ items }: { items: PermItem[] }) {
 
 function ResourceGroup({ resource, initial }: { resource: string; initial: PermItem[] }) {
   const [local, setLocal] = React.useState(initial);
-  React.useEffect(() => setLocal(initial), [initial]);
+  // Συγχρονισμός με νέα props (adjust-state-while-rendering)
+  const [prevInitial, setPrevInitial] = React.useState(initial);
+  if (initial !== prevInitial) { setPrevInitial(initial); setLocal(initial); }
 
   const handleReorder = async (next: PermItem[]) => {
     setLocal(next);
@@ -45,8 +47,8 @@ function ResourceGroup({ resource, initial }: { resource: string; initial: PermI
   return (
     <section>
       <div className="flex items-center gap-2 mb-2">
-        <h3 className="text-[length:var(--fs-11)] font-bold uppercase tracking-wider text-muted-foreground" title={resource}>{RESOURCE_LABELS[resource] ?? resource}</h3>
-        <Badge variant="outline" className="text-[length:var(--fs-10)]">{local.length}</Badge>
+        <h3 className="text-(length:--fs-11) font-bold uppercase tracking-wider text-muted-foreground" title={resource}>{RESOURCE_LABELS[resource] ?? resource}</h3>
+        <Badge variant="outline" className="text-(length:--fs-10)">{local.length}</Badge>
       </div>
       <SortableList
         items={local}
@@ -59,10 +61,10 @@ function ResourceGroup({ resource, initial }: { resource: string; initial: PermI
             </span>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 min-w-0">
-                <span className="font-semibold text-foreground text-[length:var(--fs-12)]">{p.action}</span>
-                <code className="text-[length:var(--fs-10)] text-muted-foreground font-mono truncate">{p.key}</code>
+                <span className="font-semibold text-foreground text-(length:--fs-12)">{p.action}</span>
+                <code className="text-(length:--fs-10) text-muted-foreground font-mono truncate">{p.key}</code>
               </div>
-              {p.description && <div className="text-[length:var(--fs-11)] text-muted-foreground truncate">{p.description}</div>}
+              {p.description && <div className="text-(length:--fs-11) text-muted-foreground truncate">{p.description}</div>}
             </div>
             <Badge variant="outline" className="shrink-0"><FiShield /> {p.roleCount}</Badge>
           </div>

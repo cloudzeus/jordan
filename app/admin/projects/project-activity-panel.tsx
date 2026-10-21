@@ -16,6 +16,7 @@ import type { BudgetLine } from '@/lib/project-budget';
 import { AddBudgetLineDialog } from './add-budget-line-dialog';
 import { ApplyRecipeDialog } from './apply-recipe-dialog';
 import { useProjectRefresh } from './project-events';
+import { deleteBudgetLineAction, listBudgetAction } from './actions';
 
 // Μνήμη ανά έργο για τη διάρκεια της σελίδας: κλείσιμο/άνοιγμα της ίδιας γραμμής δεν ξαναρωτά
 // το SoftOne. Το «Ανανέωση» την παρακάμπτει.
@@ -61,8 +62,8 @@ const soft = (hex: string, pct = 10) => `color-mix(in srgb, ${hex} ${pct}%, var(
 const ACCENT = '#0369A1';
 const TAB_TONE = { materials: '#B45309', services: '#7C3AED', docs: ACCENT } as const;
 
-const TH = 'px-1.5 sm:px-2 py-1.5 text-left text-[length:var(--fs-10)] font-semibold uppercase tracking-wide text-muted-foreground whitespace-nowrap';
-const TD = 'px-1.5 sm:px-2 py-1.5 text-[length:var(--fs-12)] align-top';
+const TH = 'px-1.5 sm:px-2 py-1.5 text-left text-(length:--fs-10) font-semibold uppercase tracking-wide text-muted-foreground whitespace-nowrap';
+const TD = 'px-1.5 sm:px-2 py-1.5 text-(length:--fs-12) align-top';
 const NUM = 'text-right tabular-nums whitespace-nowrap';
 
 function useProjectActivity(prjc: number) {
@@ -70,22 +71,26 @@ function useProjectActivity(prjc: number) {
   const [error, setError] = React.useState<string | null>(null);
   const [loading, setLoading] = React.useState(!cache.has(prjc));
 
-  const load = React.useCallback(async (force = false) => {
-    if (!force && cache.has(prjc)) return;
+  // Τα setState μόνο μέσα στα callbacks της υπόσχεσης· το «loading» ανάβει στο load (χειριστές) ή στην αλλαγή έργου.
+  const fetchInto = React.useCallback(() =>
+    fetchActivity(prjc)
+      .then((body) => { cache.set(prjc, body); setData(body); })
+      .catch((e) => { setError((e as Error).message); })
+      .finally(() => { setLoading(false); }),
+  [prjc]);
+  const load = React.useCallback((force = false): Promise<void> => {
+    if (!force && cache.has(prjc)) return Promise.resolve();
     setLoading(true);
     setError(null);
-    try {
-      const body = await fetchActivity(prjc);
-      cache.set(prjc, body);
-      setData(body);
-    } catch (e) {
-      setError((e as Error).message);
-    } finally {
-      setLoading(false);
-    }
-  }, [prjc]);
+    return fetchInto();
+  }, [prjc, fetchInto]);
+  const [prevPrjc, setPrevPrjc] = React.useState(prjc);
+  if (prjc !== prevPrjc) {
+    setPrevPrjc(prjc);
+    if (!cache.has(prjc)) { setLoading(true); setError(null); }
+  }
 
-  React.useEffect(() => { void load(); }, [load]);
+  React.useEffect(() => { if (!cache.has(prjc)) void fetchInto(); }, [prjc, fetchInto]);
   useProjectRefresh(prjc, (scope) => { if (scope === 'all') void load(true); });
   return { data, error, loading, reload: () => load(true) };
 }
@@ -93,12 +98,11 @@ function useProjectActivity(prjc: number) {
 /** Ο προϋπολογισμός ζει στη δική μας βάση: ξαναδιαβάζεται μόνος του, χωρίς κλήση στο SoftOne. */
 function useBudget(prjc: number) {
   const [lines, setLines] = React.useState<BudgetLine[] | null>(null);
-  const load = React.useCallback(async () => {
-    try {
-      const res = await fetch(`/api/admin/projects/${prjc}/budget`, { cache: 'no-store' });
-      if (res.ok) setLines(((await res.json()) as { lines: BudgetLine[] }).lines);
-    } catch { /* ο προϋπολογισμός είναι συμπληρωματικός — οι κινήσεις φαίνονται κι έτσι */ }
-  }, [prjc]);
+  const load = React.useCallback(() =>
+    listBudgetAction(prjc)
+      .then((r) => { if (r.ok) setLines(r.data); })
+      .catch(() => { /* ο προϋπολογισμός είναι συμπληρωματικός — οι κινήσεις φαίνονται κι έτσι */ }),
+  [prjc]);
   React.useEffect(() => { void load(); }, [load]);
   useProjectRefresh(prjc, () => { void load(); });
   return { lines, reload: load };
@@ -119,7 +123,7 @@ function Skeleton() {
 }
 
 function Empty({ children }: { children: React.ReactNode }) {
-  return <p className="rounded-md border border-dashed border-border px-3 py-5 text-center text-[length:var(--fs-12)] text-muted-foreground">{children}</p>;
+  return <p className="rounded-md border border-dashed border-border px-3 py-5 text-center text-(length:--fs-12) text-muted-foreground">{children}</p>;
 }
 
 function FamilyBadge({ sosource, label }: { sosource: number; label: string }) {
@@ -127,7 +131,7 @@ function FamilyBadge({ sosource, label }: { sosource: number; label: string }) {
   const Icon = t.icon;
   return (
     <span
-      className="inline-flex items-center gap-1 rounded-sm px-1.5 py-0.5 text-[length:var(--fs-11)] font-medium sm:whitespace-nowrap"
+      className="inline-flex items-center gap-1 rounded-sm px-1.5 py-0.5 text-(length:--fs-11) font-medium sm:whitespace-nowrap"
       style={{ color: t.fg, backgroundColor: soft(t.fg, 12) }}
     >
       <Icon className="size-3" aria-hidden /> {label}
@@ -136,11 +140,11 @@ function FamilyBadge({ sosource, label }: { sosource: number; label: string }) {
 }
 
 function LastPurchaseCell({ lp }: { lp: { unitCost: number; date: string; fincode: string } | null }) {
-  if (!lp) return <span className="text-[length:var(--fs-11)] text-muted-foreground/60">καμία αγορά</span>;
+  if (!lp) return <span className="text-(length:--fs-11) text-muted-foreground">καμία αγορά</span>;
   return (
     <span title={`Από ${lp.fincode}`}>
       <span className="whitespace-nowrap text-foreground">{eur.format(lp.unitCost)}</span>
-      <span className="block text-[length:var(--fs-10)] text-muted-foreground">{fmtDate(lp.date)}</span>
+      <span className="block text-(length:--fs-10) text-muted-foreground">{fmtDate(lp.date)}</span>
     </span>
   );
 }
@@ -176,8 +180,8 @@ function MaterialsTable({ rows, kind }: { rows: ProjectMaterial[]; kind: 'materi
             <tbody key={sosource}>
               <tr style={{ backgroundColor: soft(t.fg, 7) }}>
                 <th scope="rowgroup" colSpan={5} className="px-2 py-1 text-left" style={{ boxShadow: `inset 3px 0 0 ${t.fg}` }}>
-                  <span className="text-[length:var(--fs-11)] font-semibold" style={{ color: t.fg }}>{items[0].family}</span>
-                  <span className="ml-2 text-[length:var(--fs-11)] font-normal tabular-nums text-muted-foreground">
+                  <span className="text-(length:--fs-11) font-semibold" style={{ color: t.fg }}>{items[0].family}</span>
+                  <span className="ml-2 text-(length:--fs-11) font-normal tabular-nums text-muted-foreground">
                     {items.length} · {eur.format(items.reduce((s, m) => s + m.value, 0))}
                   </span>
                 </th>
@@ -186,12 +190,12 @@ function MaterialsTable({ rows, kind }: { rows: ProjectMaterial[]; kind: 'materi
                 <tr key={`${m.mtrl}:${m.sosource}`} className="border-t border-border/60 transition-colors duration-150 hover:bg-muted/30">
                   <td className={TD}>
                     <span className="font-medium text-foreground">{m.name}</span>
-                    {m.code && <span className="ml-1.5 font-mono text-[length:var(--fs-10)] text-muted-foreground">{m.code}</span>}
+                    {m.code && <span className="ml-1.5 font-mono text-(length:--fs-10) text-muted-foreground">{m.code}</span>}
                   </td>
                   <td className={cn(TD, 'text-right tabular-nums')}>
                     <span className="whitespace-nowrap">{qtyFmt.format(m.qty)}</span>
                     {/* Η μονάδα («Τετραγωνικά μέτρα») κάτω από τον αριθμό στο κινητό, δίπλα του από sm. */}
-                    {m.unit && <span className="block text-[length:var(--fs-11)] text-muted-foreground sm:ml-1 sm:inline">{m.unit}</span>}
+                    {m.unit && <span className="block text-(length:--fs-11) text-muted-foreground sm:ml-1 sm:inline">{m.unit}</span>}
                   </td>
                   <td className={cn(TD, 'hidden text-right tabular-nums md:table-cell')}>
                     <LastPurchaseCell lp={m.lastPurchase} />
@@ -238,21 +242,21 @@ function DocsTable({ rows }: { rows: ProjectDoc[] }) {
                 <td className={cn(TD, 'tabular-nums whitespace-nowrap')} style={{ boxShadow: `inset 3px 0 0 ${t.fg}` }}>{fmtDate(d.date)}</td>
                 <td className={TD}>
                   <span className={cn('font-mono font-medium whitespace-nowrap', d.cancelled ? 'line-through' : 'text-foreground')}>{d.fincode}</span>
-                  <span className="block text-[length:var(--fs-11)] text-muted-foreground">{d.seriesName ?? `Σειρά ${d.series}`}</span>
+                  <span className="block text-(length:--fs-11) text-muted-foreground">{d.seriesName ?? `Σειρά ${d.series}`}</span>
                   {/* Στο κινητό η στήλη «Ενότητα» κρύβεται — η ένδειξη μένει εδώ. */}
                   <span className="mt-0.5 block md:hidden"><FamilyBadge sosource={d.sosource} label={d.family} /></span>
                   {d.cancelled && (
-                    <span className="mt-0.5 inline-flex items-center gap-0.5 rounded-sm bg-muted px-1 text-[length:var(--fs-11)]">
+                    <span className="mt-0.5 inline-flex items-center gap-0.5 rounded-sm bg-muted px-1 text-(length:--fs-11)">
                       <FiSlash className="size-3" aria-hidden /> Ακυρωμένο
                     </span>
                   )}
                   {!d.counts && !d.cancelled && (
-                    <span className="mt-0.5 ml-1 inline-block rounded-sm bg-muted px-1 text-[length:var(--fs-11)] text-muted-foreground" title="Παραγγελίες, προσφορές και δελτία δεν μετρούν στα σύνολα — η ίδια αγορά/πώληση μετριέται στο τιμολόγιο">
+                    <span className="mt-0.5 ml-1 inline-block rounded-sm bg-muted px-1 text-(length:--fs-11) text-muted-foreground" title="Παραγγελίες, προσφορές και δελτία δεν μετρούν στα σύνολα — η ίδια αγορά/πώληση μετριέται στο τιμολόγιο">
                       {d.kindLabel} · δεν μετρά
                     </span>
                   )}
                   {!d.onHeader && (
-                    <span className="mt-0.5 ml-1 inline-block rounded-sm bg-muted px-1 text-[length:var(--fs-11)] text-muted-foreground" title="Το έργο είναι μόνο σε γραμμές του παραστατικού, όχι στην κεφαλή">
+                    <span className="mt-0.5 ml-1 inline-block rounded-sm bg-muted px-1 text-(length:--fs-11) text-muted-foreground" title="Το έργο είναι μόνο σε γραμμές του παραστατικού, όχι στην κεφαλή">
                       μόνο γραμμές
                     </span>
                   )}
@@ -302,9 +306,8 @@ function BudgetSection({
     if (!ok) return;
     setBusyId(l.id);
     try {
-      const res = await fetch(`/api/admin/projects/${prjc}/budget/${l.id}`, { method: 'DELETE' });
-      const body = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(body.message || 'Αποτυχία αφαίρεσης');
+      const res = await deleteBudgetLineAction(prjc, l.id);
+      if (!res.ok) throw new Error(res.message);
       toast.success(`Αφαιρέθηκε: ${l.name}`);
       onDeleted();
     } catch (e) {
@@ -319,11 +322,11 @@ function BudgetSection({
     return (
       <div className="flex flex-wrap items-center gap-2 rounded-md border border-dashed px-3 py-2" style={{ borderColor: `color-mix(in srgb, ${BUDGET_TONE} 30%, var(--border))` }}>
         <FiTarget className="size-3.5 shrink-0" style={{ color: BUDGET_TONE }} aria-hidden />
-        <span className="flex-1 text-[length:var(--fs-12)] text-muted-foreground">Δεν υπάρχει προϋπολογισμός για {kind === 'materials' ? 'υλικά' : 'υπηρεσίες'}.</span>
-        <button type="button" onClick={onAdd} className="inline-flex h-8 cursor-pointer items-center gap-1 rounded-md px-2.5 text-[length:var(--fs-12)] font-medium text-white transition-opacity duration-150 hover:opacity-90" style={{ backgroundColor: BUDGET_TONE }}>
+        <span className="flex-1 text-(length:--fs-12) text-muted-foreground">Δεν υπάρχει προϋπολογισμός για {kind === 'materials' ? 'υλικά' : 'υπηρεσίες'}.</span>
+        <button type="button" onClick={onAdd} className="inline-flex h-8 cursor-pointer items-center gap-1 rounded-md px-2.5 text-(length:--fs-12) font-medium text-white transition-opacity duration-150 hover:opacity-90" style={{ backgroundColor: BUDGET_TONE }}>
           <FiPlus className="size-3.5" aria-hidden /> Προσθήκη {noun === 'υλικό' ? 'υλικού' : 'υπηρεσίας'}
         </button>
-        <button type="button" onClick={onRecipe} className="inline-flex h-8 cursor-pointer items-center gap-1 rounded-md border px-2.5 text-[length:var(--fs-12)] font-medium transition-colors duration-150 hover:bg-muted" style={{ color: BUDGET_TONE, borderColor: `color-mix(in srgb, ${BUDGET_TONE} 35%, var(--border))` }}>
+        <button type="button" onClick={onRecipe} className="inline-flex h-8 cursor-pointer items-center gap-1 rounded-md border px-2.5 text-(length:--fs-12) font-medium transition-colors duration-150 hover:bg-muted" style={{ color: BUDGET_TONE, borderColor: `color-mix(in srgb, ${BUDGET_TONE} 35%, var(--border))` }}>
           <FiLayers className="size-3.5" aria-hidden /> Από συνταγή
         </button>
       </div>
@@ -334,16 +337,16 @@ function BudgetSection({
     <div className="overflow-hidden rounded-md border bg-background" style={{ borderColor: `color-mix(in srgb, ${BUDGET_TONE} 30%, var(--border))` }}>
       <div className="flex flex-wrap items-center gap-2 px-2 py-1.5" style={{ backgroundColor: soft(BUDGET_TONE, 8), boxShadow: `inset 3px 0 0 ${BUDGET_TONE}` }}>
         <FiTarget className="size-3.5" style={{ color: BUDGET_TONE }} aria-hidden />
-        <span className="text-[length:var(--fs-11)] font-semibold" style={{ color: BUDGET_TONE }}>Προϋπολογισμός</span>
-        <span className="text-[length:var(--fs-11)] tabular-nums text-muted-foreground">
+        <span className="text-(length:--fs-11) font-semibold" style={{ color: BUDGET_TONE }}>Προϋπολογισμός</span>
+        <span className="text-(length:--fs-11) tabular-nums text-muted-foreground">
           {lines.length} · {eur.format(total)}{costKnown && <> · κόστος {eur.format(cost)}</>}
         </span>
         {canManage && (
           <>
-            <button type="button" onClick={onRecipe} className="ml-auto inline-flex h-7 cursor-pointer items-center gap-1 rounded-md px-2 text-[length:var(--fs-11)] font-medium transition-colors duration-150 hover:bg-background" style={{ color: BUDGET_TONE }}>
+            <button type="button" onClick={onRecipe} className="ml-auto inline-flex h-7 cursor-pointer items-center gap-1 rounded-md px-2 text-(length:--fs-11) font-medium transition-colors duration-150 hover:bg-background" style={{ color: BUDGET_TONE }}>
               <FiLayers className="size-3.5" aria-hidden /> Από συνταγή
             </button>
-            <button type="button" onClick={onAdd} className="inline-flex h-7 cursor-pointer items-center gap-1 rounded-md px-2 text-[length:var(--fs-11)] font-medium transition-colors duration-150 hover:bg-background" style={{ color: BUDGET_TONE }}>
+            <button type="button" onClick={onAdd} className="inline-flex h-7 cursor-pointer items-center gap-1 rounded-md px-2 text-(length:--fs-11) font-medium transition-colors duration-150 hover:bg-background" style={{ color: BUDGET_TONE }}>
               <FiPlus className="size-3.5" aria-hidden /> Προσθήκη
             </button>
           </>
@@ -369,12 +372,12 @@ function BudgetSection({
               <tr key={l.id} className="border-t border-border/60 transition-colors duration-150 hover:bg-muted/30">
                 <td className={TD}>
                   <span className="font-medium text-foreground">{l.name}</span>
-                  <span className="ml-1.5 font-mono text-[length:var(--fs-10)] text-muted-foreground">{l.code}</span>
-                  {l.notes && <span className="block text-[length:var(--fs-11)] text-muted-foreground">{l.notes}</span>}
+                  <span className="ml-1.5 font-mono text-(length:--fs-10) text-muted-foreground">{l.code}</span>
+                  {l.notes && <span className="block text-(length:--fs-11) text-muted-foreground">{l.notes}</span>}
                 </td>
                 <td className={cn(TD, 'text-right tabular-nums')}>
                   <span className="whitespace-nowrap">{qtyFmt.format(l.qty)}</span>
-                  {l.unit && <span className="block text-[length:var(--fs-11)] text-muted-foreground sm:ml-1 sm:inline">{l.unit}</span>}
+                  {l.unit && <span className="block text-(length:--fs-11) text-muted-foreground sm:ml-1 sm:inline">{l.unit}</span>}
                 </td>
                 <td className={cn(TD, NUM, 'hidden sm:table-cell')}>
                   {/* Πάνω από την πρόβλεψη = υπέρβαση: κείμενο + χρώμα, όχι μόνο χρώμα. */}
@@ -387,9 +390,9 @@ function BudgetSection({
                   {l.lastPurchase ? (
                     <span title={`${eur.format(l.lastPurchase.unitCost)} / μονάδα · ${l.lastPurchase.fincode} · ${fmtDate(l.lastPurchase.date)}`}>
                       <span className="whitespace-nowrap text-foreground">{eur.format(l.qty * l.lastPurchase.unitCost)}</span>
-                      <span className="block text-[length:var(--fs-10)] text-muted-foreground">{eur.format(l.lastPurchase.unitCost)} · {fmtDate(l.lastPurchase.date)}</span>
+                      <span className="block text-(length:--fs-10) text-muted-foreground">{eur.format(l.lastPurchase.unitCost)} · {fmtDate(l.lastPurchase.date)}</span>
                     </span>
-                  ) : <span className="text-[length:var(--fs-11)] text-muted-foreground/60">καμία αγορά</span>}
+                  ) : <span className="text-(length:--fs-11) text-muted-foreground">καμία αγορά</span>}
                 </td>
                 <td className={cn(TD, NUM, 'font-semibold text-foreground')}>{eur.format(l.value)}</td>
                 {canManage && (
@@ -404,7 +407,7 @@ function BudgetSection({
                         <FiMoreVertical className="size-4" aria-hidden />
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="w-52">
-                        <DropdownMenuItem variant="destructive" className="cursor-pointer gap-2 text-[length:var(--fs-12)]" onSelect={() => remove(l)}>
+                        <DropdownMenuItem variant="destructive" className="cursor-pointer gap-2 text-(length:--fs-12)" onSelect={() => remove(l)}>
                           <FiTrash2 className="size-3.5" aria-hidden /> Αφαίρεση από τον προϋπολογισμό
                         </DropdownMenuItem>
                       </DropdownMenuContent>
@@ -427,7 +430,7 @@ function TabLabel({ icon: Icon, label, count, tone }: { icon: React.ComponentTyp
       <Icon className="hidden size-3.5 sm:inline" aria-hidden />
       {label}
       <span
-        className="rounded-full px-1.5 text-[length:var(--fs-10)] font-semibold tabular-nums leading-4"
+        className="rounded-full px-1.5 text-(length:--fs-10) font-semibold tabular-nums leading-4"
         style={{ color: tone, backgroundColor: soft(tone, 14) }}
       >
         {count}
@@ -439,11 +442,11 @@ function TabLabel({ icon: Icon, label, count, tone }: { icon: React.ComponentTyp
 // Μικρά, έγχρωμα tabs: ίδιο μέγεθος με το κείμενο του πίνακα (όχι το 14px του shadcn), με
 // υπογράμμιση στο χρώμα του tab όταν είναι ενεργό.
 const TRIGGER = cn(
-  '!h-8 flex-none cursor-pointer gap-1 sm:gap-1.5 rounded-none px-1.5 sm:px-2.5 text-[length:var(--fs-12)] text-muted-foreground',
-  'hover:text-foreground data-[state=active]:font-semibold data-[state=active]:!text-[color:var(--tab-tone)]',
+  'h-8! flex-none cursor-pointer gap-1 sm:gap-1.5 rounded-none px-1.5 sm:px-2.5 text-(length:--fs-12) text-muted-foreground',
+  'hover:text-foreground data-[state=active]:font-semibold data-[state=active]:text-(--tab-tone)!',
   // Η υπογράμμιση κάθεται στο κάτω άκρο του tab, που πιάνει όλο το ύψος της λίστας (όχι 5px
   // κάτω, όπως στο shadcn): αλλιώς βγαίνει εκτός της λίστας, κόβεται, και η λίστα αποκτά scrollbar.
-  'after:bg-[var(--tab-tone)] after:!h-[2px] after:!bottom-0',
+  'after:bg-(--tab-tone) after:h-[2px]! after:bottom-0!',
 );
 
 export function ProjectActivityPanel({ prjc, canManage = false, projectLabel }: { prjc: number; canManage?: boolean; projectLabel: string }) {
@@ -456,7 +459,7 @@ export function ProjectActivityPanel({ prjc, canManage = false, projectLabel }: 
 
   if (error && !data) {
     return (
-      <div role="alert" className="flex flex-wrap items-center gap-2 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-[length:var(--fs-12)]">
+      <div role="alert" className="flex flex-wrap items-center gap-2 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-(length:--fs-12)">
         <FiAlertTriangle className="size-4 shrink-0 text-destructive" aria-hidden />
         <span className="flex-1 text-foreground">{error}</span>
         <button type="button" onClick={reload} className="inline-flex h-8 cursor-pointer items-center gap-1 rounded-md border border-border bg-background px-2.5 font-medium hover:bg-muted">
@@ -480,7 +483,7 @@ export function ProjectActivityPanel({ prjc, canManage = false, projectLabel }: 
     <div className="space-y-3">
       <div className="flex flex-wrap items-stretch gap-2">
         {data.totals.length === 0 && (
-          <span className="text-[length:var(--fs-12)] text-muted-foreground">Καμία κίνηση στο SoftOne για αυτό το έργο.</span>
+          <span className="text-(length:--fs-12) text-muted-foreground">Καμία κίνηση στο SoftOne για αυτό το έργο.</span>
         )}
         {data.totals.map((t) => {
           const tone = toneOf(t.sosource);
@@ -488,14 +491,14 @@ export function ProjectActivityPanel({ prjc, canManage = false, projectLabel }: 
           return (
             <div
               key={t.sosource}
-              className="min-w-[9.5rem] flex-1 rounded-md border px-3 py-1.5 sm:flex-none"
+              className="min-w-38 flex-1 rounded-md border px-3 py-1.5 sm:flex-none"
               style={{ backgroundColor: soft(tone.fg, 8), borderColor: soft(tone.fg, 30), boxShadow: `inset 3px 0 0 ${tone.fg}` }}
             >
-              <p className="flex items-center gap-1 text-[length:var(--fs-11)] font-semibold" style={{ color: tone.fg }}>
+              <p className="flex items-center gap-1 text-(length:--fs-11) font-semibold" style={{ color: tone.fg }}>
                 <Icon className="size-3.5" aria-hidden /> {t.family}
               </p>
-              <p className="text-[length:var(--fs-14)] font-bold tabular-nums text-foreground">{eur.format(t.total)}</p>
-              <p className="text-[length:var(--fs-10)] tabular-nums text-muted-foreground">
+              <p className="text-(length:--fs-14) font-bold tabular-nums text-foreground">{eur.format(t.total)}</p>
+              <p className="text-(length:--fs-10) tabular-nums text-muted-foreground">
                 {t.docs} παραστατικά · καθαρή {eur.format(t.net)}
               </p>
             </div>
@@ -505,7 +508,7 @@ export function ProjectActivityPanel({ prjc, canManage = false, projectLabel }: 
           type="button"
           onClick={reload}
           disabled={loading}
-          className="ml-auto inline-flex h-8 cursor-pointer items-center gap-1 self-start rounded-md px-2 text-[length:var(--fs-11)] text-muted-foreground transition-colors duration-150 hover:bg-muted hover:text-foreground disabled:cursor-default disabled:opacity-50"
+          className="ml-auto inline-flex h-8 cursor-pointer items-center gap-1 self-start rounded-md px-2 text-(length:--fs-11) text-muted-foreground transition-colors duration-150 hover:bg-muted hover:text-foreground disabled:cursor-default disabled:opacity-50"
           title={`Από SoftOne · ${new Date(data.fetchedAt).toLocaleTimeString('el-GR')}`}
         >
           <FiRefreshCw className={cn('size-3.5', loading && 'animate-spin motion-reduce:animate-none')} aria-hidden />
@@ -514,7 +517,7 @@ export function ProjectActivityPanel({ prjc, canManage = false, projectLabel }: 
       </div>
 
       <Tabs defaultValue={materials.length + budgetMaterials.length ? 'materials' : services.length + budgetServices.length ? 'services' : 'docs'} className="gap-2">
-        <TabsList variant="line" className="!h-auto min-h-8 flex-wrap w-full justify-start gap-0 border-b border-border p-0">
+        <TabsList variant="line" className="h-auto! min-h-8 flex-wrap w-full justify-start gap-0 border-b border-border p-0">
           <TabsTrigger value="materials" className={TRIGGER} style={{ ['--tab-tone' as string]: TAB_TONE.materials }}>
             <TabLabel icon={FiPackage} label="Υλικά" count={materials.length + budgetMaterials.length} tone={TAB_TONE.materials} />
           </TabsTrigger>

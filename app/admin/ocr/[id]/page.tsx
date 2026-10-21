@@ -216,7 +216,7 @@ export default async function OcrDetailPage({ params }: { params: Promise<{ id: 
                 σειρά από τη δουλειά. */}
             {doc.softoneSeries && (
               <p
-                className="mt-1 flex flex-wrap items-center gap-1.5 text-[length:var(--fs-12)] text-muted-foreground"
+                className="mt-1 flex flex-wrap items-center gap-1.5 text-(length:--fs-12) text-muted-foreground"
                 title={[
                   series?.family, manualSeries ? 'χειροκίνητη επιλογή'
                     : doc.seriesConfidence != null ? `βεβαιότητα ${Math.round(doc.seriesConfidence * 100)}%` : null,
@@ -285,7 +285,7 @@ export default async function OcrDetailPage({ params }: { params: Promise<{ id: 
           άγνωστο έντυπο» κρατούσε μια ολόκληρη ενότητα για να πει «τίποτα». Κλειστή μέχρι να χρειαστεί. */}
       {completed && runs.length === 0 && (
         <details className="group rounded-xl border border-border bg-card">
-          <summary className="flex cursor-pointer list-none items-center gap-2 px-5 py-3 text-[length:var(--fs-13)] font-semibold text-foreground">
+          <summary className="flex cursor-pointer list-none items-center gap-2 px-5 py-3 text-(length:--fs-13) font-semibold text-foreground">
             <FiChevronRight className="size-3.5 transition-transform duration-200 group-open:rotate-90" aria-hidden />
             Πρότυπο εξαγωγής
             <span className="font-normal text-muted-foreground">— δεν χρησιμοποιήθηκε</span>

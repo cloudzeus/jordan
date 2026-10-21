@@ -1,7 +1,7 @@
 import type * as React from 'react';
 import {
   FiBookOpen, FiUser, FiUsers, FiShield, FiBriefcase, FiImage,
-  FiCpu, FiLayers, FiTag, FiActivity, FiHome, FiMapPin, FiFileText,
+  FiCpu, FiLayers, FiTag, FiActivity, FiHome, FiMapPin,
 } from 'react-icons/fi';
 import type { IconType } from 'react-icons';
 import { AirJordanIcon } from '@/components/assistant/air-jordan-icon';
@@ -79,12 +79,6 @@ export const MODULE_META: Record<string, ModuleMeta> = {
     icon: FiActivity,
     gradientFrom: '#94a3b8', gradientTo: '#64748b',
     accent: '#475569', accentSoft: '#f1f5f9',
-  },
-  documents: {
-    label: 'Δικαιολογητικά', description: 'Τύποι δικαιολογητικών, φάσεις προγραμμάτων και απαιτήσεις',
-    icon: FiFileText,
-    gradientFrom: '#818cf8', gradientTo: '#6366f1',
-    accent: '#4f46e5', accentSoft: '#e0e7ff',
   },
   mitroa: {
     label: 'Μητρώο Περιφερειών', description: 'Δομή Καλλικράτη — Περιφέρειες/Νομοί/Δήμοι',

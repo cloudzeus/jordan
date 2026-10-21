@@ -50,7 +50,7 @@ export async function enhanceForOcr(input: Buffer | Uint8Array | ArrayBuffer): P
   } else if (input instanceof ArrayBuffer) {
     buffer = Buffer.from(input);
   } else {
-    throw new Error(`enhanceForOcr: unsupported input type ${typeof input} (${(input as any)?.constructor?.name})`);
+    throw new Error(`enhanceForOcr: unsupported input type ${typeof input} (${(input as object | null)?.constructor?.name})`);
   }
   if (buffer.length === 0) {
     throw new Error('enhanceForOcr: received an empty buffer (rasterizer likely produced no bytes).');
@@ -95,7 +95,7 @@ export interface ExtractResult {
    * Η προβολή του εγγράφου στα παλιά flat κλειδιά (`toLegacy`). Δεν είναι δεύτερη αλήθεια: κάθε
    * consumer που δεν έχει ακόμη μεταφερθεί (λίστα, row-detail, ουρές, ταξινομητής) διαβάζει αυτήν.
    */
-  data: any;
+  data: Record<string, unknown>;
   rawText: string | null;
   model: string;
   tokensUsed: number | null;
@@ -206,7 +206,7 @@ export function stripTrailingCommas(s: string): string {
   return out;
 }
 
-export function parseJsonLoose(s: string): any {
+export function parseJsonLoose(s: string): unknown {
   if (!s) throw new Error('Empty LLM response');
   // Strip code fences if model returned them anyway.
   const cleaned = s.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/i, '').trim();
@@ -238,7 +238,7 @@ export async function extractDigitalPdfText(buffer: Buffer): Promise<string> {
   // setter throws on anything that is not a string. Every digital PDF therefore
   // failed here and was re-run through the PAID vision path.
   try {
-    const pdfjs: any = await getPdfjs();
+    const pdfjs: typeof import('pdfjs-dist/legacy/build/pdf.mjs') = await getPdfjs();
 
     const loadingTask = pdfjs.getDocument({
       data: new Uint8Array(buffer),
@@ -257,10 +257,10 @@ export async function extractDigitalPdfText(buffer: Buffer): Promise<string> {
         .join(' ');
       pages.push(text);
     }
-    await doc.destroy();
+    await loadingTask.destroy();
     return pages.join('\n').replace(/[ \t]+/g, ' ').trim();
-  } catch (err: any) {
-    throw new Error(`PDF text extraction failed: ${err?.message ?? err}`);
+  } catch (err) {
+    throw new Error(`PDF text extraction failed: ${(err as Error)?.message ?? err}`, { cause: err });
   }
 }
 
@@ -278,8 +278,8 @@ export async function rasterizePdf(buffer: Buffer, maxPages = 3, scale = 2): Pro
   let document;
   try {
     document = await pdf(buffer, { scale });
-  } catch (err: any) {
-    throw new Error(`rasterizePdf (pdf-to-img init): ${err?.message ?? err}`);
+  } catch (err) {
+    throw new Error(`rasterizePdf (pdf-to-img init): ${(err as Error)?.message ?? err}`, { cause: err });
   }
   const pages: Buffer[] = [];
   try {
@@ -291,8 +291,8 @@ export async function rasterizePdf(buffer: Buffer, maxPages = 3, scale = 2): Pro
       pages.push(buf);
       if (pages.length >= maxPages) break;
     }
-  } catch (err: any) {
-    throw new Error(`rasterizePdf (page iteration): ${err?.message ?? err}`);
+  } catch (err) {
+    throw new Error(`rasterizePdf (page iteration): ${(err as Error)?.message ?? err}`, { cause: err });
   }
   return pages;
 }
@@ -398,6 +398,13 @@ async function callTextViaVisionOnce(
  * when pdf-to-img/canvas chokes on a PDF, especially mixed PDFs with weird
  * embedded image streams.
  */
+/** Υποσύνολο της απάντησης του Gemini `generateContent` που διαβάζουμε. */
+type GeminiUsageMetadata = { promptTokenCount?: number; candidatesTokenCount?: number; totalTokenCount?: number };
+type GeminiGenerateResponse = {
+  candidates?: { content?: { parts?: { text?: string }[] } }[];
+  usageMetadata?: GeminiUsageMetadata;
+};
+
 export async function callGeminiPdfNative(
   cfg: DeepSeekCfg, system: string, pdfBuffer: Buffer, modelOverride?: string,
   usageScope: AiScope = 'OCR_VISION',
@@ -428,9 +435,9 @@ export async function callGeminiPdfNative(
         }),
       }, { label: `pdf:${model}` });
       if (!res.ok) return { ok: false, error: new Error(`Gemini PDF ${res.status}: ${(await res.text()).slice(0, 300)}`) };
-      const data = await res.json();
-      const content = data?.candidates?.[0]?.content?.parts?.map((p: any) => p.text).filter(Boolean).join('') ?? '';
-      const u = data?.usageMetadata ?? {};
+      const data: GeminiGenerateResponse | null = await res.json();
+      const content = data?.candidates?.[0]?.content?.parts?.map((p) => p.text).filter(Boolean).join('') ?? '';
+      const u: GeminiUsageMetadata = data?.usageMetadata ?? {};
       void logAiUsage({
         scope: modelOverride && usageScope === 'OCR_VISION' ? 'OCR_VISION_RETRY' : usageScope,
         provider: 'gemini', model, operation: 'ocr.pdf_native',
@@ -663,13 +670,13 @@ async function extractDocumentRaw(input: ExtractInput): Promise<ExtractResult> {
       let textLayerError: string | null = null;
       try {
         probed = await extractDigitalPdfText(input.buffer);
-      } catch (err: any) {
+      } catch (err) {
         // We could not READ the text layer. That is NOT the same thing as "this
         // document is a scan" — a scan has no text to read, whereas this may be a
         // document whose text was free and which we are about to pay a vision call
         // for. Both end up on the same (legitimate) fallback below, so they must be
         // told apart in the logs: one is expected, the other is money on fire.
-        textLayerError = err?.message ?? String(err);
+        textLayerError = (err as Error)?.message ?? String(err);
       }
 
       // Not enough selectable text → fully scanned path.

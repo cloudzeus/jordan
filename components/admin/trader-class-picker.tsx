@@ -31,10 +31,15 @@ export interface ClassProposal {
 export function useTraderClassRows(sodtype: number | null | undefined): { rows: ClassRow[]; loading: boolean } {
   const [rows, setRows] = React.useState<ClassRow[]>([]);
   const [loading, setLoading] = React.useState(false);
+  // («Adjust state while rendering»· αρχικό `null` ⇒ και στο πρώτο render, όπως το effect.)
+  const [prevSodtype, setPrevSodtype] = React.useState<readonly [number | null | undefined] | null>(null);
+  if (prevSodtype === null || !Object.is(prevSodtype[0], sodtype)) {
+    setPrevSodtype([sodtype]);
+    if (sodtype !== 12 && sodtype !== 13) setRows([]); else setLoading(true);
+  }
   React.useEffect(() => {
-    if (sodtype !== 12 && sodtype !== 13) { setRows([]); return; }
+    if (sodtype !== 12 && sodtype !== 13) return;
     let alive = true;
-    setLoading(true);
     fetch(`/api/admin/trader-classes?sodtype=${sodtype}`, { cache: 'no-store' })
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => { if (alive) setRows(d?.rows ?? []); })
@@ -75,7 +80,7 @@ export function TraderClassPicker({ rows, loading, value, onChange, disabled, pr
       )}
       {incomplete && <RowHint tone="warn">Διάλεξε και {LEVEL_LABEL[value.length]?.toLocaleLowerCase('el') ?? 'το επόμενο επίπεδο'} — στην καρτέλα μπαίνει μόνο η πιο ειδική κατηγορία.</RowHint>}
       {proposal && (proposed?.length || proposal.needsReview) ? (
-        <div className="flex flex-wrap items-center gap-2 rounded-md bg-muted/40 px-2.5 py-1.5 text-[length:var(--fs-12)]">
+        <div className="flex flex-wrap items-center gap-2 rounded-md bg-muted/40 px-2.5 py-1.5 text-(length:--fs-12)">
           <FiZap aria-hidden className="size-3.5 shrink-0 text-amber-600" />
           <span className="min-w-0 flex-1">
             {proposed?.length ? <>Πρόταση: <strong className="font-medium">{pathLabel(rows, proposed)}</strong></> : <>Χωρίς πρόταση</>}

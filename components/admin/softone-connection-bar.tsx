@@ -157,8 +157,8 @@ export function SoftoneConnectionBar() {
     >
       <Icon className="mt-0.5 size-4 shrink-0" style={{ color: V.fg }} aria-hidden />
       <div className="min-w-0 flex-1">
-        <p className="text-[length:var(--fs-12)] font-bold text-foreground">{V.title}</p>
-        <p className="text-[length:var(--fs-11)] text-muted-foreground">{V.body}</p>
+        <p className="text-(length:--fs-12) font-bold text-foreground">{V.title}</p>
+        <p className="text-(length:--fs-11) text-muted-foreground">{V.body}</p>
       </div>
       {/* Οι ενέργειες έχουν ΕΝΑ χρώμα — το μπλε της εφαρμογής. Το χρώμα της κατάστασης μένει
           στο εικονίδιο και στο φόντο, εκεί που σημαίνει κάτι. */}
@@ -166,7 +166,7 @@ export function SoftoneConnectionBar() {
         {state === 'tenant' && (
           <>
             <a href="/admin/reference-data"
-              className="inline-flex h-7 items-center gap-1 rounded-md bg-sisyphus-500 px-2.5 text-[length:var(--fs-11)] font-semibold text-white shadow-sm transition hover:bg-sisyphus-600">
+              className="inline-flex h-7 items-center gap-1 rounded-md bg-sisyphus-500 px-2.5 text-(length:--fs-11) font-semibold text-white shadow-xs transition hover:bg-sisyphus-600">
               <FiRefreshCw className="size-3.5" /> Πλήρης συγχρονισμός
             </a>
             <button type="button" onClick={acknowledge} disabled={busy != null}
@@ -177,7 +177,7 @@ export function SoftoneConnectionBar() {
         )}
         {(state === 'foreign' || state === 'unstamped') && (
           <a href="/admin/reference-data"
-            className="inline-flex h-7 items-center gap-1 rounded-md bg-sisyphus-500 px-2.5 text-[length:var(--fs-11)] font-semibold text-white shadow-sm transition hover:bg-sisyphus-600">
+            className="inline-flex h-7 items-center gap-1 rounded-md bg-sisyphus-500 px-2.5 text-(length:--fs-11) font-semibold text-white shadow-xs transition hover:bg-sisyphus-600">
             <FiRefreshCw className="size-3.5" /> Συγχρονισμός
           </a>
         )}
@@ -203,11 +203,11 @@ export function SoftoneConnectionBar() {
 }
 
 const BTN_PRIMARY =
-  'inline-flex h-7 shrink-0 items-center gap-1 rounded-md bg-sisyphus-500 px-2.5 text-[length:var(--fs-11)] ' +
-  'font-semibold text-white shadow-sm transition hover:bg-sisyphus-600 ' +
+  'inline-flex h-7 shrink-0 items-center gap-1 rounded-md bg-sisyphus-500 px-2.5 text-(length:--fs-11) ' +
+  'font-semibold text-white shadow-xs transition hover:bg-sisyphus-600 ' +
   'disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground disabled:shadow-none';
 
 const BTN_GHOST =
   'inline-flex h-7 shrink-0 items-center gap-1 rounded-md border border-input bg-background px-2.5 ' +
-  'text-[length:var(--fs-11)] font-semibold text-foreground transition hover:bg-muted ' +
+  'text-(length:--fs-11) font-semibold text-foreground transition hover:bg-muted ' +
   'disabled:cursor-not-allowed disabled:opacity-60';

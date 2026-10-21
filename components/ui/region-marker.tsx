@@ -90,11 +90,16 @@ export function RegionMarker({
 
   // Fetch the page image ourselves (instead of <img src>) so that on a non-OK
   // response we can read the JSON error body and show the real reason.
+  // Reset στην αλλαγή της σελίδας — «adjust state while rendering» (αρχικό `[]` ⇒ και στο πρώτο render).
+  const [prevDeps, setPrevDeps] = React.useState<readonly unknown[]>([]);
+  if (prevDeps.length === 0 || !Object.is(prevDeps[0], url) || !Object.is(prevDeps[1], onError)) {
+    setPrevDeps([url, onError]);
+    setLoading(true);
+    setErrMsg(null);
+  }
   React.useEffect(() => {
     let alive = true;
     let createdUrl: string | null = null;
-    setLoading(true);
-    setErrMsg(null);
     (async () => {
       try {
         const res = await fetch(url, { cache: 'no-store' });
@@ -117,9 +122,9 @@ export function RegionMarker({
         createdUrl = URL.createObjectURL(blob);
         setObjUrl(createdUrl);
         setLoading(false);
-      } catch (e: any) {
+      } catch (e) {
         if (!alive) return;
-        setErrMsg(`network: ${e?.message ?? e}`);
+        setErrMsg(`network: ${(e as { message?: unknown } | null | undefined)?.message ?? e}`);
         setObjUrl(null);
         setLoading(false);
         onError?.();
@@ -246,7 +251,6 @@ export function RegionMarker({
             // the page scroll over a full-page document image would trap a touch user on it.
             touchAction: isMarking ? 'none' : undefined,
           }}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={objUrl} alt={pageLabel ?? `Δείγμα εγγράφου, σελίδα ${page + 1}`} draggable={false}
             className={fit === 'width' ? 'block w-full' : fit === 'page' ? 'block h-auto w-auto max-w-full' : 'block max-w-none'}

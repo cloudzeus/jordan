@@ -18,7 +18,7 @@ export async function POST() {
     const summary: Record<string, number> = {};
 
     // ΓΕΜΗ returns numeric ids as strings — coerce here.
-    const toInt = (v: any) => typeof v === 'number' ? v : parseInt(String(v), 10);
+    const toInt = (v: unknown) => typeof v === 'number' ? v : parseInt(String(v), 10);
 
     // LegalType
     await Promise.all(legalTypes.map((t) => {

@@ -27,7 +27,12 @@ export function ReextractDialog({
   const [docType, setDocType] = React.useState<ExtractDocType>('auto');
 
   // Κάθε άνοιγμα ξεκινάει καθαρό: η επιλογή του προηγούμενου εγγράφου δεν κληρονομείται.
-  React.useEffect(() => { if (open) setDocType('auto'); }, [open]);
+  // (Ρύθμιση state κατά το render όταν αλλάζει το `open`, όχι σε effect.)
+  const [prevOpen, setPrevOpen] = React.useState(open);
+  if (open !== prevOpen) {
+    setPrevOpen(open);
+    if (open) setDocType('auto');
+  }
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) onCancel(); }}>
@@ -37,8 +42,8 @@ export function ReextractDialog({
             <FiRefreshCw className="size-4" />
           </span>
           <div className="min-w-0 flex-1">
-            <DialogTitle className="text-[length:var(--fs-15)]">Επανεκτέλεση ανάγνωσης</DialogTitle>
-            <DialogDescription className="truncate text-[length:var(--fs-11)]" title={fileName ?? undefined}>
+            <DialogTitle className="text-(length:--fs-15)">Επανεκτέλεση ανάγνωσης</DialogTitle>
+            <DialogDescription className="truncate text-(length:--fs-11)" title={fileName ?? undefined}>
               {fileName ? `«${fileName}»` : 'Το έγγραφο θα ξαναδιαβαστεί'}
             </DialogDescription>
           </div>
@@ -46,7 +51,7 @@ export function ReextractDialog({
 
         <div className="space-y-3 bg-muted/20 px-4 py-3">
           <FormSection tone="amber" icon={<FiZap />} title="Μοντέλο" aside={<span className="font-mono">gemini-2.5-pro</span>}>
-            <p className="text-[length:var(--fs-12)] leading-snug text-foreground">
+            <p className="text-(length:--fs-12) leading-snug text-foreground">
               Το έγγραφο{fileName ? ` «${fileName}»` : ''} θα ξαναδιαβαστεί με ισχυρότερο μοντέλο
               (gemini-2.5-pro): πιο αργό και πιο ακριβό, αλλά αποδίδει καλύτερα σε θολές σαρώσεις.
             </p>

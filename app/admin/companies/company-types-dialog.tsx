@@ -2,7 +2,7 @@
 
 import { confirmAction } from '@/components/ui/confirm-dialog';
 import * as React from 'react';
-import { FiPlus, FiTrash2, FiSave, FiLock, FiLayers } from 'react-icons/fi';
+import { FiPlus, FiTrash2, FiLock, FiLayers } from 'react-icons/fi';
 import { toast } from 'sonner';
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
@@ -51,8 +51,8 @@ export function CompanyTypesDialog({
         <DialogHeader className="flex-row items-center gap-3 border-b border-border px-4 py-2.5 pr-12">
           <span aria-hidden className="grid size-8 shrink-0 place-items-center rounded-lg bg-sisyphus-50 text-sisyphus-600 dark:bg-sisyphus-500/15"><FiLayers className="size-4" /></span>
           <div className="min-w-0 flex-1">
-            <DialogTitle className="text-[length:var(--fs-15)]">Τύποι εταιριών</DialogTitle>
-            <DialogDescription className="text-[length:var(--fs-11)]">
+            <DialogTitle className="text-(length:--fs-15)">Τύποι εταιριών</DialogTitle>
+            <DialogDescription className="text-(length:--fs-11)">
               Διαχείριση τύπων (πελάτης, προμηθευτής, συνεργάτης, …). Οι system τύποι δεν διαγράφονται.
             </DialogDescription>
           </div>
@@ -69,11 +69,11 @@ export function CompanyTypesDialog({
                     style={{ background: t.color ?? '#888' }}
                   />
                   <div className="min-w-0 flex-1">
-                    <div className="truncate text-[length:var(--fs-13)] font-medium text-foreground">{t.name}</div>
-                    <div className="truncate text-[length:var(--fs-11)] text-muted-foreground"><span className="font-mono">{t.key}</span> · {t.count} εταιρίες</div>
+                    <div className="truncate text-(length:--fs-13) font-medium text-foreground">{t.name}</div>
+                    <div className="truncate text-(length:--fs-11) text-muted-foreground"><span className="font-mono">{t.key}</span> · {t.count} εταιρίες</div>
                   </div>
                   {t.isSystem
-                    ? <Badge variant="outline" className="text-[length:var(--fs-10)]"><FiLock className="mr-1" /> System</Badge>
+                    ? <Badge variant="outline" className="text-(length:--fs-10)"><FiLock className="mr-1" /> System</Badge>
                     : (
                       <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => remove(t)} aria-label="Διαγραφή">
                         <FiTrash2 className="text-destructive" />

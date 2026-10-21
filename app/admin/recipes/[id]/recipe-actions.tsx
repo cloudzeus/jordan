@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { confirmAction } from '@/components/ui/confirm-dialog';
 import type { RecipeView } from '@/lib/install-recipes';
 import { CopyRecipeDialog } from '../copy-recipe-dialog';
+import { deleteRecipeAction } from '../actions';
 
 export function RecipeActions({ recipe }: { recipe: RecipeView }) {
   const router = useRouter();
@@ -15,8 +16,8 @@ export function RecipeActions({ recipe }: { recipe: RecipeView }) {
 
   const remove = async () => {
     if (!(await confirmAction({ message: `Διαγραφή της συνταγής «${recipe.name}»;\nΔεν αναιρείται. Τα αντίγραφά της δεν επηρεάζονται.`, destructive: true }))) return;
-    const res = await fetch(`/api/admin/recipes/${recipe.id}`, { method: 'DELETE' });
-    if (!res.ok) { toast.error((await res.json().catch(() => ({}))).message ?? 'Η διαγραφή απέτυχε'); return; }
+    const res = await deleteRecipeAction(recipe.id);
+    if (!res.ok) { toast.error(res.message); return; }
     toast.success('Η συνταγή διαγράφηκε');
     router.push('/admin/recipes');
   };

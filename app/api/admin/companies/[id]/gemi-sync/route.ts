@@ -5,7 +5,7 @@ import { requirePermission } from '@/lib/rbac';
 import { bunnyUpload } from '@/lib/bunny';
 import {
   searchCompanies, getCompany, getCompanyDocuments, downloadGemiFile,
-  mapGemiCompany, GemiError,
+  mapGemiCompany, GemiError, type GemiDocumentSet,
 } from '@/lib/gemi';
 import { resolveKadForActivity } from '@/lib/kad/resolve';
 
@@ -130,8 +130,8 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
     let documentsImported = 0;
     let documentsFailed = 0;
     if (opts.syncDocuments) {
-      const decisions = (docSet as any).decision ?? [];
-      const publications = (docSet as any).publication ?? [];
+      const decisions = (docSet as GemiDocumentSet).decision ?? [];
+      const publications = (docSet as GemiDocumentSet).publication ?? [];
 
       for (const d of decisions) {
         if (!d.kak) continue;

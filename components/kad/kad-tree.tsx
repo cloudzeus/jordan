@@ -59,7 +59,7 @@ function KadNode({ node, depth }: { node: KadTreeNodeData; depth: number }) {
   return (
     <li>
       <div
-        className={`group flex items-center gap-2 rounded-lg border-2 ${styles.border} bg-white px-2.5 py-1.5 hover:shadow-sm transition-shadow`}
+        className={`group flex items-center gap-2 rounded-lg border-2 ${styles.border} bg-white px-2.5 py-1.5 hover:shadow-xs transition-shadow`}
       >
         <button
           type="button"
@@ -74,30 +74,30 @@ function KadNode({ node, depth }: { node: KadTreeNodeData; depth: number }) {
 
         <Checkbox onClick={(e) => e.stopPropagation()} />
 
-        <span className="font-mono text-[length:var(--fs-11)] tabular-nums text-slate-500 w-24 shrink-0">{node.code}</span>
-        <span className="text-[length:var(--fs-11)] font-medium uppercase truncate text-slate-700">{node.title}</span>
+        <span className="font-mono text-(length:--fs-11) tabular-nums text-slate-500 w-24 shrink-0">{node.code}</span>
+        <span className="text-(length:--fs-11) font-medium uppercase truncate text-slate-700">{node.title}</span>
 
         <div className="ml-auto flex items-center gap-1.5 shrink-0">
           {node.level != null && (
-            <span className={`px-2 py-0.5 rounded text-[length:var(--fs-11)] font-medium border ${styles.badge}`}>
+            <span className={`px-2 py-0.5 rounded text-(length:--fs-11) font-medium border ${styles.badge}`}>
               {levelLabels[node.level] ?? `L${node.level}`}
             </span>
           )}
-          <span className="px-2 py-0.5 rounded text-[length:var(--fs-11)] font-medium bg-amber-100 text-amber-800 border border-amber-200">
+          <span className="px-2 py-0.5 rounded text-(length:--fs-11) font-medium bg-amber-100 text-amber-800 border border-amber-200">
             {node.descendants.toLocaleString('el-GR')} ΚΑΔ
           </span>
-          <span className="px-2 py-0.5 rounded text-[length:var(--fs-11)] text-slate-600 bg-slate-50 border border-slate-200">
+          <span className="px-2 py-0.5 rounded text-(length:--fs-11) text-slate-600 bg-slate-50 border border-slate-200">
             {node.directChildren} άμεσα
           </span>
           {node.sector && (
-            <span className="px-2 py-0.5 rounded text-[length:var(--fs-11)] text-slate-600 bg-slate-50 border border-slate-200">
+            <span className="px-2 py-0.5 rounded text-(length:--fs-11) text-slate-600 bg-slate-50 border border-slate-200">
               Τομέας {node.sector}
             </span>
           )}
-          <button type="button" className="p-1 text-slate-400 hover:text-slate-700" aria-label="edit">
+          <button type="button" className="p-1 text-slate-500 hover:text-slate-700" aria-label="edit">
             <FiEdit2 className="w-3.5 h-3.5" />
           </button>
-          <button type="button" className="p-1 text-rose-400 hover:text-rose-600" aria-label="delete">
+          <button type="button" className="p-1 text-rose-500 hover:text-rose-700" aria-label="delete">
             <FiTrash2 className="w-3.5 h-3.5" />
           </button>
         </div>

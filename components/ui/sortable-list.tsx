@@ -25,6 +25,7 @@ export function SortableList<T extends SortableItem>({
   items, renderItem, onReorder, disabled, className,
 }: SortableListProps<T>) {
   const [mounted, setMounted] = React.useState(false);
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- σημαία «μετά το hydration» (το dnd-kit αποδίδεται μόνο στον browser)
   React.useEffect(() => { setMounted(true); }, []);
 
   const sensors = useSensors(

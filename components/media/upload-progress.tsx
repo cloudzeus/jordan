@@ -37,8 +37,8 @@ export function UploadProgress({ items, open, onClose, onCancel }: UploadProgres
             <FiUpload className="size-4" />
           </span>
           <div className="min-w-0 flex-1 text-left">
-            <DialogTitle className="text-[length:var(--fs-15)]">Μεταφόρτωση αρχείων</DialogTitle>
-            <DialogDescription className="truncate text-[length:var(--fs-11)] tabular-nums" aria-live="polite">
+            <DialogTitle className="text-(length:--fs-15)">Μεταφόρτωση αρχείων</DialogTitle>
+            <DialogDescription className="truncate text-(length:--fs-11) tabular-nums" aria-live="polite">
               {done}/{items.length} ολοκληρώθηκαν
               {errored > 0 && <span className="text-destructive"> · {errored} σφάλματα</span>}
             </DialogDescription>
@@ -55,13 +55,13 @@ export function UploadProgress({ items, open, onClose, onCancel }: UploadProgres
                     {item.status === 'error' && <FiAlertCircle className="size-4 text-destructive" />}
                     {(item.status === 'uploading' || item.status === 'queued') && <FiUpload className="size-3.5 text-sisyphus-600 dark:text-sisyphus-300" />}
                   </span>
-                  <span className="min-w-0 flex-1 truncate text-[length:var(--fs-12)] font-medium text-foreground" title={item.file.name}>
+                  <span className="min-w-0 flex-1 truncate text-(length:--fs-12) font-medium text-foreground" title={item.file.name}>
                     {item.file.name}
                   </span>
-                  <span className="shrink-0 text-[length:var(--fs-11)] tabular-nums text-muted-foreground">
+                  <span className="shrink-0 text-(length:--fs-11) tabular-nums text-muted-foreground">
                     {formatBytes(item.file.size)}
                   </span>
-                  <span className={`w-10 shrink-0 text-right text-[length:var(--fs-11)] font-semibold tabular-nums ${
+                  <span className={`w-10 shrink-0 text-right text-(length:--fs-11) font-semibold tabular-nums ${
                     item.status === 'error'
                       ? 'text-destructive'
                       : item.status === 'done'
@@ -74,7 +74,7 @@ export function UploadProgress({ items, open, onClose, onCancel }: UploadProgres
                     <button
                       type="button"
                       onClick={() => onCancel(item.id)}
-                      className="inline-flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sisyphus-500"
+                      className="inline-flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-sisyphus-500"
                       aria-label="Ακύρωση"
                     >
                       <FiX className="size-3.5" />
@@ -103,7 +103,7 @@ export function UploadProgress({ items, open, onClose, onCancel }: UploadProgres
                   />
                 </div>
                 {item.status === 'error' && item.error && (
-                  <div className="ml-7 mt-1 text-[length:var(--fs-11)] text-destructive" role="alert">{item.error}</div>
+                  <div className="ml-7 mt-1 text-(length:--fs-11) text-destructive" role="alert">{item.error}</div>
                 )}
               </li>
             ))}

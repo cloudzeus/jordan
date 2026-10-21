@@ -16,7 +16,7 @@ import {
 } from '@/lib/item-media/transform';
 import type { ItemMediaDTO } from '@/lib/item-media/service';
 
-const TOOL = 'inline-flex h-8 cursor-pointer items-center gap-1 rounded-md border border-border bg-background px-2 text-[length:var(--fs-11)] font-medium text-foreground transition-colors duration-150 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
+const TOOL = 'inline-flex h-8 cursor-pointer items-center gap-1 rounded-md border border-border bg-background px-2 text-(length:--fs-11) font-medium text-foreground transition-colors duration-150 hover:bg-muted focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring';
 
 /**
  * Επεξεργασία φωτογραφίας πάνω στον καμβά 1920×1920. Η προεπισκόπηση χρησιμοποιεί ΤΗΝ ΙΔΙΑ
@@ -41,7 +41,12 @@ export function ImageEditorDialog({
   const [stageEl, setStageEl] = React.useState<HTMLDivElement | null>(null);
   const drag = React.useRef<{ px: number; py: number; x: number; y: number } | null>(null);
 
-  React.useEffect(() => { if (open && media) setT(media.transform ?? DEFAULT_TRANSFORM); }, [open, media]);
+  // «Adjust state while rendering» (αρχικό `[]` ⇒ και στο πρώτο render, όπως το effect).
+  const [prevDeps, setPrevDeps] = React.useState<readonly unknown[]>([]);
+  if (prevDeps.length === 0 || !Object.is(prevDeps[0], open) || !Object.is(prevDeps[1], media)) {
+    setPrevDeps([open, media]);
+    if (open && media) setT(media.transform ?? DEFAULT_TRANSFORM);
+  }
 
   // Το μέγεθος του καμβά στην οθόνη (τετράγωνο που χωρά στο παράθυρο) — η κλίμακα προεπισκόπησης.
   React.useEffect(() => {
@@ -111,8 +116,8 @@ export function ImageEditorDialog({
     <Dialog open={open} onOpenChange={(o) => !busy && onOpenChange(o)}>
       <DialogContent className="flex max-h-[96dvh] w-[96vw] flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl">
         <DialogHeader className="border-b border-border px-4 py-2.5 pr-12">
-          <DialogTitle className="text-[length:var(--fs-15)]">Επεξεργασία φωτογραφίας</DialogTitle>
-          <DialogDescription className="truncate text-[length:var(--fs-11)]">
+          <DialogTitle className="text-(length:--fs-15)">Επεξεργασία φωτογραφίας</DialogTitle>
+          <DialogDescription className="truncate text-(length:--fs-11)">
             {media.name} · πρωτότυπο {ow}×{oh} · αποθήκευση ως 1920×1920 WebP
           </DialogDescription>
         </DialogHeader>
@@ -132,7 +137,7 @@ export function ImageEditorDialog({
               onKeyDown={onKeyDown}
               onWheel={onWheel}
               className={cn(
-                'relative aspect-square w-full touch-none select-none overflow-hidden rounded-md border border-border outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                'relative aspect-square w-full touch-none select-none overflow-hidden rounded-md border border-border outline-hidden focus-visible:ring-2 focus-visible:ring-ring',
                 dragging ? 'cursor-grabbing' : 'cursor-grab',
               )}
               style={t.background === 'white'
@@ -143,7 +148,6 @@ export function ImageEditorDialog({
                 className="absolute"
                 style={{ left: p.left * k, top: p.top * k, width: p.width * k, height: p.height * k }}
               >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={media.originalUrl ?? media.url}
                   alt={media.name}
@@ -186,9 +190,9 @@ export function ImageEditorDialog({
               aria-label="Zoom" className="h-2 flex-1 cursor-pointer accent-sisyphus-500"
             />
             <button type="button" className={cn(TOOL, 'px-1.5')} onClick={() => zoomTo(t.zoom * 1.1)} aria-label="Μεγέθυνση"><FiZoomIn className="size-3.5" aria-hidden /></button>
-            <span className="w-12 text-right text-[length:var(--fs-11)] tabular-nums text-muted-foreground">{Math.round(t.zoom * 100)}%</span>
+            <span className="w-12 text-right text-(length:--fs-11) tabular-nums text-muted-foreground">{Math.round(t.zoom * 100)}%</span>
           </div>
-          <p className="mt-2 flex items-center justify-center gap-1 text-center text-[length:var(--fs-11)] text-muted-foreground">
+          <p className="mt-2 flex items-center justify-center gap-1 text-center text-(length:--fs-11) text-muted-foreground">
             <FiMove className="size-3" aria-hidden /> Σύρε τη φωτογραφία ή χρησιμοποίησε τα βελάκια (Shift για μεγαλύτερο βήμα).
           </p>
         </div>

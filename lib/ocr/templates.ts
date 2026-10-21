@@ -221,11 +221,11 @@ export const REQUIRED_FIELDS: Record<ExtractDocType, string[]> = {
 };
 
 /** Count missing required fields in an extracted payload. */
-export function countMissingRequired(data: any, docType: ExtractDocType): number {
+export function countMissingRequired(data: unknown, docType: ExtractDocType): number {
   if (!data || typeof data !== 'object') return REQUIRED_FIELDS[docType].length;
   let n = 0;
   for (const key of REQUIRED_FIELDS[docType]) {
-    const v = (data as any)[key];
+    const v = (data as Record<string, unknown>)[key];
     const missing = v == null || v === '' || (Array.isArray(v) && v.length === 0);
     if (missing) n += 1;
   }

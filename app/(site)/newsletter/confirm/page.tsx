@@ -30,22 +30,22 @@ export default async function ConfirmPage({ searchParams }: { searchParams: Prom
         {!sub ? (
           <>
             <span className="grid size-14 place-items-center rounded-full bg-[#B42318]/10 text-[#B42318]"><FiAlertCircle className="size-6" aria-hidden /></span>
-            <h1 className="font-display mt-6 text-[length:var(--fs-48)]">Ο σύνδεσμος δεν ισχύει</h1>
-            <p className="mt-4 text-[length:var(--fs-16)] text-[var(--s-ink-2)]">Ίσως αντικαταστάθηκε από νεότερο email. Κάντε ξανά την εγγραφή για να λάβετε νέο σύνδεσμο.</p>
+            <h1 className="font-display mt-6 text-(length:--fs-48)">Ο σύνδεσμος δεν ισχύει</h1>
+            <p className="mt-4 text-(length:--fs-16) text-(--s-ink-2)">Ίσως αντικαταστάθηκε από νεότερο email. Κάντε ξανά την εγγραφή για να λάβετε νέο σύνδεσμο.</p>
             <div className="mt-10 flex flex-wrap gap-3"><Link href="/newsletter" className={btn.primary}>Νέα εγγραφή</Link><Link href="/" className={btn.ghost}>Στην αρχική</Link></div>
           </>
         ) : confirmed ? (
           <>
             <span className="grid size-14 place-items-center rounded-full bg-[#15803D]/10 text-[#15803D]"><FiCheck className="size-6" aria-hidden /></span>
-            <h1 className="font-display mt-6 text-[length:var(--fs-48)]">{done ? 'Η εγγραφή επιβεβαιώθηκε' : 'Είστε ήδη εγγεγραμμένοι'}</h1>
-            <p className="mt-4 text-[length:var(--fs-16)] text-[var(--s-ink-2)]">Θα λαμβάνετε τα νέα του atelier στο <strong className="font-medium text-[var(--s-ink)]">{sub.email}</strong>. Κάθε email έχει σύνδεσμο διαγραφής.</p>
+            <h1 className="font-display mt-6 text-(length:--fs-48)">{done ? 'Η εγγραφή επιβεβαιώθηκε' : 'Είστε ήδη εγγεγραμμένοι'}</h1>
+            <p className="mt-4 text-(length:--fs-16) text-(--s-ink-2)">Θα λαμβάνετε τα νέα του atelier στο <strong className="font-medium text-(--s-ink)">{sub.email}</strong>. Κάθε email έχει σύνδεσμο διαγραφής.</p>
             <div className="mt-10"><Link href="/" className={btn.primary}>Στην αρχική</Link></div>
           </>
         ) : (
           <>
-            <p className="s-kicker text-[var(--s-accent)]">Newsletter</p>
-            <h1 className="font-display mt-4 text-[length:var(--fs-48)]">Επιβεβαιώστε την εγγραφή</h1>
-            <p className="mt-4 text-[length:var(--fs-16)] text-[var(--s-ink-2)]">Θα στέλνουμε τα νέα του atelier στο <strong className="font-medium text-[var(--s-ink)]">{sub.email}</strong>.</p>
+            <p className="s-kicker text-(--s-accent)">Newsletter</p>
+            <h1 className="font-display mt-4 text-(length:--fs-48)">Επιβεβαιώστε την εγγραφή</h1>
+            <p className="mt-4 text-(length:--fs-16) text-(--s-ink-2)">Θα στέλνουμε τα νέα του atelier στο <strong className="font-medium text-(--s-ink)">{sub.email}</strong>.</p>
             <form action={confirm} className="mt-10"><button type="submit" className={btn.primary}>Ναι, θέλω να εγγραφώ</button></form>
           </>
         )}

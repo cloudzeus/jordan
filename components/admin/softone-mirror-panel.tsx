@@ -58,6 +58,7 @@ export function SoftoneMirrorPanel({ initial, canManage, help }: { initial: Mirr
   const [s, setS] = React.useState(initial);
   // Πρώτη απόδοση με την ώρα του server (ίδιο κείμενο σε server και browser), μετά με το ρολόι του browser.
   const [now, setNow] = React.useState(() => Date.parse(initial.generatedAt));
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- ρολόι του browser μόνο μετά το hydration
   React.useEffect(() => { setNow(Date.now()); }, []);
   const [starting, setStarting] = React.useState(false);
 
@@ -111,11 +112,11 @@ export function SoftoneMirrorPanel({ initial, canManage, help }: { initial: Mirr
     <section className="mb-6 rounded-xl border border-border bg-card p-4" aria-labelledby="mirror-title">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <h2 id="mirror-title" className="flex items-center gap-2 text-[length:var(--fs-15)] font-bold text-foreground">
+          <h2 id="mirror-title" className="flex items-center gap-2 text-(length:--fs-15) font-bold text-foreground">
             <FiDatabase className="size-4 text-sisyphus-500" aria-hidden /> Τοπικό αντίγραφο SoftOne
             {help}
           </h2>
-          <p className="mt-0.5 max-w-3xl text-[length:var(--fs-12)] text-muted-foreground">
+          <p className="mt-0.5 max-w-3xl text-(length:--fs-12) text-muted-foreground">
             Παραστατικά, γραμμές, myDATA και μητρώα αποθηκεύονται στη βάση μας· το SoftOne ρωτιέται μόνο για ό,τι άλλαξε (UPDDATE).
             {' '}{s.worker.enabled
               ? <>Αυτόματα, με τον ρυθμό κάθε πίνακα · πλήρης συμφωνία (διαγραφές) κάθε νύχτα.</>
@@ -126,7 +127,7 @@ export function SoftoneMirrorPanel({ initial, canManage, help }: { initial: Mirr
           <div className="flex shrink-0 items-center gap-1.5">
             <button
               type="button" onClick={() => run('incremental')} disabled={running}
-              className="inline-flex h-9 items-center gap-1.5 rounded-md bg-sisyphus-500 px-3 text-[length:var(--fs-12)] font-semibold text-white shadow-sm transition hover:bg-sisyphus-600 disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground disabled:shadow-none"
+              className="inline-flex h-9 items-center gap-1.5 rounded-md bg-sisyphus-500 px-3 text-(length:--fs-12) font-semibold text-white shadow-xs transition hover:bg-sisyphus-600 disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground disabled:shadow-none"
             >
               <FiRefreshCw className={cn('size-3.5', running && 'animate-spin')} aria-hidden />
               {running ? 'Συγχρονίζει…' : 'Συγχρονισμός τώρα'}
@@ -139,7 +140,7 @@ export function SoftoneMirrorPanel({ initial, canManage, help }: { initial: Mirr
                 <FiMoreVertical className="size-4" aria-hidden />
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-64">
-                <DropdownMenuItem disabled={running} onSelect={() => run('reconcile')} className="gap-2 text-[length:var(--fs-13)]">
+                <DropdownMenuItem disabled={running} onSelect={() => run('reconcile')} className="gap-2 text-(length:--fs-13)">
                   <FiRepeat className="size-3.5" aria-hidden /> Πλήρης συμφωνία τώρα
                 </DropdownMenuItem>
               </DropdownMenuContent>
@@ -148,7 +149,7 @@ export function SoftoneMirrorPanel({ initial, canManage, help }: { initial: Mirr
         )}
       </div>
 
-      <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-[length:var(--fs-12)] text-muted-foreground">
+      <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-(length:--fs-12) text-muted-foreground">
         <span>Παραστατικά <b className="text-foreground">{n(s.counts.docs)}</b></span>
         <span>Γραμμές ειδών <b className="text-foreground">{n(s.counts.lines)}</b></span>
         <span>Γραμμές εμβασμάτων <b className="text-foreground">{n(s.counts.remittanceLines)}</b></span>
@@ -163,21 +164,21 @@ export function SoftoneMirrorPanel({ initial, canManage, help }: { initial: Mirr
 
       {backfill && (
         <div className="mt-3 rounded-lg border border-border px-3 py-2" role="status" aria-live="polite">
-          <div className="flex items-center justify-between gap-2 text-[length:var(--fs-12)]">
+          <div className="flex items-center justify-between gap-2 text-(length:--fs-12)">
             <span className="font-semibold text-foreground">Αρχική φόρτωση ιστορικού παραστατικών</span>
             <span className="tabular-nums text-muted-foreground">{n(backfill.done)} / {n(backfill.total)}</span>
           </div>
           <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-muted">
             <div className="h-full rounded-full bg-sisyphus-500 transition-all" style={{ width: `${backfill.total ? Math.round((backfill.done / backfill.total) * 100) : 0}%` }} />
           </div>
-          <p className="mt-1 text-[length:var(--fs-11)] text-muted-foreground">Σε κομμάτια με παύσεις, σε δική της σύνδεση· συνεχίζει μόνη της. Μέχρι να τελειώσει, οι οθόνες διαβάζουν ζωντανά.</p>
+          <p className="mt-1 text-(length:--fs-11) text-muted-foreground">Σε κομμάτια με παύσεις, σε δική της σύνδεση· συνεχίζει μόνη της. Μέχρι να τελειώσει, οι οθόνες διαβάζουν ζωντανά.</p>
         </div>
       )}
 
       {failing.length > 0 && (
         <div role="alert" className="mt-3 flex items-start gap-2 rounded-lg border px-3 py-2" style={{ backgroundColor: '#FFF8EE', borderColor: '#FCD9A8' }}>
           <FiAlertTriangle className="mt-0.5 size-4 shrink-0" style={{ color: '#B45309' }} aria-hidden />
-          <div className="min-w-0 text-[length:var(--fs-12)]">
+          <div className="min-w-0 text-(length:--fs-12)">
             <p className="font-semibold text-foreground">Ο τελευταίος κύκλος απέτυχε για: {failing.map((f) => f.label).join(', ')}</p>
             <p className="text-muted-foreground">Οι οθόνες συνεχίζουν με το τελευταίο καλό αντίγραφο· όταν παλιώσει (30′), ξαναδιαβάζουν ζωντανά. Ο επόμενος κύκλος θα ξαναδοκιμάσει.</p>
           </div>
@@ -185,8 +186,8 @@ export function SoftoneMirrorPanel({ initial, canManage, help }: { initial: Mirr
       )}
 
       <div className="relative mt-3 overflow-x-auto">
-        <table className="w-full min-w-[760px] text-left text-[length:var(--fs-12)]">
-          <thead className="text-[length:var(--fs-11)] uppercase tracking-wide text-muted-foreground">
+        <table className="w-full min-w-[760px] text-left text-(length:--fs-12)">
+          <thead className="text-(length:--fs-11) uppercase tracking-wide text-muted-foreground">
             <tr className="border-b border-border">
               <th className="py-1.5 pr-3 font-semibold">Πίνακας</th>
               <th className="py-1.5 pr-3 text-right font-semibold">Γραμμές</th>
@@ -211,10 +212,10 @@ export function SoftoneMirrorPanel({ initial, canManage, help }: { initial: Mirr
                   <td className="py-2 pr-3 font-medium text-foreground">{t.label}</td>
                   <td className="py-2 pr-3 text-right tabular-nums">{n(t.rows)}</td>
                   <td className="py-2 pr-3">
-                    <span className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[length:var(--fs-11)] font-semibold" style={{ color: badge.fg, backgroundColor: badge.bg }}>
+                    <span className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-(length:--fs-11) font-semibold" style={{ color: badge.fg, backgroundColor: badge.bg }}>
                       <badge.Icon className="size-3" aria-hidden /> {badge.label}
                     </span>
-                    {err && <p className="mt-1 max-w-xs text-[length:var(--fs-11)] text-destructive">{t.lastError}</p>}
+                    {err && <p className="mt-1 max-w-xs text-(length:--fs-11) text-destructive">{t.lastError}</p>}
                   </td>
                   <td className="py-2 pr-3 whitespace-nowrap">
                     {canManage ? (
@@ -222,7 +223,7 @@ export function SoftoneMirrorPanel({ initial, canManage, help }: { initial: Mirr
                         aria-label={`Ρυθμός: ${t.label}`}
                         value={t.everyMin}
                         onChange={(e) => setEvery(t, Number(e.target.value))}
-                        className="h-8 rounded-md border border-input bg-background px-1.5 text-[length:var(--fs-12)]"
+                        className="h-8 rounded-md border border-input bg-background px-1.5 text-(length:--fs-12)"
                       >
                         {[...new Set([...EVERY, t.everyMin])].sort((a, b) => a - b).map((m) => (
                           <option key={m} value={m}>κάθε {everyLabel(m)}{m === t.defaultEveryMin ? ' (προεπ.)' : ''}</option>
@@ -244,10 +245,10 @@ export function SoftoneMirrorPanel({ initial, canManage, help }: { initial: Mirr
                           <FiMoreVertical className="size-4" aria-hidden />
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="w-60">
-                          <DropdownMenuItem disabled={running} onSelect={() => run('incremental', t)} className="gap-2 text-[length:var(--fs-13)]">
+                          <DropdownMenuItem disabled={running} onSelect={() => run('incremental', t)} className="gap-2 text-(length:--fs-13)">
                             <FiRefreshCw className="size-3.5" aria-hidden /> Συγχρονισμός τώρα
                           </DropdownMenuItem>
-                          <DropdownMenuItem disabled={running} onSelect={() => run('reconcile', t)} className="gap-2 text-[length:var(--fs-13)]">
+                          <DropdownMenuItem disabled={running} onSelect={() => run('reconcile', t)} className="gap-2 text-(length:--fs-13)">
                             <FiRepeat className="size-3.5" aria-hidden /> Πλήρης συμφωνία
                           </DropdownMenuItem>
                         </DropdownMenuContent>

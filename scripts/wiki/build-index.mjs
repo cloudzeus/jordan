@@ -30,7 +30,7 @@ for (const file of walk(WIKI)) {
     slug: data.slug,
     roles: data.roles ?? [],
     description: data.description ?? '',
-    excerpt: content.replace(/[#*_`>\-]/g, '').slice(0, 400).trim(),
+    excerpt: content.replace(/[#*_`>-]/g, '').slice(0, 400).trim(),
   });
 }
 

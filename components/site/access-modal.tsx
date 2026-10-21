@@ -57,25 +57,25 @@ export function AccessModalHost() {
     setError(ERRORS[url?.searchParams.get('error') ?? 'send'] ?? ERRORS.send);
   }
 
-  const pill = (on: boolean) => cn('inline-flex min-h-12 flex-1 cursor-pointer items-center justify-center border text-[length:var(--fs-15)] transition-colors', on ? 'border-[var(--s-ink)] bg-[var(--s-ink)] text-white' : 'border-[var(--s-line)] text-[var(--s-ink-2)] hover:border-[var(--s-ink)]');
+  const pill = (on: boolean) => cn('inline-flex min-h-12 flex-1 cursor-pointer items-center justify-center border text-(length:--fs-15) transition-colors', on ? 'border-(--s-ink) bg-(--s-ink) text-white' : 'border-(--s-line) text-(--s-ink-2) hover:border-(--s-ink)');
 
   return (
     <DialogPrimitive.Root open={open} onOpenChange={setOpen}>
       <DialogPrimitive.Portal>
-        <DialogPrimitive.Overlay className="fixed inset-0 z-[90] bg-[#0B1620]/70 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=closed]:animate-out data-[state=closed]:fade-out-0" />
+        <DialogPrimitive.Overlay className="fixed inset-0 z-90 bg-[#0B1620]/70 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=closed]:animate-out data-[state=closed]:fade-out-0" />
         <DialogPrimitive.Content
-          className="site fixed inset-x-0 bottom-0 z-[91] max-h-[92dvh] overflow-hidden bg-white text-[var(--s-ink)] shadow-[0_40px_120px_-30px_rgba(0,0,0,0.6)] outline-none data-[state=open]:animate-in data-[state=open]:slide-in-from-bottom-8 data-[state=open]:fade-in-0 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 md:inset-auto md:left-1/2 md:top-1/2 md:max-h-[88dvh] md:w-[min(64rem,calc(100vw-3rem))] md:-translate-x-1/2 md:-translate-y-1/2"
+          className="site fixed inset-x-0 bottom-0 z-91 max-h-[92dvh] overflow-hidden bg-white text-(--s-ink) shadow-[0_40px_120px_-30px_rgba(0,0,0,0.6)] outline-hidden data-[state=open]:animate-in data-[state=open]:slide-in-from-bottom-8 data-[state=open]:fade-in-0 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 md:inset-auto md:left-1/2 md:top-1/2 md:max-h-[88dvh] md:w-[min(64rem,calc(100vw-3rem))] md:-translate-x-1/2 md:-translate-y-1/2"
           aria-describedby="access-desc">
           <div className="grid max-h-[92dvh] md:max-h-[88dvh] md:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]">
             {/* Αριστερά: το atelier */}
             <aside className="relative hidden overflow-hidden bg-[#0B1620] text-white md:block">
               <Image src="/site/brand/lab.jpg" alt="" fill sizes="28rem" className="object-cover opacity-60" />
-              <div className="absolute inset-0 bg-gradient-to-t from-[#0B1620] via-[#0B1620]/40 to-transparent" />
+              <div className="absolute inset-0 bg-linear-to-t from-[#0B1620] via-[#0B1620]/40 to-transparent" />
               <div className="relative flex h-full flex-col justify-between p-8">
                 <Image src="/site/brand/logo-white.png" alt="Atelier by Damask" width={835} height={438} className="h-auto w-[110px]" />
                 <div>
-                  <p className="font-display text-[length:var(--fs-36)]">Καλώς ήρθατε στο <em className="text-[#E8D5BF]">atelier.</em></p>
-                  <ul className="mt-6 space-y-3 text-[length:var(--fs-14)] text-white/80">
+                  <p className="font-display text-(length:--fs-36)">Καλώς ήρθατε στο <em className="text-[#E8D5BF]">atelier.</em></p>
+                  <ul className="mt-6 space-y-3 text-(length:--fs-14) text-white/80">
                     {['Δυναμικές προσφορές κοινού container', 'Τα έργα και οι παραγγελίες σας online', 'Παραγγελίες από τον κατάλογο'].map((t) => (
                       <li key={t} className="flex items-start gap-3"><FiCheck className="mt-0.5 size-4 shrink-0 text-[#BEF264]" aria-hidden />{t}</li>
                     ))}
@@ -86,27 +86,27 @@ export function AccessModalHost() {
 
             {/* Δεξιά: φόρμα */}
             <div className="relative overflow-y-auto overscroll-contain p-6 sm:p-8 lg:p-10" data-lenis-prevent>
-              <DialogPrimitive.Close className="absolute right-3 top-3 grid size-11 cursor-pointer place-items-center text-[var(--s-ink-2)] hover:text-[var(--s-ink)]" aria-label="Κλείσιμο">
+              <DialogPrimitive.Close className="absolute right-3 top-3 grid size-11 cursor-pointer place-items-center text-(--s-ink-2) hover:text-(--s-ink)" aria-label="Κλείσιμο">
                 <FiX className="size-5" aria-hidden />
               </DialogPrimitive.Close>
 
               {state === 'done' ? (
-                <div className="flex min-h-[24rem] flex-col justify-center">
+                <div className="flex min-h-96 flex-col justify-center">
                   <span className="grid size-14 place-items-center rounded-full bg-[#15803D]/10 text-[#15803D]"><FiCheck className="size-6" aria-hidden /></span>
-                  <DialogPrimitive.Title className="font-display mt-6 text-[length:var(--fs-40)]">Το αίτημα στάλθηκε</DialogPrimitive.Title>
-                  <p id="access-desc" className="mt-3 max-w-md text-[length:var(--fs-16)] text-[var(--s-ink-2)]">Θα σας στείλουμε email με τα στοιχεία εισόδου μόλις ενεργοποιηθεί ο λογαριασμός — συνήθως μέσα σε μία εργάσιμη.</p>
+                  <DialogPrimitive.Title className="font-display mt-6 text-(length:--fs-40)">Το αίτημα στάλθηκε</DialogPrimitive.Title>
+                  <p id="access-desc" className="mt-3 max-w-md text-(length:--fs-16) text-(--s-ink-2)">Θα σας στείλουμε email με τα στοιχεία εισόδου μόλις ενεργοποιηθεί ο λογαριασμός — συνήθως μέσα σε μία εργάσιμη.</p>
                   <DialogPrimitive.Close className={cn(btn.primary, 'mt-8 self-start')}>Εντάξει</DialogPrimitive.Close>
                 </div>
               ) : (
                 <>
-                  <p className="s-kicker text-[var(--s-accent)]">Για επαγγελματίες</p>
-                  <DialogPrimitive.Title className="font-display mt-3 text-[length:var(--fs-40)]">Αίτημα πρόσβασης</DialogPrimitive.Title>
-                  <p id="access-desc" className="mt-2 text-[length:var(--fs-15)] text-[var(--s-ink-2)]">Πείτε μας ποιοι είστε — σας συνδέουμε με την καρτέλα σας, ώστε να βλέπετε τις δικές σας τιμές.</p>
+                  <p className="s-kicker text-(--s-accent)">Για επαγγελματίες</p>
+                  <DialogPrimitive.Title className="font-display mt-3 text-(length:--fs-40)">Αίτημα πρόσβασης</DialogPrimitive.Title>
+                  <p id="access-desc" className="mt-2 text-(length:--fs-15) text-(--s-ink-2)">Πείτε μας ποιοι είστε — σας συνδέουμε με την καρτέλα σας, ώστε να βλέπετε τις δικές σας τιμές.</p>
 
                   <form onSubmit={submit} className="mt-6 space-y-5">
                     {error && <Notice tone="error">{error}</Notice>}
                     <fieldset>
-                      <legend className="text-[length:var(--fs-14)] font-medium">Είστε</legend>
+                      <legend className="text-(length:--fs-14) font-medium">Είστε</legend>
                       <input type="hidden" name="kind" value={kind} />
                       <div className="mt-2 flex gap-2">
                         <button type="button" className={pill(kind === 'customer')} aria-pressed={kind === 'customer'} onClick={() => setKind('customer')}>Πελάτης</button>
@@ -127,15 +127,15 @@ export function AccessModalHost() {
                       </Field>
                     </div>
                     <Field label="Μήνυμα" htmlFor="am-msg"><textarea id="am-msg" name="message" rows={3} maxLength={2000} className={cn(inputCls, 'h-auto py-3')} /></Field>
-                    <div aria-hidden className="absolute -left-[9999px]"><label>Website<input name="website" tabIndex={-1} autoComplete="off" /></label></div>
-                    <label className="flex cursor-pointer items-start gap-3 text-[length:var(--fs-14)] text-[var(--s-ink-2)]">
-                      <input type="checkbox" name="terms" value="1" required className="mt-0.5 size-5 shrink-0 accent-[var(--s-ink)]" />
-                      <span>Αποδέχομαι τους <Link href="/legal/terms" target="_blank" className="s-link text-[var(--s-ink)]">όρους χρήσης</Link> και την <Link href="/legal/privacy" target="_blank" className="s-link text-[var(--s-ink)]">πολιτική απορρήτου</Link>. *</span>
+                    <div aria-hidden className="absolute left-[-9999px]"><label>Website<input name="website" tabIndex={-1} autoComplete="off" /></label></div>
+                    <label className="flex cursor-pointer items-start gap-3 text-(length:--fs-14) text-(--s-ink-2)">
+                      <input type="checkbox" name="terms" value="1" required className="mt-0.5 size-5 shrink-0 accent-(--s-ink)" />
+                      <span>Αποδέχομαι τους <Link href="/legal/terms" target="_blank" className="s-link text-(--s-ink)">όρους χρήσης</Link> και την <Link href="/legal/privacy" target="_blank" className="s-link text-(--s-ink)">πολιτική απορρήτου</Link>. *</span>
                     </label>
                     <button type="submit" disabled={state === 'sending'} className={cn(btn.primary, 'w-full')}>
                       {state === 'sending' ? 'Αποστολή…' : <>Αποστολή αιτήματος <FiArrowRight className="size-4" aria-hidden /></>}
                     </button>
-                    <p className="text-center text-[length:var(--fs-14)] text-[var(--s-ink-2)]">Έχετε ήδη λογαριασμό; <Link href="/auth/signin" onClick={() => setOpen(false)} className="s-link font-medium text-[var(--s-ink)]">Είσοδος</Link></p>
+                    <p className="text-center text-(length:--fs-14) text-(--s-ink-2)">Έχετε ήδη λογαριασμό; <Link href="/auth/signin" onClick={() => setOpen(false)} className="s-link font-medium text-(--s-ink)">Είσοδος</Link></p>
                   </form>
                 </>
               )}

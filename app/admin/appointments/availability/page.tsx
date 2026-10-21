@@ -12,7 +12,7 @@ export const dynamic = 'force-dynamic';
 // Ωράριο ραντεβού, διάρκεια/χωρητικότητα και κλειστές μέρες — ό,τι βλέπει ο επισκέπτης ως «ελεύθερο».
 export default async function AvailabilityPage() {
   await requirePermission('appointments.manage');
-  const [availability, blocks] = await Promise.all([loadAvailability(), listBlocks(new Date(Date.now() - 86_400_000))]);
+  const [availability, blocks] = await Promise.all([loadAvailability(), listBlocks(new Date(new Date().getTime() - 86_400_000))]);
   return (
     <div className="w-full">
       <PageHeader

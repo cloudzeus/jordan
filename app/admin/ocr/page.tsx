@@ -49,8 +49,14 @@ export default async function AdminOcrPage() {
   // απενεργοποιημένες σειρές που κρατούν ακόμη παραστατικά, ώστε κανένα <select> να μη φαίνεται άδειο.
   const seriesRows: SeriesOption[] = await loadSeriesOptions(docs);
 
+  /** Τα πεδία του `extractedData` που διαβάζει η λίστα (χαλαρό σχήμα OCR). */
+  type ListExtracted = Record<string, unknown> & {
+    companyName?: string | null; storeName?: string | null; title?: string | null;
+    invoiceNumber?: string | null; date?: string | null;
+    vatNumber?: string | null; customerVatNumber?: string | null;
+  };
   const rows: OcrRow[] = docs.map((d) => {
-    const data = withFeesFromDocument((d.extractedData ?? {}) as Record<string, unknown>, d.document) as any;
+    const data = withFeesFromDocument((d.extractedData ?? {}) as Record<string, unknown>, d.document) as ListExtracted;
     // The latest template run, cached on the document by the runner (spec §15.4/§15.7).
     const rf = (d.reviewFlags ?? null) as Partial<ReviewFlags> | null;
     return {

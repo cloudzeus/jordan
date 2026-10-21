@@ -4,20 +4,22 @@ vi.mock('server-only', () => ({}));
 vi.mock('@/lib/softone-sync/item-edit', () => ({ editSoftoneItem: vi.fn() }));
 
 type R = { id: string; offerId: string; offerItemId?: string; trdr: number | null; partnerId: string | null; pallets: number; status: string; notes?: string | null };
-const mem = vi.hoisted(() => ({ rs: [] as R[], recipients: [] as { offerId: string; kind: string; refId: string }[], offer: null as any, seq: 0 }));
+type Offer = { id: string; status: string; closesAt: Date | null; capacityPallets: number; minOrder: number; items: { id: string }[] };
+type Recipient = { offerId: string; kind: string; refId: string };
+type RWhere = { id: string; offerId: string; status?: string; trdr?: number | null; partnerId?: string | null };
+const mem = vi.hoisted(() => ({ rs: [] as R[], recipients: [] as Recipient[], offer: null as Offer | null, seq: 0 }));
 const db = vi.hoisted(() => {
-  const p: Record<string, any> = {
-    containerOffer: { findUnique: vi.fn(async () => (mem.offer ? { ...mem.offer, reservations: mem.rs.filter((r) => r.offerId === mem.offer.id) } : null)) },
-    offerRecipient: { findFirst: vi.fn(async ({ where }: any) => mem.recipients.find((r) => r.offerId === where.offerId && r.kind === where.kind && r.refId === where.refId) ?? null) },
+  const p = {
+    containerOffer: { findUnique: vi.fn(async () => (mem.offer ? { ...mem.offer, reservations: mem.rs.filter((r) => r.offerId === mem.offer!.id) } : null)) },
+    offerRecipient: { findFirst: vi.fn(async ({ where }: { where: Recipient }) => mem.recipients.find((r) => r.offerId === where.offerId && r.kind === where.kind && r.refId === where.refId) ?? null) },
     containerReservation: {
-      create: vi.fn(async ({ data }: any) => { const r = { id: `r${++mem.seq}`, ...data }; mem.rs.push(r); return r; }),
-      update: vi.fn(async ({ where, data }: any) => Object.assign(mem.rs.find((r) => r.id === where.id)!, data)),
-      findFirst: vi.fn(async ({ where }: any) => mem.rs.find((r) => r.id === where.id && r.offerId === where.offerId && (!where.status || r.status === where.status)
+      create: vi.fn(async ({ data }: { data: Omit<R, 'id'> }) => { const r = { id: `r${++mem.seq}`, ...data }; mem.rs.push(r); return r; }),
+      update: vi.fn(async ({ where, data }: { where: { id: string }; data: Partial<R> }) => Object.assign(mem.rs.find((r) => r.id === where.id)!, data)),
+      findFirst: vi.fn(async ({ where }: { where: RWhere }) => mem.rs.find((r) => r.id === where.id && r.offerId === where.offerId && (!where.status || r.status === where.status)
         && (where.trdr === undefined || r.trdr === where.trdr) && (where.partnerId === undefined || r.partnerId === where.partnerId)) ?? null),
     },
   };
-  p.$transaction = vi.fn(async (fn: any) => fn(p));
-  return p;
+  return Object.assign(p, { $transaction: vi.fn(async (fn: (tx: typeof p) => unknown) => fn(p)) });
 });
 vi.mock('@/lib/db', () => ({ prisma: db }));
 
@@ -58,7 +60,7 @@ describe('αίτημα κράτησης από το portal', () => {
   it('μόνο παραλήπτες, μόνο ανοιχτή, βήμα ½', async () => {
     await expect(requestReservation('o1', { trdr: null, partnerId: 'x' }, { offerItemId: 'stone', pallets: 1, notes: null }, null)).rejects.toThrow(/δεν είναι διαθέσιμη/);
     await expect(requestReservation('o1', partner, { offerItemId: 'stone', pallets: 0.3, notes: null }, null)).rejects.toThrow(/ανά ½/);
-    mem.offer.status = 'CLOSED';
+    mem.offer!.status = 'CLOSED';
     await expect(requestReservation('o1', partner, { offerItemId: 'stone', pallets: 1, notes: null }, null)).rejects.toThrow(/δεν δέχεται/);
   });
   it('έγκριση → ACTIVE· δεύτερη φορά απορρίπτεται· ελέγχει χώρο έναντι ενεργών', async () => {

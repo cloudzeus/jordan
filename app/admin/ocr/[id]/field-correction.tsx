@@ -31,9 +31,9 @@ const FIELD_GROUPS: { title: string; keys: string[] }[] = [
 
 export function FieldCorrection({ docId, mimeType, fileUrl, initialData, fields }: {
   docId: string; mimeType: string; fileUrl: string;
-  initialData: Record<string, any>; fields: string[];
+  initialData: Record<string, unknown>; fields: string[];
 }) {
-  const [data, setData] = useState<Record<string, any>>(initialData ?? {});
+  const [data, setData] = useState<Record<string, unknown>>(initialData ?? {});
   const [base, setBase] = useState<string>(() => JSON.stringify(initialData ?? {}));
   const dirty = JSON.stringify(data) !== base;
   const [activeField, setActiveField] = useState<string | null>(null);
@@ -61,6 +61,8 @@ export function FieldCorrection({ docId, mimeType, fileUrl, initialData, fields 
    */
   const [showDoc, setShowDoc] = useState(true);
   useEffect(() => {
+    // Ανάγνωση localStorage ΜΕΤΑ το hydration (ο server δεν το ξέρει) — συγχρονισμός με εξωτερικό σύστημα.
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- localStorage διαβάζεται μόνο στον client, μετά το mount
     try { setShowDoc(localStorage.getItem('admin.ocr.rowdetail.pdf') !== '0'); } catch { /* ιδιωτική περιήγηση */ }
   }, []);
   const toggleDoc = useCallback(() => {
@@ -86,7 +88,7 @@ export function FieldCorrection({ docId, mimeType, fileUrl, initialData, fields 
     <>
       {!showDoc && (
         <button type="button" onClick={toggleDoc}
-          className="mb-2 inline-flex items-center gap-1.5 rounded bg-sisyphus-500 px-3 py-1.5 text-[length:var(--fs-12)] font-semibold text-white shadow-fluent-2 transition hover:bg-sisyphus-600">
+          className="mb-2 inline-flex items-center gap-1.5 rounded bg-sisyphus-500 px-3 py-1.5 text-(length:--fs-12) font-semibold text-white shadow-fluent-2 transition hover:bg-sisyphus-600">
           <FiChevronRight className="size-3.5" /> Εμφάνιση παραστατικού
         </button>
       )}
@@ -99,10 +101,10 @@ export function FieldCorrection({ docId, mimeType, fileUrl, initialData, fields 
           παιδιού: το κουμπί κλεισίματος μετρήθηκε να φεύγει στο y=-204 ενώ ήταν δηλωμένο sticky.
           Η στρογγυλή γωνία του PDF περνά τώρα σε δικό του wrapper, πιο κάτω. */}
       <div className={`relative rounded-lg shadow-fluent-8 bg-neutral-4 transition-opacity duration-200 ${showDoc ? '' : 'pointer-events-none max-lg:hidden lg:h-0 lg:overflow-hidden lg:opacity-0'}`}>
-        <div className="sticky top-0 z-20 flex justify-end rounded-t-lg bg-neutral-4/95 p-1.5 backdrop-blur">
+        <div className="sticky top-0 z-20 flex justify-end rounded-t-lg bg-neutral-4/95 p-1.5 backdrop-blur-sm">
           <button type="button" onClick={toggleDoc}
             title="Κλείσιμο παραστατικού — περισσότερος χώρος για τη δουλειά"
-            className="inline-flex items-center gap-1 rounded bg-card px-2 py-1 text-[length:var(--fs-11)] font-semibold text-foreground shadow-fluent-4 transition hover:bg-muted">
+            className="inline-flex items-center gap-1 rounded bg-card px-2 py-1 text-(length:--fs-11) font-semibold text-foreground shadow-fluent-4 transition hover:bg-muted">
             <FiChevronLeft className="size-3.5" /> Κλείσιμο παραστατικού
           </button>
         </div>
@@ -139,7 +141,7 @@ export function FieldCorrection({ docId, mimeType, fileUrl, initialData, fields 
           if (keys.length === 0) return null;
           return (
             <section key={g.title} className="grid gap-x-3 px-3 py-2 sm:grid-cols-[6.5rem_1fr]">
-              <h3 className="pt-1 text-[length:var(--fs-11)] font-bold uppercase tracking-wide text-foreground sm:pt-6">
+              <h3 className="pt-1 text-(length:--fs-11) font-bold uppercase tracking-wide text-foreground sm:pt-6">
                 {g.title}
               </h3>
               {/* ΧΩΡΙΣ ΚΕΝΑ ΚΕΛΙΑ: flex-wrap όπου κάθε πεδίο ΜΕΓΑΛΩΝΕΙ για να γεμίσει τη σειρά του. Το
@@ -148,13 +150,13 @@ export function FieldCorrection({ docId, mimeType, fileUrl, initialData, fields 
                   παραστατικό, οπότε σταθερά πλάτη δεν θα έκλειναν ποτέ σωστά. */}
               <div className="flex flex-wrap gap-x-3 gap-y-2">
                 {keys.map((f) => (
-                  <div key={f} className={`flex min-w-[10rem] flex-1 basis-[11rem] items-end gap-1 rounded ${activeField === f ? 'ring-2 ring-sisyphus-500 ring-offset-2' : ''}`}>
+                  <div key={f} className={`flex min-w-40 flex-1 basis-44 items-end gap-1 rounded ${activeField === f ? 'ring-2 ring-sisyphus-500 ring-offset-2' : ''}`}>
                     {/* Ετικέτα ΠΑΝΩ από το πεδίο αλλά μικροσκοπική και κολλητά: μένει ορατή
                         (δεν γίνεται placeholder) χωρίς να κοστίζει δική της σειρά 14px. */}
                     <label className="flex min-w-0 flex-1 flex-col">
                       <span className={LABEL}>{FIELD_LABELS[f] ?? f}</span>
                       <input
-                        value={data[f] ?? ''}
+                        value={(data[f] ?? '') as string | number}
                         onChange={(e) => setData((d) => ({ ...d, [f]: e.target.value }))}
                         className={INPUT}
                       />
@@ -178,12 +180,12 @@ export function FieldCorrection({ docId, mimeType, fileUrl, initialData, fields 
           if (rest.length === 0) return null;
           return (
             <section className="grid gap-x-3 px-3 py-2 sm:grid-cols-[6.5rem_1fr]">
-              <h3 className="pt-1 text-[length:var(--fs-11)] font-bold uppercase tracking-wide text-foreground sm:pt-6">Λοιπά</h3>
+              <h3 className="pt-1 text-(length:--fs-11) font-bold uppercase tracking-wide text-foreground sm:pt-6">Λοιπά</h3>
               <div className="flex flex-wrap gap-x-3 gap-y-2">
                 {rest.map((f) => (
-                  <label key={f} className="flex min-w-[10rem] flex-1 basis-[11rem] flex-col gap-0.5">
+                  <label key={f} className="flex min-w-40 flex-1 basis-44 flex-col gap-0.5">
                     <span className={LABEL}>{FIELD_LABELS[f] ?? f}</span>
-                    <input value={data[f] ?? ''}
+                    <input value={(data[f] ?? '') as string | number}
                       onChange={(e) => setData((d) => ({ ...d, [f]: e.target.value }))}
                       className={INPUT} />
                   </label>
@@ -197,7 +199,7 @@ export function FieldCorrection({ docId, mimeType, fileUrl, initialData, fields 
         {/* Συμπαγές μπλε όταν υπάρχει αλλαγή, ΟΥΔΕΤΕΡΟ όταν δεν υπάρχει — ποτέ ξεθωριασμένο χρώμα. */}
         <div className="flex justify-end pt-2">
           <button type="button" onClick={saveCorrections} disabled={busy || !dirty}
-            className="inline-flex h-8 items-center gap-1.5 rounded-md bg-sisyphus-500 px-3.5 text-[length:var(--fs-12)] font-semibold text-white shadow-sm transition hover:bg-sisyphus-600 active:bg-sisyphus-700 disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground disabled:shadow-none">
+            className="inline-flex h-8 items-center gap-1.5 rounded-md bg-sisyphus-500 px-3.5 text-(length:--fs-12) font-semibold text-white shadow-xs transition hover:bg-sisyphus-600 active:bg-sisyphus-700 disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground disabled:shadow-none">
             <FiSave className="size-3.5" /> {busy ? 'Αποθήκευση…' : dirty ? 'Αποθήκευση διορθώσεων' : 'Χωρίς αλλαγές'}
           </button>
         </div>
@@ -208,7 +210,7 @@ export function FieldCorrection({ docId, mimeType, fileUrl, initialData, fields 
 }
 
 /** Ίδιο μέγεθος ετικέτας και πεδίου με τη λίστα (`row-detail.tsx`): μία εμφάνιση φόρμας σε όλη την εφαρμογή. */
-const LABEL = 'truncate text-[length:var(--fs-11)] font-semibold text-muted-foreground';
+const LABEL = 'truncate text-(length:--fs-11) font-semibold text-muted-foreground';
 const INPUT =
-  'h-8 w-full rounded-md border border-input bg-background px-2 text-[length:var(--fs-12)] text-foreground ' +
-  'transition focus:border-sisyphus-500 focus:outline-none focus:ring-2 focus:ring-sisyphus-500/25';
+  'h-8 w-full rounded-md border border-input bg-background px-2 text-(length:--fs-12) text-foreground ' +
+  'transition focus:border-sisyphus-500 focus:outline-hidden focus:ring-2 focus:ring-sisyphus-500/25';

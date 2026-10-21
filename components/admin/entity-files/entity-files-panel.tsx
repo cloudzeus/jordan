@@ -39,7 +39,7 @@ const FAMILY: Record<FileFamily, { tone: string; label: string; icon: React.Comp
 const soft = (hex: string, pct: number) => `color-mix(in srgb, ${hex} ${pct}%, var(--background))`;
 const fmtSize = (b: number) => (b >= 1048576 ? `${(b / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(b / 1024))} KB`);
 const fmtDate = (v: string) => new Date(v).toLocaleString('el-GR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-const ITEM = 'cursor-pointer gap-2 text-[length:var(--fs-12)]';
+const ITEM = 'cursor-pointer gap-2 text-(length:--fs-12)';
 const urlOf = (scope: Scope, id: number) => `/api/admin/entity-files/${scope}/${id}`;
 const fileUrl = (id: string) => `/api/admin/entity-files/file/${id}`;
 
@@ -83,7 +83,7 @@ function TypeIcon({ family }: { family: FileFamily }) {
   return (
     <span className="relative grid size-9 flex-none place-items-center rounded-md" style={{ backgroundColor: soft(f.tone, 14), color: f.tone }} aria-hidden>
       <FiFile className="size-5" />
-      <span className="absolute -bottom-1 rounded px-1 text-[length:var(--fs-9)] font-bold leading-3 text-white" style={{ backgroundColor: f.tone }}>{f.label}</span>
+      <span className="absolute -bottom-1 rounded px-1 text-(length:--fs-9) font-bold leading-3 text-white" style={{ backgroundColor: f.tone }}>{f.label}</span>
     </span>
   );
 }
@@ -95,7 +95,12 @@ function TextDialog({ open, title, description, label, initial, multiline, confi
 }) {
   const [value, setValue] = React.useState(initial);
   const [busy, setBusy] = React.useState(false);
-  React.useEffect(() => { if (open) setValue(initial); }, [open, initial]);
+  // «Adjust state while rendering» (αρχικό `[]` ⇒ και στο πρώτο render, όπως το effect).
+  const [prevDeps, setPrevDeps] = React.useState<readonly unknown[]>([]);
+  if (prevDeps.length === 0 || !Object.is(prevDeps[0], open) || !Object.is(prevDeps[1], initial)) {
+    setPrevDeps([open, initial]);
+    if (open) setValue(initial);
+  }
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setBusy(true);
@@ -110,11 +115,11 @@ function TextDialog({ open, title, description, label, initial, multiline, confi
             {description && <DialogDescription>{description}</DialogDescription>}
           </DialogHeader>
           <DialogBody>
-            <label className="grid gap-1.5 text-[length:var(--fs-12)] font-medium">
+            <label className="grid gap-1.5 text-(length:--fs-12) font-medium">
               {label}
               {multiline ? (
                 <textarea value={value} onChange={(e) => setValue(e.target.value)} rows={4} maxLength={2000} autoFocus
-                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-[length:var(--fs-13)] font-normal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-(length:--fs-13) font-normal focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring" />
               ) : (
                 <Input value={value} onChange={(e) => setValue(e.target.value)} autoFocus maxLength={160} className="font-normal" />
               )}
@@ -147,17 +152,17 @@ function FileRow({ f, subfolders, canManage, onChanged }: { f: EntityFileDTO; su
       <TypeIcon family={f.family} />
       <div className="min-w-0 flex-1">
         <a href={isPdf ? `${fileUrl(f.id)}?inline=1` : fileUrl(f.id)} target={isPdf ? '_blank' : undefined} rel="noopener"
-          className="block truncate text-[length:var(--fs-13)] font-medium text-foreground underline-offset-2 hover:underline">{f.name}</a>
-        <p className="flex flex-wrap gap-x-2 text-[length:var(--fs-11)] text-muted-foreground">
+          className="block truncate text-(length:--fs-13) font-medium text-foreground underline-offset-2 hover:underline">{f.name}</a>
+        <p className="flex flex-wrap gap-x-2 text-(length:--fs-11) text-muted-foreground">
           <span className="tabular-nums">{fmtSize(f.size)}</span>
           <span className="tabular-nums">{fmtDate(f.createdAt)}</span>
           {f.uploadedBy && <span className="truncate">{f.uploadedBy}</span>}
           {f.subfolder && <span className="inline-flex items-center gap-1"><FiFolder className="size-3" aria-hidden />{f.subfolder}</span>}
         </p>
-        {f.notes && <p className="mt-0.5 whitespace-pre-wrap text-[length:var(--fs-12)] text-foreground/80">{f.notes}</p>}
+        {f.notes && <p className="mt-0.5 whitespace-pre-wrap text-(length:--fs-12) text-foreground/80">{f.notes}</p>}
       </div>
       <DropdownMenu>
-        <DropdownMenuTrigger className="inline-flex size-8 flex-none cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors duration-150 hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring data-[state=open]:bg-muted" aria-label={`Ενέργειες για ${f.name}`}>
+        <DropdownMenuTrigger className="inline-flex size-8 flex-none cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors duration-150 hover:bg-muted hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring data-[state=open]:bg-muted" aria-label={`Ενέργειες για ${f.name}`}>
           <FiMoreVertical className="size-4" aria-hidden />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-56">
@@ -189,9 +194,9 @@ function FileRow({ f, subfolders, canManage, onChanged }: { f: EntityFileDTO; su
             <div className="grid gap-1.5">
               {['', ...subfolders].map((s) => (
                 <button key={s || '/'} type="button" disabled={s === f.subfolder} onClick={() => move(s)}
-                  className="flex min-h-11 cursor-pointer items-center gap-2 rounded-md border border-border px-3 text-left text-[length:var(--fs-13)] transition-colors duration-150 hover:bg-muted disabled:cursor-default disabled:opacity-50">
+                  className="flex min-h-11 cursor-pointer items-center gap-2 rounded-md border border-border px-3 text-left text-(length:--fs-13) transition-colors duration-150 hover:bg-muted disabled:cursor-default disabled:opacity-50">
                   <FiFolder className="size-4 text-muted-foreground" aria-hidden /> {s || 'Ρίζα (χωρίς φάκελο)'}
-                  {s === f.subfolder && <span className="ml-auto text-[length:var(--fs-11)] text-muted-foreground">τρέχων</span>}
+                  {s === f.subfolder && <span className="ml-auto text-(length:--fs-11) text-muted-foreground">τρέχων</span>}
                 </button>
               ))}
             </div>
@@ -265,7 +270,7 @@ function FolderView({ scope, folder, canManage, onChanged, compact = false }: {
 
   const chip = (key: string | null, label: string, n: number) => (
     <button key={key ?? '*'} type="button" onClick={() => setSub(key)} aria-pressed={sub === key}
-      className={cn('inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-full border px-2.5 text-[length:var(--fs-12)] transition-colors duration-150',
+      className={cn('inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-full border px-2.5 text-(length:--fs-12) transition-colors duration-150',
         sub === key ? 'border-foreground/30 bg-foreground text-background' : 'border-border bg-background text-foreground hover:bg-muted')}>
       {key != null && <FiFolder className="size-3.5" aria-hidden />}{label}<span className="tabular-nums opacity-70">{n}</span>
     </button>
@@ -279,16 +284,16 @@ function FolderView({ scope, folder, canManage, onChanged, compact = false }: {
         {subfolders.map((s) => chip(s, s, counts.get(s) ?? 0))}
         <div className="ml-auto flex items-center gap-1">
           {canManage && (
-            <Button type="button" size="sm" onClick={open} className="h-8 gap-1.5 text-[length:var(--fs-12)]">
+            <Button type="button" size="sm" onClick={open} className="h-8 gap-1.5 text-(length:--fs-12)">
               <FiUploadCloud className="size-3.5" aria-hidden /> Ανέβασμα{sub ? <span className="hidden sm:inline"> στο «{sub}»</span> : null}
             </Button>
           )}
           <DropdownMenu>
-            <DropdownMenuTrigger className="inline-flex size-8 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring data-[state=open]:bg-muted" aria-label="Ενέργειες φακέλου">
+            <DropdownMenuTrigger className="inline-flex size-8 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring data-[state=open]:bg-muted" aria-label="Ενέργειες φακέλου">
               <FiMoreVertical className="size-4" aria-hidden />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-60">
-              <DropdownMenuLabel className="break-all font-mono text-[length:var(--fs-10)] font-normal text-muted-foreground" title="Διαδρομή στο Bunny CDN">{folder.basePath ? `${folder.basePath}/` : 'Ο φάκελος δημιουργείται με το πρώτο αρχείο'}</DropdownMenuLabel>
+              <DropdownMenuLabel className="break-all font-mono text-(length:--fs-10) font-normal text-muted-foreground" title="Διαδρομή στο Bunny CDN">{folder.basePath ? `${folder.basePath}/` : 'Ο φάκελος δημιουργείται με το πρώτο αρχείο'}</DropdownMenuLabel>
               {canManage && (
                 <>
                   <DropdownMenuSeparator />
@@ -301,7 +306,7 @@ function FolderView({ scope, folder, canManage, onChanged, compact = false }: {
                       <DropdownMenuSeparator />
                       <DropdownMenuItem variant="destructive" className={ITEM} disabled={(counts.get(sub) ?? 0) > 0} onSelect={() => delFolder(sub)}>
                         <FiTrash2 className="size-3.5" aria-hidden /> Διαγραφή φακέλου «{sub}»
-                        {(counts.get(sub) ?? 0) > 0 && <span className="ml-auto text-[length:var(--fs-10)]">δεν είναι άδειος</span>}
+                        {(counts.get(sub) ?? 0) > 0 && <span className="ml-auto text-(length:--fs-10)">δεν είναι άδειος</span>}
                       </DropdownMenuItem>
                     </>
                   )}
@@ -317,7 +322,7 @@ function FolderView({ scope, folder, canManage, onChanged, compact = false }: {
       {jobs.length > 0 && (
         <ul className="divide-y divide-border border-b border-border" aria-live="polite">
           {jobs.map((j) => (
-            <li key={j.id} className="flex items-center gap-2 px-3 py-2 text-[length:var(--fs-12)]">
+            <li key={j.id} className="flex items-center gap-2 px-3 py-2 text-(length:--fs-12)">
               <span className="min-w-0 flex-1">
                 <span className="block truncate font-medium">{j.file.name}</span>
                 {j.status === 'error' ? <span className="text-destructive">{j.error}</span> : (
@@ -342,13 +347,13 @@ function FolderView({ scope, folder, canManage, onChanged, compact = false }: {
       ) : (
         <div className={cn('flex flex-col items-center justify-center gap-1.5 px-4 text-center', compact ? 'py-5' : 'py-8')}>
           <FiUploadCloud className="size-6 text-muted-foreground" aria-hidden />
-          <p className="text-[length:var(--fs-13)] text-foreground">{sub ? `Ο φάκελος «${sub}» είναι άδειος` : 'Δεν υπάρχουν αρχεία ακόμη'}</p>
-          {canManage && <p className="text-[length:var(--fs-11)] text-muted-foreground">Σύρετε αρχεία εδώ ή πατήστε «Ανέβασμα» · {ALLOWED_HINT}</p>}
+          <p className="text-(length:--fs-13) text-foreground">{sub ? `Ο φάκελος «${sub}» είναι άδειος` : 'Δεν υπάρχουν αρχεία ακόμη'}</p>
+          {canManage && <p className="text-(length:--fs-11) text-muted-foreground">Σύρετε αρχεία εδώ ή πατήστε «Ανέβασμα» · {ALLOWED_HINT}</p>}
         </div>
       )}
 
       {isDragActive && (
-        <div className="pointer-events-none absolute inset-0 grid place-items-center rounded-lg bg-sky-500/10 text-[length:var(--fs-13)] font-semibold text-sky-800 dark:text-sky-200">
+        <div className="pointer-events-none absolute inset-0 grid place-items-center rounded-lg bg-sky-500/10 text-(length:--fs-13) font-semibold text-sky-800 dark:text-sky-200">
           Αφήστε τα αρχεία για ανέβασμα{sub ? ` στο «${sub}»` : ''}
         </div>
       )}
@@ -368,11 +373,11 @@ function ProjectFolder({ p, canManage, onChanged }: { p: ProjectFolder; canManag
           className="flex min-h-9 min-w-0 flex-1 cursor-pointer items-center gap-2 text-left">
           <FiChevronRight className={cn('size-4 flex-none text-muted-foreground transition-transform duration-150', open && 'rotate-90')} aria-hidden />
           <FiBriefcase className="size-4 flex-none text-violet-700 dark:text-violet-400" aria-hidden />
-          <span className="min-w-0 flex-1 truncate text-[length:var(--fs-13)] font-medium">{p.code} · {p.name}</span>
-          {p.role === 'supplier' && <span className="hidden rounded-full bg-muted px-2 text-[length:var(--fs-10)] text-muted-foreground sm:inline">ως προμηθευτής</span>}
-          <span className="rounded-full bg-muted px-2 text-[length:var(--fs-11)] tabular-nums text-muted-foreground">{p.files.length}</span>
+          <span className="min-w-0 flex-1 truncate text-(length:--fs-13) font-medium">{p.code} · {p.name}</span>
+          {p.role === 'supplier' && <span className="hidden rounded-full bg-muted px-2 text-(length:--fs-10) text-muted-foreground sm:inline">ως προμηθευτής</span>}
+          <span className="rounded-full bg-muted px-2 text-(length:--fs-11) tabular-nums text-muted-foreground">{p.files.length}</span>
         </button>
-        <Link href={`/admin/projects/${p.id}#files`} className="hidden text-[length:var(--fs-11)] text-muted-foreground underline-offset-2 hover:text-foreground hover:underline sm:inline">καρτέλα έργου</Link>
+        <Link href={`/admin/projects/${p.id}#files`} className="hidden text-(length:--fs-11) text-muted-foreground underline-offset-2 hover:text-foreground hover:underline sm:inline">καρτέλα έργου</Link>
       </div>
       {open && (
         <div className="px-2 pb-2 sm:px-3">
@@ -386,21 +391,27 @@ function ProjectFolder({ p, canManage, onChanged }: { p: ProjectFolder; canManag
 export function EntityFilesPanel({ scope, id, onCount }: { scope: Scope; id: number; onCount?: (n: number) => void }) {
   const [data, setData] = React.useState<Payload | null>(null);
   const [error, setError] = React.useState<string | null>(null);
+  /** Η ανάγνωση· ο καλών έχει ήδη καθαρίσει το error. */
+  const fetchFiles = React.useCallback(() =>
+    Promise.resolve()
+      .then(() => api(urlOf(scope, id)))
+      .then((res) => {
+        const body = res as Payload;
+        setData(body);
+        onCount?.(body.folder.files.length);
+      })
+      .catch((e) => { setError((e as Error).message); }), [scope, id, onCount]);
   const load = React.useCallback(async () => {
     setError(null);
-    try {
-      const body = (await api(urlOf(scope, id))) as Payload;
-      setData(body);
-      onCount?.(body.folder.files.length);
-    } catch (e) {
-      setError((e as Error).message);
-    }
-  }, [scope, id, onCount]);
-  React.useEffect(() => { void load(); }, [load]);
+    await fetchFiles();
+  }, [fetchFiles]);
+  const [prevFetchFiles, setPrevFetchFiles] = React.useState(() => fetchFiles);
+  if (fetchFiles !== prevFetchFiles) { setPrevFetchFiles(() => fetchFiles); setError(null); }
+  React.useEffect(() => { void fetchFiles(); }, [fetchFiles]);
 
   if (error && !data) {
     return (
-      <div role="alert" className="flex flex-wrap items-center gap-2 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-[length:var(--fs-12)]">
+      <div role="alert" className="flex flex-wrap items-center gap-2 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-(length:--fs-12)">
         <FiAlertTriangle className="size-4 text-destructive" aria-hidden /><span className="flex-1">{error}</span>
         <Button type="button" variant="outline" size="sm" onClick={load} className="gap-1"><FiRefreshCw className="size-3.5" aria-hidden /> Δοκιμή ξανά</Button>
       </div>
@@ -413,7 +424,7 @@ export function EntityFilesPanel({ scope, id, onCount }: { scope: Scope; id: num
       <FolderView scope={scope} folder={data.folder} canManage={data.canManage} onChanged={load} />
       {scope === 'traders' && data.projects.length > 0 && (
         <section aria-label="Φάκελοι έργων">
-          <h3 className="mb-1.5 flex items-center gap-1.5 text-[length:var(--fs-12)] font-semibold text-muted-foreground">
+          <h3 className="mb-1.5 flex items-center gap-1.5 text-(length:--fs-12) font-semibold text-muted-foreground">
             <FiBriefcase className="size-3.5" aria-hidden /> Φάκελοι έργων ({data.projects.length})
           </h3>
           <ul className="grid gap-1.5">

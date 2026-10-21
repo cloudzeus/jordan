@@ -16,9 +16,13 @@ import { AccessDialog, AccessMenuItems, AccessStatus, type AccessUser } from '@/
 
 type Contact = { id: string; name: string; role: string | null; phone: string | null; mobile: string | null; email: string | null; notes: string | null; isPrimary: boolean; user: AccessUser };
 
-const TH = 'px-2 py-1.5 text-left text-[length:var(--fs-10)] font-semibold uppercase tracking-wide text-muted-foreground whitespace-nowrap';
-const TD = 'px-2 py-1.5 text-[length:var(--fs-12)] align-top';
-const ITEM = 'cursor-pointer gap-2 text-[length:var(--fs-12)]';
+const TH = 'px-2 py-1.5 text-left text-(length:--fs-10) font-semibold uppercase tracking-wide text-muted-foreground whitespace-nowrap';
+const TD = 'px-2 py-1.5 text-(length:--fs-12) align-top';
+const ITEM = 'cursor-pointer gap-2 text-(length:--fs-12)';
+
+/** Σύγκριση λιστών εξαρτήσεων όπως τα deps των hooks (`Object.is` ανά θέση). */
+const depsChanged = (a: readonly unknown[], b: readonly unknown[]) =>
+  a.length !== b.length || a.some((x, i) => !Object.is(x, b[i]));
 
 function ContactDialog({ open, onOpenChange, trdr, customer, contact, onSaved }: {
   open: boolean; onOpenChange: (o: boolean) => void; trdr: number; customer: string; contact: Contact | null; onSaved: (c: { id: string; name: string; email: string | null }, wantsAccess: boolean) => void;
@@ -26,11 +30,15 @@ function ContactDialog({ open, onOpenChange, trdr, customer, contact, onSaved }:
   const [f, setF] = React.useState({ name: '', role: '', phone: '', mobile: '', email: '', notes: '', isPrimary: false });
   const [access, setAccess] = React.useState(false);
   const [busy, setBusy] = React.useState(false);
-  React.useEffect(() => {
-    if (!open) return;
-    setF({ name: contact?.name ?? '', role: contact?.role ?? '', phone: contact?.phone ?? '', mobile: contact?.mobile ?? '', email: contact?.email ?? '', notes: contact?.notes ?? '', isPrimary: contact?.isPrimary ?? false });
-    setAccess(false);
-  }, [open, contact]);
+  // Reset της φόρμας στο άνοιγμα — «adjust state while rendering» (αρχικό `[]` ⇒ και στο πρώτο render).
+  const [prevDeps, setPrevDeps] = React.useState<readonly unknown[]>([]);
+  if (depsChanged(prevDeps, [open, contact])) {
+    setPrevDeps([open, contact]);
+    if (open) {
+      setF({ name: contact?.name ?? '', role: contact?.role ?? '', phone: contact?.phone ?? '', mobile: contact?.mobile ?? '', email: contact?.email ?? '', notes: contact?.notes ?? '', isPrimary: contact?.isPrimary ?? false });
+      setAccess(false);
+    }
+  }
   const inp = (k: 'name' | 'role' | 'phone' | 'mobile' | 'email' | 'notes') => ({ id: `cc-${k}`, value: f[k], className: fieldCls, onChange: (e: React.ChangeEvent<HTMLInputElement>) => setF((s) => ({ ...s, [k]: e.target.value })) });
   const save = async () => {
     setBusy(true);
@@ -49,8 +57,8 @@ function ContactDialog({ open, onOpenChange, trdr, customer, contact, onSaved }:
     <Dialog open={open} onOpenChange={(o) => !busy && onOpenChange(o)}>
       <DialogContent className="flex max-h-[92dvh] w-[96vw] flex-col gap-0 overflow-hidden p-0 sm:max-w-lg">
         <DialogHeader className="border-b border-border px-4 py-2.5 pr-12 text-left">
-          <DialogTitle className="text-[length:var(--fs-15)]">{contact ? 'Επεξεργασία προσώπου' : 'Νέο πρόσωπο επικοινωνίας'}</DialogTitle>
-          <DialogDescription className="truncate text-[length:var(--fs-11)]">{customer}</DialogDescription>
+          <DialogTitle className="text-(length:--fs-15)">{contact ? 'Επεξεργασία προσώπου' : 'Νέο πρόσωπο επικοινωνίας'}</DialogTitle>
+          <DialogDescription className="truncate text-(length:--fs-11)">{customer}</DialogDescription>
         </DialogHeader>
         <DialogBody className="space-y-3 bg-muted/20 px-4 py-3">
           <FormSection tone="violet" icon={<FiUser />} title="Πρόσωπο">
@@ -58,7 +66,7 @@ function ContactDialog({ open, onOpenChange, trdr, customer, contact, onSaved }:
               <Field label="Ονοματεπώνυμο" required htmlFor="cc-name"><Input {...inp('name')} autoFocus /></Field>
               <Field label="Ιδιότητα" htmlFor="cc-role"><Input {...inp('role')} placeholder="π.χ. Υπεύθυνος αγορών" /></Field>
             </div>
-            <label className="inline-flex cursor-pointer items-center gap-2 text-[length:var(--fs-12)]">
+            <label className="inline-flex cursor-pointer items-center gap-2 text-(length:--fs-12)">
               <input type="checkbox" className="size-4 accent-[#7C3AED]" checked={f.isPrimary} onChange={(e) => setF((s) => ({ ...s, isPrimary: e.target.checked }))} /> Κύριο πρόσωπο επικοινωνίας
             </label>
           </FormSection>
@@ -71,7 +79,7 @@ function ContactDialog({ open, onOpenChange, trdr, customer, contact, onSaved }:
             <Field label="Σημειώσεις" htmlFor="cc-notes"><Input {...inp('notes')} /></Field>
           </FormSection>
           {!contact && (
-            <label className="flex cursor-pointer items-start gap-2 rounded-md border border-sisyphus-500/30 bg-sisyphus-50/50 px-3 py-2 text-[length:var(--fs-12)] dark:bg-sisyphus-500/10">
+            <label className="flex cursor-pointer items-start gap-2 rounded-md border border-sisyphus-500/30 bg-sisyphus-50/50 px-3 py-2 text-(length:--fs-12) dark:bg-sisyphus-500/10">
               <input type="checkbox" className="mt-0.5 size-4 accent-[#0369A1]" checked={access} onChange={(e) => setAccess(e.target.checked)} />
               <span><strong>Και πρόσβαση στην πλατφόρμα</strong> — μετά την αποθήκευση ανοίγει το παράθυρο κωδικού.</span>
             </label>
@@ -111,12 +119,12 @@ export function CustomerContactsPanel({ trdr, customer, defaultEmail, canManage,
     <div className="space-y-2">
       {canManage && (
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <p className="text-[length:var(--fs-11)] text-muted-foreground">Τα πρόσωπα με <strong>πρόσβαση</strong> συνδέονται στην πλατφόρμα και βλέπουν τις προσφορές που τους αφορούν.</p>
+          <p className="text-(length:--fs-11) text-muted-foreground">Τα πρόσωπα με <strong>πρόσβαση</strong> συνδέονται στην πλατφόρμα και βλέπουν τις προσφορές που τους αφορούν.</p>
           <Button size="sm" onClick={() => setEdit({ contact: null })}><FiPlus className="mr-1 size-3.5" aria-hidden /> Νέο πρόσωπο</Button>
         </div>
       )}
       {!rows ? <div className="h-20 animate-pulse rounded-md bg-muted motion-reduce:animate-none" /> : rows.length === 0 ? (
-        <p className="rounded-md border border-dashed border-border px-3 py-5 text-center text-[length:var(--fs-12)] text-muted-foreground">Δεν υπάρχουν πρόσωπα επικοινωνίας. Πρόσθεσε ένα για να του δώσεις πρόσβαση.</p>
+        <p className="rounded-md border border-dashed border-border px-3 py-5 text-center text-(length:--fs-12) text-muted-foreground">Δεν υπάρχουν πρόσωπα επικοινωνίας. Πρόσθεσε ένα για να του δώσεις πρόσβαση.</p>
       ) : (
         <div className="overflow-x-auto rounded-md border border-border">
           <table className="w-full">
@@ -129,7 +137,7 @@ export function CustomerContactsPanel({ trdr, customer, defaultEmail, canManage,
                 <tr key={c.id} className="hover:bg-muted/30">
                   <td className={TD}>
                     <span className="inline-flex items-center gap-1.5 font-medium">{c.isPrimary && <FiStar className="size-3.5 fill-current text-amber-600" aria-label="Κύριο πρόσωπο" />}{c.name}</span>
-                    {c.role && <div className="text-[length:var(--fs-11)] text-muted-foreground">{c.role}</div>}
+                    {c.role && <div className="text-(length:--fs-11) text-muted-foreground">{c.role}</div>}
                   </td>
                   <td className={cn(TD, 'hidden md:table-cell')}>
                     {[c.mobile, c.phone].filter(Boolean).map((t) => <a key={t} href={`tel:${t}`} className="block tabular-nums hover:underline">{t}</a>)}
@@ -139,7 +147,7 @@ export function CustomerContactsPanel({ trdr, customer, defaultEmail, canManage,
                   {canManage && (
                     <td className={cn(TD, 'w-10 text-right')}>
                       <DropdownMenu>
-                        <DropdownMenuTrigger className="inline-flex size-8 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" aria-label={`Ενέργειες για ${c.name}`}><FiMoreVertical className="size-4" aria-hidden /></DropdownMenuTrigger>
+                        <DropdownMenuTrigger className="inline-flex size-8 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring" aria-label={`Ενέργειες για ${c.name}`}><FiMoreVertical className="size-4" aria-hidden /></DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="w-60">
                           <DropdownMenuItem className={ITEM} onSelect={() => setEdit({ contact: c })}><FiEdit3 className="size-3.5" aria-hidden /> Επεξεργασία</DropdownMenuItem>
                           {!c.isPrimary && <DropdownMenuItem className={ITEM} onSelect={() => makePrimary(c)}><FiStar className="size-3.5" aria-hidden /> Ορισμός ως κύριο</DropdownMenuItem>}
@@ -158,7 +166,7 @@ export function CustomerContactsPanel({ trdr, customer, defaultEmail, canManage,
           </table>
         </div>
       )}
-      {rows && rows.some((r) => r.user) && <p className="flex items-center gap-1 text-[length:var(--fs-11)] text-muted-foreground"><FiKey className="size-3" aria-hidden /> Σύνδεση στο {typeof window !== 'undefined' ? window.location.origin : ''}/auth/signin</p>}
+      {rows && rows.some((r) => r.user) && <p className="flex items-center gap-1 text-(length:--fs-11) text-muted-foreground"><FiKey className="size-3" aria-hidden /> Σύνδεση στο {typeof window !== 'undefined' ? window.location.origin : ''}/auth/signin</p>}
       {canManage && (
         <>
           <ContactDialog open={!!edit} onOpenChange={(o) => { if (!o) setEdit(null); }} trdr={trdr} customer={customer} contact={edit?.contact ?? null}

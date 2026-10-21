@@ -74,7 +74,7 @@ export type GemiCompany = Omit<GemiCompanySummary, 'arGemi'> & { arGemi: string 
     percentage?: string;
     category?: string;
   }>;
-  capital?: any[];
+  capital?: unknown[];
 };
 
 export type GemiDocumentDecision = {
@@ -141,7 +141,12 @@ export async function searchCompanies(params: {
   if (params.arGemi !== undefined) qs.set('arGemi', String(params.arGemi));
   if (params.name) qs.set('name', params.name);
   qs.set('resultsSize', String(params.resultsSize ?? 25));
-  const raw = await gemiFetch<any>(`/companies?${qs.toString()}`);
+  const raw = await gemiFetch<{
+    searchResults?: GemiCompanySummary[];
+    results?: GemiCompanySummary[];
+    searchMetadata?: { totalCount?: number };
+    totalResults?: number;
+  }>(`/companies?${qs.toString()}`);
   return {
     results: raw.searchResults ?? raw.results ?? [],
     totalResults: raw.searchMetadata?.totalCount ?? raw.totalResults ?? 0,

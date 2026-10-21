@@ -29,7 +29,7 @@ const KIND = {
   GROUP: { label: 'Ομάδα', tone: '#7C3AED', icon: FiLayers },
 } as const;
 const REG: Record<number, { label: string; tone: string }> = { 51: { label: 'Είδη', tone: '#B45309' }, 52: { label: 'Υπηρεσίες', tone: '#047857' } };
-const ITEM = 'cursor-pointer gap-2 text-[length:var(--fs-12)]';
+const ITEM = 'cursor-pointer gap-2 text-(length:--fs-12)';
 
 async function send(url: string, method: string, body: unknown) {
   const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
@@ -51,13 +51,17 @@ function CategoryDialog({
   const [busy, setBusy] = React.useState(false);
   const [errors, setErrors] = React.useState<Record<string, string>>({});
 
-  React.useEffect(() => {
-    if (!open) return;
-    setErrors({});
-    setSodtype(row ? (String(row.sodtype) as '51' | '52') : '51');
-    setShortCode(row?.shortCode ?? '');
-    setName(row?.name ?? '');
-  }, [open, row]);
+  // Επαναφορά της φόρμας στο άνοιγμα (adjust-state-while-rendering)
+  const [prevDeps, setPrevDeps] = React.useState({ open: false, row });
+  if (prevDeps.open !== open || prevDeps.row !== row) {
+    setPrevDeps({ open, row });
+    if (open) {
+      setErrors({});
+      setSodtype(row ? (String(row.sodtype) as '51' | '52') : '51');
+      setShortCode(row?.shortCode ?? '');
+      setName(row?.name ?? '');
+    }
+  }
 
   const save = async () => {
     setBusy(true);
@@ -88,8 +92,8 @@ function CategoryDialog({
         <DialogHeader className="flex-row items-center gap-3 border-b border-border px-4 py-2.5 pr-12">
           <span aria-hidden className="grid size-8 shrink-0 place-items-center rounded-lg [&_svg]:size-4" style={{ color: KIND.CATEGORY.tone, backgroundColor: soft(KIND.CATEGORY.tone, 12) }}><FiTag /></span>
           <div className="min-w-0 flex-1 text-left">
-            <DialogTitle className="text-[length:var(--fs-15)]">{row ? 'Επεξεργασία κατηγορίας' : 'Νέα εμπορική κατηγορία'}</DialogTitle>
-            <DialogDescription className="truncate text-[length:var(--fs-11)]">
+            <DialogTitle className="text-(length:--fs-15)">{row ? 'Επεξεργασία κατηγορίας' : 'Νέα εμπορική κατηγορία'}</DialogTitle>
+            <DialogDescription className="truncate text-(length:--fs-11)">
               {row ? `${REG[row.sodtype]?.label} · κωδ. ${row.code}` : 'Γράφεται απευθείας στο SoftOne'}
             </DialogDescription>
           </div>
@@ -131,21 +135,27 @@ function MembersPanel({ row }: { row: ClassificationRow }) {
   const [error, setError] = React.useState<string | null>(null);
   const [q, setQ] = React.useState('');
 
-  const load = React.useCallback(async () => {
-    setError(null);
-    try {
-      const res = await fetch(`/api/admin/classifications/members?kind=${row.kind}&sodtype=${row.sodtype}&code=${row.code}`, { cache: 'no-store' });
-      const d = await res.json();
-      if (!res.ok) throw new Error(d.message ?? 'Αποτυχία φόρτωσης από το SoftOne');
-      setItems(d.items);
-    } catch (e) { setError((e as Error).message); }
-  }, [row.kind, row.sodtype, row.code]);
-  React.useEffect(() => { void load(); }, [load]);
+  // Τα setState γίνονται μόνο μέσα στα callbacks της υπόσχεσης (ασύγχρονα)
+  const fetchItems = React.useCallback(() =>
+    fetch(`/api/admin/classifications/members?kind=${row.kind}&sodtype=${row.sodtype}&code=${row.code}`, { cache: 'no-store' })
+      .then(async (res) => {
+        const d = await res.json();
+        if (!res.ok) throw new Error(d.message ?? 'Αποτυχία φόρτωσης από το SoftOne');
+        setItems(d.items);
+      })
+      .catch((e) => { setError((e as Error).message); }),
+  [row.kind, row.sodtype, row.code]);
+  const load = () => { setError(null); void fetchItems(); };
+  // Νέα γραμμή → καθαρισμός σφάλματος (adjust-state-while-rendering) και φόρτωση στο effect
+  const rowKey = `${row.kind}|${row.sodtype}|${row.code}`;
+  const [prevRowKey, setPrevRowKey] = React.useState(rowKey);
+  if (rowKey !== prevRowKey) { setPrevRowKey(rowKey); setError(null); }
+  React.useEffect(() => { void fetchItems(); }, [fetchItems]);
 
   const tone = KIND[row.kind].tone;
   if (error) {
     return (
-      <div role="alert" className="flex flex-wrap items-center gap-2 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-[length:var(--fs-12)]">
+      <div role="alert" className="flex flex-wrap items-center gap-2 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-(length:--fs-12)">
         <FiAlertTriangle className="size-4 text-destructive" aria-hidden /><span className="flex-1">{error}</span>
         <button type="button" onClick={load} className="inline-flex h-8 cursor-pointer items-center gap-1 rounded-md border border-border bg-background px-2.5 hover:bg-muted"><FiRefreshCw className="size-3.5" aria-hidden /> Δοκιμή ξανά</button>
       </div>
@@ -158,7 +168,7 @@ function MembersPanel({ row }: { row: ClassificationRow }) {
   return (
     <div className="space-y-2">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="rounded-sm px-1.5 py-0.5 text-[length:var(--fs-11)] font-semibold" style={{ color: tone, backgroundColor: soft(tone, 12) }}>
+        <span className="rounded-sm px-1.5 py-0.5 text-(length:--fs-11) font-semibold" style={{ color: tone, backgroundColor: soft(tone, 12) }}>
           {items.length} ενεργά {row.sodtype === 52 ? 'υπηρεσίες' : 'είδη'}
         </span>
         {items.length > 8 && (
@@ -166,11 +176,11 @@ function MembersPanel({ row }: { row: ClassificationRow }) {
         )}
       </div>
       {items.length === 0 ? (
-        <p className="rounded-md border border-dashed border-border px-3 py-5 text-center text-[length:var(--fs-12)] text-muted-foreground">Κανένα ενεργό {row.sodtype === 52 ? 'υπηρεσία' : 'είδος'} σε αυτή την {row.kind === 'CATEGORY' ? 'κατηγορία' : 'ομάδα'}.</p>
+        <p className="rounded-md border border-dashed border-border px-3 py-5 text-center text-(length:--fs-12) text-muted-foreground">Κανένα ενεργό {row.sodtype === 52 ? 'υπηρεσία' : 'είδος'} σε αυτή την {row.kind === 'CATEGORY' ? 'κατηγορία' : 'ομάδα'}.</p>
       ) : (
         <ul className="grid max-h-80 gap-x-4 overflow-y-auto rounded-md border border-border bg-card px-3 py-1 sm:grid-cols-2 lg:grid-cols-3">
           {shown.slice(0, 300).map((i) => (
-            <li key={i.mtrl} className="flex min-w-0 items-baseline gap-2 border-b border-border/60 py-1.5 text-[length:var(--fs-12)] last:border-0">
+            <li key={i.mtrl} className="flex min-w-0 items-baseline gap-2 border-b border-border/60 py-1.5 text-(length:--fs-12) last:border-0">
               <span className="shrink-0 font-mono tabular-nums text-muted-foreground">{i.code}</span>
               <span className="truncate" title={i.name}>{i.name}</span>
             </li>
@@ -206,13 +216,13 @@ function RowActions({ row, canManage, onEdit, onChanged }: { row: Classification
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
-        className="inline-flex size-8 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors duration-150 hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring data-[state=open]:bg-muted data-[state=open]:text-foreground"
+        className="inline-flex size-8 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors duration-150 hover:bg-muted hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring data-[state=open]:bg-muted data-[state=open]:text-foreground"
         aria-label={`Ενέργειες για ${row.name}`} onClick={(e) => e.stopPropagation()}
       >
         <FiMoreVertical className="size-4" aria-hidden />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-64">
-        <DropdownMenuLabel className="truncate text-[length:var(--fs-11)] font-semibold text-muted-foreground">{KIND[row.kind].label} · {row.name}</DropdownMenuLabel>
+        <DropdownMenuLabel className="truncate text-(length:--fs-11) font-semibold text-muted-foreground">{KIND[row.kind].label} · {row.name}</DropdownMenuLabel>
         {canManage && isCat && (
           <>
             <DropdownMenuItem className={ITEM} onSelect={onEdit}><FiEdit3 className="size-3.5" style={{ color: KIND.CATEGORY.tone }} aria-hidden /> Μετονομασία / σύντμηση</DropdownMenuItem>
@@ -224,7 +234,7 @@ function RowActions({ row, canManage, onEdit, onChanged }: { row: Classification
         )}
         {!isCat && (
           <>
-            <DropdownMenuItem className="gap-2 text-[length:var(--fs-11)] leading-snug" disabled>
+            <DropdownMenuItem className="gap-2 text-(length:--fs-11) leading-snug" disabled>
               <FiLock className="size-3.5 shrink-0" aria-hidden /> Οι ομάδες αλλάζουν μόνο στο SoftOne — μετά «Συγχρονισμός»
             </DropdownMenuItem>
             <DropdownMenuSeparator />
@@ -283,8 +293,8 @@ export function ClassificationsTableClient({
           <div className={cn('flex min-w-0 items-center gap-2', !r.isActive && 'opacity-60')}>
             <span aria-hidden className="grid size-7 shrink-0 place-items-center rounded-md [&_svg]:size-3.5" style={{ color: k.tone, backgroundColor: soft(k.tone, 12) }}><Icon /></span>
             <div className="min-w-0">
-              <div className="truncate text-[length:var(--fs-12)] font-medium">{r.name}</div>
-              <div className="truncate text-[length:var(--fs-11)] text-muted-foreground">{k.label} {REG[r.sodtype]?.label.toLocaleLowerCase('el')}</div>
+              <div className="truncate text-(length:--fs-12) font-medium">{r.name}</div>
+              <div className="truncate text-(length:--fs-11) text-muted-foreground">{k.label} {REG[r.sodtype]?.label.toLocaleLowerCase('el')}</div>
             </div>
           </div>
         );
@@ -292,30 +302,30 @@ export function ClassificationsTableClient({
     },
     {
       accessorKey: 'code', header: 'Κωδ.', size: 70,
-      cell: ({ row }) => <span className="font-mono tabular-nums text-[length:var(--fs-12)] text-muted-foreground">{row.original.code}</span>,
+      cell: ({ row }) => <span className="font-mono tabular-nums text-(length:--fs-12) text-muted-foreground">{row.original.code}</span>,
     },
     {
       accessorKey: 'shortCode', header: 'Σύντμηση', size: 115,
-      cell: ({ row }) => (row.original.shortCode ? <span className="font-mono text-[length:var(--fs-12)]">{row.original.shortCode}</span> : DASH),
+      cell: ({ row }) => (row.original.shortCode ? <span className="font-mono text-(length:--fs-12)">{row.original.shortCode}</span> : DASH),
     },
     {
       id: 'register', accessorFn: (r) => REG[r.sodtype]?.label ?? '', header: 'Μητρώο', size: 100,
       cell: ({ row }) => {
         const g = REG[row.original.sodtype];
-        return g ? <span className="inline-flex rounded-sm px-1.5 py-0.5 text-[length:var(--fs-11)] font-medium" style={{ color: g.tone, backgroundColor: soft(g.tone, 12) }}>{g.label}</span> : DASH;
+        return g ? <span className="inline-flex rounded-sm px-1.5 py-0.5 text-(length:--fs-11) font-medium" style={{ color: g.tone, backgroundColor: soft(g.tone, 12) }}>{g.label}</span> : DASH;
       },
     },
     {
       accessorKey: 'itemCount', header: 'Είδη', size: 70,
       cell: ({ row }) => (row.original.itemCount == null ? DASH : (
-        <span className={cn('tabular-nums text-[length:var(--fs-12)]', !row.original.itemCount && 'text-muted-foreground/50')}>{row.original.itemCount.toLocaleString('el-GR')}</span>
+        <span className={cn('tabular-nums text-(length:--fs-12)', !row.original.itemCount && 'text-muted-foreground')}>{row.original.itemCount.toLocaleString('el-GR')}</span>
       )),
     },
     {
       accessorKey: 'isActive', header: 'Ενεργή', size: 95,
       cell: ({ row }) => (row.original.isActive
-        ? <span className="inline-flex items-center gap-1 text-[length:var(--fs-12)]" style={{ color: '#047857' }}><FiCheck className="size-3.5" aria-hidden /> Ναι</span>
-        : <span className="inline-flex items-center gap-1 text-[length:var(--fs-12)] text-muted-foreground"><FiSlash className="size-3.5" aria-hidden /> Όχι</span>),
+        ? <span className="inline-flex items-center gap-1 text-(length:--fs-12)" style={{ color: '#047857' }}><FiCheck className="size-3.5" aria-hidden /> Ναι</span>
+        : <span className="inline-flex items-center gap-1 text-(length:--fs-12) text-muted-foreground"><FiSlash className="size-3.5" aria-hidden /> Όχι</span>),
     },
     {
       id: 'actions', header: () => <span className="sr-only">Ενέργειες</span>, size: 44,
@@ -329,7 +339,7 @@ export function ClassificationsTableClient({
   ], [canManage, router]);
 
   const chip = (active: boolean) => cn(
-    'inline-flex h-7 cursor-pointer items-center gap-1 rounded-md border px-2.5 text-[length:var(--fs-11)] font-medium transition',
+    'inline-flex h-7 cursor-pointer items-center gap-1 rounded-md border px-2.5 text-(length:--fs-11) font-medium transition',
     active ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-background text-muted-foreground hover:text-foreground',
   );
 
@@ -343,7 +353,7 @@ export function ClassificationsTableClient({
         <button key={s} type="button" className={chip(reg === s)} aria-pressed={reg === s} onClick={() => setReg(s)}>{l}</button>
       ))}
       {inactive > 0 && (
-        <label className="inline-flex h-7 cursor-pointer items-center gap-1.5 px-1 text-[length:var(--fs-11)] text-muted-foreground">
+        <label className="inline-flex h-7 cursor-pointer items-center gap-1.5 px-1 text-(length:--fs-11) text-muted-foreground">
           <input type="checkbox" className="size-3.5 accent-[#0369A1]" checked={showInactive} onChange={(e) => setShowInactive(e.target.checked)} />
           Ανενεργές ({inactive})
         </label>
@@ -362,7 +372,7 @@ export function ClassificationsTableClient({
   return (
     <div className="space-y-2">
       {membersError && (
-        <p role="alert" className="rounded-md border border-amber-500/30 bg-amber-50/70 px-3 py-2 text-[length:var(--fs-12)] text-amber-900 dark:bg-amber-500/10 dark:text-amber-300">
+        <p role="alert" className="rounded-md border border-amber-500/30 bg-amber-50/70 px-3 py-2 text-(length:--fs-12) text-amber-900 dark:bg-amber-500/10 dark:text-amber-300">
           Δεν διαβάστηκαν τα είδη από το SoftOne ({membersError}) — το πλήθος ειδών δεν εμφανίζεται.
         </p>
       )}
@@ -378,9 +388,9 @@ export function ClassificationsTableClient({
         growColumnId="name"
         responsiveHide={['isActive', 'shortCode', 'register', 'code']}
         expandable={(r) => <MembersPanel row={r} />}
-        emptyState={<p className="py-8 text-center text-[length:var(--fs-13)] text-muted-foreground">{rows.length ? 'Καμία εγγραφή με αυτά τα φίλτρα.' : 'Δεν υπάρχουν εγγραφές. Πάτησε «Συγχρονισμός».'}</p>}
+        emptyState={<p className="py-8 text-center text-(length:--fs-13) text-muted-foreground">{rows.length ? 'Καμία εγγραφή με αυτά τα φίλτρα.' : 'Δεν υπάρχουν εγγραφές. Πάτησε «Συγχρονισμός».'}</p>}
       />
-      <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[length:var(--fs-11)] text-muted-foreground">
+      <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-(length:--fs-11) text-muted-foreground">
         <span className="inline-flex items-center gap-1"><FiLock className="size-3" aria-hidden /> Οι ομάδες είναι μόνο για ανάγνωση: η εγγραφή τους μέσω Web Services δεν είναι ασφαλής σε αυτή την εγκατάσταση.</span>
         {lastSync && <span>Τελευταίος συγχρονισμός: {new Date(lastSync).toLocaleString('el-GR')}</span>}
       </p>

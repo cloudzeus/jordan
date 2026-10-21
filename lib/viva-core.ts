@@ -33,7 +33,7 @@ export const checkoutUrl = (env: VivaEnv, orderCode: string, color?: string) =>
 /** Τα URL που επικολλώνται στο dashboard του Viva (webhook + επιστροφή από το checkout). */
 export function vivaUrls(appUrl: string) {
   const base = appUrl.replace(/\/$/, '');
-  let domain = '';
+  let domain: string;
   try { domain = base ? new URL(base).host : ''; } catch { domain = ''; }
   return {
     domain,

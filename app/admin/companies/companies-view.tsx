@@ -6,16 +6,16 @@ import { useRouter } from 'next/navigation';
 import { ColumnDef } from '@tanstack/react-table';
 import {
   FiPlus, FiEdit2, FiTrash2, FiMoreVertical, FiCheck, FiX,
-  FiAlertTriangle, FiSettings, FiLayers, FiMapPin, FiStar,
+  FiAlertTriangle, FiLayers, FiMapPin, FiStar,
   FiInfo, FiFileText, FiPhone, FiCreditCard, FiTag, FiEdit3,
-  FiUpload, FiArchive, FiExternalLink, FiImage, FiRefreshCw,
+  FiArchive, FiExternalLink, FiImage, FiRefreshCw,
   FiUserPlus, FiUser, FiMail, FiSmartphone, FiSearch,
   FiBarChart2,
 } from 'react-icons/fi';
 import { SoftoneAfmDialog } from '@/components/admin/softone-afm-dialog';
 import { toast } from 'sonner';
 import { DataTable } from '@/components/ui/data-table';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -119,7 +119,7 @@ function text(
     id, accessorFn: (r) => pick(r) ?? '', header, size,
     cell: ({ row }) => {
       const v = pick(row.original);
-      return <span className={`text-[length:var(--fs-12)] text-muted-foreground truncate ${mono ? 'font-mono tabular-nums' : ''}`}>{v || '—'}</span>;
+      return <span className={`text-(length:--fs-12) text-muted-foreground truncate ${mono ? 'font-mono tabular-nums' : ''}`}>{v || '—'}</span>;
     },
   };
 }
@@ -132,8 +132,8 @@ function money(
     id, accessorFn: (r) => pick(r) ?? 0, header, size,
     cell: ({ row }) => {
       const v = pick(row.original);
-      if (v == null) return <span className="text-[length:var(--fs-12)] text-muted-foreground">—</span>;
-      return <span className="text-[length:var(--fs-12)] text-muted-foreground tabular-nums">
+      if (v == null) return <span className="text-(length:--fs-12) text-muted-foreground">—</span>;
+      return <span className="text-(length:--fs-12) text-muted-foreground tabular-nums">
         {v.toLocaleString('el-GR', { style: 'currency', currency: currency(row.original) || 'EUR' })}
       </span>;
     },
@@ -147,7 +147,7 @@ function percent(
     id, accessorFn: (r) => pick(r) ?? 0, header, size,
     cell: ({ row }) => {
       const v = pick(row.original);
-      return <span className="text-[length:var(--fs-12)] text-muted-foreground tabular-nums">{v == null ? '—' : `${v}%`}</span>;
+      return <span className="text-(length:--fs-12) text-muted-foreground tabular-nums">{v == null ? '—' : `${v}%`}</span>;
     },
   };
 }
@@ -159,7 +159,7 @@ function date(
     id, accessorFn: (r) => pick(r) ?? '', header, size,
     cell: ({ row }) => {
       const v = pick(row.original);
-      return <span className="text-[length:var(--fs-12)] text-muted-foreground tabular-nums">{v ? new Date(v).toLocaleDateString('el-GR') : '—'}</span>;
+      return <span className="text-(length:--fs-12) text-muted-foreground tabular-nums">{v ? new Date(v).toLocaleDateString('el-GR') : '—'}</span>;
     },
   };
 }
@@ -173,8 +173,8 @@ function coordsCol(
     accessorFn: (r) => (lat(r) != null && lng(r) != null ? `${lat(r)},${lng(r)}` : ''),
     cell: ({ row }) => {
       const la = lat(row.original); const ln = lng(row.original);
-      if (la == null || ln == null) return <span className="text-[length:var(--fs-12)] text-muted-foreground">—</span>;
-      return <span className="text-[length:var(--fs-11)] text-muted-foreground font-mono tabular-nums">{la.toFixed(4)}, {ln.toFixed(4)}</span>;
+      if (la == null || ln == null) return <span className="text-(length:--fs-12) text-muted-foreground">—</span>;
+      return <span className="text-(length:--fs-11) text-muted-foreground font-mono tabular-nums">{la.toFixed(4)}, {ln.toFixed(4)}</span>;
     },
   };
 }
@@ -205,16 +205,15 @@ export function CompaniesView({
         return (
           <div className="flex items-center gap-2 min-w-0">
             {row.original.logoUrl
-              // eslint-disable-next-line @next/next/no-img-element
               ? <img src={row.original.logoUrl} alt="" className="h-6 w-6 rounded-sm object-contain border border-border bg-background shrink-0" />
               : (
-                <span className="inline-flex h-6 w-6 items-center justify-center rounded-sm bg-primary text-primary-foreground text-[length:var(--fs-10)] font-semibold shrink-0">
+                <span className="inline-flex h-6 w-6 items-center justify-center rounded-sm bg-primary text-primary-foreground text-(length:--fs-10) font-semibold shrink-0">
                   {initials}
                 </span>
               )}
             <div className="min-w-0">
-              <div className="font-medium text-foreground truncate text-[length:var(--fs-12)]">{row.original.name}</div>
-              {row.original.code && <div className="text-[length:var(--fs-10)] text-muted-foreground truncate">#{row.original.code}</div>}
+              <div className="font-medium text-foreground truncate text-(length:--fs-12)">{row.original.name}</div>
+              {row.original.code && <div className="text-(length:--fs-10) text-muted-foreground truncate">#{row.original.code}</div>}
             </div>
           </div>
         );
@@ -229,7 +228,7 @@ export function CompaniesView({
               key={t.id}
               variant="outline"
               style={t.color ? { borderColor: `${t.color}55`, color: t.color } : undefined}
-              className="text-[length:var(--fs-10)]"
+              className="text-(length:--fs-10)"
             >
               {t.name}
             </Badge>
@@ -239,24 +238,24 @@ export function CompaniesView({
     },
     {
       accessorKey: 'afm', header: 'ΑΦΜ', size: 110,
-      cell: ({ row }) => <span className="tabular-nums text-[length:var(--fs-12)] text-muted-foreground">{row.original.afm || '—'}</span>,
+      cell: ({ row }) => <span className="tabular-nums text-(length:--fs-12) text-muted-foreground">{row.original.afm || '—'}</span>,
     },
     {
       accessorKey: 'email', header: 'Email', size: 200,
-      cell: ({ row }) => <span className="truncate text-[length:var(--fs-12)] text-muted-foreground">{row.original.email || '—'}</span>,
+      cell: ({ row }) => <span className="truncate text-(length:--fs-12) text-muted-foreground">{row.original.email || '—'}</span>,
     },
     {
       accessorKey: 'phone', header: 'Τηλέφωνο', size: 120,
-      cell: ({ row }) => <span className="tabular-nums text-[length:var(--fs-12)] text-muted-foreground">{row.original.phone || '—'}</span>,
+      cell: ({ row }) => <span className="tabular-nums text-(length:--fs-12) text-muted-foreground">{row.original.phone || '—'}</span>,
     },
     {
       accessorKey: 'city', header: 'Πόλη', size: 120,
-      cell: ({ row }) => <span className="text-[length:var(--fs-12)] text-muted-foreground">{row.original.city || '—'}</span>,
+      cell: ({ row }) => <span className="text-(length:--fs-12) text-muted-foreground">{row.original.city || '—'}</span>,
     },
     {
       accessorKey: 'branchCount', header: 'Υποκ/τα', size: 80,
       cell: ({ row }) => (
-        <span className="inline-flex items-center gap-1 text-[length:var(--fs-12)] text-muted-foreground tabular-nums">
+        <span className="inline-flex items-center gap-1 text-(length:--fs-12) text-muted-foreground tabular-nums">
           <FiMapPin className="size-3" /> {row.original.branchCount}
         </span>
       ),
@@ -300,7 +299,7 @@ export function CompaniesView({
     {
       id: 'employeeCount', header: 'Εργαζόμενοι', size: 100,
       accessorFn: (r) => r.employeeCount ?? 0,
-      cell: ({ row }) => <span className="text-[length:var(--fs-12)] text-muted-foreground tabular-nums">{row.original.employeeCount ?? '—'}</span>,
+      cell: ({ row }) => <span className="text-(length:--fs-12) text-muted-foreground tabular-nums">{row.original.employeeCount ?? '—'}</span>,
     },
     text('category', 'Κατηγορία', 130, (r) => r.category),
     text('gemiOffice', 'Υπηρεσία ΓΕΜΗ', 200, (r) => r.gemiOffice),
@@ -321,7 +320,7 @@ export function CompaniesView({
           <DropdownMenu>
             <DropdownMenuTrigger
               aria-label="Ενέργειες"
-              className="inline-flex h-7 w-7 items-center justify-center rounded-sm border border-transparent text-muted-foreground hover:bg-muted hover:text-foreground hover:border-border data-[state=open]:bg-muted data-[state=open]:text-foreground data-[state=open]:border-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring transition-colors duration-150"
+              className="inline-flex h-7 w-7 items-center justify-center rounded-sm border border-transparent text-muted-foreground hover:bg-muted hover:text-foreground hover:border-border data-[state=open]:bg-muted data-[state=open]:text-foreground data-[state=open]:border-border focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring transition-colors duration-150"
             >
               <FiMoreVertical className="h-4 w-4" />
             </DropdownMenuTrigger>
@@ -366,7 +365,7 @@ export function CompaniesView({
         );
       },
     },
-  ]), []);
+  ]), [router]);
 
   const filteredRows = React.useMemo(() => {
     if (tab === 'ALL') return rows;
@@ -379,12 +378,12 @@ export function CompaniesView({
         <Tabs value={tab} onValueChange={setTab} className="flex-1 min-w-0">
           <TabsList variant="line">
             <TabsTrigger value="ALL">
-              Όλες <span className="ml-1.5 text-[length:var(--fs-10)] text-muted-foreground tabular-nums">{rows.length}</span>
+              Όλες <span className="ml-1.5 text-(length:--fs-10) text-muted-foreground tabular-nums">{rows.length}</span>
             </TabsTrigger>
             {types.map((t) => (
               <TabsTrigger key={t.id} value={t.key}>
                 <span style={t.color ? { color: t.color } : undefined}>{t.pluralName}</span>
-                <span className="ml-1.5 text-[length:var(--fs-10)] text-muted-foreground tabular-nums">{t.count}</span>
+                <span className="ml-1.5 text-(length:--fs-10) text-muted-foreground tabular-nums">{t.count}</span>
               </TabsTrigger>
             ))}
           </TabsList>
@@ -413,8 +412,8 @@ export function CompaniesView({
         persistKey="admin.companies.v1"
         initialColumnVisibility={Object.fromEntries(
           columns
-            .map((c) => (c as any).id ?? (c as any).accessorKey)
-            .filter(Boolean)
+            .map((c) => (c as { id?: string; accessorKey?: string }).id ?? (c as { id?: string; accessorKey?: string }).accessorKey)
+            .filter((id): id is string => Boolean(id))
             .map((id) => [id, DEFAULT_VISIBLE_COLUMNS.has(id)]),
         )}
         expandable={(c) => <CompanyExpandedRow company={c} />}
@@ -458,6 +457,29 @@ export function CompaniesView({
 
 // ---------------- Create / Edit Dialog ----------------
 
+// ΚΑΔ όπως έρχονται από το GET /api/admin/companies/[id] (με τη σημαία άδειας λειτουργίας).
+type CompanyActivity = {
+  code: string; codeAade?: string | null; codeWithoutDots?: string | null;
+  description: string; kind: 'PRIMARY' | 'SECONDARY'; order?: number; requiresLicense?: boolean;
+};
+
+// Η κατάσταση της φόρμας: ό,τι γεμίζει από το GET /api/admin/companies/[id] ή από την ΑΑΔΕ.
+type CompanyForm = {
+  code?: string; name?: string; shortName?: string; afm?: string; doy?: string; profession?: string;
+  legalForm?: string; gemhNumber?: string; address?: string; city?: string; zip?: string; country?: string; district?: string;
+  phone?: string; phone2?: string; email?: string; website?: string; contactPerson?: string; contactTitle?: string;
+  iban?: string; bankName?: string; paymentTerms?: string;
+  creditLimit?: number | string; discount?: number | string; employeeCount?: number | string;
+  notes?: string; isActive?: boolean; foundingDate?: string;
+  aadeStatus?: string; aadeFirmKind?: string; aadeSyncedAt?: string;
+  arGemi?: string | null; gemiStatus?: string; gemiOffice?: string; gemiObjective?: string; gemiSyncedAt?: string | null;
+  logoUrl?: string | null;
+  legalTypeId?: number | '' | null; vatCategoryId?: number | '' | null; vatCategory?: string;
+  businessTypeId?: string; businessTypeOverride?: boolean;
+  gemiOfficeId?: number | ''; companyStatusId?: number | ''; prefectureId?: string; municipalityId?: string;
+  regionCode?: string | null;
+};
+
 function CompanyDialog({
   open, company, types, defaultTypeKey, onClose, onSaved,
 }: {
@@ -470,7 +492,7 @@ function CompanyDialog({
 }) {
   const isEdit = !!company;
   const router = useRouter();
-  const [form, setForm] = React.useState<any>({});
+  const [form, setForm] = React.useState<CompanyForm>({});
   const [typeIds, setTypeIds] = React.useState<string[]>([]);
   const [activities, setActivities] = React.useState<{ code: string; codeAade?: string | null; codeWithoutDots?: string | null; description: string; kind: 'PRIMARY' | 'SECONDARY'; order?: number }[]>([]);
   const [saving, setSaving] = React.useState(false);
@@ -492,9 +514,25 @@ function CompanyDialog({
   const [reloadKey, setReloadKey] = React.useState(0);
   const [regionBreadcrumb, setRegionBreadcrumb] = React.useState<import('@/components/regions/region-field').RegionFieldValue['breadcrumb']>(null);
 
+  // Συγχρονικό μέρος της επαναφοράς (ενότητα, νέα εταιρία) — adjust-state-while-rendering.
+  const [prevDeps, setPrevDeps] = React.useState({ open: false, company, defaultTypeKey, types, reloadKey });
+  if (prevDeps.open !== open || prevDeps.company !== company || prevDeps.defaultTypeKey !== defaultTypeKey || prevDeps.types !== types || prevDeps.reloadKey !== reloadKey) {
+    setPrevDeps({ open, company, defaultTypeKey, types, reloadKey });
+    if (open) {
+      setActiveSection('general');
+      if (!company) {
+        setForm({ name: '', country: 'GR', isActive: true });
+        setRegionBreadcrumb(null);
+        const def = defaultTypeKey ? types.find((t) => t.key === defaultTypeKey) : null;
+        setTypeIds(def ? [def.id] : []);
+        setActivities([]);
+      }
+    }
+  }
+
+  // Φόρτωση της υπάρχουσας εταιρίας (τα setState μόνο μέσα στα callbacks του fetch).
   React.useEffect(() => {
     if (!open) return;
-    setActiveSection('general');
     if (company) {
       fetch(`/api/admin/companies/${company.id}`)
         .then((r) => r.json())
@@ -530,8 +568,8 @@ function CompanyDialog({
             municipalityId: c.municipalityId ?? '',
             regionCode: c.regionCode ?? null,
           });
-          setTypeIds(c.types.map((t: any) => t.typeId));
-          setActivities((c.activities ?? []).map((a: any) => ({
+          setTypeIds(c.types.map((t: { typeId: string }) => t.typeId));
+          setActivities((c.activities ?? []).map((a: CompanyActivity) => ({
             code: a.code, codeAade: a.codeAade, codeWithoutDots: a.codeWithoutDots,
             description: a.description, kind: a.kind, order: a.order,
             requiresLicense: a.requiresLicense ?? false,
@@ -545,22 +583,17 @@ function CompanyDialog({
             setRegionBreadcrumb(null);
           }
         });
-    } else {
-      setForm({ name: '', country: 'GR', isActive: true });
-      setRegionBreadcrumb(null);
-      const def = defaultTypeKey ? types.find((t) => t.key === defaultTypeKey) : null;
-      setTypeIds(def ? [def.id] : []);
-      setActivities([]);
     }
+    // defaultTypeKey/types: όπως πριν, κάθε αλλαγή τους ξαναφορτώνει την εταιρία
   }, [open, company, defaultTypeKey, types, reloadKey]);
 
-  const set = (k: string, v: any) => setForm((f: any) => ({ ...f, [k]: v }));
+  const set = <K extends keyof CompanyForm>(k: K, v: CompanyForm[K]) => setForm((f) => ({ ...f, [k]: v }));
   const toggleType = (id: string) =>
     setTypeIds((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
 
   const applyAade = (data: AadeResult) => {
     const m = data.mapped;
-    setForm((f: any) => ({
+    setForm((f) => ({
       ...f,
       afm: m.afm,
       name: m.name || f.name,
@@ -604,7 +637,6 @@ function CompanyDialog({
       finally { if (!cancelled) setAadeAuto(false); }
     })();
     return () => { cancelled = true; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [form.afm, isEdit]);
 
   const save = async () => {
@@ -637,7 +669,7 @@ function CompanyDialog({
     });
     setSaving(false);
     if (res.ok) {
-      const body = await res.json().catch(() => ({} as any));
+      const body = await res.json().catch(() => ({}));
       toast.success(isEdit ? 'Αποθηκεύτηκε' : 'Δημιουργήθηκε');
       // Νέος πελάτης με ΑΦΜ/ΓΕΜΗ → αυτόματος συγχρονισμός ΓΕΜΗ στο παρασκήνιο (με έγγραφα).
       const newId: string | undefined = body?.company?.id;
@@ -649,7 +681,7 @@ function CompanyDialog({
         })
           .then(async (r) => {
             if (r.ok) {
-              const d = await r.json().catch(() => ({} as any));
+              const d = await r.json().catch(() => ({}));
               toast.success(`ΓΕΜΗ ολοκληρώθηκε${d?.documentsImported ? ` · ${d.documentsImported} έγγραφα` : ''}`, { id: tid });
             } else {
               toast.error('Ο συγχρονισμός ΓΕΜΗ απέτυχε', { id: tid });
@@ -689,10 +721,10 @@ function CompanyDialog({
             onChange={(url) => { set('logoUrl', url); setReloadKey((k) => k + 1); }}
           />
           <div className="flex-1 min-w-0">
-            <DialogTitle className="text-[length:var(--fs-15)] leading-tight truncate">
+            <DialogTitle className="text-(length:--fs-15) leading-tight truncate">
               {isEdit ? (form.name || 'Επεξεργασία εταιρίας') : 'Νέα εταιρία'}
             </DialogTitle>
-            <DialogDescription className="text-[length:var(--fs-11)] truncate flex items-center gap-2 mt-0.5">
+            <DialogDescription className="text-(length:--fs-11) truncate flex items-center gap-2 mt-0.5">
               {form.afm && <span className="tabular-nums">ΑΦΜ {form.afm}</span>}
               {form.arGemi && <span className="tabular-nums">· ΓΕΜΗ {form.arGemi}</span>}
               {typeIds.length > 0 && (
@@ -705,7 +737,7 @@ function CompanyDialog({
                         key={id}
                         variant="outline"
                         style={t.color ? { borderColor: `${t.color}55`, color: t.color } : undefined}
-                        className="text-[length:var(--fs-9)] py-0 h-4"
+                        className="text-(length:--fs-9) py-0 h-4"
                       >
                         {t.name}
                       </Badge>
@@ -719,7 +751,7 @@ function CompanyDialog({
           </div>
           <label className="mr-1 flex shrink-0 cursor-pointer items-center gap-1.5 rounded-md border border-border bg-card px-2 py-1">
             <Checkbox checked={!!form.isActive} onCheckedChange={(v) => set('isActive', !!v)} />
-            <span className="text-[length:var(--fs-11)] font-medium text-muted-foreground">Ενεργή</span>
+            <span className="text-(length:--fs-11) font-medium text-muted-foreground">Ενεργή</span>
           </label>
           <AadeLookupButton initialAfm={form.afm ?? ''} onApply={applyAade} />
           {isEdit && company && (
@@ -735,10 +767,10 @@ function CompanyDialog({
             Ενιαίο μέγεθος πεδίων (h-8 · 13) και ετικετών (11) για όλη τη φόρμα. */}
         <div
           className="flex-1 min-h-0 flex flex-row
-            [&_input]:!text-[length:var(--fs-13)] [&_input]:!h-8 [&_input]:!px-2
-            [&_textarea]:!text-[length:var(--fs-13)]
-            [&_select]:!text-[length:var(--fs-13)] [&_select]:!h-8
-            [&_label]:!text-[length:var(--fs-11)] [&_label]:!font-medium"
+            [&_input]:text-(length:--fs-13)! [&_input]:h-8! [&_input]:px-2!
+            [&_textarea]:text-(length:--fs-13)!
+            [&_select]:text-(length:--fs-13)! [&_select]:h-8!
+            [&_label]:text-(length:--fs-11)! [&_label]:font-medium!"
         >
           {/* ΧΩΡΙΣ scroller: πλαϊνό μενού. */}
           <nav aria-label="Ενότητες εταιρίας" className="w-44 md:w-52 shrink-0 border-r border-border bg-muted/30 p-2 flex flex-col gap-0.5">
@@ -750,16 +782,16 @@ function CompanyDialog({
                   key={s.id}
                   onClick={() => setActiveSection(s.id)}
                   aria-current={active ? 'true' : undefined}
-                  className={`flex items-start gap-2 px-2.5 py-1.5 rounded-md text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                  className={`flex items-start gap-2 px-2.5 py-1.5 rounded-md text-left transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring ${
                     active
-                      ? 'bg-card border border-sisyphus-500/30 shadow-xs text-foreground ring-1 ring-sisyphus-500/10'
+                      ? 'bg-card border border-sisyphus-500/30 shadow-2xs text-foreground ring-1 ring-sisyphus-500/10'
                       : 'border border-transparent text-muted-foreground hover:bg-card/60 hover:text-foreground'
                   }`}
                 >
                   <s.icon className={`size-3.5 mt-0.5 shrink-0 ${active ? 'text-sisyphus-600 dark:text-sisyphus-300' : ''}`} />
                   <span className="flex flex-col min-w-0">
-                    <span className="text-[length:var(--fs-12)] font-medium leading-tight truncate">{s.label}</span>
-                    <span className="text-[length:var(--fs-10)] text-muted-foreground leading-tight truncate font-normal">{s.hint}</span>
+                    <span className="text-(length:--fs-12) font-medium leading-tight truncate">{s.label}</span>
+                    <span className="text-(length:--fs-10) text-muted-foreground leading-tight truncate font-normal">{s.hint}</span>
                   </span>
                 </button>
               );
@@ -779,7 +811,7 @@ function CompanyDialog({
                         key={t.id}
                         onClick={() => toggleType(t.id)}
                         aria-pressed={active}
-                        className={`h-7 text-[length:var(--fs-12)] rounded-md border px-2.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                        className={`h-7 text-(length:--fs-12) rounded-md border px-2.5 transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring ${
                           active ? 'border-primary bg-primary/10 text-foreground' : 'border-border bg-card text-muted-foreground hover:bg-muted'
                         }`}
                         style={active && t.color ? { borderColor: t.color, color: t.color, backgroundColor: `${t.color}10` } : undefined}
@@ -880,19 +912,19 @@ function CompanyDialog({
                 <FreeTextHint value={form.vatCategoryId} freeText={form.vatCategory} />
                 {(form.aadeStatus || form.aadeFirmKind) && (
                   <div className="flex flex-wrap items-center gap-1.5 rounded-md border border-emerald-500/25 bg-emerald-50/50 px-2.5 py-1.5 dark:bg-emerald-500/10">
-                    <span className="text-[length:var(--fs-10)] uppercase tracking-wider text-emerald-800 dark:text-emerald-300 font-semibold mr-1">ΑΕΔΕΕ</span>
-                    {form.aadeStatus && <Badge variant="outline" className="text-[length:var(--fs-10)] border-emerald-300 text-emerald-700 dark:border-emerald-500/40 dark:text-emerald-300">{form.aadeStatus}</Badge>}
-                    {form.aadeFirmKind && <Badge variant="outline" className="text-[length:var(--fs-10)] bg-card">{form.aadeFirmKind}</Badge>}
+                    <span className="text-(length:--fs-10) uppercase tracking-wider text-emerald-800 dark:text-emerald-300 font-semibold mr-1">ΑΕΔΕΕ</span>
+                    {form.aadeStatus && <Badge variant="outline" className="text-(length:--fs-10) border-emerald-300 text-emerald-700 dark:border-emerald-500/40 dark:text-emerald-300">{form.aadeStatus}</Badge>}
+                    {form.aadeFirmKind && <Badge variant="outline" className="text-(length:--fs-10) bg-card">{form.aadeFirmKind}</Badge>}
                   </div>
                 )}
                 {(form.arGemi || form.gemiStatus || form.gemiOffice) && (
                   <div className="flex flex-wrap items-center gap-1.5 rounded-md border border-emerald-500/25 bg-emerald-50/50 px-2.5 py-1.5 dark:bg-emerald-500/10">
-                    <span className="text-[length:var(--fs-10)] uppercase tracking-wider text-emerald-800 dark:text-emerald-300 font-semibold mr-1">ΓΕΜΗ</span>
-                    {form.arGemi && <Badge variant="outline" className="text-[length:var(--fs-10)] tabular-nums bg-card">Αρ. {form.arGemi}</Badge>}
-                    {form.gemiStatus && <Badge variant="outline" className="text-[length:var(--fs-10)] border-emerald-300 text-emerald-700 dark:border-emerald-500/40 dark:text-emerald-300">{form.gemiStatus}</Badge>}
-                    {form.gemiOffice && <Badge variant="outline" className="text-[length:var(--fs-10)] bg-card">{form.gemiOffice}</Badge>}
+                    <span className="text-(length:--fs-10) uppercase tracking-wider text-emerald-800 dark:text-emerald-300 font-semibold mr-1">ΓΕΜΗ</span>
+                    {form.arGemi && <Badge variant="outline" className="text-(length:--fs-10) tabular-nums bg-card">Αρ. {form.arGemi}</Badge>}
+                    {form.gemiStatus && <Badge variant="outline" className="text-(length:--fs-10) border-emerald-300 text-emerald-700 dark:border-emerald-500/40 dark:text-emerald-300">{form.gemiStatus}</Badge>}
+                    {form.gemiOffice && <Badge variant="outline" className="text-(length:--fs-10) bg-card">{form.gemiOffice}</Badge>}
                     {form.gemiSyncedAt && (
-                      <span className="text-[length:var(--fs-10)] text-muted-foreground ml-auto tabular-nums">
+                      <span className="text-(length:--fs-10) text-muted-foreground ml-auto tabular-nums">
                         Sync: {new Date(form.gemiSyncedAt).toLocaleString('el-GR')}
                       </span>
                     )}
@@ -1012,7 +1044,7 @@ function CompanyDialog({
               <SectionBlock tone="slate" icon={<FiEdit3 />} title="Σημειώσεις" hint="Εσωτερικές σημειώσεις, ορατές μόνο σε χρήστες με πρόσβαση στην εταιρία.">
                 <textarea
                   aria-label="Σημειώσεις"
-                  className="w-full rounded-md border border-input bg-background px-2.5 py-2 text-[length:var(--fs-13)] leading-relaxed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring resize-y min-h-44"
+                  className="w-full rounded-md border border-input bg-background px-2.5 py-2 text-(length:--fs-13) leading-relaxed focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring resize-y min-h-44"
                   rows={8}
                   value={form.notes ?? ''}
                   onChange={(e) => set('notes', e.target.value)}
@@ -1025,7 +1057,7 @@ function CompanyDialog({
 
         {/* mx-0/mb-0: το DialogFooter έχει -mx-4 -mb-4 για modal με padding· εδώ είναι p-0. */}
         <DialogFooter className="mx-0 mb-0 rounded-none border-t border-border bg-card px-4 py-2.5 sm:items-center sm:justify-between">
-          <span className="text-[length:var(--fs-11)] text-muted-foreground">
+          <span className="text-(length:--fs-11) text-muted-foreground">
             {isEdit ? 'Επεξεργασία υφιστάμενης εγγραφής' : 'Νέα καταχώριση'}
           </span>
           <div className="flex gap-2">
@@ -1057,7 +1089,7 @@ function Grid({ children }: { children: React.ReactNode }) {
   return <div className="grid grid-cols-12 gap-x-3 gap-y-2">{children}</div>;
 }
 /** Ίδια εμφάνιση με τα inputs (h-8 · 13) για τα native select των φορμών. */
-const nativeSelectCls = 'h-8 w-full min-w-0 rounded-md border border-input bg-background px-2 text-[length:var(--fs-13)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:bg-input/30';
+const nativeSelectCls = 'h-8 w-full min-w-0 rounded-md border border-input bg-background px-2 text-(length:--fs-13) focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring dark:bg-input/30';
 
 /** Προειδοποίηση free-text τιμής — μπαίνει ΚΑΤΩ από τη σειρά, όχι μέσα στη στήλη. */
 function FreeTextHint({ value, freeText }: { value: unknown; freeText?: string | null }) {
@@ -1104,7 +1136,7 @@ function LookupSelect<T extends string | number>({
 function Field({ label, id, children, wide, className }: { label: string; id: string; children: React.ReactNode; wide?: boolean; className?: string }) {
   return (
     <div className={`grid min-w-0 content-start gap-1 ${className ?? (wide ? 'sm:col-span-2' : '')}`}>
-      <Label htmlFor={id} className="block truncate leading-tight text-[length:var(--fs-11)] font-medium text-muted-foreground">{label}</Label>
+      <Label htmlFor={id} className="block truncate leading-tight text-(length:--fs-11) font-medium text-muted-foreground">{label}</Label>
       {children}
     </div>
   );
@@ -1116,6 +1148,7 @@ type Branch = {
   address: string | null; city: string | null; zip: string | null;
   phone: string | null; email: string | null; contactPerson: string | null;
 };
+type BranchForm = Partial<Branch> & { country?: string };
 
 function BranchesPanel({ companyId }: { companyId: string }) {
   const [branches, setBranches] = React.useState<Branch[]>([]);
@@ -1123,15 +1156,17 @@ function BranchesPanel({ companyId }: { companyId: string }) {
   const [editing, setEditing] = React.useState<Branch | null>(null);
   const [creating, setCreating] = React.useState(false);
 
-  const load = React.useCallback(async () => {
-    setLoading(true);
-    const res = await fetch(`/api/admin/companies/${companyId}/branches`);
-    const d = await res.json();
-    setBranches(d.branches ?? []);
-    setLoading(false);
-  }, [companyId]);
+  // Τα setState μόνο μέσα στα callbacks του fetch· το «loading» ανάβει από τον χειριστή (load) ή στην αλλαγή companyId.
+  const fetchBranches = React.useCallback(() =>
+    fetch(`/api/admin/companies/${companyId}/branches`)
+      .then((res) => res.json())
+      .then((d) => { setBranches(d.branches ?? []); setLoading(false); }),
+  [companyId]);
+  const load = () => { setLoading(true); return fetchBranches(); };
+  const [prevCompanyId, setPrevCompanyId] = React.useState(companyId);
+  if (companyId !== prevCompanyId) { setPrevCompanyId(companyId); setLoading(true); }
 
-  React.useEffect(() => { load(); }, [load]);
+  React.useEffect(() => { fetchBranches(); }, [fetchBranches]);
 
   const remove = async (b: Branch) => {
     if (!(await confirmAction(`Διαγραφή υποκαταστήματος "${b.name}";`))) return;
@@ -1143,24 +1178,24 @@ function BranchesPanel({ companyId }: { companyId: string }) {
   return (
     <div className="space-y-2">
       <ul className="divide-y divide-border rounded-sm border min-h-[44px]">
-        {loading && <li className="px-3 py-2 text-[length:var(--fs-12)] text-muted-foreground">Φόρτωση…</li>}
+        {loading && <li className="px-3 py-2 text-(length:--fs-12) text-muted-foreground">Φόρτωση…</li>}
         {!loading && branches.length === 0 && (
-          <li className="px-3 py-2 text-[length:var(--fs-12)] text-muted-foreground">Δεν υπάρχουν υποκαταστήματα.</li>
+          <li className="px-3 py-2 text-(length:--fs-12) text-muted-foreground">Δεν υπάρχουν υποκαταστήματα.</li>
         )}
         {branches.map((b) => (
           <li key={b.id} className="flex items-center gap-2 px-3 py-2">
             <FiMapPin className="size-3.5 text-muted-foreground shrink-0" />
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-1.5">
-                <span className="text-[length:var(--fs-13)] font-medium text-foreground truncate">{b.name}</span>
+                <span className="text-(length:--fs-13) font-medium text-foreground truncate">{b.name}</span>
                 {b.isHeadquarters && (
-                  <Badge variant="outline" className="text-[length:var(--fs-9)] border-amber-300 text-amber-700">
+                  <Badge variant="outline" className="text-(length:--fs-9) border-amber-300 text-amber-700">
                     <FiStar className="mr-0.5" /> Έδρα
                   </Badge>
                 )}
-                {!b.isActive && <Badge variant="outline" className="text-[length:var(--fs-9)]">Ανενεργό</Badge>}
+                {!b.isActive && <Badge variant="outline" className="text-(length:--fs-9)">Ανενεργό</Badge>}
               </div>
-              <div className="text-[length:var(--fs-10)] text-muted-foreground truncate">
+              <div className="text-(length:--fs-10) text-muted-foreground truncate">
                 {[b.code && `#${b.code}`, b.address, b.city, b.phone].filter(Boolean).join(' · ') || '—'}
               </div>
             </div>
@@ -1195,16 +1230,20 @@ function BranchDialog({
   onClose: () => void; onSaved: () => void;
 }) {
   const isEdit = !!branch;
-  const [form, setForm] = React.useState<any>({});
+  const [form, setForm] = React.useState<BranchForm>({});
   const [saving, setSaving] = React.useState(false);
 
-  React.useEffect(() => {
-    if (!open) return;
-    if (branch) setForm({ ...branch });
-    else setForm({ name: '', country: 'GR', isActive: true, isHeadquarters: false });
-  }, [open, branch]);
+  // Επαναφορά της φόρμας στο άνοιγμα (adjust-state-while-rendering)
+  const [prevDeps, setPrevDeps] = React.useState({ open: false, branch });
+  if (prevDeps.open !== open || prevDeps.branch !== branch) {
+    setPrevDeps({ open, branch });
+    if (open) {
+      if (branch) setForm({ ...branch });
+      else setForm({ name: '', country: 'GR', isActive: true, isHeadquarters: false });
+    }
+  }
 
-  const set = (k: string, v: any) => setForm((f: any) => ({ ...f, [k]: v }));
+  const set = <K extends keyof BranchForm>(k: K, v: BranchForm[K]) => setForm((f) => ({ ...f, [k]: v }));
 
   const save = async () => {
     if (!form.name?.trim()) { toast.error('Όνομα υποχρεωτικό'); return; }
@@ -1228,13 +1267,13 @@ function BranchDialog({
         <DialogHeader className="flex-row items-center gap-3 space-y-0 border-b border-border px-4 py-2.5 pr-12">
           <span aria-hidden className="grid size-8 shrink-0 place-items-center rounded-lg bg-sisyphus-50 text-sisyphus-600 dark:bg-sisyphus-500/15"><FiMapPin className="size-4" /></span>
           <div className="min-w-0 flex-1">
-            <DialogTitle className="truncate text-[length:var(--fs-15)]">{isEdit ? 'Επεξεργασία υποκαταστήματος' : 'Νέο υποκατάστημα'}</DialogTitle>
-            <DialogDescription className="truncate text-[length:var(--fs-11)]">Στοιχεία διεύθυνσης και επικοινωνίας υποκαταστήματος.</DialogDescription>
+            <DialogTitle className="truncate text-(length:--fs-15)">{isEdit ? 'Επεξεργασία υποκαταστήματος' : 'Νέο υποκατάστημα'}</DialogTitle>
+            <DialogDescription className="truncate text-(length:--fs-11)">Στοιχεία διεύθυνσης και επικοινωνίας υποκαταστήματος.</DialogDescription>
           </div>
         </DialogHeader>
         <div className="max-h-[70vh] space-y-3 overflow-auto bg-muted/20 px-4 py-3
-          [&_input]:!text-[length:var(--fs-13)] [&_input]:!h-8 [&_input]:!px-2
-          [&_label]:!text-[length:var(--fs-11)] [&_label]:!font-medium">
+          [&_input]:text-(length:--fs-13)! [&_input]:h-8! [&_input]:px-2!
+          [&_label]:text-(length:--fs-11)! [&_label]:font-medium!">
           <Section tone="blue" icon={<FiMapPin />} title="Υποκατάστημα">
             <Grid>
               <Field label="Όνομα *" id="b-name" className="col-span-12 sm:col-span-8"><Input id="b-name" value={form.name ?? ''} onChange={(e) => set('name', e.target.value)} /></Field>
@@ -1247,7 +1286,7 @@ function BranchDialog({
               <Field label="Πόλη" id="b-city" className="col-span-8 sm:col-span-4"><Input id="b-city" value={form.city ?? ''} onChange={(e) => set('city', e.target.value)} /></Field>
               <Field label="ΤΚ" id="b-zip" className="col-span-4 sm:col-span-2"><Input id="b-zip" value={form.zip ?? ''} onChange={(e) => set('zip', e.target.value)} className="tabular-nums" /></Field>
               <Field label="Χώρα" id="b-country" className="col-span-12 sm:col-span-4">
-                <CountrySelect id="b-country" value={form.country ?? DEFAULT_COUNTRY} onChange={(v) => set('country', v)} className="!text-[length:var(--fs-13)]" />
+                <CountrySelect id="b-country" value={form.country ?? DEFAULT_COUNTRY} onChange={(v) => set('country', v)} className="text-(length:--fs-13)!" />
               </Field>
               <Field label="Τηλέφωνο" id="b-phone" className="col-span-12 sm:col-span-4"><Input id="b-phone" value={form.phone ?? ''} onChange={(e) => set('phone', e.target.value)} className="tabular-nums" /></Field>
               <Field label="Email" id="b-email" className="col-span-12 sm:col-span-4"><Input id="b-email" type="email" value={form.email ?? ''} onChange={(e) => set('email', e.target.value)} /></Field>
@@ -1259,11 +1298,11 @@ function BranchDialog({
           <div className="flex items-center gap-4">
             <label className="flex cursor-pointer items-center gap-2">
               <Checkbox checked={!!form.isHeadquarters} onCheckedChange={(v) => set('isHeadquarters', !!v)} />
-              <span className="text-[length:var(--fs-13)]">Έδρα</span>
+              <span className="text-(length:--fs-13)">Έδρα</span>
             </label>
             <label className="flex cursor-pointer items-center gap-2">
               <Checkbox checked={!!form.isActive} onCheckedChange={(v) => set('isActive', !!v)} />
-              <span className="text-[length:var(--fs-13)]">Ενεργό</span>
+              <span className="text-(length:--fs-13)">Ενεργό</span>
             </label>
           </div>
           <div className="flex gap-2">
@@ -1304,10 +1343,9 @@ function AvatarUploader({
         aria-label={url ? 'Αλλαγή avatar' : 'Ανέβασμα avatar'}
       >
         {url
-          // eslint-disable-next-line @next/next/no-img-element
           ? <img src={url} alt="avatar" className="h-full w-full object-cover" />
-          : <span className="text-[length:var(--fs-11)] font-semibold">{initials}</span>}
-        <span className={`absolute -bottom-0.5 -right-0.5 inline-flex h-4 w-4 items-center justify-center rounded-full border border-background text-[length:var(--fs-8)] ${
+          : <span className="text-(length:--fs-11) font-semibold">{initials}</span>}
+        <span className={`absolute -bottom-0.5 -right-0.5 inline-flex h-4 w-4 items-center justify-center rounded-full border border-background text-(length:--fs-8) ${
           canUpload ? 'bg-primary text-primary-foreground' : 'bg-muted-foreground/60 text-background'
         }`}>
           <FiImage className="size-2.5" />
@@ -1317,7 +1355,7 @@ function AvatarUploader({
         <button
           type="button"
           onClick={onRemove}
-          className="absolute -top-1 -right-1 inline-flex h-4 w-4 items-center justify-center rounded-full bg-destructive text-destructive-foreground text-[length:var(--fs-10)] opacity-0 group-hover:opacity-100 transition-opacity"
+          className="absolute -top-1 -right-1 inline-flex h-4 w-4 items-center justify-center rounded-full bg-destructive text-destructive-foreground text-(length:--fs-10) opacity-0 group-hover:opacity-100 transition-opacity"
           aria-label="Διαγραφή avatar"
         >×</button>
       )}
@@ -1344,28 +1382,31 @@ function ContactsPanel({ companyId }: { companyId: string }) {
   const [editing, setEditing] = React.useState<Contact | null>(null);
   const [creating, setCreating] = React.useState(false);
 
-  const load = React.useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await fetch(`/api/admin/companies/${companyId}/contacts`);
-      if (!res.ok) {
-        toast.error(`Αποτυχία φόρτωσης επαφών (HTTP ${res.status})`);
+  // Τα setState μόνο μέσα στα callbacks του fetch· το «loading» ανάβει από τον χειριστή (load) ή στην αλλαγή companyId.
+  const fetchContacts = React.useCallback(() =>
+    fetch(`/api/admin/companies/${companyId}/contacts`)
+      .then(async (res) => {
+        if (!res.ok) {
+          toast.error(`Αποτυχία φόρτωσης επαφών (HTTP ${res.status})`);
+          setList([]);
+        } else {
+          const text = await res.text();
+          const d = text ? JSON.parse(text) : { contacts: [] };
+          setList(d.contacts ?? []);
+        }
+      })
+      .catch((e) => {
+        console.error('[contacts] load failed', e);
+        toast.error('Αποτυχία φόρτωσης επαφών');
         setList([]);
-      } else {
-        const text = await res.text();
-        const d = text ? JSON.parse(text) : { contacts: [] };
-        setList(d.contacts ?? []);
-      }
-    } catch (e) {
-      console.error('[contacts] load failed', e);
-      toast.error('Αποτυχία φόρτωσης επαφών');
-      setList([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [companyId]);
+      })
+      .finally(() => { setLoading(false); }),
+  [companyId]);
+  const load = () => { setLoading(true); return fetchContacts(); };
+  const [prevCompanyId, setPrevCompanyId] = React.useState(companyId);
+  if (companyId !== prevCompanyId) { setPrevCompanyId(companyId); setLoading(true); }
 
-  React.useEffect(() => { load(); }, [load]);
+  React.useEffect(() => { fetchContacts(); }, [fetchContacts]);
 
   const remove = async (c: Contact) => {
     if (!(await confirmAction(`Διαγραφή επαφής "${c.fullName}";`))) return;
@@ -1377,28 +1418,27 @@ function ContactsPanel({ companyId }: { companyId: string }) {
   return (
     <div className="space-y-2">
       <ul className="divide-y divide-border rounded-sm border min-h-[44px]">
-        {loading && <li className="px-3 py-2 text-[length:var(--fs-12)] text-muted-foreground">Φόρτωση…</li>}
+        {loading && <li className="px-3 py-2 text-(length:--fs-12) text-muted-foreground">Φόρτωση…</li>}
         {!loading && list.length === 0 && (
-          <li className="px-3 py-2 text-[length:var(--fs-12)] text-muted-foreground italic">Δεν υπάρχουν επαφές.</li>
+          <li className="px-3 py-2 text-(length:--fs-12) text-muted-foreground italic">Δεν υπάρχουν επαφές.</li>
         )}
         {list.map((c) => (
           <li key={c.id} className="flex items-start gap-2 px-3 py-2">
             {c.avatarUrl
-              // eslint-disable-next-line @next/next/no-img-element
               ? <img src={c.avatarUrl} alt="" className="mt-0.5 h-7 w-7 rounded-sm object-cover border border-border shrink-0" />
               : (
-                <span className="mt-0.5 inline-flex h-7 w-7 items-center justify-center rounded-sm bg-muted text-foreground text-[length:var(--fs-10)] font-semibold shrink-0">
+                <span className="mt-0.5 inline-flex h-7 w-7 items-center justify-center rounded-sm bg-muted text-foreground text-(length:--fs-10) font-semibold shrink-0">
                   {(c.fullName || '?').slice(0, 2).toUpperCase()}
                 </span>
               )}
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-1.5 flex-wrap">
-                <span className="text-[length:var(--fs-13)] font-medium text-foreground truncate">{c.fullName}</span>
-                {c.role && <Badge variant="outline" className="text-[length:var(--fs-9)]">{c.role}</Badge>}
-                {c.isPrimary && <Badge variant="outline" className="text-[length:var(--fs-9)] border-amber-300 text-amber-700"><FiStar className="mr-0.5" /> Κύρια</Badge>}
-                {!c.isActive && <Badge variant="outline" className="text-[length:var(--fs-9)]">Ανενεργή</Badge>}
+                <span className="text-(length:--fs-13) font-medium text-foreground truncate">{c.fullName}</span>
+                {c.role && <Badge variant="outline" className="text-(length:--fs-9)">{c.role}</Badge>}
+                {c.isPrimary && <Badge variant="outline" className="text-(length:--fs-9) border-amber-300 text-amber-700"><FiStar className="mr-0.5" /> Κύρια</Badge>}
+                {!c.isActive && <Badge variant="outline" className="text-(length:--fs-9)">Ανενεργή</Badge>}
               </div>
-              <div className="flex items-center gap-3 text-[length:var(--fs-11)] text-muted-foreground mt-0.5 flex-wrap">
+              <div className="flex items-center gap-3 text-(length:--fs-11) text-muted-foreground mt-0.5 flex-wrap">
                 {c.mobile && <span className="inline-flex items-center gap-1"><FiSmartphone className="size-3" /> {c.mobile}</span>}
                 {c.phone && <span className="inline-flex items-center gap-1"><FiPhone className="size-3" /> {c.phone}</span>}
                 {c.email && <a href={`mailto:${c.email}`} className="inline-flex items-center gap-1 hover:text-primary"><FiMail className="size-3" /> {c.email}</a>}
@@ -1439,16 +1479,20 @@ function ContactDialog({
   onSaved: () => void;
 }) {
   const isEdit = !!contact;
-  const [form, setForm] = React.useState<any>({});
+  const [form, setForm] = React.useState<Partial<Contact>>({});
   const [saving, setSaving] = React.useState(false);
 
-  React.useEffect(() => {
-    if (!open) return;
-    if (contact) setForm({ ...contact });
-    else setForm({ country: 'GR', isActive: true, isPrimary: false });
-  }, [open, contact]);
+  // Επαναφορά της φόρμας στο άνοιγμα (adjust-state-while-rendering)
+  const [prevDeps, setPrevDeps] = React.useState({ open: false, contact });
+  if (prevDeps.open !== open || prevDeps.contact !== contact) {
+    setPrevDeps({ open, contact });
+    if (open) {
+      if (contact) setForm({ ...contact });
+      else setForm({ country: 'GR', isActive: true, isPrimary: false });
+    }
+  }
 
-  const refreshAvatar = (url: string | null) => setForm((f: any) => ({ ...f, avatarUrl: url }));
+  const refreshAvatar = (url: string | null) => setForm((f) => ({ ...f, avatarUrl: url }));
   const uploadAvatar = async (file: File) => {
     if (!companyId || !contact?.id) { toast.info('Αποθήκευσε πρώτα την επαφή για να ανεβάσεις avatar'); return; }
     const fd = new FormData(); fd.append('file', file);
@@ -1467,7 +1511,7 @@ function ContactDialog({
     else toast.error('Αποτυχία');
   };
 
-  const set = (k: string, v: any) => setForm((f: any) => ({ ...f, [k]: v }));
+  const set = <K extends keyof Contact>(k: K, v: Contact[K]) => setForm((f) => ({ ...f, [k]: v }));
 
   const save = async () => {
     if (!companyId) { toast.error('Επιλέξτε εταιρία'); return; }
@@ -1496,17 +1540,17 @@ function ContactDialog({
         <DialogHeader className="flex-row items-center gap-3 space-y-0 border-b border-border px-4 py-2.5 pr-12">
           <span aria-hidden className="grid size-8 shrink-0 place-items-center rounded-lg bg-sisyphus-50 text-sisyphus-600 dark:bg-sisyphus-500/15"><FiUser className="size-4" /></span>
           <div className="min-w-0 flex-1">
-            <DialogTitle className="truncate text-[length:var(--fs-15)]">{isEdit ? 'Επεξεργασία επαφής' : 'Νέα επαφή'}</DialogTitle>
-            <DialogDescription className="truncate text-[length:var(--fs-11)]">
+            <DialogTitle className="truncate text-(length:--fs-15)">{isEdit ? 'Επεξεργασία επαφής' : 'Νέα επαφή'}</DialogTitle>
+            <DialogDescription className="truncate text-(length:--fs-11)">
               {companyName ? <>Εταιρία: <strong className="text-foreground">{companyName}</strong></> : 'Στοιχεία επαφής'}
             </DialogDescription>
           </div>
         </DialogHeader>
 
         <div className="max-h-[70vh] space-y-3 overflow-auto bg-muted/20 px-4 py-3
-          [&_input]:!text-[length:var(--fs-13)] [&_input]:!h-8 [&_input]:!px-2
-          [&_label]:!text-[length:var(--fs-11)] [&_label]:!font-medium
-          [&_textarea]:!text-[length:var(--fs-13)]">
+          [&_input]:text-(length:--fs-13)! [&_input]:h-8! [&_input]:px-2!
+          [&_label]:text-(length:--fs-11)! [&_label]:font-medium!
+          [&_textarea]:text-(length:--fs-13)!">
 
           {/* Avatar uploader — visible always; informs user that save is needed if new contact */}
           <div className="flex items-center gap-3 rounded-lg border border-border bg-card px-3 py-2">
@@ -1518,8 +1562,8 @@ function ContactDialog({
               onRemove={removeAvatar}
             />
             <div className="flex-1 min-w-0">
-              <p className="text-[length:var(--fs-12)] font-medium text-foreground">Avatar επαφής</p>
-              <p className="text-[length:var(--fs-11)] text-muted-foreground">
+              <p className="text-(length:--fs-12) font-medium text-foreground">Avatar επαφής</p>
+              <p className="text-(length:--fs-11) text-muted-foreground">
                 {isEdit
                   ? 'PNG/JPG/WEBP/SVG · μέχρι 3MB. Κλικ στο εικονίδιο για ανέβασμα.'
                   : 'Αποθήκευσε πρώτα την επαφή και μετά πρόσθεσε avatar.'}
@@ -1551,7 +1595,7 @@ function ContactDialog({
               <Field label="Πόλη" id="ct-city" className="col-span-8 sm:col-span-4"><Input id="ct-city" value={form.city ?? ''} onChange={(e) => set('city', e.target.value)} /></Field>
               <Field label="ΤΚ" id="ct-zip" className="col-span-4 sm:col-span-2"><Input id="ct-zip" value={form.zip ?? ''} onChange={(e) => set('zip', e.target.value)} className="tabular-nums" /></Field>
               <Field label="Χώρα" id="ct-country" className="col-span-12 sm:col-span-6">
-                <CountrySelect id="ct-country" value={form.country ?? DEFAULT_COUNTRY} onChange={(v) => set('country', v)} className="!text-[length:var(--fs-13)]" />
+                <CountrySelect id="ct-country" value={form.country ?? DEFAULT_COUNTRY} onChange={(v) => set('country', v)} className="text-(length:--fs-13)!" />
               </Field>
             </Grid>
           </Section>
@@ -1559,7 +1603,7 @@ function ContactDialog({
           <Section tone="slate" icon={<FiEdit3 />} title="Σημειώσεις">
             <textarea
               aria-label="Σημειώσεις"
-              className="w-full rounded-md border border-input bg-background px-2.5 py-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="w-full rounded-md border border-input bg-background px-2.5 py-1.5 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
               rows={3}
               value={form.notes ?? ''}
               onChange={(e) => set('notes', e.target.value)}
@@ -1571,11 +1615,11 @@ function ContactDialog({
           <div className="flex items-center gap-4">
             <label className="flex cursor-pointer items-center gap-2">
               <Checkbox checked={!!form.isPrimary} onCheckedChange={(v) => set('isPrimary', !!v)} />
-              <span className="text-[length:var(--fs-13)]">Κύρια επαφή</span>
+              <span className="text-(length:--fs-13)">Κύρια επαφή</span>
             </label>
             <label className="flex cursor-pointer items-center gap-2">
               <Checkbox checked={!!form.isActive} onCheckedChange={(v) => set('isActive', !!v)} />
-              <span className="text-[length:var(--fs-13)]">Ενεργή</span>
+              <span className="text-(length:--fs-13)">Ενεργή</span>
             </label>
           </div>
           <div className="flex gap-2">
@@ -1598,7 +1642,7 @@ type Channel = {
   notes: string | null;
 };
 
-const CHANNEL_META: Record<ChannelKind, { label: string; icon: any; placeholder: string }> = {
+const CHANNEL_META: Record<ChannelKind, { label: string; icon: React.ComponentType<{ className?: string }>; placeholder: string }> = {
   EMAIL:  { label: 'Email',    icon: FiMail,        placeholder: 'name@domain.gr' },
   PHONE:  { label: 'Σταθερό',  icon: FiPhone,       placeholder: '210 1234567' },
   MOBILE: { label: 'Κινητό',   icon: FiSmartphone,  placeholder: '69x xxx xxxx' },
@@ -1614,18 +1658,22 @@ function ChannelsPanel({ companyId, compact = false }: { companyId: string; comp
   });
   const [busy, setBusy] = React.useState(false);
 
-  const load = React.useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await fetch(`/api/admin/companies/${companyId}/channels`);
-      if (!res.ok) { setItems([]); return; }
-      const text = await res.text();
-      const d = text ? JSON.parse(text) : { channels: [] };
-      setItems(d.channels ?? []);
-    } finally { setLoading(false); }
-  }, [companyId]);
+  // Τα setState μόνο μέσα στα callbacks του fetch· το «loading» ανάβει από τον χειριστή (load) ή στην αλλαγή companyId.
+  const fetchChannels = React.useCallback(() =>
+    fetch(`/api/admin/companies/${companyId}/channels`)
+      .then(async (res) => {
+        if (!res.ok) { setItems([]); return; }
+        const text = await res.text();
+        const d = text ? JSON.parse(text) : { channels: [] };
+        setItems(d.channels ?? []);
+      })
+      .finally(() => { setLoading(false); }),
+  [companyId]);
+  const load = () => { setLoading(true); return fetchChannels(); };
+  const [prevCompanyId, setPrevCompanyId] = React.useState(companyId);
+  if (companyId !== prevCompanyId) { setPrevCompanyId(companyId); setLoading(true); }
 
-  React.useEffect(() => { load(); }, [load]);
+  React.useEffect(() => { fetchChannels(); }, [fetchChannels]);
 
   const add = async () => {
     if (!draft.value.trim()) { toast.error('Συμπλήρωσε την τιμή'); return; }
@@ -1668,9 +1716,9 @@ function ChannelsPanel({ companyId, compact = false }: { companyId: string; comp
 
   return (
     <div className="space-y-3">
-      {loading && <div className="text-[length:var(--fs-12)] text-muted-foreground">Φόρτωση…</div>}
+      {loading && <div className="text-(length:--fs-12) text-muted-foreground">Φόρτωση…</div>}
       {!loading && items.length === 0 && (
-        <div className="text-[length:var(--fs-12)] text-muted-foreground italic rounded-[4px] border border-dashed px-3 py-2">
+        <div className="text-(length:--fs-12) text-muted-foreground italic rounded-[4px] border border-dashed px-3 py-2">
           Δεν έχουν καταχωρηθεί κανάλια επικοινωνίας.
         </div>
       )}
@@ -1679,8 +1727,8 @@ function ChannelsPanel({ companyId, compact = false }: { companyId: string; comp
         const Meta = CHANNEL_META[g.kind];
         return (
           <div key={g.kind} className="rounded-[4px] border border-border bg-background">
-            <div className="px-3 py-1.5 border-b border-border bg-muted/30 text-[length:var(--fs-10)] uppercase tracking-wider font-semibold text-muted-foreground flex items-center gap-1.5">
-              <Meta.icon className="size-3" /> {Meta.label} <span className="text-muted-foreground/60">({g.list.length})</span>
+            <div className="px-3 py-1.5 border-b border-border bg-muted/30 text-(length:--fs-10) uppercase tracking-wider font-semibold text-muted-foreground flex items-center gap-1.5">
+              <Meta.icon className="size-3" /> {Meta.label} <span className="text-muted-foreground">({g.list.length})</span>
             </div>
             <ul className="divide-y divide-border">
               {g.list.map((c) => (
@@ -1688,10 +1736,10 @@ function ChannelsPanel({ companyId, compact = false }: { companyId: string; comp
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5 flex-wrap">
                       {c.kind === 'EMAIL'
-                        ? <a href={`mailto:${c.value}`} className="text-[length:var(--fs-12)] text-foreground hover:text-primary truncate">{c.value}</a>
+                        ? <a href={`mailto:${c.value}`} className="text-(length:--fs-12) text-foreground hover:text-primary truncate">{c.value}</a>
                         : c.kind === 'PHONE' || c.kind === 'MOBILE'
-                          ? <a href={`tel:${c.value}`} className="text-[length:var(--fs-12)] text-foreground hover:text-primary font-mono">{c.value}</a>
-                          : <span className="text-[length:var(--fs-12)] text-foreground font-mono">{c.value}</span>}
+                          ? <a href={`tel:${c.value}`} className="text-(length:--fs-12) text-foreground hover:text-primary font-mono">{c.value}</a>
+                          : <span className="text-(length:--fs-12) text-foreground font-mono">{c.value}</span>}
                       {c.label && <Badge variant="outline">{c.label}</Badge>}
                       {c.isPrimary && <Badge variant="outline" className="border-amber-300 text-amber-700"><FiStar className="mr-0.5" /> Κύριο</Badge>}
                       {!c.isActive && <Badge variant="outline">Ανενεργό</Badge>}
@@ -1716,12 +1764,12 @@ function ChannelsPanel({ companyId, compact = false }: { companyId: string; comp
 
       {!compact && (
         <div className="rounded-[4px] border border-dashed border-border p-3 space-y-2">
-          <div className="text-[length:var(--fs-10)] uppercase tracking-wider font-semibold text-muted-foreground">Προσθήκη καναλιού</div>
+          <div className="text-(length:--fs-10) uppercase tracking-wider font-semibold text-muted-foreground">Προσθήκη καναλιού</div>
           <div className="grid grid-cols-[110px_140px_1fr_auto] gap-2 items-end">
             <Field label="Τύπος" id="ch-kind">
               <select
                 id="ch-kind"
-                className="h-8 w-full rounded-sm border border-input bg-background px-2 text-[length:var(--fs-12)]"
+                className="h-8 w-full rounded-sm border border-input bg-background px-2 text-(length:--fs-12)"
                 value={draft.kind}
                 onChange={(e) => setDraft({ ...draft, kind: e.target.value as ChannelKind })}
               >
@@ -1746,7 +1794,7 @@ function ChannelsPanel({ companyId, compact = false }: { companyId: string; comp
           </div>
           <label className="flex items-center gap-2 cursor-pointer mt-1">
             <Checkbox checked={draft.isPrimary} onCheckedChange={(v) => setDraft({ ...draft, isPrimary: !!v })} />
-            <span className="text-[length:var(--fs-11)]">Όρισε ως κύριο για τον τύπο</span>
+            <span className="text-(length:--fs-11)">Όρισε ως κύριο για τον τύπο</span>
           </label>
         </div>
       )}
@@ -1781,22 +1829,22 @@ function ActivitiesEditor({
   return (
     <div className="space-y-2">
       {activities.length === 0
-        ? <div className="text-[length:var(--fs-12)] text-muted-foreground rounded-sm border border-dashed px-3 py-2">Δεν έχουν καταχωρηθεί ΚΑΔ.</div>
+        ? <div className="text-(length:--fs-12) text-muted-foreground rounded-sm border border-dashed px-3 py-2">Δεν έχουν καταχωρηθεί ΚΑΔ.</div>
         : (
           <ul className="divide-y divide-border rounded-sm border max-h-60 overflow-y-auto">
             {activities.map((a) => (
               <li key={a.code} className="flex items-center gap-2 px-2 py-1.5">
-                <span className="font-mono text-[length:var(--fs-11)] tabular-nums w-24 shrink-0" title="ΑΑΔΕ form">
+                <span className="font-mono text-(length:--fs-11) tabular-nums w-24 shrink-0" title="ΑΑΔΕ form">
                   {a.codeAade ?? a.code.replace(/\./g, '')}
                 </span>
-                <span className="font-mono text-[length:var(--fs-10)] tabular-nums text-muted-foreground w-20 shrink-0" title="Με τελείες (canonical)">
+                <span className="font-mono text-(length:--fs-10) tabular-nums text-muted-foreground w-20 shrink-0" title="Με τελείες (canonical)">
                   {a.code}
                 </span>
-                <span className="flex-1 text-[length:var(--fs-11)] truncate" title={a.description}>{a.description}</span>
+                <span className="flex-1 text-(length:--fs-11) truncate" title={a.description}>{a.description}</span>
                 {a.requiresLicense && (
                   <Badge
                     variant="outline"
-                    className="text-[length:var(--fs-9)] border-amber-400 text-amber-700 bg-amber-50"
+                    className="text-(length:--fs-9) border-amber-400 text-amber-700 bg-amber-50"
                     title="Ο ΚΑΔ απαιτεί άδεια λειτουργίας (NF BUSNESS)"
                   >
                     Άδεια
@@ -1804,7 +1852,7 @@ function ActivitiesEditor({
                 )}
                 <Badge
                   variant="outline"
-                  className={a.kind === 'PRIMARY' ? 'text-[length:var(--fs-9)] border-emerald-300 text-emerald-700' : 'text-[length:var(--fs-9)]'}
+                  className={a.kind === 'PRIMARY' ? 'text-(length:--fs-9) border-emerald-300 text-emerald-700' : 'text-(length:--fs-9)'}
                 >
                   {a.kind === 'PRIMARY' ? 'ΚΥΡΙΑ' : 'ΔΕΥΤ.'}
                 </Badge>
@@ -1830,7 +1878,7 @@ function ActivitiesEditor({
         <Field label="Τύπος" id="a-kind">
           <select
             id="a-kind"
-            className="h-8 w-full rounded-sm border border-input bg-background px-2 text-[length:var(--fs-12)]"
+            className="h-8 w-full rounded-sm border border-input bg-background px-2 text-(length:--fs-12)"
             value={draft.kind}
             onChange={(e) => setDraft({ ...draft, kind: e.target.value as 'PRIMARY' | 'SECONDARY' })}
           >
@@ -1846,6 +1894,22 @@ function ActivitiesEditor({
 
 type ExpandTab = 'info' | 'contact' | 'contacts' | 'tax' | 'branches' | 'documents' | 'financial' | 'map';
 
+// Τα πεδία του GET /api/admin/companies/[id] που προβάλλει η ανοιγμένη γραμμή. Το CompanyRow
+// (fallback πριν φορτώσει η λεπτομέρεια) είναι συμβατό, γι' αυτό τα επιπλέον πεδία είναι προαιρετικά.
+type CompanyDetail = {
+  name: string; shortName: string | null; code: string | null; afm: string | null; doy: string | null;
+  arGemi: string | null; legalForm: string | null; profession: string | null; category: string | null; vatCategory: string | null;
+  isActive: boolean; aadeStatus: string | null; aadeFirmKind: string | null; aadeSyncedAt: string | null;
+  gemiStatus: string | null; gemiOffice: string | null; gemiSyncedAt: string | null;
+  foundingDate: string | null; createdAt: string; updatedAt?: string;
+  latitude: number | null; longitude: number | null; geocodedAddress: string | null;
+  website: string | null; address: string | null; zip: string | null; city: string | null; country: string | null;
+  contactPerson: string | null; contactTitle: string | null;
+  iban: string | null; bankName: string | null; currency: string | null; paymentTerms: string | null;
+  creditLimit: number | string | null; discount: number | string | null;
+  notes?: string | null; gemiObjective?: string | null; activities?: CompanyActivity[];
+};
+
 function CompanyExpandedRow({ company }: { company: CompanyRow }) {
   const [tab, setTab] = React.useState<ExpandTab>('info');
   const [coords, setCoords] = React.useState<{ lat: number | null; lng: number | null }>({
@@ -1854,9 +1918,9 @@ function CompanyExpandedRow({ company }: { company: CompanyRow }) {
   const [geocoding, setGeocoding] = React.useState(false);
 
   // Lazy-loaded data caches. null = not requested yet, [] / {} = loaded.
-  const [detail, setDetail] = React.useState<any | null>(null);
+  const [detail, setDetail] = React.useState<CompanyDetail | null>(null);
   const [detailLoading, setDetailLoading] = React.useState(false);
-  const [branches, setBranches] = React.useState<any[] | null>(null);
+  const [branches, setBranches] = React.useState<Branch[] | null>(null);
   const [branchesLoading, setBranchesLoading] = React.useState(false);
   const [docs, setDocs] = React.useState<DocRow[] | null>(null);
   const [docsLoading, setDocsLoading] = React.useState(false);
@@ -1893,6 +1957,7 @@ function CompanyExpandedRow({ company }: { company: CompanyRow }) {
   };
 
   // Info tab also benefits from full detail (notes, gemiObjective, etc.) — kick off on mount.
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- lazy cache: το ensureDetail ανάβει συγχρονικά το detailLoading ως φρουρό διπλού fetch (κοινό με τα tabs)
   React.useEffect(() => { ensureDetail(); }, [ensureDetail]);
 
   const reGeocode = async () => {
@@ -1932,13 +1997,13 @@ function CompanyExpandedRow({ company }: { company: CompanyRow }) {
               key={t.id}
               type="button"
               onClick={() => switchTo(t.id)}
-              className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 text-[length:var(--fs-12)] border-b-2 transition-colors whitespace-nowrap ${
+              className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 text-(length:--fs-12) border-b-2 transition-colors whitespace-nowrap ${
                 active ? 'border-primary text-foreground font-medium' : 'border-transparent text-muted-foreground hover:text-foreground'
               }`}
             >
               <t.icon className="size-3.5" /> {t.label}
               {t.badge !== undefined && (
-                <span className="inline-flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-muted text-[length:var(--fs-10)] tabular-nums">{t.badge}</span>
+                <span className="inline-flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-muted text-(length:--fs-10) tabular-nums">{t.badge}</span>
               )}
             </button>
           );
@@ -1946,13 +2011,13 @@ function CompanyExpandedRow({ company }: { company: CompanyRow }) {
       </div>
 
       {tab === 'info' && (() => {
-        const c = (detail ?? company) as any;
-        const fmtDate = (v: any) => v ? new Date(v).toLocaleDateString('el-GR') : null;
-        const fmtDateTime = (v: any) => v ? new Date(v).toLocaleString('el-GR', { dateStyle: 'short', timeStyle: 'short' }) : null;
+        const c: CompanyDetail = detail ?? company;
+        const fmtDate = (v: string | null | undefined) => v ? new Date(v).toLocaleDateString('el-GR') : null;
+        const fmtDateTime = (v: string | null | undefined) => v ? new Date(v).toLocaleString('el-GR', { dateStyle: 'short', timeStyle: 'short' }) : null;
         // Collapse whitespace from imported text (e.g. GEMI's gemiObjective uses \r\n).
-        const clean = (v: any) => typeof v === 'string' ? v.replace(/\s+/g, ' ').trim() : v;
+        const clean = <T,>(v: T): T => (typeof v === 'string' ? v.replace(/\s+/g, ' ').trim() : v) as T;
         const activitiesCount = Array.isArray(c.activities) ? c.activities.length : company.activityCount;
-        const primaryActivity = Array.isArray(c.activities) ? c.activities.find((a: any) => a.kind === 'PRIMARY') : null;
+        const primaryActivity = Array.isArray(c.activities) ? c.activities.find((a) => a.kind === 'PRIMARY') : null;
 
         return (
           <div className="space-y-4">
@@ -1961,15 +2026,15 @@ function CompanyExpandedRow({ company }: { company: CompanyRow }) {
               <div className="flex items-start gap-3">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap mb-1">
-                    {c.legalForm && <Badge variant="outline" className="text-[length:var(--fs-10)]">{c.legalForm}</Badge>}
+                    {c.legalForm && <Badge variant="outline" className="text-(length:--fs-10)">{c.legalForm}</Badge>}
                     {c.isActive
-                      ? <Badge variant="outline" className="text-[length:var(--fs-10)] border-emerald-300 text-emerald-700"><FiCheck className="mr-0.5" /> Ενεργή</Badge>
-                      : <Badge variant="outline" className="text-[length:var(--fs-10)]"><FiX className="mr-0.5" /> Ανενεργή</Badge>}
-                    {c.aadeStatus && <Badge variant="outline" className="text-[length:var(--fs-10)] border-blue-300 text-blue-700">ΑΕΔΕΕ: {c.aadeStatus}</Badge>}
-                    {c.gemiStatus && <Badge variant="outline" className="text-[length:var(--fs-10)] border-purple-300 text-purple-700">ΓΕΜΗ: {c.gemiStatus}</Badge>}
+                      ? <Badge variant="outline" className="text-(length:--fs-10) border-emerald-300 text-emerald-700"><FiCheck className="mr-0.5" /> Ενεργή</Badge>
+                      : <Badge variant="outline" className="text-(length:--fs-10)"><FiX className="mr-0.5" /> Ανενεργή</Badge>}
+                    {c.aadeStatus && <Badge variant="outline" className="text-(length:--fs-10) border-blue-300 text-blue-700">ΑΕΔΕΕ: {c.aadeStatus}</Badge>}
+                    {c.gemiStatus && <Badge variant="outline" className="text-(length:--fs-10) border-purple-300 text-purple-700">ΓΕΜΗ: {c.gemiStatus}</Badge>}
                   </div>
-                  <h3 className="text-[length:var(--fs-14)] font-semibold text-foreground leading-tight">{c.name}</h3>
-                  {c.shortName && <p className="text-[length:var(--fs-12)] text-muted-foreground truncate">{c.shortName}</p>}
+                  <h3 className="text-(length:--fs-14) font-semibold text-foreground leading-tight">{c.name}</h3>
+                  {c.shortName && <p className="text-(length:--fs-12) text-muted-foreground truncate">{c.shortName}</p>}
                 </div>
               </div>
 
@@ -2030,14 +2095,14 @@ function CompanyExpandedRow({ company }: { company: CompanyRow }) {
             {/* Free-text blocks — collapse whitespace so the layout doesn't explode vertically */}
             {clean(c.gemiObjective) && (
               <div className="rounded-md border border-border p-4">
-                <div className="text-[length:var(--fs-10)] uppercase tracking-wider font-semibold text-muted-foreground mb-1">Σκοπός εταιρίας (ΓΕΜΗ)</div>
-                <p className="text-[length:var(--fs-12)] text-foreground leading-relaxed">{clean(c.gemiObjective)}</p>
+                <div className="text-(length:--fs-10) uppercase tracking-wider font-semibold text-muted-foreground mb-1">Σκοπός εταιρίας (ΓΕΜΗ)</div>
+                <p className="text-(length:--fs-12) text-foreground leading-relaxed">{clean(c.gemiObjective)}</p>
               </div>
             )}
             {clean(c.notes) && (
               <div className="rounded-md border border-border p-4">
-                <div className="text-[length:var(--fs-10)] uppercase tracking-wider font-semibold text-muted-foreground mb-1">Σημειώσεις</div>
-                <p className="text-[length:var(--fs-12)] text-foreground leading-relaxed">{clean(c.notes)}</p>
+                <div className="text-(length:--fs-10) uppercase tracking-wider font-semibold text-muted-foreground mb-1">Σημειώσεις</div>
+                <p className="text-(length:--fs-12) text-foreground leading-relaxed">{clean(c.notes)}</p>
               </div>
             )}
           </div>
@@ -2048,7 +2113,7 @@ function CompanyExpandedRow({ company }: { company: CompanyRow }) {
         <LazySection loading={detailLoading} data={detail}>
           {(c) => (
             <div className="space-y-4">
-              <div className="grid sm:grid-cols-3 gap-4 px-1 py-1 text-[length:var(--fs-12)]">
+              <div className="grid sm:grid-cols-3 gap-4 px-1 py-1 text-(length:--fs-12)">
                 <Stat label="Website">
                   {c.website
                     ? <a href={c.website.startsWith('http') ? c.website : `https://${c.website}`} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">{c.website}</a>
@@ -2059,7 +2124,7 @@ function CompanyExpandedRow({ company }: { company: CompanyRow }) {
                 <Stat label="Θέση">{c.contactTitle || '—'}</Stat>
               </div>
               <div>
-                <div className="text-[length:var(--fs-10)] uppercase tracking-wider font-semibold text-muted-foreground mb-1">Κανάλια επικοινωνίας</div>
+                <div className="text-(length:--fs-10) uppercase tracking-wider font-semibold text-muted-foreground mb-1">Κανάλια επικοινωνίας</div>
                 <ChannelsPanel companyId={company.id} compact />
               </div>
             </div>
@@ -2071,28 +2136,28 @@ function CompanyExpandedRow({ company }: { company: CompanyRow }) {
         <LazySection loading={detailLoading} data={detail}>
           {(c) => (
             <div className="space-y-3">
-              <div className="grid sm:grid-cols-4 gap-4 text-[length:var(--fs-12)]">
+              <div className="grid sm:grid-cols-4 gap-4 text-(length:--fs-12)">
                 <Stat label="ΑΦΜ">{c.afm || '—'}</Stat>
                 <Stat label="ΔΟΥ">{c.doy || '—'}</Stat>
                 <Stat label="Αρ. ΓΕΜΗ"><span className="tabular-nums">{c.arGemi || '—'}</span></Stat>
                 <Stat label="Νομική μορφή">{c.legalForm || '—'}</Stat>
               </div>
               <div>
-                <div className="text-[length:var(--fs-10)] uppercase tracking-wider text-muted-foreground font-semibold mb-1">
+                <div className="text-(length:--fs-10) uppercase tracking-wider text-muted-foreground font-semibold mb-1">
                   ΚΑΔ ({c.activities?.length ?? 0})
                 </div>
                 {(!c.activities || c.activities.length === 0)
-                  ? <div className="text-[length:var(--fs-12)] text-muted-foreground italic">Δεν έχουν καταχωρηθεί ΚΑΔ.</div>
+                  ? <div className="text-(length:--fs-12) text-muted-foreground italic">Δεν έχουν καταχωρηθεί ΚΑΔ.</div>
                   : (
                     <ul className="divide-y divide-border rounded-sm border max-h-60 overflow-y-auto">
-                      {c.activities.map((a: any) => (
-                        <li key={a.code} className="flex items-center gap-2 px-2 py-1.5 text-[length:var(--fs-11)]">
+                      {c.activities.map((a) => (
+                        <li key={a.code} className="flex items-center gap-2 px-2 py-1.5 text-(length:--fs-11)">
                           <span className="font-mono tabular-nums w-20 shrink-0">{a.code}</span>
                           <span className="flex-1 truncate" title={a.description}>{a.description}</span>
                           {a.requiresLicense && (
                             <Badge
                               variant="outline"
-                              className="text-[length:var(--fs-9)] border-amber-400 text-amber-700 bg-amber-50"
+                              className="text-(length:--fs-9) border-amber-400 text-amber-700 bg-amber-50"
                               title="Ο ΚΑΔ απαιτεί άδεια λειτουργίας (NF BUSNESS)"
                             >
                               Άδεια
@@ -2100,7 +2165,7 @@ function CompanyExpandedRow({ company }: { company: CompanyRow }) {
                           )}
                           <Badge
                             variant="outline"
-                            className={a.kind === 'PRIMARY' ? 'text-[length:var(--fs-9)] border-emerald-300 text-emerald-700' : 'text-[length:var(--fs-9)]'}
+                            className={a.kind === 'PRIMARY' ? 'text-(length:--fs-9) border-emerald-300 text-emerald-700' : 'text-(length:--fs-9)'}
                           >
                             {a.kind === 'PRIMARY' ? 'ΚΥΡΙΑ' : 'ΔΕΥΤ.'}
                           </Badge>
@@ -2121,19 +2186,19 @@ function CompanyExpandedRow({ company }: { company: CompanyRow }) {
       {tab === 'branches' && (
         <LazySection loading={branchesLoading} data={branches}>
           {(items) => items.length === 0
-            ? <div className="text-[length:var(--fs-12)] text-muted-foreground italic">Δεν υπάρχουν υποκαταστήματα.</div>
+            ? <div className="text-(length:--fs-12) text-muted-foreground italic">Δεν υπάρχουν υποκαταστήματα.</div>
             : (
               <ul className="divide-y divide-border rounded-sm border">
-                {items.map((b: any) => (
+                {items.map((b) => (
                   <li key={b.id} className="flex items-start gap-2 px-3 py-2">
                     <FiMapPin className="size-3.5 text-muted-foreground shrink-0 mt-0.5" />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-1.5">
-                        <span className="text-[length:var(--fs-12)] font-medium text-foreground truncate">{b.name}</span>
-                        {b.isHeadquarters && <Badge variant="outline" className="text-[length:var(--fs-9)] border-amber-300 text-amber-700"><FiStar className="mr-0.5" /> Έδρα</Badge>}
-                        {!b.isActive && <Badge variant="outline" className="text-[length:var(--fs-9)]">Ανενεργό</Badge>}
+                        <span className="text-(length:--fs-12) font-medium text-foreground truncate">{b.name}</span>
+                        {b.isHeadquarters && <Badge variant="outline" className="text-(length:--fs-9) border-amber-300 text-amber-700"><FiStar className="mr-0.5" /> Έδρα</Badge>}
+                        {!b.isActive && <Badge variant="outline" className="text-(length:--fs-9)">Ανενεργό</Badge>}
                       </div>
-                      <div className="text-[length:var(--fs-10)] text-muted-foreground truncate">
+                      <div className="text-(length:--fs-10) text-muted-foreground truncate">
                         {[b.code && `#${b.code}`, b.address, b.city, b.phone].filter(Boolean).join(' · ') || '—'}
                       </div>
                     </div>
@@ -2147,7 +2212,7 @@ function CompanyExpandedRow({ company }: { company: CompanyRow }) {
       {tab === 'documents' && (
         <LazySection loading={docsLoading} data={docs}>
           {(items) => items.length === 0
-            ? <div className="text-[length:var(--fs-12)] text-muted-foreground italic">Δεν υπάρχουν έγγραφα ΓΕΜΗ. Άνοιξε την εγγραφή και πάτησε συγχρονισμό ΓΕΜΗ.</div>
+            ? <div className="text-(length:--fs-12) text-muted-foreground italic">Δεν υπάρχουν έγγραφα ΓΕΜΗ. Άνοιξε την εγγραφή και πάτησε συγχρονισμό ΓΕΜΗ.</div>
             : (
               <ul className="divide-y divide-border rounded-sm border max-h-[360px] overflow-y-auto">
                 {items.map((d) => (
@@ -2159,11 +2224,11 @@ function CompanyExpandedRow({ company }: { company: CompanyRow }) {
                     </span>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className="text-[length:var(--fs-12)] font-medium text-foreground truncate">{d.title}</span>
-                        <Badge variant="outline" className="text-[length:var(--fs-9)]">{d.kind === 'DECISION' ? 'Απόφαση' : d.kind === 'PUBLICATION' ? 'ΥΜΣ' : 'Άλλο'}</Badge>
-                        {d.kak && <span className="text-[length:var(--fs-10)] text-muted-foreground tabular-nums">ΚΑΚ {d.kak}</span>}
+                        <span className="text-(length:--fs-12) font-medium text-foreground truncate">{d.title}</span>
+                        <Badge variant="outline" className="text-(length:--fs-9)">{d.kind === 'DECISION' ? 'Απόφαση' : d.kind === 'PUBLICATION' ? 'ΥΜΣ' : 'Άλλο'}</Badge>
+                        {d.kak && <span className="text-(length:--fs-10) text-muted-foreground tabular-nums">ΚΑΚ {d.kak}</span>}
                       </div>
-                      <div className="flex items-center gap-2 text-[length:var(--fs-10)] text-muted-foreground mt-0.5 flex-wrap">
+                      <div className="flex items-center gap-2 text-(length:--fs-10) text-muted-foreground mt-0.5 flex-wrap">
                         {d.assembly && <span>{d.assembly}</span>}
                         {d.dateRegistrated && <span>Κατ.: {new Date(d.dateRegistrated).toLocaleDateString('el-GR')}</span>}
                         {d.sizeBytes && <span>{(d.sizeBytes / 1024).toFixed(0)} KB</span>}
@@ -2189,7 +2254,7 @@ function CompanyExpandedRow({ company }: { company: CompanyRow }) {
       {tab === 'financial' && (
         <LazySection loading={detailLoading} data={detail}>
           {(c) => (
-            <div className="grid sm:grid-cols-3 gap-4 px-1 py-1 text-[length:var(--fs-12)]">
+            <div className="grid sm:grid-cols-3 gap-4 px-1 py-1 text-(length:--fs-12)">
               <Stat label="IBAN"><span className="font-mono">{c.iban || '—'}</span></Stat>
               <Stat label="Τράπεζα">{c.bankName || '—'}</Stat>
               <Stat label="Νόμισμα">{c.currency || '—'}</Stat>
@@ -2220,10 +2285,10 @@ function LazySection<T>({
   loading, data, children,
 }: { loading: boolean; data: T | null; children: (d: T) => React.ReactNode }) {
   if (loading && data == null) {
-    return <div className="flex items-center gap-2 px-1 py-3 text-[length:var(--fs-12)] text-muted-foreground"><FiRefreshCw className="size-3 animate-spin" /> Φόρτωση…</div>;
+    return <div className="flex items-center gap-2 px-1 py-3 text-(length:--fs-12) text-muted-foreground"><FiRefreshCw className="size-3 animate-spin" /> Φόρτωση…</div>;
   }
   if (data == null) {
-    return <div className="text-[length:var(--fs-12)] text-muted-foreground italic">Δεν φορτώθηκαν δεδομένα.</div>;
+    return <div className="text-(length:--fs-12) text-muted-foreground italic">Δεν φορτώθηκαν δεδομένα.</div>;
   }
   return <>{children(data)}</>;
 }
@@ -2231,7 +2296,7 @@ function LazySection<T>({
 function Stat({ label, children, wide }: { label: string; children: React.ReactNode; wide?: boolean }) {
   return (
     <div className={wide ? 'sm:col-span-3' : ''}>
-      <div className="text-[length:var(--fs-10)] uppercase tracking-wider text-muted-foreground font-semibold mb-0.5">{label}</div>
+      <div className="text-(length:--fs-10) uppercase tracking-wider text-muted-foreground font-semibold mb-0.5">{label}</div>
       <div className="text-foreground">{children}</div>
     </div>
   );
@@ -2249,10 +2314,10 @@ function KeyValue({
   const isEmpty = value === null || value === undefined || value === '';
   return (
     <div className={`flex items-baseline gap-2 ${wide ? 'sm:col-span-2' : ''}`}>
-      <span className="text-[length:var(--fs-11)] text-muted-foreground shrink-0 min-w-[120px]">{label}</span>
-      <span className={`text-[length:var(--fs-12)] flex-1 min-w-0 truncate ${isEmpty ? 'text-muted-foreground/60' : 'text-foreground'} ${mono ? 'font-mono tabular-nums' : ''}`}>
+      <span className="text-(length:--fs-11) text-muted-foreground shrink-0 min-w-[120px]">{label}</span>
+      <span className={`text-(length:--fs-12) flex-1 min-w-0 truncate ${isEmpty ? 'text-muted-foreground/60' : 'text-foreground'} ${mono ? 'font-mono tabular-nums' : ''}`}>
         {isEmpty ? '—' : value}
-        {hint && !isEmpty && <span className="ml-1.5 text-[length:var(--fs-10)] text-muted-foreground">· {hint}</span>}
+        {hint && !isEmpty && <span className="ml-1.5 text-(length:--fs-10) text-muted-foreground">· {hint}</span>}
       </span>
     </div>
   );
@@ -2267,7 +2332,7 @@ function Tile({
   hint?: string;
   onClick?: () => void;
 }) {
-  const Wrapper: any = onClick ? 'button' : 'div';
+  const Wrapper: React.ElementType = onClick ? 'button' : 'div';
   return (
     <Wrapper
       type={onClick ? 'button' : undefined}
@@ -2275,11 +2340,11 @@ function Tile({
       className={`rounded-md border border-border bg-background p-3 text-left transition-colors ${onClick ? 'hover:border-primary hover:bg-muted/40 cursor-pointer' : ''}`}
     >
       <div className="flex items-center justify-between mb-1">
-        <span className="text-[length:var(--fs-10)] uppercase tracking-wider font-semibold text-muted-foreground">{label}</span>
+        <span className="text-(length:--fs-10) uppercase tracking-wider font-semibold text-muted-foreground">{label}</span>
         <Icon className="size-3 text-muted-foreground" />
       </div>
-      <div className="text-[length:var(--fs-18)] font-semibold text-foreground leading-tight tabular-nums">{value}</div>
-      {hint && <div className="text-[length:var(--fs-10)] text-muted-foreground mt-0.5 truncate">{hint}</div>}
+      <div className="text-(length:--fs-18) font-semibold text-foreground leading-tight tabular-nums">{value}</div>
+      {hint && <div className="text-(length:--fs-10) text-muted-foreground mt-0.5 truncate">{hint}</div>}
     </Wrapper>
   );
 }
@@ -2290,7 +2355,7 @@ function CompanyMap({
   if (lat == null || lng == null) {
     return (
       <div className="rounded-sm border border-dashed p-6 text-center space-y-2">
-        <p className="text-[length:var(--fs-12)] text-muted-foreground">Δεν υπάρχουν συντεταγμένες για αυτή την εταιρία.</p>
+        <p className="text-(length:--fs-12) text-muted-foreground">Δεν υπάρχουν συντεταγμένες για αυτή την εταιρία.</p>
         <Button size="sm" variant="outline" onClick={onGeocode} disabled={geocoding}>
           <FiMapPin className="mr-1" /> {geocoding ? 'Γεωκωδικοποίηση…' : 'Γεωκωδικοποίηση τώρα'}
         </Button>
@@ -2313,7 +2378,7 @@ function CompanyMap({
           referrerPolicy="no-referrer-when-downgrade"
         />
       </div>
-      <div className="flex items-center justify-between text-[length:var(--fs-11)] text-muted-foreground">
+      <div className="flex items-center justify-between text-(length:--fs-11) text-muted-foreground">
         <span className="truncate">{address || `${lat.toFixed(5)}, ${lng.toFixed(5)}`}</span>
         <div className="flex items-center gap-1.5 shrink-0">
           <span className="font-mono tabular-nums">{lat.toFixed(5)}, {lng.toFixed(5)}</span>
@@ -2399,12 +2464,11 @@ function LogoBlock({
         title={canUpload ? (logoUrl ? 'Αλλαγή λογότυπου' : 'Ανέβασμα λογότυπου') : 'Αποθήκευσε εταιρία πρώτα'}
       >
         {logoUrl
-          // eslint-disable-next-line @next/next/no-img-element
           ? <img src={logoUrl} alt="logo" className="h-full w-full object-contain" />
-          : <span className="text-[length:var(--fs-12)] font-semibold">{initials}</span>}
+          : <span className="text-(length:--fs-12) font-semibold">{initials}</span>}
         {/* Camera badge always visible — affordance for upload */}
         <span
-          className={`absolute -bottom-0.5 -right-0.5 inline-flex h-4 w-4 items-center justify-center rounded-full border border-background text-[length:var(--fs-8)] ${
+          className={`absolute -bottom-0.5 -right-0.5 inline-flex h-4 w-4 items-center justify-center rounded-full border border-background text-(length:--fs-8) ${
             canUpload ? 'bg-primary text-primary-foreground' : 'bg-muted-foreground/60 text-background'
           }`}
         >
@@ -2415,7 +2479,7 @@ function LogoBlock({
         <button
           type="button"
           onClick={remove}
-          className="absolute -top-1.5 -right-1.5 inline-flex h-4 w-4 items-center justify-center rounded-full bg-destructive text-destructive-foreground text-[length:var(--fs-10)] opacity-0 group-hover:opacity-100 transition-opacity"
+          className="absolute -top-1.5 -right-1.5 inline-flex h-4 w-4 items-center justify-center rounded-full bg-destructive text-destructive-foreground text-(length:--fs-10) opacity-0 group-hover:opacity-100 transition-opacity"
           aria-label="Διαγραφή λογότυπου"
           title="Διαγραφή"
         >
@@ -2442,15 +2506,17 @@ function DocumentsPanel({
   const [loading, setLoading] = React.useState(true);
   const [filter, setFilter] = React.useState<'ALL' | 'DECISION' | 'PUBLICATION'>('ALL');
 
-  const load = React.useCallback(async () => {
-    setLoading(true);
-    const res = await fetch(`/api/admin/companies/${companyId}/documents`);
-    const d = await res.json();
-    setDocs(d.documents ?? []);
-    setLoading(false);
-  }, [companyId]);
+  // Τα setState μόνο μέσα στα callbacks του fetch· το «loading» ανάβει από τον χειριστή (load) ή στην αλλαγή companyId.
+  const fetchDocs = React.useCallback(() =>
+    fetch(`/api/admin/companies/${companyId}/documents`)
+      .then((res) => res.json())
+      .then((d) => { setDocs(d.documents ?? []); setLoading(false); }),
+  [companyId]);
+  const load = () => { setLoading(true); return fetchDocs(); };
+  const [prevCompanyId, setPrevCompanyId] = React.useState(companyId);
+  if (companyId !== prevCompanyId) { setPrevCompanyId(companyId); setLoading(true); }
 
-  React.useEffect(() => { load(); }, [load]);
+  React.useEffect(() => { fetchDocs(); }, [fetchDocs]);
 
   const remove = async (doc: DocRow) => {
     if (!(await confirmAction(`Διαγραφή εγγράφου "${doc.title}";`))) return;
@@ -2471,32 +2537,32 @@ function DocumentsPanel({
     <div className="space-y-3">
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
         <div className="rounded-[4px] border border-border bg-background p-2">
-          <div className="text-[length:var(--fs-9)] uppercase tracking-wider text-muted-foreground">Σύνολο</div>
-          <div className="text-[length:var(--fs-14)] font-semibold tabular-nums">{docs.length}</div>
+          <div className="text-(length:--fs-9) uppercase tracking-wider text-muted-foreground">Σύνολο</div>
+          <div className="text-(length:--fs-14) font-semibold tabular-nums">{docs.length}</div>
         </div>
         <div className="rounded-[4px] border border-border bg-background p-2">
-          <div className="text-[length:var(--fs-9)] uppercase tracking-wider text-muted-foreground">Στο Bunny CDN</div>
-          <div className="text-[length:var(--fs-14)] font-semibold tabular-nums">
-            {uploaded}<span className="text-muted-foreground text-[length:var(--fs-11)]"> / {docs.length}</span>
+          <div className="text-(length:--fs-9) uppercase tracking-wider text-muted-foreground">Στο Bunny CDN</div>
+          <div className="text-(length:--fs-14) font-semibold tabular-nums">
+            {uploaded}<span className="text-muted-foreground text-(length:--fs-11)"> / {docs.length}</span>
           </div>
         </div>
         <div className="rounded-[4px] border border-border bg-background p-2">
-          <div className="text-[length:var(--fs-9)] uppercase tracking-wider text-muted-foreground">Μέγεθος</div>
-          <div className="text-[length:var(--fs-14)] font-semibold tabular-nums">
+          <div className="text-(length:--fs-9) uppercase tracking-wider text-muted-foreground">Μέγεθος</div>
+          <div className="text-(length:--fs-14) font-semibold tabular-nums">
             {totalBytes > 0 ? `${(totalBytes / 1024 / 1024).toFixed(1)} MB` : '—'}
           </div>
         </div>
         <div className="rounded-[4px] border border-border bg-background p-2">
-          <div className="text-[length:var(--fs-9)] uppercase tracking-wider text-muted-foreground">Τύποι</div>
-          <div className="text-[length:var(--fs-14)] font-semibold tabular-nums">
-            {counts.DECISION}<span className="text-muted-foreground text-[length:var(--fs-11)]">Α</span>
+          <div className="text-(length:--fs-9) uppercase tracking-wider text-muted-foreground">Τύποι</div>
+          <div className="text-(length:--fs-14) font-semibold tabular-nums">
+            {counts.DECISION}<span className="text-muted-foreground text-(length:--fs-11)">Α</span>
             {' · '}
-            {counts.PUBLICATION}<span className="text-muted-foreground text-[length:var(--fs-11)]">Δ</span>
+            {counts.PUBLICATION}<span className="text-muted-foreground text-(length:--fs-11)">Δ</span>
           </div>
         </div>
       </div>
       {(gemiSyncedAt || gemiOffice || gemiStatus) && (
-        <div className="flex flex-wrap items-center gap-2 rounded-[4px] border border-border bg-muted/40 px-3 py-1.5 text-[length:var(--fs-11)]">
+        <div className="flex flex-wrap items-center gap-2 rounded-[4px] border border-border bg-muted/40 px-3 py-1.5 text-(length:--fs-11)">
           {gemiStatus && <Badge variant="outline" className="border-emerald-300 text-emerald-700">{gemiStatus}</Badge>}
           {gemiOffice && <span className="text-muted-foreground">ΓΕΜΗ: {gemiOffice}</span>}
           {gemiSyncedAt && <span className="text-muted-foreground ml-auto">Τελευταίος συγχρονισμός: {new Date(gemiSyncedAt).toLocaleString('el-GR')}</span>}
@@ -2509,7 +2575,7 @@ function DocumentsPanel({
             key={f}
             type="button"
             onClick={() => setFilter(f)}
-            className={`text-[length:var(--fs-11)] rounded-sm px-2 py-1 border transition-colors ${
+            className={`text-(length:--fs-11) rounded-sm px-2 py-1 border transition-colors ${
               filter === f ? 'border-primary bg-primary/10 text-foreground' : 'border-border text-muted-foreground hover:bg-muted'
             }`}
           >
@@ -2520,9 +2586,9 @@ function DocumentsPanel({
         ))}
       </div>
 
-      {loading && <div className="text-[length:var(--fs-12)] text-muted-foreground">Φόρτωση…</div>}
+      {loading && <div className="text-(length:--fs-12) text-muted-foreground">Φόρτωση…</div>}
       {!loading && filtered.length === 0 && (
-        <div className="rounded-sm border border-dashed px-3 py-6 text-center text-[length:var(--fs-12)] text-muted-foreground">
+        <div className="rounded-sm border border-dashed px-3 py-6 text-center text-(length:--fs-12) text-muted-foreground">
           Δεν υπάρχουν έγγραφα. Πάτησε το εικονίδιο ΓΕΜΗ στην κεφαλίδα για συγχρονισμό.
         </div>
       )}
@@ -2537,17 +2603,17 @@ function DocumentsPanel({
               </span>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-1.5 flex-wrap">
-                  <span className="text-[length:var(--fs-12)] font-medium text-foreground truncate">{d.title}</span>
-                  <Badge variant="outline" className="text-[length:var(--fs-9)]">{d.kind === 'DECISION' ? 'Απόφαση' : d.kind === 'PUBLICATION' ? 'ΥΜΣ' : 'Άλλο'}</Badge>
-                  {d.kak && <span className="text-[length:var(--fs-10)] text-muted-foreground tabular-nums">ΚΑΚ {d.kak}</span>}
+                  <span className="text-(length:--fs-12) font-medium text-foreground truncate">{d.title}</span>
+                  <Badge variant="outline" className="text-(length:--fs-9)">{d.kind === 'DECISION' ? 'Απόφαση' : d.kind === 'PUBLICATION' ? 'ΥΜΣ' : 'Άλλο'}</Badge>
+                  {d.kak && <span className="text-(length:--fs-10) text-muted-foreground tabular-nums">ΚΑΚ {d.kak}</span>}
                 </div>
-                <div className="flex items-center gap-2 text-[length:var(--fs-10)] text-muted-foreground mt-0.5 flex-wrap">
+                <div className="flex items-center gap-2 text-(length:--fs-10) text-muted-foreground mt-0.5 flex-wrap">
                   {d.assembly && <span>{d.assembly}</span>}
                   {d.dateRegistrated && <span>Κατ.: {new Date(d.dateRegistrated).toLocaleDateString('el-GR')}</span>}
                   {d.dateAnnounced && <span>Αν.: {new Date(d.dateAnnounced).toLocaleDateString('el-GR')}</span>}
                   {d.sizeBytes && <span>{(d.sizeBytes / 1024).toFixed(0)} KB</span>}
                 </div>
-                {d.summary && <p className="text-[length:var(--fs-11)] text-muted-foreground line-clamp-2 mt-0.5">{d.summary}</p>}
+                {d.summary && <p className="text-(length:--fs-11) text-muted-foreground line-clamp-2 mt-0.5">{d.summary}</p>}
               </div>
               <div className="flex items-center gap-0.5 shrink-0">
                 {d.publicUrl && (
@@ -2603,8 +2669,8 @@ function DeleteDialog({
         <DialogHeader className="flex-row items-center gap-3 space-y-0 border-b border-border px-4 py-2.5 pr-12">
           <span aria-hidden className="grid size-8 shrink-0 place-items-center rounded-lg bg-destructive/10 text-destructive dark:bg-destructive/20"><FiAlertTriangle className="size-4" /></span>
           <div className="min-w-0 flex-1">
-            <DialogTitle className="text-[length:var(--fs-15)] text-destructive">Διαγραφή εταιρίας</DialogTitle>
-            <DialogDescription className="text-[length:var(--fs-11)]">
+            <DialogTitle className="text-(length:--fs-15) text-destructive">Διαγραφή εταιρίας</DialogTitle>
+            <DialogDescription className="text-(length:--fs-11)">
               Διαγραφή της εταιρίας <strong className="text-foreground">{company?.name}</strong>;
             </DialogDescription>
           </div>

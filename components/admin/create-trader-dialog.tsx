@@ -40,6 +40,21 @@ const COUNTRY_OPTIONS = [...new Set([...VAT_COUNTRY_CODES, ...Object.keys(EXTRA_
 /** Τηλέφωνα / fax / email / ιστοσελίδα όπως τα γράφει το παραστατικό — γράφονται στην καρτέλα. */
 export interface TraderContacts { phone?: string | null; phone2?: string | null; fax?: string | null; email?: string | null; webpage?: string | null }
 
+/** Σύγκριση λιστών εξαρτήσεων όπως τα deps των hooks (`Object.is` ανά θέση). */
+const depsChanged = (a: readonly unknown[], b: readonly unknown[]) =>
+  a.length !== b.length || a.some((x, i) => !Object.is(x, b[i]));
+
+/** Το ελληνικό ΑΦΜ που αντλούμε αυτόματα από την ΑΑΔΕ στο άνοιγμα, ή `null` αν δεν γίνεται άντληση. */
+function initialLookupAfm(initAfm: string, countryHint: string | null | undefined): string | null {
+  // Ξένος εκδότης (πρόθεμα χώρας): η ΑΑΔΕ δεν έχει θέση — καμία κλήση, κανένα σφάλμα.
+  const initCountry = vatCountry(initAfm);
+  if (initCountry && initCountry !== 'GR') return null;
+  // Ξένος από τη διεύθυνση του παραστατικού (ΑΦΜ χωρίς πρόθεμα): επίσης χωρίς ΑΑΔΕ.
+  if (countryHint && countryHint !== 'GR' && !isValidAfm(initAfm)) return null;
+  const greek = initAfm.replace(/^(EL|GR)/, '');
+  return /^\d{9}$/.test(greek) && isValidAfm(greek) ? greek : null;
+}
+
 type CodeSuggestion = { code: string | null; source: 'pattern' | 'mask' | 'none'; taken: number; stale: boolean };
 
 /**
@@ -122,53 +137,62 @@ export function CreateTraderDialog({
     return { leafId: leaf?.id ?? null, basis: r.basis, rule: r.rule, needsReview: r.review, primaryKad: primary?.code ?? null, primaryKadDescr: primary?.descr ?? null, specialty: r.specialty ?? null };
   }, [classSodtype, classRows, data, isForeign, isGreek]);
   // Μέχρι να την αγγίξει ο χρήστης, η επιλογή ακολουθεί την πρόταση (προεπιλεγμένη, αλλάζει ελεύθερα).
-  React.useEffect(() => {
-    if (classTouched || !classProposal) return;
-    setClassSel(classProposal.leafId != null ? pathTo(classRows, classProposal.leafId) : []);
-  }, [classProposal, classRows, classTouched]);
+  // «Adjust state while rendering» (αρχικό `[]` ⇒ τρέχει και στο πρώτο render, όπως ένα effect).
+  const classDeps = [classProposal, classRows, classTouched];
+  const [prevClassDeps, setPrevClassDeps] = React.useState<readonly unknown[]>([]);
+  if (depsChanged(prevClassDeps, classDeps)) {
+    setPrevClassDeps(classDeps);
+    if (!classTouched && classProposal) setClassSel(classProposal.leafId != null ? pathTo(classRows, classProposal.leafId) : []);
+  }
+
+  /** Η κλήση στην ΑΑΔΕ· ο καλών έχει ήδη βάλει loading=true και καθαρίσει error/data/dryPayload. */
+  const fetchLookup = React.useCallback((clean: string) =>
+    fetch('/api/admin/ocr/supplier-preview', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ afm: clean }),
+    })
+      .then(async (res) => {
+        const d = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          setError(d?.error === 'not_found' ? 'Δεν βρέθηκε στην ΑΑΔΕ.' : (d?.message ?? 'Αποτυχία άντλησης από ΑΑΔΕ.'));
+        } else {
+          setData(d);
+          if (d?.name) setName(d.name);
+        }
+      })
+      .catch(() => { setError('Σφάλμα δικτύου.'); })
+      .finally(() => { setLoading(false); }), []);
 
   const runLookup = React.useCallback(async (theAfm: string) => {
     const clean = theAfm.replace(/\D/g, '');
     if (!/^\d{9}$/.test(clean)) { setError('Μη έγκυρο ελληνικό ΑΦΜ (9 ψηφία).'); return; }
     setLoading(true); setError(null); setData(null); setDryPayload(null);
-    try {
-      const res = await fetch('/api/admin/ocr/supplier-preview', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ afm: clean }),
-      });
-      const d = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        setError(d?.error === 'not_found' ? 'Δεν βρέθηκε στην ΑΑΔΕ.' : (d?.message ?? 'Αποτυχία άντλησης από ΑΑΔΕ.'));
-      } else {
-        setData(d);
-        if (d?.name) setName(d.name);
-      }
-    } catch {
-      setError('Σφάλμα δικτύου.');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+    await fetchLookup(clean);
+  }, [fetchLookup]);
 
   // Άνοιγμα: καθάρισε, άντλησε ΑΑΔΕ και ζήτα προτεινόμενο κωδικό ΑΥΤΟΥ του τύπου.
+  const openDeps = [open, afm, fallbackName, countryHint, fetchLookup];
+  const [prevOpenDeps, setPrevOpenDeps] = React.useState<readonly unknown[]>([]);
+  if (depsChanged(prevOpenDeps, openDeps)) {
+    setPrevOpenDeps(openDeps);
+    if (open) {
+      const initAfm = (afm || '').toUpperCase().replace(/[\s.\-/]/g, '');
+      setAfmInput(initAfm);
+      setCountryPick(countryHint && countryHint !== 'GR' ? countryHint : '');
+      setName(fallbackName || '');
+      // Η «Δοκιμή» ξεκινά ΑΝΟΙΧΤΗ μέχρι να μάθουμε τον διακόπτη — ποτέ δεν υποθέτουμε «στείλ' το».
+      setCode(''); setData(null); setError(null); setDryPayload(null); setDryRun(true);
+      setCodeError(null); setCodeOffer(null); setSuggestion(null);
+      if (initialLookupAfm(initAfm, countryHint) != null) setLoading(true);
+    }
+  }
   React.useEffect(() => {
     if (!open) return;
     const initAfm = (afm || '').toUpperCase().replace(/[\s.\-/]/g, '');
-    setAfmInput(initAfm);
-    setCountryPick(countryHint && countryHint !== 'GR' ? countryHint : '');
-    setName(fallbackName || '');
-    // Η «Δοκιμή» ξεκινά ΑΝΟΙΧΤΗ μέχρι να μάθουμε τον διακόπτη — ποτέ δεν υποθέτουμε «στείλ' το».
-    setCode(''); setData(null); setError(null); setDryPayload(null); setDryRun(true);
-    setCodeError(null); setCodeOffer(null); setSuggestion(null);
     proposed.current = null;
-    // Ξένος εκδότης (πρόθεμα χώρας): η ΑΑΔΕ δεν έχει θέση — καμία κλήση, κανένα σφάλμα.
-    const initCountry = vatCountry(initAfm);
-    if (initCountry && initCountry !== 'GR') return;
-    // Ξένος από τη διεύθυνση του παραστατικού (ΑΦΜ χωρίς πρόθεμα): επίσης χωρίς ΑΑΔΕ.
-    if (countryHint && countryHint !== 'GR' && !isValidAfm(initAfm)) return;
-    const greek = initAfm.replace(/^(EL|GR)/, '');
-    if (/^\d{9}$/.test(greek) && isValidAfm(greek)) void runLookup(greek);
-  }, [open, afm, fallbackName, countryHint, runLookup]);
+    const greek = initialLookupAfm(initAfm, countryHint);
+    if (greek != null) void fetchLookup(greek);
+  }, [open, afm, fallbackName, countryHint, fetchLookup]);
 
   /**
    * Η «Δοκιμή» ΑΚΟΛΟΥΘΕΙ τον διακόπτη `softone.postingEnabled`.
@@ -181,10 +205,14 @@ export function CreateTraderDialog({
    * φαίνεται σαν να μη δουλεύει.
    */
   const [postingEnabled, setPostingEnabled] = React.useState<boolean | null>(null);
+  const [prevPostingDeps, setPrevPostingDeps] = React.useState<readonly unknown[]>([]);
+  if (depsChanged(prevPostingDeps, [open])) {
+    setPrevPostingDeps([open]);
+    if (open) setPostingEnabled(null);
+  }
   React.useEffect(() => {
     if (!open) return;
     let ignore = false;
-    setPostingEnabled(null);
     fetch('/api/admin/ocr/posting-enabled', { cache: 'no-store' })
       .then((r) => (r.ok ? r.json() : null))
       .then((d: { enabled?: boolean } | null) => {
@@ -309,11 +337,11 @@ export function CreateTraderDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="w-[95vw] gap-0 overflow-hidden p-0 sm:max-w-xl">
         <DialogHeader className="gap-1 border-b border-border px-5 pb-4 pt-5">
-          <DialogTitle className="flex items-center gap-2.5 text-[length:var(--fs-15)]">
+          <DialogTitle className="flex items-center gap-2.5 text-(length:--fs-15)">
             <span className="grid h-8 w-8 place-items-center rounded-lg bg-sisyphus-50 text-sisyphus-600"><FiUser className="h-4 w-4" /></span>
             Νέος {text.nom} {isGreek ? 'από ΑΑΔΕ' : isForeign ? `— ${countryLabel(country)}` : ''}
           </DialogTitle>
-          <DialogDescription className="text-[length:var(--fs-12)]">
+          <DialogDescription className="text-(length:--fs-12)">
             Ο τύπος καρτέλας δεν επιλέγεται: τον ορίζει η σειρά του παραστατικού.
             {reason ? ` ${reason}.` : ''}
           </DialogDescription>
@@ -327,7 +355,7 @@ export function CreateTraderDialog({
                 <div className="flex min-w-0 gap-1.5">
                   <Input id="ct-afm" value={afmInput} onChange={(e) => { setAfmInput(e.target.value); setError(null); }} placeholder="ξένο με πρόθεμα, π.χ. DE123456789" className={cn(fieldCls, 'min-w-0 flex-1 font-mono')} />
                   {!isForeign && (
-                    <Button variant="outline" className="h-8 shrink-0 px-2 text-[length:var(--fs-12)]" disabled={!isGreek || loading} onClick={() => runLookup(cleanAfm)}>
+                    <Button variant="outline" className="h-8 shrink-0 px-2 text-(length:--fs-12)" disabled={!isGreek || loading} onClick={() => runLookup(cleanAfm)}>
                       <FiDownloadCloud className="mr-1 size-3.5" /> {loading ? 'Άντληση…' : 'ΑΑΔΕ'}
                     </Button>
                   )}
@@ -384,7 +412,7 @@ export function CreateTraderDialog({
 
           {loading && <div className="space-y-1.5" role="status"><span className="sr-only">Άντληση από ΑΑΔΕ…</span>{[0, 1, 2].map((i) => <div key={i} className="h-6 animate-pulse rounded bg-muted motion-reduce:animate-none" />)}</div>}
           {error && (
-            <p className="flex items-start gap-1.5 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-[length:var(--fs-12)] text-amber-900 dark:bg-amber-500/10 dark:text-amber-200" role="alert">
+            <p className="flex items-start gap-1.5 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-(length:--fs-12) text-amber-900 dark:bg-amber-500/10 dark:text-amber-200" role="alert">
               <FiAlertTriangle className="mt-0.5 size-4 shrink-0" /> {error}
             </p>
           )}
@@ -395,13 +423,13 @@ export function CreateTraderDialog({
               tone="emerald" icon={<FiDownloadCloud />} title="Από την ΑΑΔΕ"
               aside={data.isActive ? <span className="text-emerald-800 dark:text-emerald-300">ενεργό ΑΦΜ</span> : <span className="font-semibold text-destructive">ανενεργό ΑΦΜ</span>}
             >
-              <dl className="grid grid-cols-[7rem_minmax(0,1fr)] gap-x-3 gap-y-1.5 text-[length:var(--fs-12)]">
+              <dl className="grid grid-cols-[7rem_minmax(0,1fr)] gap-x-3 gap-y-1.5 text-(length:--fs-12)">
                 <dt className="text-muted-foreground">Δ.Ο.Υ.</dt>
                 <dd className="min-w-0">
                   {data.doyDescr ? `${data.doyDescr}${data.doyCode ? ` (${data.doyCode})` : ''}` : '—'}
                   {data.softoneDoy?.office
-                    ? <span className="block text-[length:var(--fs-11)] text-emerald-700 dark:text-emerald-300">→ SoftOne: {data.softoneDoy.office.name} ({data.softoneDoy.office.code})</span>
-                    : data.softoneDoy?.note ? <span className="block text-[length:var(--fs-11)] text-amber-800 dark:text-amber-300">{data.softoneDoy.note} Θα μείνει κενή.</span> : null}
+                    ? <span className="block text-(length:--fs-11) text-emerald-700 dark:text-emerald-300">→ SoftOne: {data.softoneDoy.office.name} ({data.softoneDoy.office.code})</span>
+                    : data.softoneDoy?.note ? <span className="block text-(length:--fs-11) text-amber-800 dark:text-amber-300">{data.softoneDoy.note} Θα μείνει κενή.</span> : null}
                 </dd>
                 <dt className="text-muted-foreground">Επάγγελμα</dt><dd className="min-w-0">{data.profession || '—'}</dd>
                 <dt className="text-muted-foreground">Διεύθυνση</dt><dd className="min-w-0">{[data.address, data.zip, data.city].filter(Boolean).join(', ') || '—'}</dd>
@@ -421,7 +449,7 @@ export function CreateTraderDialog({
           {/* ── 3. ΑΠΟ ΤΟ ΠΑΡΑΣΤΑΤΙΚΟ: επικοινωνία (η ΑΑΔΕ δεν τη δίνει). */}
           {contacts && Object.values(contacts).some(Boolean) && (
             <FormSection tone="violet" icon={<FiPhone />} title="Επικοινωνία" aside="από το παραστατικό">
-              <dl className="grid grid-cols-[7rem_minmax(0,1fr)] gap-x-3 gap-y-1 text-[length:var(--fs-12)]">
+              <dl className="grid grid-cols-[7rem_minmax(0,1fr)] gap-x-3 gap-y-1 text-(length:--fs-12)">
                 {([['Τηλέφωνο', contacts.phone], ['Τηλέφωνο 2', contacts.phone2], ['Fax', contacts.fax], ['Email', contacts.email], ['Ιστοσελίδα', contacts.webpage]] as const)
                   .filter(([, v]) => v)
                   .map(([k, v]) => <React.Fragment key={k}><dt className="text-muted-foreground">{k}</dt><dd className="min-w-0 truncate">{v}</dd></React.Fragment>)}
@@ -431,15 +459,15 @@ export function CreateTraderDialog({
 
           {dryPayload != null && (
             <div className="space-y-1.5 pt-1">
-              <p className="text-[length:var(--fs-11)] font-medium text-emerald-700">Object από τον server (dry-run) — αυτό ακριβώς θα σταλεί στο SoftOne:</p>
-              <pre className="overflow-auto rounded-xl border border-border bg-[#0E1626] p-4 font-mono text-[length:var(--fs-11)] leading-relaxed text-[#d6e2f5]">{JSON.stringify(dryPayload, null, 2)}</pre>
+              <p className="text-(length:--fs-11) font-medium text-emerald-700">Object από τον server (dry-run) — αυτό ακριβώς θα σταλεί στο SoftOne:</p>
+              <pre className="overflow-auto rounded-xl border border-border bg-[#0E1626] p-4 font-mono text-(length:--fs-11) leading-relaxed text-[#d6e2f5]">{JSON.stringify(dryPayload, null, 2)}</pre>
             </div>
           )}
         </div>
 
         {/* `mx-0 mb-0`: το DialogFooter έχει `-mx-4 -mb-4` για modal με padding· εδώ είναι `p-0`. */}
         <DialogFooter className="mx-0 mb-0 flex-col gap-2 border-t border-border bg-muted/30 px-5 py-3 sm:flex-row sm:items-center sm:justify-between">
-          <label className={cn('flex items-center gap-2 text-[length:var(--fs-12)] text-muted-foreground',
+          <label className={cn('flex items-center gap-2 text-(length:--fs-12) text-muted-foreground',
             postingEnabled === false ? 'cursor-not-allowed' : 'cursor-pointer')}>
             <input
               type="checkbox" checked={dryRun} disabled={postingEnabled === false}

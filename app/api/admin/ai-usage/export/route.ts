@@ -84,7 +84,7 @@ export async function GET() {
   ]);
 
   const wb = new ExcelJS.Workbook();
-  wb.creator = 'DGEspa ERP';
+  wb.creator = 'Atelier by Damask';
   wb.created = now;
 
   // ───────────────────── Summary

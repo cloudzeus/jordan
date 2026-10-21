@@ -19,8 +19,8 @@ const STATUS_TEXT: Partial<Record<AccountStatus, string>> = {
 };
 
 const SECTION = 'rounded-xl border border-border bg-card shadow-fluent-2';
-const H2 = 'text-[length:var(--fs-14)] font-semibold text-foreground';
-const MUTED = 'text-[length:var(--fs-12)] text-muted-foreground';
+const H2 = 'text-(length:--fs-14) font-semibold text-foreground';
+const MUTED = 'text-(length:--fs-12) text-muted-foreground';
 const MAX_ROWS = 300;
 
 function DocLinks({ docs }: { docs: { id: string; fileName: string }[] }) {
@@ -124,7 +124,7 @@ export function AccountsClient({
   return (
     <div className="space-y-5">
       <OpenAccountDialog req={openReq} onClose={() => setOpenReq(null)} onDone={() => { setOpenReq(null); router.refresh(); }} />
-      <p className="rounded-lg border border-sisyphus-500/25 bg-sisyphus-500/[0.06] px-4 py-3 text-[length:var(--fs-13)] text-foreground">
+      <p className="rounded-lg border border-sisyphus-500/25 bg-sisyphus-500/6 px-4 py-3 text-(length:--fs-13) text-foreground">
         Ο λογαριασμός που λείπει ανοίγει με <strong>«Άνοιγμα στο SoftOne»</strong>: παίρνει τις ρυθμίσεις του διπλανού λογαριασμού
         της ίδιας ομάδας, τον σωστό ΦΠΑ και τον λογαριασμό ΦΠΑ εισροών του ίδιου συντελεστή. Πριν φύγει βλέπεις τι θα σταλεί,
         και μετά η εφαρμογή ελέγχει ότι το σχέδιο απέκτησε ακριβώς έναν λογαριασμό. Οι <strong>χρεοπιστώσεις</strong> δημιουργούνται
@@ -141,7 +141,7 @@ export function AccountsClient({
           </p>
         </header>
         {scan.needs.length === 0 ? (
-          <p className="flex items-center gap-2 px-4 py-4 text-[length:var(--fs-13)] text-emerald-700">
+          <p className="flex items-center gap-2 px-4 py-4 text-(length:--fs-13) text-emerald-700">
             <FiCheckCircle className="size-4" aria-hidden /> Όλες οι γραμμές με αναγνωρίσιμη κατηγορία έχουν ήδη στόχο.
           </p>
         ) : (
@@ -151,12 +151,12 @@ export function AccountsClient({
               return (
                 <li key={`${n.family}|${n.vatRate}|${n.world}`} className="grid gap-2 px-4 py-3 md:grid-cols-[minmax(0,14rem)_minmax(0,1fr)_auto] md:items-start">
                   <div>
-                    <p className="text-[length:var(--fs-13)] font-semibold text-foreground">
+                    <p className="text-(length:--fs-13) font-semibold text-foreground">
                       {n.label}{n.vatRate != null ? ` · ${n.vatRate}%` : ''}
                     </p>
-                    <span className={`mt-1 inline-block rounded-full border px-2 py-0.5 text-[length:var(--fs-11)] font-semibold ${st.cls}`}>{st.text}</span>
+                    <span className={`mt-1 inline-block rounded-full border px-2 py-0.5 text-(length:--fs-11) font-semibold ${st.cls}`}>{st.text}</span>
                   </div>
-                  <div className="min-w-0 space-y-1.5 text-[length:var(--fs-12)]">
+                  <div className="min-w-0 space-y-1.5 text-(length:--fs-12)">
                     {n.samples.length > 0 && <p className="truncate text-muted-foreground" title={n.samples.join(' · ')}>«{n.samples.join('» · «')}»</p>}
                     <div className="text-muted-foreground"><DocLinks docs={n.docs} /></div>
                     {n.status === 'registry' && n.registry && (
@@ -167,7 +167,7 @@ export function AccountsClient({
                       </p>
                     )}
                     {n.status === 'activate' && n.inactive.length > 0 && (
-                      <ul className="space-y-1 rounded-md border border-sky-500/30 bg-sky-500/[0.05] px-2.5 py-2">
+                      <ul className="space-y-1 rounded-md border border-sky-500/30 bg-sky-500/5 px-2.5 py-2">
                         {n.inactive.map((it) => (
                           <li key={it.mtrl} className="flex flex-wrap items-center justify-between gap-2">
                             <span><span className="font-mono font-semibold text-foreground">{it.code}</span> <span className="text-muted-foreground">{it.name}</span></span>
@@ -210,7 +210,7 @@ export function AccountsClient({
                       </ul>
                     )}
                   </div>
-                  <p className="text-[length:var(--fs-12)] tabular-nums text-muted-foreground md:text-right">
+                  <p className="text-(length:--fs-12) tabular-nums text-muted-foreground md:text-right">
                     {n.lines} γραμμ{n.lines === 1 ? 'ή' : 'ές'} · {n.docs.length} παραστ.
                   </p>
                 </li>
@@ -219,7 +219,7 @@ export function AccountsClient({
           </ul>
         )}
         {scan.unclassified.lines > 0 && (
-          <div className="flex flex-wrap items-start justify-between gap-2 border-t border-border bg-muted/30 px-4 py-3 text-[length:var(--fs-12)]">
+          <div className="flex flex-wrap items-start justify-between gap-2 border-t border-border bg-muted/30 px-4 py-3 text-(length:--fs-12)">
             <div className="min-w-0 space-y-1">
               <p className="font-semibold text-foreground">
                 {scan.unclassified.lines} γραμμ{scan.unclassified.lines === 1 ? 'ή' : 'ές'} χωρίς αναγνωρίσιμη κατηγορία δαπάνης
@@ -256,7 +256,7 @@ export function AccountsClient({
         {!chartSynced ? (
           <p className={`px-4 py-6 ${MUTED}`}>Το σχέδιο δεν έχει συγχρονιστεί ακόμη — πάτησε «Συγχρονισμός σχεδίου».</p>
         ) : missing.length === 0 ? (
-          <p className="flex items-center gap-2 px-4 py-6 text-[length:var(--fs-13)] text-emerald-700">
+          <p className="flex items-center gap-2 px-4 py-6 text-(length:--fs-13) text-emerald-700">
             <FiCheckCircle className="size-4" aria-hidden /> Όλοι οι λογαριασμοί που χρειάζονται τα ανοιχτά παραστατικά υπάρχουν.
           </p>
         ) : (
@@ -264,12 +264,12 @@ export function AccountsClient({
             {missing.map((m) => (
               <li key={`${m.status}|${m.account ?? m.article}`} className="grid gap-2 px-4 py-3 md:grid-cols-[minmax(0,14rem)_minmax(0,1fr)_auto] md:items-start">
                 <div>
-                  <p className="font-mono text-[length:var(--fs-13)] font-semibold text-foreground">{m.account ?? '—'}</p>
-                  <p className="mt-0.5 inline-flex items-center gap-1 text-[length:var(--fs-11)] font-semibold text-amber-700">
+                  <p className="font-mono text-(length:--fs-13) font-semibold text-foreground">{m.account ?? '—'}</p>
+                  <p className="mt-0.5 inline-flex items-center gap-1 text-(length:--fs-11) font-semibold text-amber-700">
                     <FiAlertTriangle className="size-3" aria-hidden /> {STATUS_TEXT[m.status] ?? m.status}
                   </p>
                 </div>
-                <div className="min-w-0 space-y-1 text-[length:var(--fs-12)]">
+                <div className="min-w-0 space-y-1 text-(length:--fs-12)">
                   {m.proposedName && (
                     <p><span className="text-muted-foreground">Άνοιγμα ως: </span><span className="font-semibold text-foreground">{m.proposedName}</span>
                       {m.parent && <span className="text-muted-foreground"> · κάτω από {m.parent.code}</span>}</p>
@@ -278,7 +278,7 @@ export function AccountsClient({
                   <div className="text-muted-foreground"><DocLinks docs={m.docs} /></div>
                 </div>
                 <div className="flex flex-col items-start gap-1 md:items-end">
-                  <p className="text-[length:var(--fs-12)] tabular-nums text-muted-foreground md:text-right">
+                  <p className="text-(length:--fs-12) tabular-nums text-muted-foreground md:text-right">
                     {m.lines} γραμμ{m.lines === 1 ? 'ή' : 'ές'} · {m.docs.length} παραστ.
                   </p>
                   {m.status === 'not_in_chart' && m.account && openBtn({ code: m.account, name: m.proposedName ?? '', vatRate: m.vatRate })}
@@ -302,8 +302,8 @@ export function AccountsClient({
           <ul className="divide-y divide-border">
             {gaps.map((g) => (
               <li key={`${g.kind}:${g.charge}`} className="grid gap-2 px-4 py-3 md:grid-cols-[minmax(0,14rem)_minmax(0,1fr)_auto] md:items-start">
-                <p className="text-[length:var(--fs-13)] font-semibold text-foreground">{g.label}</p>
-                <div className="min-w-0 space-y-1.5 text-[length:var(--fs-12)]">
+                <p className="text-(length:--fs-13) font-semibold text-foreground">{g.label}</p>
+                <div className="min-w-0 space-y-1.5 text-(length:--fs-12)">
                   <div className="text-muted-foreground"><DocLinks docs={g.docs} /></div>
                   {g.toOpen && (
                     <p className="inline-flex flex-wrap items-center gap-1 text-amber-800">
@@ -314,8 +314,8 @@ export function AccountsClient({
                   )}
                   {g.toOpen && openBtn({ code: g.toOpen.code, name: g.toOpen.name ?? '', vatRate: g.toOpen.vatRate })}
                   {g.inactive.length > 0 && (
-                    <div className="rounded-md border border-amber-500/30 bg-amber-500/[0.06] px-2.5 py-2">
-                      <p className="text-[length:var(--fs-11)] font-semibold text-foreground">Υπάρχουν ήδη στο SoftOne, ανενεργές:</p>
+                    <div className="rounded-md border border-amber-500/30 bg-amber-500/6 px-2.5 py-2">
+                      <p className="text-(length:--fs-11) font-semibold text-foreground">Υπάρχουν ήδη στο SoftOne, ανενεργές:</p>
                       <ul className="mt-1 space-y-1">
                         {g.inactive.map((it) => (
                           <li key={it.mtrl} className="flex flex-wrap items-center justify-between gap-2">
@@ -343,7 +343,7 @@ export function AccountsClient({
                     <p className="text-amber-700">Κανένας κατάλληλος κινούμενος λογαριασμός στο σχέδιο — χρειάζεται άνοιγμα στο SoftOne.</p>
                   )}
                 </div>
-                <p className="text-[length:var(--fs-12)] tabular-nums text-muted-foreground md:text-right">
+                <p className="text-(length:--fs-12) tabular-nums text-muted-foreground md:text-right">
                   {g.lines} γραμμ{g.lines === 1 ? 'ή' : 'ές'} · {g.docs.length} παραστ.
                 </p>
               </li>
@@ -367,18 +367,18 @@ export function AccountsClient({
               <FiSearch className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" aria-hidden />
               <input
                 type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Κωδικός ή περιγραφή"
-                className="h-9 w-64 rounded-md border border-input bg-background pl-8 pr-3 text-[length:var(--fs-13)]"
+                className="h-9 w-64 rounded-md border border-input bg-background pl-8 pr-3 text-(length:--fs-13)"
               />
             </label>
-            <label className="inline-flex min-h-9 items-center gap-2 text-[length:var(--fs-12)] text-foreground">
+            <label className="inline-flex min-h-9 items-center gap-2 text-(length:--fs-12) text-foreground">
               <input type="checkbox" checked={onlyPostable} onChange={(e) => setOnlyPostable(e.target.checked)} className="size-4 rounded border-input" />
               Μόνο κινούμενοι
             </label>
           </div>
         </header>
         <div className="max-h-[60vh] overflow-auto">
-          <table className="w-full text-[length:var(--fs-12)]">
-            <thead className="sticky top-0 bg-card text-left text-[length:var(--fs-11)] font-semibold uppercase tracking-wide text-muted-foreground shadow-[0_1px_0_var(--color-border)]">
+          <table className="w-full text-(length:--fs-12)">
+            <thead className="sticky top-0 bg-card text-left text-(length:--fs-11) font-semibold uppercase tracking-wide text-muted-foreground shadow-[0_1px_0_var(--color-border)]">
               <tr>
                 <th className="px-4 py-2">Κωδικός</th>
                 <th className="px-4 py-2">Περιγραφή</th>

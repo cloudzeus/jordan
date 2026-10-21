@@ -83,38 +83,38 @@ function InactiveLineItems({ open, onClose, onActivated }: { open: boolean; onCl
         <DialogHeader className="flex-row items-center gap-3 border-b border-border px-4 py-2.5 pr-12">
           <span aria-hidden className="grid size-8 shrink-0 place-items-center rounded-lg bg-sisyphus-50 text-sisyphus-600 dark:bg-sisyphus-500/15 [&_svg]:size-4"><FiArchive /></span>
           <div className="min-w-0 flex-1">
-            <DialogTitle className="text-[length:var(--fs-15)]">Ανενεργές χρεοπιστώσεις στο SoftOne{items ? ` · ${items.length}` : ''}</DialogTitle>
-            <DialogDescription className="truncate text-[length:var(--fs-11)]" title="Υπάρχουν στο SoftOne αλλά δεν χρησιμοποιούνται. Ενεργοποίησε όποια χρειάζεσαι αντί να φτιάξεις νέα με τον ίδιο λογαριασμό.">
+            <DialogTitle className="text-(length:--fs-15)">Ανενεργές χρεοπιστώσεις στο SoftOne{items ? ` · ${items.length}` : ''}</DialogTitle>
+            <DialogDescription className="truncate text-(length:--fs-11)" title="Υπάρχουν στο SoftOne αλλά δεν χρησιμοποιούνται. Ενεργοποίησε όποια χρειάζεσαι αντί να φτιάξεις νέα με τον ίδιο λογαριασμό.">
               Υπάρχουν στο SoftOne αλλά δεν χρησιμοποιούνται. Ενεργοποίησε όποια χρειάζεσαι αντί να φτιάξεις νέα με τον ίδιο λογαριασμό.
             </DialogDescription>
           </div>
         </DialogHeader>
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-border bg-muted/40 px-4 py-2">
-          <label className="relative min-w-[12rem] flex-1">
+          <label className="relative min-w-48 flex-1">
             <span className="sr-only">Αναζήτηση</span>
             <FiSearch className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" aria-hidden />
             <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Κωδικός, περιγραφή ή λογαριασμός"
-              className="h-8 w-full rounded-md border border-input bg-background pl-8 pr-3 text-[length:var(--fs-13)] focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50" />
+              className="h-8 w-full rounded-md border border-input bg-background pl-8 pr-3 text-(length:--fs-13) focus-visible:border-ring focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring/50" />
           </label>
-          <label className="inline-flex h-8 cursor-pointer items-center gap-2 text-[length:var(--fs-12)] text-foreground">
+          <label className="inline-flex h-8 cursor-pointer items-center gap-2 text-(length:--fs-12) text-foreground">
             <input type="checkbox" checked={creditors} onChange={(e) => setCreditors(e.target.checked)} className="size-4 rounded border-input accent-sisyphus-600" />
             Να δέχεται και παραστατικά πιστωτών
           </label>
         </div>
         <div className="min-h-0 flex-1 overflow-auto bg-muted/20 px-4 py-3">
           <div className="overflow-hidden rounded-lg border border-border bg-card">
-          {error ? <p role="alert" className="flex items-center gap-2 px-3 py-3 text-[length:var(--fs-12)] text-destructive"><FiAlertTriangle className="size-3.5 shrink-0" aria-hidden />{error}</p>
-            : !items ? <p className="px-3 py-3 text-[length:var(--fs-12)] text-muted-foreground">Ανάγνωση από το SoftOne…</p>
-              : shown.length === 0 ? <p className="px-3 py-3 text-[length:var(--fs-12)] text-muted-foreground">Καμία δεν ταιριάζει.</p>
+          {error ? <p role="alert" className="flex items-center gap-2 px-3 py-3 text-(length:--fs-12) text-destructive"><FiAlertTriangle className="size-3.5 shrink-0" aria-hidden />{error}</p>
+            : !items ? <p className="px-3 py-3 text-(length:--fs-12) text-muted-foreground">Ανάγνωση από το SoftOne…</p>
+              : shown.length === 0 ? <p className="px-3 py-3 text-(length:--fs-12) text-muted-foreground">Καμία δεν ταιριάζει.</p>
                 : (
                   <ul className="divide-y divide-border">
                     {shown.slice(0, 200).map((it) => (
                       <li key={it.mtrl} className="flex items-center justify-between gap-3 px-3 py-1.5 transition-colors hover:bg-muted/30">
                         <div className="min-w-0">
-                          <p className="truncate text-[length:var(--fs-12)] font-semibold text-foreground">
+                          <p className="truncate text-(length:--fs-12) font-semibold text-foreground">
                             <span className="font-mono tabular-nums">{it.code}</span> · {it.name}
                           </p>
-                          <p className="truncate text-[length:var(--fs-11)] text-muted-foreground">
+                          <p className="truncate text-(length:--fs-11) text-muted-foreground">
                             Λογ. <span className="font-mono tabular-nums">{it.acnmsk ?? '—'}</span> · {it.vatLabel ? `ΦΠΑ ${it.vatLabel}` : 'χωρίς ΦΠΑ'} · {it.acceptsCreditors ? 'δέχεται πιστωτές' : 'όχι πιστωτές'}
                           </p>
                         </div>
@@ -162,11 +162,11 @@ export function LineItemsTableClient({
   const columns = React.useMemo<ColumnDef<LineItemRecord>[]>(() => [
     {
       accessorKey: 'code', header: 'Κωδικός', size: 140,
-      cell: ({ row }) => <span className="font-mono text-[length:var(--fs-12)] tabular-nums text-foreground">{row.original.code || '—'}</span>,
+      cell: ({ row }) => <span className="font-mono text-(length:--fs-12) tabular-nums text-foreground">{row.original.code || '—'}</span>,
     },
     {
       accessorKey: 'name', header: 'Περιγραφή', size: 340,
-      cell: ({ row }) => <span className="text-[length:var(--fs-12)] font-medium text-foreground">{row.original.name || '—'}</span>,
+      cell: ({ row }) => <span className="text-(length:--fs-12) font-medium text-foreground">{row.original.name || '—'}</span>,
     },
     {
       // Ο λογαριασμός ΜΕ το όνομά του στο λογιστικό σχέδιο: ο λογιστής βλέπει εδώ, για όλες τις
@@ -177,7 +177,7 @@ export function LineItemsTableClient({
     {
       accessorKey: 'category', header: 'Κατηγορία δαπάνης', size: 220,
       cell: ({ row }) => (row.original.category
-        ? <span className="text-[length:var(--fs-12)] text-foreground/80">{row.original.category}</span>
+        ? <span className="text-(length:--fs-12) text-foreground/80">{row.original.category}</span>
         : DASH),
     },
     {
@@ -185,9 +185,9 @@ export function LineItemsTableClient({
       // Μια χρεοπίστωση χωρίς χαρακτηρισμό θα καταχωρίσει αχαρακτήριστη γραμμή: το λέμε ρητά,
       // με εικονίδιο και κείμενο (ποτέ μόνο χρώμα). Η διόρθωση γίνεται στο ίδιο το SoftOne.
       cell: ({ row }) => (row.original.myData
-        ? <span className="text-[length:var(--fs-12)]" style={{ color: '#047857' }}>{row.original.myData}</span>
+        ? <span className="text-(length:--fs-12)" style={{ color: '#047857' }}>{row.original.myData}</span>
         : (
-          <span className="inline-flex items-center gap-1 text-[length:var(--fs-12)]" style={{ color: '#B45309' }}>
+          <span className="inline-flex items-center gap-1 text-(length:--fs-12)" style={{ color: '#B45309' }}>
             <FiAlertTriangle className="h-3.5 w-3.5" aria-hidden /> Κανένας
           </span>
         )),
@@ -195,17 +195,17 @@ export function LineItemsTableClient({
     {
       accessorKey: 'vat', header: 'ΦΠΑ', size: 80,
       cell: ({ row }) => (row.original.vat
-        ? <span className="whitespace-nowrap text-[length:var(--fs-12)] tabular-nums text-foreground" title={row.original.vatTitle ?? undefined}>{row.original.vat}</span>
+        ? <span className="whitespace-nowrap text-(length:--fs-12) tabular-nums text-foreground" title={row.original.vatTitle ?? undefined}>{row.original.vat}</span>
         : DASH),
     },
     {
       accessorKey: 'isActive', header: 'Ενεργή', size: 100,
       cell: ({ row }) => (row.original.isActive ? (
-        <span className="inline-flex items-center gap-1 text-[length:var(--fs-12)]" style={{ color: '#047857' }}>
+        <span className="inline-flex items-center gap-1 text-(length:--fs-12)" style={{ color: '#047857' }}>
           <FiCheck className="h-3.5 w-3.5" aria-hidden /> Ναι
         </span>
       ) : (
-        <span className="inline-flex items-center gap-1 text-[length:var(--fs-12)] text-muted-foreground">
+        <span className="inline-flex items-center gap-1 text-(length:--fs-12) text-muted-foreground">
           <FiSlash className="h-3.5 w-3.5" aria-hidden /> Όχι
         </span>
       )),
@@ -228,7 +228,7 @@ export function LineItemsTableClient({
   return (
     <div className="space-y-2">
       {canManage && <InactiveLineItems open={inactiveOpen} onClose={() => setInactiveOpen(false)} onActivated={() => router.refresh()} />}
-      <p className="text-[length:var(--fs-12)] text-muted-foreground">
+      <p className="text-(length:--fs-12) text-muted-foreground">
         Οι χρεοπιστώσεις είναι ό,τι δέχεται μια γραμμή «Ειδικών συναλλαγών» (LINLINES) — εκεί
         καταχωρούνται τα τιμολόγια δαπανών. Ο χαρακτηρισμός myDATA ανήκει στο μητρώο του SoftOne·
         η εφαρμογή τον δείχνει, δεν τον αλλάζει.
@@ -247,7 +247,7 @@ export function LineItemsTableClient({
         pageSize={50}
       />
       {lastSync && (
-        <p className="text-[length:var(--fs-11)] text-muted-foreground">
+        <p className="text-(length:--fs-11) text-muted-foreground">
           Τελευταίος συγχρονισμός: {new Date(lastSync).toLocaleString('el-GR')}
         </p>
       )}

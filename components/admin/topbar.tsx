@@ -47,7 +47,7 @@ export function AdminTopbar({ user, roleName }: Props) {
         <input
           type="text"
           placeholder="Αναζήτηση..."
-          className="w-full h-7 pl-8 pr-3 text-body-sm rounded-sm border border-neutral-20 bg-white hover:border-neutral-40 focus:border-sisyphus-500 focus:outline-none focus:ring-2 focus:ring-sisyphus-100 transition-colors"
+          className="w-full h-7 pl-8 pr-3 text-body-sm rounded-sm border border-neutral-20 bg-white hover:border-neutral-40 focus:border-sisyphus-500 focus:outline-hidden focus:ring-2 focus:ring-sisyphus-100 transition-colors"
         />
       </div>
 

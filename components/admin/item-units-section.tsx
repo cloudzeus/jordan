@@ -39,7 +39,7 @@ function AltRow({ id, unit, ratio, onUnit, onRatio, opts, base, baseName, sugges
   const choices = opts.filter((o) => o.id !== base);
   return (
     <>
-      <span className="pt-1.5 text-[length:var(--fs-11)] font-medium text-muted-foreground" id={`${id}-l`}>{label}</span>
+      <span className="pt-1.5 text-(length:--fs-11) font-medium text-muted-foreground" id={`${id}-l`}>{label}</span>
       <div className="min-w-0 space-y-1">
         <div className="flex min-w-0 flex-wrap items-center gap-1.5">
           <Segmented
@@ -50,28 +50,28 @@ function AltRow({ id, unit, ratio, onUnit, onRatio, opts, base, baseName, sugges
           />
           {other && (
             <span className="inline-flex min-w-0 flex-1 items-center gap-1.5">
-              <span className="shrink-0 text-[length:var(--fs-13)] tabular-nums text-muted-foreground">1</span>
+              <span className="shrink-0 text-(length:--fs-13) tabular-nums text-muted-foreground">1</span>
               <FormSelect value={unit} onChange={onUnit} opts={choices} ariaLabel={`${label}: μονάδα`} className="w-32 shrink-0" />
-              <span aria-hidden className="shrink-0 text-[length:var(--fs-13)] text-muted-foreground">=</span>
+              <span aria-hidden className="shrink-0 text-(length:--fs-13) text-muted-foreground">=</span>
               <input
                 id={`${id}-ratio`} value={ratio} inputMode="decimal" placeholder="100"
                 onChange={(e) => onRatio(e.target.value)} onBlur={() => setTouched(true)}
                 aria-label={`Πόσα ${baseName || 'βασικές μονάδες'} έχει 1 μονάδα`} aria-invalid={invalid || undefined}
-                className={`h-8 w-16 shrink-0 rounded-lg border bg-background px-2 text-right text-[length:var(--fs-13)] tabular-nums focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${invalid ? 'border-destructive' : 'border-input'}`}
+                className={`h-8 w-16 shrink-0 rounded-lg border bg-background px-2 text-right text-(length:--fs-13) tabular-nums focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring ${invalid ? 'border-destructive' : 'border-input'}`}
               />
-              <span className="truncate text-[length:var(--fs-13)] font-medium text-foreground">{baseName || 'βασικές'}</span>
+              <span className="truncate text-(length:--fs-13) font-medium text-foreground">{baseName || 'βασικές'}</span>
             </span>
           )}
         </div>
         {other && suggestion != null && ratioOf(ratio) !== suggestion && (
           <button
             type="button" onClick={() => onRatio(String(suggestion))}
-            className="inline-flex h-6 cursor-pointer items-center gap-1 rounded-full bg-amber-100 px-2 text-[length:var(--fs-11)] font-medium text-amber-900 hover:bg-amber-200 dark:bg-amber-500/15 dark:text-amber-300"
+            className="inline-flex h-6 cursor-pointer items-center gap-1 rounded-full bg-amber-100 px-2 text-(length:--fs-11) font-medium text-amber-900 hover:bg-amber-200 dark:bg-amber-500/15 dark:text-amber-300"
           >
             <FiZap aria-hidden className="size-3" /> Η περιγραφή λέει {suggestion} — Χρήση
           </button>
         )}
-        {invalid && <p role="alert" className="text-[length:var(--fs-11)] text-destructive">Γράψε πόσα {baseName || 'βασικές μονάδες'} έχει 1 μονάδα (θετικός αριθμός).</p>}
+        {invalid && <p role="alert" className="text-(length:--fs-11) text-destructive">Γράψε πόσα {baseName || 'βασικές μονάδες'} έχει 1 μονάδα (θετικός αριθμός).</p>}
       </div>
     </>
   );
@@ -106,7 +106,7 @@ export function ItemUnitsSection({ value, onChange, units, line, ratioSuggestion
       aside={line?.unitText ? <span className="text-emerald-800/80 dark:text-emerald-300/80">Στο τιμολόγιο: «{line.unitText}»</span> : undefined}
     >
       <div className="grid grid-cols-[8.5rem_minmax(0,1fr)] items-start gap-x-3 gap-y-2">
-        <label htmlFor="unit-base" className="pt-1.5 text-[length:var(--fs-11)] font-medium text-muted-foreground">
+        <label htmlFor="unit-base" className="pt-1.5 text-(length:--fs-11) font-medium text-muted-foreground">
           Βασική <span className="text-destructive">*</span>
           <span className="block font-normal">μετράει η αποθήκη</span>
         </label>
@@ -127,7 +127,7 @@ export function ItemUnitsSection({ value, onChange, units, line, ratioSuggestion
 
       {/* ΠΡΟΕΠΙΣΚΟΠΗΣΗ με τα νούμερα της γραμμής: τι γράφει το τιμολόγιο → τι θα γράψει η SoftOne. */}
       {baseName && (
-        <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 rounded-md bg-emerald-50 px-2.5 py-1.5 text-[length:var(--fs-12)] text-foreground dark:bg-emerald-500/10" role="status" aria-live="polite">
+        <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 rounded-md bg-emerald-50 px-2.5 py-1.5 text-(length:--fs-12) text-foreground dark:bg-emerald-500/10" role="status" aria-live="polite">
           {converts && buyRatio != null ? (
             <>
               <span className="text-muted-foreground">Τιμολόγιο</span>
@@ -137,7 +137,7 @@ export function ItemUnitsSection({ value, onChange, units, line, ratioSuggestion
               <span className="text-muted-foreground">SoftOne</span>
               <strong className="tabular-nums text-emerald-800 dark:text-emerald-300">{fmt(toBaseQty(qty ?? 1, buyRatio), 4)} {baseName}</strong>
               {price != null && <span className="tabular-nums text-muted-foreground">· {money(price / buyRatio)} / {baseName.toLowerCase()}</span>}
-              <span className="basis-full text-[length:var(--fs-11)] text-muted-foreground">Η αξία δεν αλλάζει· τιμολόγιο σε {baseName.toLowerCase()} μετατρέπεται αυτόματα από τη μονάδα της γραμμής.</span>
+              <span className="basis-full text-(length:--fs-11) text-muted-foreground">Η αξία δεν αλλάζει· τιμολόγιο σε {baseName.toLowerCase()} μετατρέπεται αυτόματα από τη μονάδα της γραμμής.</span>
             </>
           ) : (
             <span className="text-muted-foreground">Η ποσότητα του τιμολογίου μπαίνει ως έχει σε {baseName.toLowerCase()}{qty != null && <> (<strong className="tabular-nums text-foreground">{fmt(qty)}</strong>)</>}.</span>

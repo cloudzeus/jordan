@@ -37,7 +37,7 @@ export function LineUnitConversion({ docId, rowIndex, quantity, price, info, can
   };
 
   return (
-    <div className="mt-1 rounded-md border border-sisyphus-500/25 bg-sisyphus-50/50 px-2 py-1 text-[length:var(--fs-11)] leading-snug dark:bg-sisyphus-500/10">
+    <div className="mt-1 rounded-md border border-sisyphus-500/25 bg-sisyphus-50/50 px-2 py-1 text-(length:--fs-11) leading-snug dark:bg-sisyphus-500/10">
       <p className="flex flex-wrap items-center gap-x-1 gap-y-0.5 text-foreground">
         <FiPackage aria-hidden className="size-3 shrink-0 text-sisyphus-600" />
         <span className="tabular-nums">{fmt(buyQty)} {info.buyName}</span>
@@ -54,7 +54,7 @@ export function LineUnitConversion({ docId, rowIndex, quantity, price, info, can
             return (
               <button
                 key={v} type="button" onClick={() => void choose(v)} aria-pressed={active} disabled={busy != null}
-                className={`inline-flex min-h-6 cursor-pointer items-center gap-1 rounded px-1.5 font-medium transition-colors ${active ? 'bg-card text-foreground shadow-sm ring-1 ring-border' : 'hover:text-foreground'}`}
+                className={`inline-flex min-h-6 cursor-pointer items-center gap-1 rounded px-1.5 font-medium transition-colors ${active ? 'bg-card text-foreground shadow-xs ring-1 ring-border' : 'hover:text-foreground'}`}
               >
                 {busy === v && <FiLoader aria-hidden className="size-3 animate-spin motion-reduce:animate-none" />}
                 {v === 'buy' ? info.buyName : info.baseName}

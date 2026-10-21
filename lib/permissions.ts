@@ -16,6 +16,7 @@ export const PERMISSIONS: PermissionDef[] = [
   { key: 'users.delete', resource: 'users', action: 'delete', description: 'Delete users' },
   { key: 'users.assign_role', resource: 'users', action: 'assign_role', description: 'Assign role to user' },
   { key: 'users.softone_link', resource: 'users', action: 'softone_link', description: 'Σύνδεση χρηστών του προσωπικού με χρήστες SoftOne' },
+  { key: 'portal.view_as', resource: 'portal', action: 'view_as', description: 'Προβολή του portal πελάτη/συνεργάτη/συνεργείου όπως το βλέπει (μόνο ανάγνωση)' },
 
   // Roles
   { key: 'roles.read', resource: 'roles', action: 'read', description: 'View roles' },
@@ -115,7 +116,7 @@ export const PERMISSIONS: PermissionDef[] = [
 export const ROLE_DEFAULTS: Record<string, string[]> = {
   SUPER_ADMIN: PERMISSIONS.map((p) => p.key), // all
   ADMIN: [
-    'users.read', 'users.create', 'users.update', 'users.assign_role', 'users.softone_link',
+    'users.read', 'users.create', 'users.update', 'users.assign_role', 'users.softone_link', 'portal.view_as',
     'roles.read',
     'permissions.read',
     'companies.read', 'companies.create', 'companies.update', 'companies.delete', 'companies.manage_types',
@@ -145,7 +146,7 @@ export const ROLE_DEFAULTS: Record<string, string[]> = {
 export const RESOURCE_LABELS: Record<string, string> = {
   users: 'Χρήστες', roles: 'Ρόλοι', permissions: 'Δικαιώματα', media: 'Media', companies: 'Εταιρείες',
   kad: 'ΚΑΔ', metadata: 'Μητρώα αναφοράς', ocr: 'OCR / Έγγραφα', system: 'Σύστημα',
-  projects: 'Έργα', recipes: 'Συνταγές τοποθέτησης', dynamic_offers: 'Δυναμικές προσφορές', payments: 'Πληρωμές (Viva)', order_requests: 'Αιτήματα παραγγελίας', appointments: 'Ραντεβού', leads: 'Leads & newsletter', partners: 'Συνεργάτες',
+  projects: 'Έργα', recipes: 'Συνταγές τοποθέτησης', dynamic_offers: 'Δυναμικές προσφορές', payments: 'Πληρωμές (Viva)', order_requests: 'Αιτήματα παραγγελίας', appointments: 'Ραντεβού', leads: 'Leads & newsletter', partners: 'Συνεργάτες', portal: 'Portal πελατών & συνεργατών',
   classifications: 'Κατηγορίες & ομάδες', units: 'Μονάδες μέτρησης', items: 'Είδη', files: 'Αρχεία πελατών & έργων', assistant: 'Air Jordan (βοηθός AI)',
 };
 

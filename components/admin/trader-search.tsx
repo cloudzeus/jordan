@@ -65,18 +65,24 @@ export function TraderSearch({
   const rootRef = React.useRef<HTMLDivElement>(null);
   const listId = `${id}-list`;
 
-  React.useEffect(() => {
-    const term = q.trim();
-    if (term.length < MIN_CHARS) {
+  // Προετοιμασία της αναζήτησης με «adjust state while rendering» (αρχικό `[]` ⇒ και στο πρώτο render).
+  const searchDeps = [q, reload, sodtype];
+  const [prevSearchDeps, setPrevSearchDeps] = React.useState<readonly unknown[]>([]);
+  if (searchDeps.length !== prevSearchDeps.length || searchDeps.some((x, i) => !Object.is(x, prevSearchDeps[i]))) {
+    setPrevSearchDeps(searchDeps);
+    if (q.trim().length < MIN_CHARS) {
       setResults([]);
       setSearched(false);
       setFailed(false);
       setLoading(false);
-      return;
-    }
+    } else setLoading(true);
+  }
+
+  React.useEffect(() => {
+    const term = q.trim();
+    if (term.length < MIN_CHARS) return;
     // `ignore`: ένα αργό αίτημα δεν πρέπει να προσπεράσει νεότερο.
     let ignore = false;
-    setLoading(true);
     const h = setTimeout(() => {
       fetch(`/api/admin/softone/search?type=traders&q=${encodeURIComponent(term)}${sodtype ? `&sodtype=${sodtype}` : ''}`)
         .then(async (r) => {
@@ -123,7 +129,7 @@ export function TraderSearch({
 
   return (
     <div className={cn('relative', className)} ref={rootRef}>
-      <label htmlFor={id} className="text-[length:var(--fs-11)] font-medium text-muted-foreground">
+      <label htmlFor={id} className="text-(length:--fs-11) font-medium text-muted-foreground">
         {label}
       </label>
       <div className="relative mt-1">
@@ -143,7 +149,7 @@ export function TraderSearch({
           aria-autocomplete="list"
           aria-activedescendant={showList ? `${listId}-${active}` : undefined}
           placeholder={placeholder}
-          className="h-9 pl-8 pr-8 text-[length:var(--fs-13)]"
+          className="h-9 pl-8 pr-8 text-(length:--fs-13)"
           onChange={(e) => { setQ(e.target.value); setOpen(true); }}
           onKeyDown={(e) => {
             if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
@@ -173,7 +179,7 @@ export function TraderSearch({
             type="button"
             aria-label="Καθαρισμός αναζήτησης"
             onClick={() => { setQ(''); setResults([]); setOpen(false); setSearched(false); setFailed(false); }}
-            className="absolute right-2 top-1/2 grid size-6 -translate-y-1/2 cursor-pointer place-items-center rounded-sm text-muted-foreground outline-none cx-transition hover:bg-[var(--cx-hover)] focus-visible:ring-2 focus-visible:ring-sisyphus-500"
+            className="absolute right-2 top-1/2 grid size-6 -translate-y-1/2 cursor-pointer place-items-center rounded-sm text-muted-foreground outline-hidden cx-transition hover:bg-(--cx-hover) focus-visible:ring-2 focus-visible:ring-sisyphus-500"
           >
             <FiX className="size-3.5" />
           </button>
@@ -181,7 +187,7 @@ export function TraderSearch({
       </div>
 
       {loading && (
-        <p className="mt-1 text-[length:var(--fs-11)] text-muted-foreground" role="status">
+        <p className="mt-1 text-(length:--fs-11) text-muted-foreground" role="status">
           Αναζήτηση…
         </p>
       )}
@@ -203,12 +209,12 @@ export function TraderSearch({
                 onMouseEnter={() => setActive(i)}
                 onClick={() => pick(r)}
                 className={cn(
-                  'flex w-full cursor-pointer flex-col px-3 py-2 text-left outline-none cx-transition',
-                  i === active ? 'bg-sisyphus-50' : 'hover:bg-[var(--cx-hover)]',
+                  'flex w-full cursor-pointer flex-col px-3 py-2 text-left outline-hidden cx-transition',
+                  i === active ? 'bg-sisyphus-50' : 'hover:bg-(--cx-hover)',
                 )}
               >
-                <span className="text-[length:var(--fs-13)] font-medium text-foreground">{r.name}</span>
-                <span className="text-[length:var(--fs-11)] text-muted-foreground">
+                <span className="text-(length:--fs-13) font-medium text-foreground">{r.name}</span>
+                <span className="text-(length:--fs-11) text-muted-foreground">
                   {[r.code, r.sub].filter(Boolean).join(' · ')}
                 </span>
               </button>
@@ -221,14 +227,14 @@ export function TraderSearch({
         <div
           id={listId}
           role="status"
-          className="absolute z-20 mt-1 flex w-full items-center gap-2 rounded-md border border-border bg-neutral-0 px-3 py-2 text-[length:var(--fs-12)] text-muted-foreground shadow-fluent-8"
+          className="absolute z-20 mt-1 flex w-full items-center gap-2 rounded-md border border-border bg-neutral-0 px-3 py-2 text-(length:--fs-12) text-muted-foreground shadow-fluent-8"
         >
           <FiAlertTriangle aria-hidden className="size-3.5 shrink-0 text-warning-500" />
           <span>Σφάλμα φόρτωσης</span>
           <button
             type="button"
             onClick={() => { setFailed(false); setReload((n) => n + 1); }}
-            className="ml-auto inline-flex cursor-pointer items-center gap-1 rounded-sm px-1.5 py-0.5 text-[length:var(--fs-11)] font-medium text-sisyphus-700 outline-none hover:bg-[var(--cx-hover)] focus-visible:ring-2 focus-visible:ring-sisyphus-500"
+            className="ml-auto inline-flex cursor-pointer items-center gap-1 rounded-sm px-1.5 py-0.5 text-(length:--fs-11) font-medium text-sisyphus-700 outline-hidden hover:bg-(--cx-hover) focus-visible:ring-2 focus-visible:ring-sisyphus-500"
           >
             <FiRefreshCw aria-hidden className="size-3" /> Δοκίμασε ξανά
           </button>
@@ -239,7 +245,7 @@ export function TraderSearch({
         <div
           id={listId}
           role="status"
-          className="absolute z-20 mt-1 w-full rounded-md border border-border bg-neutral-0 px-3 py-2 text-[length:var(--fs-12)] text-muted-foreground shadow-fluent-8"
+          className="absolute z-20 mt-1 w-full rounded-md border border-border bg-neutral-0 px-3 py-2 text-(length:--fs-12) text-muted-foreground shadow-fluent-8"
         >
           Δεν βρέθηκε συναλλασσόμενος.
         </div>

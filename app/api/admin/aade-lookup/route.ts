@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { prisma } from '@/lib/db';
 import { requirePermission } from '@/lib/rbac';
 import { ensurePrimaryActivity } from '@/lib/kad/resolve';
 
@@ -13,6 +12,12 @@ type FirmAct = {
   firm_act_kind_descr: string;
 };
 
+/** Υποσύνολο της απάντησης του afm2info που διαβάζουμε. */
+type AadeAfmInfo = {
+  basic_rec?: Record<string, unknown> | null;
+  firm_act_tab?: { item?: FirmAct | FirmAct[] } | null;
+} | null;
+
 export async function POST(request: Request) {
   await requirePermission('companies.read');
   const body = await request.json();
@@ -21,7 +26,7 @@ export async function POST(request: Request) {
   const parsed = Schema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: 'invalid', issues: parsed.error.issues }, { status: 400 });
 
-  let raw: any;
+  let raw: AadeAfmInfo;
   try {
     const r = await fetch('https://vat.wwa.gr/afm2info', {
       method: 'POST',
@@ -31,8 +36,8 @@ export async function POST(request: Request) {
     });
     if (!r.ok) return NextResponse.json({ error: 'aade_http', status: r.status }, { status: 502 });
     raw = await r.json();
-  } catch (e: any) {
-    return NextResponse.json({ error: 'aade_unreachable', message: e?.message }, { status: 502 });
+  } catch (e) {
+    return NextResponse.json({ error: 'aade_unreachable', message: (e as Error)?.message }, { status: 502 });
   }
 
   const b = raw?.basic_rec;
@@ -88,7 +93,7 @@ function s(v: unknown): string | null {
   if (typeof v === 'string') return v.trim() || null;
   if (typeof v === 'number' || typeof v === 'boolean') return String(v);
   if (typeof v === 'object') {
-    const o = v as any;
+    const o = v as { $?: Record<string, unknown>; _?: unknown };
     if (o.$ && (o.$['xsi:nil'] === 'true' || o.$.nil === 'true')) return null;
     if (typeof o._ === 'string') return o._.trim() || null;
   }

@@ -69,7 +69,8 @@ export function AmountsFixPanel({ docId, input, canManage, onApplyLocal, onSaved
   const plans = React.useMemo(() => (closes ? [] : totalsPlans(input)), [closes, input]);
   const [busy, setBusy] = React.useState<string | null>(null);
   const [recheck, setRecheck] = React.useState<RecheckResult | null>(null);
-  React.useEffect(() => { setRecheck(null); }, [docId]);
+  const [prevDocId, setPrevDocId] = React.useState(docId);
+  if (docId !== prevDocId) { setPrevDocId(docId); setRecheck(null); }
 
   if (closes || !canManage) return null;
 
@@ -109,19 +110,19 @@ export function AmountsFixPanel({ docId, input, canManage, onApplyLocal, onSaved
 
   return (
     <div role="region" aria-label="Τα ποσά δεν κλείνουν" className="rounded-lg border border-amber-300 bg-amber-50/70 px-3 py-2 dark:border-amber-700 dark:bg-amber-950/30">
-      <p className="flex items-center gap-1.5 text-[length:var(--fs-12)] font-bold text-amber-900 dark:text-amber-200">
+      <p className="flex items-center gap-1.5 text-(length:--fs-12) font-bold text-amber-900 dark:text-amber-200">
         <FiAlertCircle aria-hidden className="size-3.5" /> Τα ποσά δεν κλείνουν — τι να κάνεις
       </p>
 
       {plans.length > 0 ? (
         <ul className="mt-1.5 space-y-2">
           {plans.map((p, i) => (
-            <li key={i} className="rounded-md bg-card/80 px-2.5 py-2 text-[length:var(--fs-12)] text-foreground">
+            <li key={i} className="rounded-md bg-card/80 px-2.5 py-2 text-(length:--fs-12) text-foreground">
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div className="min-w-0 flex-1">
                   <p className="font-semibold">{i === 0 ? 'Πιθανότερη εξήγηση' : `Εναλλακτικά (${i + 1})`}</p>
                   <ul className="mt-0.5 list-disc pl-4">{p.steps.map((s, k) => <li key={k}>{STEP_TEXT(s)}</li>)}</ul>
-                  <p className="mt-1 text-[length:var(--fs-11)] text-muted-foreground">{changes(input, p.result).join(' · ')}</p>
+                  <p className="mt-1 text-(length:--fs-11) text-muted-foreground">{changes(input, p.result).join(' · ')}</p>
                 </div>
                 <button type="button" disabled={busy != null} onClick={() => void apply(p.result, 'plan', `p${i}`)}
                   className="inline-flex min-h-8 shrink-0 cursor-pointer items-center gap-1 rounded-md bg-sisyphus-500 px-2.5 font-semibold text-white hover:bg-sisyphus-600 disabled:opacity-50">
@@ -132,34 +133,34 @@ export function AmountsFixPanel({ docId, input, canManage, onApplyLocal, onSaved
           ))}
         </ul>
       ) : (
-        <p className="mt-1 text-[length:var(--fs-12)] text-foreground">Καμία γνωστή εξήγηση δεν κλείνει τα ποσά. Κάνε επανέλεγχο από το χαρτί.</p>
+        <p className="mt-1 text-(length:--fs-12) text-foreground">Καμία γνωστή εξήγηση δεν κλείνει τα ποσά. Κάνε επανέλεγχο από το χαρτί.</p>
       )}
 
       {/* ΕΠΑΝΕΛΕΓΧΟΣ: η απάντηση είναι στο χαρτί, όχι στην αριθμητική. */}
       <div className="mt-2 border-t border-amber-200 pt-2 dark:border-amber-800">
         {!recheck ? (
           <button type="button" disabled={busy != null} onClick={() => void runRecheck()}
-            className="inline-flex min-h-8 cursor-pointer items-center gap-1.5 rounded-md border border-sisyphus-500/40 bg-card px-2.5 text-[length:var(--fs-12)] font-semibold text-sisyphus-700 hover:bg-sisyphus-500/10 disabled:opacity-50 dark:text-sisyphus-300">
+            className="inline-flex min-h-8 cursor-pointer items-center gap-1.5 rounded-md border border-sisyphus-500/40 bg-card px-2.5 text-(length:--fs-12) font-semibold text-sisyphus-700 hover:bg-sisyphus-500/10 disabled:opacity-50 dark:text-sisyphus-300">
             {busy === 'recheck' ? <FiLoader aria-hidden className="size-3.5 animate-spin motion-reduce:animate-none" /> : <FiRefreshCw aria-hidden className="size-3.5" />}
             {busy === 'recheck' ? 'Ξαναδιαβάζω τα ποσά από το χαρτί…' : 'Επανέλεγχος από το χαρτί'}
           </button>
         ) : (
-          <div className="text-[length:var(--fs-12)] text-foreground">
+          <div className="text-(length:--fs-12) text-foreground">
             <p className="flex items-center gap-1.5 font-semibold">
               <FiFileText aria-hidden className="size-3.5" /> Επανέλεγχος από το χαρτί: {recheck.closes ? <span className="text-emerald-700 dark:text-emerald-300">κλείνει ✓</span> : <span className="text-amber-800 dark:text-amber-300">δεν κλείνει</span>}
             </p>
-            <p className="text-[length:var(--fs-11)] text-muted-foreground">{recheck.message}</p>
+            <p className="text-(length:--fs-11) text-muted-foreground">{recheck.message}</p>
             {recheck.closes && recheckInput && plans[0] && changes(input, recheckInput).join() === changes(input, plans[0].result).join() && (
-              <p className="mt-0.5 inline-flex items-center gap-1 rounded bg-emerald-500/10 px-1.5 py-0.5 text-[length:var(--fs-11)] font-semibold text-emerald-800 dark:text-emerald-300">
+              <p className="mt-0.5 inline-flex items-center gap-1 rounded bg-emerald-500/10 px-1.5 py-0.5 text-(length:--fs-11) font-semibold text-emerald-800 dark:text-emerald-300">
                 <FiCheck aria-hidden className="size-3" /> Η νέα ανάγνωση επιβεβαιώνει την πιθανότερη εξήγηση
               </p>
             )}
             {recheck.closes && recheck.steps && (
-              <ul className="mt-0.5 list-disc pl-4 text-[length:var(--fs-12)]">{recheck.steps.map((s, k) => <li key={k}>{STEP_TEXT(s)}</li>)}</ul>
+              <ul className="mt-0.5 list-disc pl-4 text-(length:--fs-12)">{recheck.steps.map((s, k) => <li key={k}>{STEP_TEXT(s)}</li>)}</ul>
             )}
             {recheck.closes && recheckInput && (
               <div className="mt-1 flex flex-wrap items-center justify-between gap-2">
-                <p className="min-w-0 flex-1 text-[length:var(--fs-11)] text-muted-foreground">{changes(input, recheckInput).join(' · ') || 'Καμία αλλαγή.'}</p>
+                <p className="min-w-0 flex-1 text-(length:--fs-11) text-muted-foreground">{changes(input, recheckInput).join(' · ') || 'Καμία αλλαγή.'}</p>
                 <button type="button" disabled={busy != null} onClick={() => void apply(recheckInput, 'recheck', 'r')}
                   className="inline-flex min-h-8 shrink-0 cursor-pointer items-center gap-1 rounded-md bg-sisyphus-500 px-2.5 font-semibold text-white hover:bg-sisyphus-600 disabled:opacity-50">
                   {busy === 'r' ? <FiLoader aria-hidden className="size-3.5 animate-spin motion-reduce:animate-none" /> : <FiCheck aria-hidden className="size-3.5" />} Εφάρμοσε την ανάγνωση

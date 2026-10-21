@@ -22,13 +22,13 @@ function Slot({ label, m, removed, onToggle }: { label: string; m: KadMapping | 
   return (
     <div className="min-w-0 py-0.5">
       <div className="flex min-w-0 items-start gap-1.5">
-        <span className="w-[5.5rem] shrink-0 pt-px text-[length:var(--fs-11)] text-muted-foreground">{label}</span>
+        <span className="w-22 shrink-0 pt-px text-(length:--fs-11) text-muted-foreground">{label}</span>
         <div className="min-w-0 flex-1">
           {m.row ? (
-            <p className={`text-[length:var(--fs-12)] leading-snug ${removed ? 'text-muted-foreground line-through' : ''}`}>
+            <p className={`text-(length:--fs-12) leading-snug ${removed ? 'text-muted-foreground line-through' : ''}`}>
               <span className="font-mono tabular-nums">{m.row.code}</span> {m.row.name}
               {!removed && (
-                <span className={`ml-1.5 inline-block rounded px-1 text-[length:var(--fs-10)] font-medium ${m.status === 'matched'
+                <span className={`ml-1.5 inline-block rounded px-1 text-(length:--fs-10) font-medium ${m.status === 'matched'
                   ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300'
                   : 'bg-amber-50 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300'}`}>
                   {m.status === 'matched' ? 'ίδιος με ΑΑΔΕ' : 'κατά περιγραφή — έλεγξε'}
@@ -36,10 +36,10 @@ function Slot({ label, m, removed, onToggle }: { label: string; m: KadMapping | 
               )}
             </p>
           ) : (
-            <p className="text-[length:var(--fs-12)] leading-snug text-amber-700 dark:text-amber-300">{m.note} Θα μείνει κενός.</p>
+            <p className="text-(length:--fs-12) leading-snug text-amber-700 dark:text-amber-300">{m.note} Θα μείνει κενός.</p>
           )}
           {m.row && m.aade && (
-            <p className="truncate text-[length:var(--fs-11)] text-muted-foreground" title={m.aade.descr}>
+            <p className="truncate text-(length:--fs-11) text-muted-foreground" title={m.aade.descr}>
               ΑΑΔΕ: <span className="font-mono tabular-nums">{formatAadeKad(m.aade.code)}</span> {m.aade.descr}
             </p>
           )}
@@ -72,7 +72,8 @@ export function KadField({ kads, removed, onToggle }: { kads: TraderKads | null 
 /** Κατάσταση «αφαιρεμένων» ΚΑΔ — μηδενίζεται όταν έρθει νέα απάντηση ΑΑΔΕ. */
 export function useKadRemoved(reset: unknown): [ReadonlySet<KadSlot>, (s: KadSlot) => void] {
   const [removed, setRemoved] = React.useState<ReadonlySet<KadSlot>>(new Set());
-  React.useEffect(() => { setRemoved(new Set()); }, [reset]);
+  const [prevReset, setPrevReset] = React.useState(reset);
+  if (!Object.is(reset, prevReset)) { setPrevReset(reset); setRemoved(new Set()); }
   const toggle = React.useCallback((s: KadSlot) => setRemoved((prev) => {
     const next = new Set(prev);
     if (next.has(s)) next.delete(s); else next.add(s);

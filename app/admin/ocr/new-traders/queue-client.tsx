@@ -54,8 +54,11 @@ export function NewTradersClient({ header, groups, ignored, truncated, taxOffice
   const primaryRef = React.useRef<(() => void) | null>(null);
 
   // Ο server είναι η πηγή αλήθειας: κάθε `router.refresh()` ξαναγεμίζει τις λίστες.
-  React.useEffect(() => { setPending(groups); }, [groups]);
-  React.useEffect(() => { setHidden(ignored); }, [ignored]);
+  // (Ρύθμιση state κατά το render όταν αλλάζουν τα props — όχι σε effect.)
+  const [prevGroups, setPrevGroups] = React.useState(groups);
+  if (groups !== prevGroups) { setPrevGroups(groups); setPending(groups); }
+  const [prevIgnored, setPrevIgnored] = React.useState(ignored);
+  if (ignored !== prevIgnored) { setPrevIgnored(ignored); setHidden(ignored); }
 
   const rows: Row[] = React.useMemo(() => {
     if (filter === 'ignored') {
@@ -73,11 +76,14 @@ export function NewTradersClient({ header, groups, ignored, truncated, taxOffice
       .map((g) => ({ type: 'group' as const, id: `g:${g.afm}`, group: g }));
   }, [filter, hidden, pending, search]);
 
-  // Πάντα υπάρχει επιλεγμένη γραμμή όσο η λίστα δεν είναι άδεια.
-  React.useEffect(() => {
-    if (rows.length === 0) { setSelectedId(null); return; }
-    setSelectedId((cur) => (cur && rows.some((r) => r.id === cur) ? cur : rows[0].id));
-  }, [rows]);
+  // Πάντα υπάρχει επιλεγμένη γραμμή όσο η λίστα δεν είναι άδεια. Ελέγχεται σε κάθε αλλαγή
+  // της λίστας (και στο πρώτο render), κατά το render — όχι σε effect.
+  const [prevRows, setPrevRows] = React.useState<Row[] | null>(null);
+  if (rows !== prevRows) {
+    setPrevRows(rows);
+    if (rows.length === 0) setSelectedId(null);
+    else setSelectedId((cur) => (cur && rows.some((r) => r.id === cur) ? cur : rows[0].id));
+  }
 
   const selected = rows.find((r) => r.id === selectedId) ?? null;
 
@@ -154,7 +160,7 @@ export function NewTradersClient({ header, groups, ignored, truncated, taxOffice
           action={
             <Link
               href="/admin/ocr"
-              className="inline-flex h-8 cursor-pointer items-center rounded-lg px-2.5 text-[length:var(--fs-13)] font-medium text-sisyphus-700 outline-none hover:bg-[var(--cx-hover)] focus-visible:ring-2 focus-visible:ring-sisyphus-500"
+              className="inline-flex h-8 cursor-pointer items-center rounded-lg px-2.5 text-(length:--fs-13) font-medium text-sisyphus-700 outline-hidden hover:bg-(--cx-hover) focus-visible:ring-2 focus-visible:ring-sisyphus-500"
             >
               Λίστα εγγράφων OCR
             </Link>
@@ -216,15 +222,14 @@ function GroupRow({ group }: { group: TraderGroup }) {
     <>
       <span className="grid size-10 shrink-0 place-items-center overflow-hidden rounded-md border border-border bg-neutral-6 text-muted-foreground">
         {group.thumbUrl
-          // eslint-disable-next-line @next/next/no-img-element
           ? <img src={group.thumbUrl} alt="" className="size-full object-cover" />
           : <FiFile aria-hidden className="size-4" />}
       </span>
       <span className="min-w-0 flex-1">
-        <span className="block truncate text-[length:var(--fs-13)] font-semibold text-foreground">
+        <span className="block truncate text-(length:--fs-13) font-semibold text-foreground">
           {group.name ?? 'Χωρίς επωνυμία'}
         </span>
-        <span className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[length:var(--fs-11)] text-muted-foreground">
+        <span className="mt-0.5 flex flex-wrap items-center gap-1.5 text-(length:--fs-11) text-muted-foreground">
           <span className="font-mono tabular-nums">{group.afm}</span>
           <span aria-hidden>·</span>
           <span>{group.docCount} παραστατικά</span>
@@ -233,7 +238,7 @@ function GroupRow({ group }: { group: TraderGroup }) {
         </span>
         <span className="mt-1 flex flex-wrap items-center gap-1.5">
           <span
-            className="inline-flex items-center rounded-full px-1.5 py-px text-[length:var(--fs-10)] font-medium"
+            className="inline-flex items-center rounded-full px-1.5 py-px text-(length:--fs-10) font-medium"
             style={{ backgroundColor: color.bg, color: color.fg }}
           >
             {KIND_LABEL[group.suggestedKind]}
@@ -241,14 +246,14 @@ function GroupRow({ group }: { group: TraderGroup }) {
           {/* Ξένος εκδότης: χωρίς ΑΑΔΕ/Δ.Ο.Υ. — φαίνεται ήδη από την ουρά. */}
           {group.isForeign && (
             <span
-              className="inline-flex items-center gap-1 rounded-full px-1.5 py-px text-[length:var(--fs-10)] font-medium"
+              className="inline-flex items-center gap-1 rounded-full px-1.5 py-px text-(length:--fs-10) font-medium"
               style={{ backgroundColor: '#EAF4FC', color: '#0078D4' }}
             >
               <FiGlobe aria-hidden className="size-2.5" />
               {group.country}
             </span>
           )}
-          <span className="text-[length:var(--fs-10)] text-muted-foreground">{fmtDate(group.lastDate)}</span>
+          <span className="text-(length:--fs-10) text-muted-foreground">{fmtDate(group.lastDate)}</span>
         </span>
       </span>
     </>
@@ -262,10 +267,10 @@ function IgnoredRow({ row }: { row: IgnoredIssuerRow }) {
         <FiEyeOff aria-hidden className="size-4" />
       </span>
       <span className="min-w-0 flex-1">
-        <span className="block truncate text-[length:var(--fs-13)] font-semibold text-foreground">
+        <span className="block truncate text-(length:--fs-13) font-semibold text-foreground">
           {row.name ?? 'Χωρίς επωνυμία'}
         </span>
-        <span className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[length:var(--fs-11)] text-muted-foreground">
+        <span className="mt-0.5 flex flex-wrap items-center gap-1.5 text-(length:--fs-11) text-muted-foreground">
           <span className="font-mono tabular-nums">{row.afm}</span>
           {row.reason && (<><span aria-hidden>·</span><span className="truncate">{row.reason}</span></>)}
         </span>
@@ -281,14 +286,14 @@ function IgnoredPanel({
   return (
     <div className="space-y-3 px-4 py-3">
       <div>
-        <h2 className="text-[length:var(--fs-15)] font-semibold text-foreground">{row.name ?? 'Χωρίς επωνυμία'}</h2>
-        <p className="mt-0.5 flex items-center gap-1.5 text-[length:var(--fs-12)] text-muted-foreground">
+        <h2 className="text-(length:--fs-15) font-semibold text-foreground">{row.name ?? 'Χωρίς επωνυμία'}</h2>
+        <p className="mt-0.5 flex items-center gap-1.5 text-(length:--fs-12) text-muted-foreground">
           <FiEyeOff aria-hidden className="size-3.5" /> Αγνοημένος εκδότης
           <span aria-hidden>·</span>
           <span className="font-mono tabular-nums text-foreground">ΑΦΜ {row.afm}</span>
         </p>
       </div>
-      <p className="rounded-lg border border-border bg-neutral-4 px-3 py-2 text-[length:var(--fs-12)] text-muted-foreground">
+      <p className="rounded-lg border border-border bg-neutral-4 px-3 py-2 text-(length:--fs-12) text-muted-foreground">
         {row.reason ? <>Λόγος: {row.reason}</> : 'Χωρίς καταγεγραμμένο λόγο.'}
       </p>
       <Button type="button" variant="outline" className="cursor-pointer" disabled={!canManage} onClick={onRestore}>

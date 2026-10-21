@@ -66,7 +66,7 @@ export function useQueueKeys({
 }: UseQueueKeysArgs): void {
   // Latest values live in a ref so the window listener is attached only once.
   const latest = React.useRef({ ids, selectedId, onSelect, onPrimary, onEscape });
-  latest.current = { ids, selectedId, onSelect, onPrimary, onEscape };
+  React.useLayoutEffect(() => { latest.current = { ids, selectedId, onSelect, onPrimary, onEscape }; });
 
   React.useEffect(() => {
     if (!enabled) return;
