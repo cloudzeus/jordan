@@ -16,6 +16,7 @@ import type { BudgetLine } from '@/lib/project-budget';
 import { AddBudgetLineDialog } from './add-budget-line-dialog';
 import { ApplyRecipeDialog } from './apply-recipe-dialog';
 import { useProjectRefresh } from './project-events';
+import { deleteBudgetLineAction, listBudgetAction } from './actions';
 
 // Μνήμη ανά έργο για τη διάρκεια της σελίδας: κλείσιμο/άνοιγμα της ίδιας γραμμής δεν ξαναρωτά
 // το SoftOne. Το «Ανανέωση» την παρακάμπτει.
@@ -98,10 +99,8 @@ function useProjectActivity(prjc: number) {
 function useBudget(prjc: number) {
   const [lines, setLines] = React.useState<BudgetLine[] | null>(null);
   const load = React.useCallback(() =>
-    fetch(`/api/admin/projects/${prjc}/budget`, { cache: 'no-store' })
-      .then(async (res) => {
-        if (res.ok) setLines(((await res.json()) as { lines: BudgetLine[] }).lines);
-      })
+    listBudgetAction(prjc)
+      .then((r) => { if (r.ok) setLines(r.data); })
       .catch(() => { /* ο προϋπολογισμός είναι συμπληρωματικός — οι κινήσεις φαίνονται κι έτσι */ }),
   [prjc]);
   React.useEffect(() => { void load(); }, [load]);
@@ -307,9 +306,8 @@ function BudgetSection({
     if (!ok) return;
     setBusyId(l.id);
     try {
-      const res = await fetch(`/api/admin/projects/${prjc}/budget/${l.id}`, { method: 'DELETE' });
-      const body = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(body.message || 'Αποτυχία αφαίρεσης');
+      const res = await deleteBudgetLineAction(prjc, l.id);
+      if (!res.ok) throw new Error(res.message);
       toast.success(`Αφαιρέθηκε: ${l.name}`);
       onDeleted();
     } catch (e) {

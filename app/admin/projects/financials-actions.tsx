@@ -16,6 +16,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { COST_CATEGORIES, COST_CATEGORY_LABEL, overheadKey } from '@/lib/project-profit/calc';
 import type { OverheadRateRow } from '@/lib/overheads';
+import { deleteOverheadAction, listOverheadsAction, refreshFinancialsAction, saveOverheadAction } from './actions';
 
 const ITEM = 'cursor-pointer gap-2 text-(length:--fs-12)';
 const CATEGORY_LABEL: Record<string, string> = Object.fromEntries(COST_CATEGORIES.map((c) => [overheadKey(c), COST_CATEGORY_LABEL[c]]));
@@ -35,11 +36,9 @@ export function useFinancialsActions(canManage: boolean, prjc?: number) {
     setBusy(true);
     const t = toast.loading('Υπολογισμός οικονομικών όλων των έργων από το SoftOne…');
     try {
-      const r = await fetch('/api/admin/projects/financials/refresh', { method: 'POST' });
-      const d = await r.json().catch(() => ({}));
-      if (!r.ok) throw new Error(d.message ?? 'Αποτυχία υπολογισμού');
-      toast.success(`Υπολογίστηκαν ${d.projects} έργα · ${d.issues} θέματα δεδομένων`, { id: t });
-      router.refresh();
+      const r = await refreshFinancialsAction();
+      if (!r.ok) throw new Error(r.message);
+      toast.success(`Υπολογίστηκαν ${r.data.projects} έργα · ${r.data.issues} θέματα δεδομένων`, { id: t });
     } catch (e) {
       toast.error((e as Error).message, { id: t });
     } finally {
@@ -104,18 +103,14 @@ export function FinancialsMenu({ canManage }: { canManage: boolean }) {
 }
 
 function OverheadRatesDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
-  const router = useRouter();
   const [rates, setRates] = React.useState<OverheadRateRow[] | null>(null);
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [form, setForm] = React.useState({ validFrom: `${new Date().getFullYear()}-01-01`, validTo: '', percent: '', category: '', note: '' });
 
-  // Το setState μόνο μέσα στο callback του fetch.
+  // Το setState μόνο μέσα στο callback του action.
   const load = React.useCallback(() =>
-    fetch('/api/admin/projects/overheads').then(async (r) => {
-      const d = await r.json().catch(() => ({}));
-      setRates(r.ok ? d.rates : []);
-    }), []);
+    listOverheadsAction().then((r) => setRates(r.ok ? r.data : []), () => setRates([])), []);
   React.useEffect(() => { if (open) void load(); }, [open, load]);
 
   const percentN = Number(form.percent.replace(',', '.'));
@@ -124,16 +119,11 @@ function OverheadRatesDialog({ open, onOpenChange }: { open: boolean; onOpenChan
     if (!form.percent.trim() || !Number.isFinite(percentN)) { setError('Συμπλήρωσε ποσοστό'); return; }
     setBusy(true); setError(null);
     try {
-      const r = await fetch('/api/admin/projects/overheads', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ validFrom: form.validFrom, validTo: form.validTo || null, percent: percentN, category: form.category || null, note: form.note || null }),
-      });
-      const d = await r.json().catch(() => ({}));
-      if (!r.ok) throw new Error(d.message ?? 'Δεν αποθηκεύτηκε');
+      const r = await saveOverheadAction(null, { validFrom: form.validFrom, validTo: form.validTo || null, percent: percentN, category: form.category || null, note: form.note || null });
+      if (!r.ok) throw new Error(r.message);
       toast.success('Αποθηκεύτηκε — τα έργα ξαναϋπολογίστηκαν');
       setForm((f) => ({ ...f, percent: '', note: '' }));
       await load();
-      router.refresh();
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -142,12 +132,11 @@ function OverheadRatesDialog({ open, onOpenChange }: { open: boolean; onOpenChan
   };
   const remove = async (id: string) => {
     setBusy(true);
-    const r = await fetch(`/api/admin/projects/overheads/${id}`, { method: 'DELETE' });
+    const r = await deleteOverheadAction(id);
     setBusy(false);
-    if (!r.ok) { toast.error('Δεν διαγράφηκε'); return; }
+    if (!r.ok) { toast.error(r.message); return; }
     toast.success('Διαγράφηκε');
     await load();
-    router.refresh();
   };
 
   const field = 'h-9 w-full rounded-lg border border-input bg-transparent px-2.5 text-(length:--fs-13) outline-hidden focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50';

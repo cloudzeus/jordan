@@ -1,7 +1,6 @@
 'use client';
 
 import * as React from 'react';
-import { useRouter } from 'next/navigation';
 import type { Map as LMap, Marker } from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { toast } from 'sonner';
@@ -14,6 +13,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { formatCoords } from '@/lib/coords';
 import { PRECISION_LABEL, siteLine, type SiteCandidate, type SitePrecision } from '@/lib/project-site-core';
+import { deleteSiteAction, geocodeSiteAction, getSiteAction, reverseSiteAction, saveSiteAction } from './actions';
 
 export type ProjectSiteValue = Site;
 type Site = {
@@ -33,7 +33,6 @@ export function ProjectSiteDialog({ prjc, projectLabel, open, onOpenChange, valu
   /** Ελεγχόμενη χρήση (π.χ. σύμβαση χωρίς PRJC): αρχική θέση + callback αντί για αποθήκευση στο έργο. */
   value?: Site | null; onSave?: (site: Site | null) => void;
 }) {
-  const router = useRouter();
   const [loaded, setLoaded] = React.useState(false);
   const [existing, setExisting] = React.useState(false);
   const [site, setSite] = React.useState<Site | null>(null);
@@ -65,11 +64,10 @@ export function ProjectSiteDialog({ prjc, projectLabel, open, onOpenChange, valu
   React.useEffect(() => {
     if (!open || onSave) return;
     void (async () => {
-      const r = await fetch(`/api/admin/projects/${prjc}/site`, { cache: 'no-store' }).catch(() => null);
-      const d = r?.ok ? await r.json().catch(() => null) : null;
-      const s = d?.site ?? null;
+      const r = await getSiteAction(prjc ?? 0).catch(() => null);
+      const s = r?.ok ? r.data : null;
       setExisting(!!s);
-      setSite(s ? { ...s, source: s.source ?? 'geocode' } : null);
+      setSite(s ? { ...s, source: (s.source as Site['source'] | null) ?? 'geocode', precision: s.precision as SitePrecision | null } : null);
       setQ(s ? siteLine(s) : '');
       setLoaded(true);
     })();
@@ -79,16 +77,15 @@ export function ProjectSiteDialog({ prjc, projectLabel, open, onOpenChange, valu
   const reverse = React.useCallback(async (lat: number, lng: number) => {
     setBusy('reverse'); setError(null);
     try {
-      const r = await fetch('/api/admin/projects/site/reverse', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ lat, lng }) });
-      const d = await r.json().catch(() => ({}));
-      const c: SiteCandidate | null = r.ok ? d.candidate : null;
+      const r = await reverseSiteAction(lat, lng).catch(() => null);
+      const c: SiteCandidate | null = r?.ok ? r.data : null;
       // Η θέση είναι ΠΑΝΤΑ αυτή της πινέζας· η διεύθυνση η πλησιέστερη που βρέθηκε (ή μένει η προηγούμενη).
       setSite((prev) => ({
         address: c?.address ?? prev?.address ?? null, zip: c?.zip ?? prev?.zip ?? null, district: c?.district ?? prev?.district ?? null,
         city: c?.city ?? prev?.city ?? null, formatted: c?.formatted ?? prev?.formatted ?? null,
         lat, lng, source: 'marker', precision: prev?.precision ?? null,
       }));
-      if (!r.ok) setError(d.message ?? 'Η διεύθυνση του σημείου δεν βρέθηκε — η θέση κρατήθηκε.');
+      if (!r?.ok || !c) setError((r && !r.ok && r.message) || 'Η διεύθυνση του σημείου δεν βρέθηκε — η θέση κρατήθηκε.');
     } finally {
       setBusy(null);
     }
@@ -130,10 +127,9 @@ export function ProjectSiteDialog({ prjc, projectLabel, open, onOpenChange, valu
     if (q.trim().length < 3) { setError('Γράψε τη διεύθυνση (οδός, αριθμός, πόλη).'); return; }
     setBusy('search'); setError(null); setCandidates(null);
     try {
-      const r = await fetch('/api/admin/projects/site/geocode', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ q }) });
-      const d = await r.json().catch(() => ({}));
-      if (!r.ok) { setError(d.message ?? 'Η αναζήτηση απέτυχε.'); return; }
-      const list: SiteCandidate[] = d.candidates ?? [];
+      const r = await geocodeSiteAction(q).catch(() => null);
+      if (!r?.ok) { setError(r?.message ?? 'Η αναζήτηση απέτυχε.'); return; }
+      const list: SiteCandidate[] = r.data;
       if (!list.length) { setError('Δεν βρέθηκε — δοκίμασε άλλη γραφή, ή κάνε κλικ στον χάρτη στο σημείο του έργου.'); return; }
       setCandidates(list);
       place(list[0]);
@@ -147,12 +143,11 @@ export function ProjectSiteDialog({ prjc, projectLabel, open, onOpenChange, valu
     if (onSave) { onSave(site); onOpenChange(false); return; }
     setBusy('save'); setError(null);
     try {
-      const r = await fetch(`/api/admin/projects/${prjc}/site`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(site) });
-      const d = await r.json().catch(() => ({}));
-      if (!r.ok) { setError(d.message ?? 'Η αποθήκευση απέτυχε.'); return; }
+      // Server Action: αποθήκευση + revalidate των σελίδων έργων στον server.
+      const r = await saveSiteAction(prjc ?? 0, site).catch(() => null);
+      if (!r?.ok) { setError(r?.message ?? 'Η αποθήκευση απέτυχε.'); return; }
       toast.success('Η τοποθεσία του έργου αποθηκεύτηκε');
       onOpenChange(false);
-      router.refresh();
     } finally {
       setBusy(null);
     }
@@ -162,12 +157,11 @@ export function ProjectSiteDialog({ prjc, projectLabel, open, onOpenChange, valu
     if (!window.confirm('Να αφαιρεθεί η τοποθεσία του έργου;')) return;
     if (onSave) { onSave(null); onOpenChange(false); return; }
     setBusy('delete');
-    const r = await fetch(`/api/admin/projects/${prjc}/site`, { method: 'DELETE' }).catch(() => null);
+    const r = await deleteSiteAction(prjc ?? 0).catch(() => null);
     setBusy(null);
-    if (!r?.ok) { toast.error('Δεν αφαιρέθηκε'); return; }
+    if (!r?.ok) { toast.error(r?.message ?? 'Δεν αφαιρέθηκε'); return; }
     toast.success('Η τοποθεσία αφαιρέθηκε');
     onOpenChange(false);
-    router.refresh();
   };
 
   const setField = (k: 'address' | 'zip' | 'district' | 'city', v: string) => setSite((s) => (s ? { ...s, [k]: v } : s));

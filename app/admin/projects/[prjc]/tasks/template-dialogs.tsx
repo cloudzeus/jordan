@@ -12,15 +12,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogBody, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { applyTemplateItems, durationLabel } from '@/lib/project-tasks-core';
 import type { TaskView, TemplateView } from '@/lib/project-tasks';
+import { unwrap } from '@/lib/action-result';
+import { applyTemplateAction, createTemplateAction } from '../../actions';
 
 const fmt = (d: string) => new Date(`${d}T00:00:00Z`).toLocaleDateString('el-GR', { timeZone: 'UTC', weekday: 'short', day: 'numeric', month: 'short' });
 
-async function post(url: string, body: unknown) {
-  const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data?.message || 'Η ενέργεια απέτυχε');
-  return data;
-}
 
 /** «Αποθήκευση ως template»: όλα ή μέρος των tasks του έργου, με όνομα. */
 export function SaveTemplateDialog({ open, onOpenChange, prjc, tasks, onSaved }: { open: boolean; onOpenChange: (o: boolean) => void; prjc: number; tasks: TaskView[]; onSaved: () => void }) {
@@ -43,7 +39,7 @@ export function SaveTemplateDialog({ open, onOpenChange, prjc, tasks, onSaved }:
     if (!name.trim()) { setError('Δώστε όνομα στο template'); return; }
     setBusy(true); setError(null);
     try {
-      await post('/api/admin/task-templates', { name: name.trim(), description: description.trim() || null, prjc, taskIds: picked });
+      await unwrap(createTemplateAction({ name: name.trim(), description: description.trim() || null, prjc, taskIds: picked }));
       toast.success(`Αποθηκεύτηκε το template «${name.trim()}»`, { description: `${picked.length} εργασίες` });
       onSaved();
       onOpenChange(false);
@@ -125,7 +121,7 @@ export function ApplyTemplateDialog({ open, onOpenChange, prjc, templates, today
     if (!tpl || !projectId || !start) return;
     setBusy(true); setError(null);
     try {
-      const r = await post(`/api/admin/task-templates/${tpl.id}/apply`, { prjc: projectId, startDate: start });
+      const r = await unwrap(applyTemplateAction(tpl.id, { prjc: projectId, startDate: start }));
       toast.success(`Προστέθηκαν ${r.count} εργασίες από «${tpl.name}»`, projects ? { action: { label: 'Άνοιγμα', onClick: () => { window.location.href = `/admin/projects/${projectId}/tasks`; } } } : undefined);
       onApplied();
       onOpenChange(false);

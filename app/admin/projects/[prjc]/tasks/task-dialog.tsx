@@ -14,6 +14,8 @@ import { ACCEPT_EXTENSIONS, ALLOWED_HINT } from '@/lib/entity-files/core';
 import { PARTY_KINDS, PROGRESS_STEPS, durationLabel, phaseOf, phaseMeta, type PartyKindKey } from '@/lib/project-tasks-core';
 import type { PartyOption, TaskView } from '@/lib/project-tasks';
 import { cn } from '@/lib/utils';
+import { unwrap } from '@/lib/action-result';
+import { linkTaskFilesAction, projectFileChoicesAction, saveTaskAction, unlinkTaskFileAction } from '../../actions';
 
 type Party = { kind: PartyKindKey; ref: string; label: string; sub: string | null };
 
@@ -94,10 +96,8 @@ export function TaskDialog({
       progress, customerVisible, inCalendar, dependsOn: deps, parties: parties.map((p) => ({ kind: p.kind, ref: p.ref })),
     };
     try {
-      const body = task
-        ? await api(`/api/admin/projects/${prjc}/tasks/${task.id}`, { method: 'PATCH', body: JSON.stringify(payload) })
-        : await api(`/api/admin/projects/${prjc}/tasks`, { method: 'POST', body: JSON.stringify(payload) });
-      const id: string = body.task.id;
+      const { id } = await unwrap(saveTaskAction(prjc, task?.id ?? null, payload));
+      // Τα αρχεία ανεβαίνουν στο REST route (multipart, έως 100 MB) — όχι μέσα από Server Action.
       let failed = 0;
       for (const f of queue) {
         const fd = new FormData();
@@ -119,7 +119,7 @@ export function TaskDialog({
   const unlink = async (fileId: string) => {
     if (!task) return;
     try {
-      await api(`/api/admin/projects/${prjc}/tasks/${task.id}/files?fileId=${encodeURIComponent(fileId)}`, { method: 'DELETE' });
+      await unwrap(unlinkTaskFileAction(prjc, task.id, fileId));
       setFiles((f) => f.filter((x) => x.id !== fileId));
       onSaved();
     } catch (e) { toast.error((e as Error).message); }
@@ -364,13 +364,13 @@ function LinkExisting({ prjc, taskId, linked, onLinked }: { prjc: number; taskId
   }
   React.useEffect(() => {
     if (!open) return;
-    fetch(`/api/admin/projects/${prjc}/tasks/options?files=1`).then((r) => r.json()).then((b) => setChoices(b.files ?? [])).catch(() => setChoices([]));
+    projectFileChoicesAction(prjc).then((r) => setChoices(r.ok ? r.data : []), () => setChoices([]));
   }, [open, prjc]);
 
   const save = async () => {
     setBusy(true);
     try {
-      await api(`/api/admin/projects/${prjc}/tasks/${taskId}/files`, { method: 'POST', body: JSON.stringify({ fileIds: picked }) });
+      await unwrap(linkTaskFilesAction(prjc, taskId, picked));
       onLinked((choices ?? []).filter((c) => picked.includes(c.id)).map((c) => ({ id: c.id, name: c.name, ext: c.ext, size: 0, family: 'pdf' })));
       setOpen(false);
     } catch (e) { toast.error((e as Error).message); } finally { setBusy(false); }

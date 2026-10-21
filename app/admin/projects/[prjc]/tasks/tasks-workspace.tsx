@@ -15,17 +15,13 @@ import { cn } from '@/lib/utils';
 import { KanbanBoard, type TaskRef } from './kanban-board';
 import { TaskDialog } from './task-dialog';
 import { ApplyTemplateDialog, SaveTemplateDialog } from './template-dialogs';
+import { unwrap } from '@/lib/action-result';
+import { deleteTaskAction, moveTaskAction, saveTaskAction } from '../../actions';
 
 const ITEM = 'cursor-pointer gap-2 text-(length:--fs-12)';
 const fmt = (d: string) => new Date(`${d}T00:00:00Z`).toLocaleDateString('el-GR', { timeZone: 'UTC', day: 'numeric', month: 'short', year: 'numeric' });
 const VIEW_KEY = 'admin.project-tasks.view';
 
-async function api(url: string, init: RequestInit) {
-  const res = await fetch(url, { headers: { 'Content-Type': 'application/json' }, ...init });
-  const body = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(body?.message || 'Η ενέργεια απέτυχε');
-  return body;
-}
 
 export function TasksWorkspace({ prjc, tasks: initial, options, templates, canManage, canFiles, today, openTaskId = null }: {
   prjc: number; tasks: TaskView[]; options: PartyOption[]; templates: TemplateView[]; canManage: boolean; canFiles: boolean; today: string;
@@ -71,7 +67,7 @@ export function TasksWorkspace({ prjc, tasks: initial, options, templates, canMa
     setTasks((ts) => ts.map((t) => (by.has(t.id) ? { ...t, progress: by.get(t.id)!.progress, phase: phaseOf(by.get(t.id)!.progress), sortOrder: by.get(t.id)!.sortOrder } : t)));
     const t = tasks.find((x) => x.id === id);
     try {
-      await api(`/api/admin/projects/${prjc}/tasks/${id}/move`, { method: 'POST', body: JSON.stringify({ to, beforeId }) });
+      await unwrap(moveTaskAction(prjc, id, { to, beforeId }));
       if (t && phaseOf(t.progress) !== to) {
         const waiting = t.dependsOn.filter((d) => names.has(d) && !names.get(d)!.done);
         if (to !== 'TODO' && waiting.length) toast.warning(`Η «${t.name}» περιμένει: ${waiting.map((d) => names.get(d)!.name).join(', ')}`);
@@ -86,7 +82,7 @@ export function TasksWorkspace({ prjc, tasks: initial, options, templates, canMa
 
   const setProgress = async (id: string, progress: number) => {
     try {
-      await api(`/api/admin/projects/${prjc}/tasks/${id}`, { method: 'PATCH', body: JSON.stringify({ progress }) });
+      await unwrap(saveTaskAction(prjc, id, { progress }));
       refresh();
     } catch (e) { toast.error((e as Error).message); }
   };
@@ -101,7 +97,7 @@ export function TasksWorkspace({ prjc, tasks: initial, options, templates, canMa
     });
     if (!ok) return;
     try {
-      await api(`/api/admin/projects/${prjc}/tasks/${id}`, { method: 'DELETE' });
+      await unwrap(deleteTaskAction(prjc, id));
       toast.success('Η εργασία διαγράφηκε');
       refresh();
     } catch (e) { toast.error((e as Error).message); }

@@ -4,51 +4,27 @@
 // Τα REST routes στο /api/admin/recipes μένουν για εξωτερικούς πελάτες (mobile app).
 // Κάθε action ελέγχει μόνο του δικαιώματα και επιστρέφει { ok, … } — ποτέ redirect μέσα στη φόρμα.
 import { revalidatePath } from 'next/cache';
-import type { ZodType } from 'zod';
 import { logAudit } from '@/lib/audit';
-import { getCurrentUserWithPermissions } from '@/lib/rbac';
+import { actor, caught as caughtBase, fail, parse, type ActionResult } from '@/lib/server-actions';
 import {
   RecipeError, applyRecipeInput, applyRecipeToBudget, copyRecipe, createRecipe, deleteRecipe, listRecipes,
   recipeCopyInput, recipeInput, recipeItemInfo, updateRecipe,
   type RecipeItemInfo, type RecipeView,
 } from '@/lib/install-recipes';
 
-export type ActionResult<T = undefined> = { ok: true; data: T } | { ok: false; message: string };
-
-const fail = (message: string): { ok: false; message: string } => ({ ok: false, message });
-
-/** Ο συνδεδεμένος χρήστης αν έχει ΟΛΑ τα δικαιώματα, αλλιώς μήνυμα (όχι redirect). */
-async function actor(...keys: string[]) {
-  const u = await getCurrentUserWithPermissions();
-  if (!u) return { error: fail('Η σύνδεση έληξε — συνδεθείτε ξανά.') };
-  if (u.role.key !== 'SUPER_ADMIN' && !keys.every((k) => u.permissionKeys.has(k))) {
-    return { error: fail(`Δεν έχετε το δικαίωμα (${keys.join(', ')}).`) };
-  }
-  return { user: u };
-}
-
-function parse<T>(schema: ZodType<T>, input: unknown): { data: T } | { error: { ok: false; message: string } } {
-  const r = schema.safeParse(input);
-  return r.success ? { data: r.data } : { error: fail(r.error.issues[0]?.message ?? 'Μη έγκυρα στοιχεία') };
-}
-
-function caught(e: unknown): { ok: false; message: string } {
-  if (e instanceof RecipeError) return fail(e.message);
-  console.error('[recipes action]', e);
-  return fail('Κάτι πήγε στραβά — δοκιμάστε ξανά.');
-}
+const caught = (e: unknown) => caughtBase(e, 'recipes', [RecipeError]);
 
 /** Όλες οι συνταγές (για τους διαλόγους «Από συνταγή» σε έργα και προσφορές). */
 export async function listRecipesAction(): Promise<ActionResult<RecipeView[]>> {
   const a = await actor('recipes.read');
-  if ('error' in a) return a.error!;
+  if ('error' in a) return a.error;
   return { ok: true, data: await listRecipes() };
 }
 
 /** Νέα συνταγή (id = null) ή πλήρης αντικατάσταση υπάρχουσας. */
 export async function saveRecipeAction(id: string | null, input: unknown): Promise<ActionResult<{ id: string }>> {
   const a = await actor('recipes.manage');
-  if ('error' in a) return a.error!;
+  if ('error' in a) return a.error;
   const p = parse(recipeInput, input);
   if ('error' in p) return p.error;
   try {
@@ -67,7 +43,7 @@ export async function saveRecipeAction(id: string | null, input: unknown): Promi
 
 export async function deleteRecipeAction(id: string): Promise<ActionResult> {
   const a = await actor('recipes.manage');
-  if ('error' in a) return a.error!;
+  if ('error' in a) return a.error;
   try {
     await deleteRecipe(id);
     await logAudit({ userId: a.user.id, userEmail: a.user.email, action: 'recipe.delete', resource: 'install_recipe', resourceId: id }).catch(() => null);
@@ -80,7 +56,7 @@ export async function deleteRecipeAction(id: string): Promise<ActionResult> {
 
 export async function copyRecipeAction(id: string, input: unknown): Promise<ActionResult<{ id: string }>> {
   const a = await actor('recipes.manage');
-  if ('error' in a) return a.error!;
+  if ('error' in a) return a.error;
   const p = parse(recipeCopyInput, input);
   if ('error' in p) return p.error;
   try {
@@ -104,7 +80,7 @@ export async function recipeItemInfoAction(mtrls: number[]): Promise<Record<numb
 /** Συνταγή → γραμμές στον προϋπολογισμό έργου. */
 export async function applyRecipeToBudgetAction(prjc: number, input: unknown): Promise<ActionResult<{ lines: number; value: number }>> {
   const a = await actor('projects.manage', 'recipes.read');
-  if ('error' in a) return a.error!;
+  if ('error' in a) return a.error;
   if (!Number.isInteger(prjc) || prjc <= 0) return fail('Άκυρο έργο');
   const p = parse(applyRecipeInput, input);
   if ('error' in p) return p.error;

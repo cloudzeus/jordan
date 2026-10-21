@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/dialog';
 import { RegistrySearch, type RegistryPick } from '@/components/admin/registry-search';
 import { emitProjectRefresh } from './project-events';
+import { addBudgetLineAction } from './actions';
 
 type Kind = 'product' | 'service';
 
@@ -91,13 +92,8 @@ export function AddBudgetLineDialog({
     setBusy(true);
     setServerError(null);
     try {
-      const res = await fetch(`/api/admin/projects/${prjc}/budget`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mtrl: pick.id, qty: qtyN, unitPrice: priceN, notes: notes.trim() || null }),
-      });
-      const body = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(body.message || 'Αποτυχία αποθήκευσης');
+      const res = await addBudgetLineAction(prjc, { mtrl: pick.id, qty: qtyN, unitPrice: priceN, notes: notes.trim() || null });
+      if (!res.ok) throw new Error(res.message);
       toast.success(`Προστέθηκε στον προϋπολογισμό: ${pick.name}`);
       emitProjectRefresh(prjc, 'budget');
       onOpenChange(false);

@@ -2,18 +2,17 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { type ColumnDef } from '@tanstack/react-table';
 import { FiRefreshCw, FiCheck, FiSlash, FiAlertTriangle, FiMapPin } from 'react-icons/fi';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { DataTable } from '@/components/ui/data-table';
-import { syncErrorMessage } from '@/lib/softone-sync/sync-error';
 import type { ProjectListRow } from '@/lib/projects';
 import type { ProjectFinancialsRow } from '@/lib/project-profit';
 import { ProjectActivityPanel } from './project-activity-panel';
 import { ProjectRowActions } from './project-row-actions';
+import { syncProjectsAction } from './actions';
 
 const DASH = <span className="text-muted-foreground/40">—</span>;
 
@@ -91,7 +90,6 @@ export function ProjectsTableClient({
   canFiles?: boolean;
   lastSync: string | null;
 }) {
-  const router = useRouter();
   const [busy, setBusy] = React.useState(false);
   const [status, setStatus] = React.useState<number | 'all'>('all');
 
@@ -113,16 +111,14 @@ export function ProjectsTableClient({
 
   const sync = async () => {
     setBusy(true);
-    const res = await fetch('/api/admin/metadata/sync-projects-softone', { method: 'POST' });
+    const res = await syncProjectsAction().catch(() => null);
     setBusy(false);
-    if (res.ok) {
-      const d = await res.json();
+    if (res?.ok) {
+      const d = res.data;
       const extra = d.deactivated ? ` · ${d.deactivated} απενεργοποιήσεις` : '';
       toast.success(`Έργα: ${d.total.toLocaleString('el-GR')} (νέα ${d.created}, ενημερώσεις ${d.updated})${extra}`);
-      router.refresh();
     } else {
-      const e = await res.json().catch(() => ({}));
-      toast.error(syncErrorMessage(e, 'Αποτυχία συγχρονισμού'));
+      toast.error(res?.message ?? 'Αποτυχία συγχρονισμού');
     }
   };
 

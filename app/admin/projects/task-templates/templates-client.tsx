@@ -12,6 +12,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSepara
 import { confirmAction } from '@/components/ui/confirm-dialog';
 import type { TemplateView } from '@/lib/project-tasks';
 import { ApplyTemplateDialog } from '../[prjc]/tasks/template-dialogs';
+import { deleteTemplateAction, updateTemplateAction } from '../actions';
 
 const ITEM = 'cursor-pointer gap-2 text-(length:--fs-12)';
 
@@ -22,8 +23,8 @@ export function TemplatesClient({ templates, projects, canManage, today }: { tem
 
   const remove = async (t: TemplateView) => {
     if (!(await confirmAction({ message: `Διαγραφή του template «${t.name}»;\nΟι εργασίες που ήδη προστέθηκαν σε έργα δεν επηρεάζονται.`, destructive: true }))) return;
-    const res = await fetch(`/api/admin/task-templates/${t.id}`, { method: 'DELETE' });
-    if (res.ok) { toast.success('Το template διαγράφηκε'); router.refresh(); } else toast.error((await res.json().catch(() => ({}))).message ?? 'Η διαγραφή απέτυχε');
+    const res = await deleteTemplateAction(t.id);
+    if (res.ok) toast.success('Το template διαγράφηκε'); else toast.error(res.message);
   };
 
   if (!templates.length) {
@@ -91,10 +92,9 @@ function RenameDialog({ t, onClose, onDone }: { t: TemplateView | null; onClose:
   if (t !== prevT) { setPrevT(t); if (t) { setName(t.name); setDescription(t.description ?? ''); setError(null); } }
   const save = async () => {
     setBusy(true); setError(null);
-    const res = await fetch(`/api/admin/task-templates/${t!.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: name.trim(), description: description.trim() || null }) });
-    const body = await res.json().catch(() => ({}));
+    const res = await updateTemplateAction(t!.id, { name: name.trim(), description: description.trim() || null });
     setBusy(false);
-    if (!res.ok) { setError(body.message ?? 'Η αποθήκευση απέτυχε'); return; }
+    if (!res.ok) { setError(res.message); return; }
     toast.success('Αποθηκεύτηκε');
     onDone();
   };
