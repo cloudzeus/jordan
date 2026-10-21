@@ -286,10 +286,10 @@ export function FloorPlanOfferDialog({ open, onOpenChange, prjc, rooms, recipes,
                 </p>
               )}
               <div className="overflow-x-auto rounded-lg border border-border">
-                <table className="w-full min-w-[560px] text-[length:var(--fs-12)]">
+                <table className="w-full min-w-[600px] table-fixed text-[length:var(--fs-12)]">
                   <thead className="bg-muted/40 text-left text-[length:var(--fs-11)] text-muted-foreground">
                     <tr>
-                      <th className="px-2.5 py-1.5 font-medium">Γραμμή</th>
+                      <th className="w-[46%] px-2.5 py-1.5 font-medium">Γραμμή</th>
                       <th className="px-2.5 py-1.5 font-medium">Είδος</th>
                       <th className="px-2.5 py-1.5 text-right font-medium">Ποσότητα</th>
                       <th className="px-2.5 py-1.5 text-right font-medium">Τιμή</th>

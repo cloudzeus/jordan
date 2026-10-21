@@ -88,7 +88,7 @@ export function RoomMaterialEditor({ roomName, value, recipes, recipesError, onC
       </div>
       <div className="flex flex-wrap items-center justify-between gap-1">
         <MaterialChip material={value} />
-        <span className="flex gap-1">
+        <span className="flex flex-wrap gap-1">
           {value && canApplyAll && (
             <Button size="xs" variant="ghost" onClick={onApplyAll} title="Το ίδιο υλικό σε όσους χώρους δεν έχουν">Σε όλους τους υπόλοιπους</Button>
           )}
