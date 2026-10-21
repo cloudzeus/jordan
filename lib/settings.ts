@@ -116,6 +116,7 @@ export const SETTING_CATALOG: SettingDef[] = [
   { key: 'ai.visionApiKey',   category: 'ai', label: 'Google Gemini API Key (εφεδρεία / δωρεάν)', type: 'password', isSecret: true, description: 'Κλειδί Google AI Studio (δωρεάν όριο). Χρησιμοποιείται όταν το OpenRouter δεν έχει credits ή αρνηθεί — ή ως μόνος πάροχος αν δεν υπάρχει κλειδί OpenRouter. Αν κενό, διαβάζεται από GEMINI_API_KEY στο .env.' },
   { key: 'ai.visionUrl',      category: 'ai', label: 'Vision OCR endpoint',     type: 'url',  description: 'Κενό = αυτόματα: πρώτα OpenRouter, εφεδρεία Google Gemini.' },
   { key: 'ai.visionModel',    category: 'ai', label: 'Vision OCR model',        type: 'text', defaultValue: 'gemini-2.5-flash', description: 'Σκέτο όνομα (gemini-2.5-flash)· στο OpenRouter γίνεται αυτόματα google/gemini-2.5-flash.' },
+  { key: 'ai.floorPlanModel', category: 'ai', label: 'Κάτοψη — μοντέλο αναγνώρισης χώρων', type: 'text', defaultValue: 'anthropic/claude-sonnet-5.5', description: 'Vision μοντέλο για την «Αναγνώριση χώρων με AI» στη διαστασιολόγηση κάτοψης (ονόματα, θέσεις, διαστάσεις, κλίμακα). Ίδιοι πάροχοι/κλειδιά με το vision OCR (μέσω OpenRouter)· πλήρες όνομα (π.χ. anthropic/claude-sonnet-5.5) ή σκέτο Gemini (gemini-3.8-flash). Στην εφεδρεία Google χρησιμοποιείται Gemini.' },
   {
     key: 'ocr.useIssuerExample',
     category: 'ai',

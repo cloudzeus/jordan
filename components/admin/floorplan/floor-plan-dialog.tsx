@@ -22,7 +22,7 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/compone
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
-  burnLine, detectWalls, labelPoint, measureRoom, pointInPolygon, polygonArea, polygonPerimeter, toGray, toM2,
+  burnLine, detectWalls, labelPoint, measureRoom, otsu, pointInPolygon, polygonArea, polygonPerimeter, threshold, toGray, toM2,
   type Mask, type Pt, type WallResult,
 } from '@/lib/floorplan/core';
 import { blankPlan, loadPlan, type LoadedPlan } from './load-plan';
@@ -32,6 +32,8 @@ import { MaterialChip, OfferStepBody, RoomMaterialEditor, type RoomMaterial } fr
 import { FloorPlanOfferDialog, type OfferRoom, type OfferSubmit } from './offer-dialog';
 import type { RecipeView } from '@/lib/install-recipes';
 import { planData, scalePlanData, type PlanData } from '@/lib/floorplan/saved';
+import { aiResponse, chooseScale, fallbackPolygon, pickCandidate, roomsInPx } from '@/lib/floorplan/ai-core';
+import { Sparkles } from 'lucide-react';
 import type { FloorPlanListRow } from '@/lib/floorplan/plans';
 import { RoomWallsPanel, WallsToggle } from './room-walls';
 import { DEFAULT_HEIGHT, wallArea, type RoomWalls } from '@/lib/floorplan/walls';
@@ -40,6 +42,8 @@ type Room = {
   id: string; name: string; color: string; polygon: Pt[]; areaPx: number; perimeterPx: number; manual: boolean;
   /** Πλακάκι και στους τοίχους (ύψος + ανοίγματα) — undefined/on:false = μόνο δάπεδο. */
   walls?: RoomWalls;
+  /** Από την αναγνώριση AI ως ορθογώνιο (δεν βρέθηκε περίγραμμα) — θέλει έλεγχο. */
+  approx?: boolean;
   /** Υλικό/συνταγή για την προσφορά. */
   material: RoomMaterial | null;
 };
@@ -163,6 +167,7 @@ export function FloorPlanDialog({ prjc, projectLabel, open, onOpenChange, canSav
   const imageSavedFor = React.useRef<LoadedPlan | null>(null);
   const [savedPlans, setSavedPlans] = React.useState<FloorPlanListRow[] | null>(null);
   const [planSaving, setPlanSaving] = React.useState(false);
+  const [aiBusy, setAiBusy] = React.useState(false);
   const railRef = React.useRef<HTMLDivElement | null>(null);
   const totalRef = React.useRef<HTMLSpanElement | null>(null);
   const metersRef = React.useRef<HTMLInputElement | null>(null);
@@ -347,6 +352,74 @@ export function FloorPlanDialog({ prjc, projectLabel, open, onOpenChange, canSav
     const r: Room = { id: uid(), name: `Χώρος ${n}`, color: PALETTE[(n - 1) % PALETTE.length], polygon, areaPx, perimeterPx, manual, material: null };
     setRooms((rs) => [...rs, r]);
     setSelected(r.id);
+  };
+
+  // ── Αναγνώριση χώρων με AI ───────────────────────────────────────────────────────────
+  // Το vision μοντέλο δίνει ονόματα, σημείο μέσα σε κάθε χώρο, πλαίσιο και κλίμακα· το περίγραμμα
+  // χαράζεται εδώ: πρώτα από τους τοίχους, μετά από όλες τις γραμμές του σχεδίου (κούφιοι τοίχοι με
+  // διπλή γραμμή), αλλιώς το πλαίσιο του μοντέλου ως ορθογώνιο «κατά προσέγγιση».
+  const detectAi = async () => {
+    if (!plan || !gray) return;
+    setAiBusy(true);
+    try {
+      const k = Math.min(1, 2000 / Math.max(plan.display.width, plan.display.height));
+      const c = document.createElement('canvas');
+      c.width = Math.round(plan.display.width * k); c.height = Math.round(plan.display.height * k);
+      c.getContext('2d')!.drawImage(plan.display, 0, 0, c.width, c.height);
+      const blob = await new Promise<Blob>((res, rej) => c.toBlob((b) => (b ? res(b) : rej(new Error('JPEG export failed'))), 'image/jpeg', 0.88));
+      const fd = new FormData();
+      fd.append('image', new File([blob], 'katopsi.jpg', { type: 'image/jpeg' }));
+      const res = await fetch(`/api/admin/projects/${prjc}/floorplan-ai`, { method: 'POST', body: fd });
+      const body = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(body?.message ?? 'Η αναγνώριση απέτυχε.');
+      const r = aiResponse.parse(body);
+      const found = roomsInPx(r, w, h);
+
+      // Κλίμακα: μόνο αν δεν έχει οριστεί ήδη από τον χρήστη.
+      let mpp = mPerPx;
+      let scaleNote = '';
+      if (!calib) {
+        const sc = chooseScale(r, found, w, h);
+        if (sc) {
+          const len = Math.hypot(sc.line[1].x - sc.line[0].x, sc.line[1].y - sc.line[0].y);
+          setCalib({ a: sc.line[0], b: sc.line[1], meters: sc.mPerPx * len });
+          setCalibLine(null);
+          mpp = sc.mPerPx;
+          scaleNote = sc.source === 'dimension' ? ' Κλίμακα από διάσταση του σχεδίου.' : ' Κλίμακα από τις διαστάσεις των χώρων.';
+        } else scaleNote = ' Δεν βρέθηκε κλίμακα — όρισέ τη στο βήμα 2.';
+      }
+      const maxGap = mpp ? doorCm / 100 / mpp : maxDim * 0.02;
+      const gaps = [0, maxGap * 0.6, maxGap];
+      // Όλες οι γραμμές του σχεδίου ως εμπόδια (για τοίχους με διπλή λεπτή γραμμή).
+      const ink = threshold(gray, walls?.threshold ?? otsu(gray));
+      if (blocked) for (let i = 0; i < ink.length; i++) if (blocked[i]) ink[i] = 1;
+
+      const added: Room[] = [];
+      let traced = 0, approx = 0, skipped = 0;
+      for (const fr of found) {
+        if ([...rooms, ...added].some((x) => pointInPolygon(fr.seed, x.polygon))) { skipped++; continue; }
+        // Υποψήφια: από τους τοίχους και από όλες τις γραμμές, με και χωρίς κλείσιμο ανοιγμάτων.
+        const cands = [blocked, ink].flatMap((mask) => (mask ? [measureRoom(mask, w, h, fr.seed, gaps), measureRoom(mask, w, h, fr.seed, [0])] : []))
+          .map((m) => (m.ok ? m : null));
+        const poly = pickCandidate(cands, fr, mpp);
+        const n = ++seq.current;
+        const base = { id: uid(), name: fr.name, color: PALETTE[(n - 1) % PALETTE.length], material: null } as const;
+        if (poly) { traced++; added.push({ ...base, ...poly, manual: false }); }
+        else {
+          approx++;
+          const pg = fallbackPolygon(fr, mpp);
+          added.push({ ...base, polygon: pg, areaPx: polygonArea(pg), perimeterPx: polygonPerimeter(pg), manual: true, approx: true });
+        }
+      }
+      setRooms((rs) => [...rs, ...added]);
+      if (added[0]) setSelected(added[0].id);
+      setTool('room');
+      toast.success(`Βρέθηκαν ${found.length} χώροι · ${traced} με περίγραμμα από το σχέδιο${approx ? `, ${approx} κατά προσέγγιση (ορθογώνιο — έλεγξέ τους)` : ''}${skipped ? `, ${skipped} υπήρχαν ήδη` : ''}.${scaleNote}`, { duration: 9000 });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Η αναγνώριση απέτυχε.');
+    } finally {
+      setAiBusy(false);
+    }
   };
 
   const wallPx = mPerPx ? wallCm / 100 / mPerPx : Math.max(4, Math.round(maxDim * 0.008));
@@ -678,6 +751,16 @@ export function FloorPlanDialog({ prjc, projectLabel, open, onOpenChange, canSav
           <div className="grid min-h-0 flex-1 grid-cols-1 grid-rows-[minmax(0,1fr)_auto] md:grid-cols-[320px_minmax(0,1fr)] md:grid-rows-1">
             {/* ── Πάνελ βημάτων ── */}
             <div ref={railRef} className="order-2 max-h-[42dvh] space-y-3 overflow-y-auto border-t border-border bg-muted/30 p-3 md:order-1 md:max-h-none md:border-r md:border-t-0">
+              {canOffer && plan.pxPerM == null && (
+                <section data-fp-step className="rounded-xl border p-3" style={{ borderColor: '#C4B5FD', background: 'linear-gradient(135deg, #F5F3FF, #EEF2FF)' }}>
+                  <Button className="w-full" size="sm" disabled={aiBusy || !gray} onClick={() => void detectAi()} style={{ background: '#6D28D9', color: '#fff' }}>
+                    {aiBusy ? <FiLoader className="animate-spin" aria-hidden /> : <Sparkles className="size-3.5" aria-hidden />} {aiBusy ? 'Ανάγνωση σχεδίου… (~30″)' : 'Αναγνώριση χώρων με AI'}
+                  </Button>
+                  <p className="mt-1.5 text-(length:--fs-11)" style={{ color: '#4C1D95' }}>
+                    Διαβάζει ονόματα χώρων, διαστάσεις{calib ? '' : ', κλίμακα'} και περιγράμματα από το σχέδιο. Όπου το σχέδιο γράφει διαστάσεις, το εμβαδό ελέγχεται με αυτές. Όσα σημειωθούν «κατά προσέγγιση» διόρθωσέ τα με «Πολύγωνο».
+                  </p>
+                </section>
+              )}
               <Step n={1} title="Τοίχοι" done={wallsReady} active={step === 1}>
                 {plan.pxPerM == null && (
                   <label className="flex cursor-pointer items-center justify-between gap-2">
@@ -832,7 +915,8 @@ export function FloorPlanDialog({ prjc, projectLabel, open, onOpenChange, canSav
                           </span>
                           <span className="shrink-0 text-right font-mono text-(length:--fs-12) font-semibold tabular-nums">
                             {a == null ? '—' : nf.format(a)}<span className="ml-0.5 text-[10px] font-normal text-muted-foreground">m²</span>
-                            {mPerPx && <span className="block text-[10px] font-normal text-muted-foreground">Π {nf.format(r.perimeterPx * mPerPx)} m{r.manual ? ' · χειρ.' : ''}</span>}
+                            {mPerPx && <span className="block text-[10px] font-normal text-muted-foreground">Π {nf.format(r.perimeterPx * mPerPx)} m{r.approx ? '' : r.manual ? ' · χειρ.' : ''}</span>}
+                            {r.approx && <span className="block text-[10px] font-semibold" style={{ color: '#B45309' }} title="Ορθογώνιο από την αναγνώριση AI — έλεγξε/διόρθωσε με «Πολύγωνο»">κατά προσέγγιση</span>}
                           </span>
                           <button
                             type="button" aria-label={`Διαγραφή ${r.name}`}
