@@ -216,7 +216,6 @@ function GroupRow({ group }: { group: TraderGroup }) {
     <>
       <span className="grid size-10 shrink-0 place-items-center overflow-hidden rounded-md border border-border bg-neutral-6 text-muted-foreground">
         {group.thumbUrl
-          // eslint-disable-next-line @next/next/no-img-element
           ? <img src={group.thumbUrl} alt="" className="size-full object-cover" />
           : <FiFile aria-hidden className="size-4" />}
       </span>

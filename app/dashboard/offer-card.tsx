@@ -37,7 +37,6 @@ export function OfferCard({ o, big = false }: { o: PortalOffer; big?: boolean })
     <Link href={`/dashboard/offers/${o.id}`} className="group relative block bg-white text-(--s-ink) transition-shadow duration-300 hover:shadow-[0_24px_60px_-28px_rgba(28,50,65,0.45)]">
       <div className={big ? 'relative aspect-16/10 overflow-hidden bg-(--s-paper)' : 'relative aspect-4/3 overflow-hidden bg-(--s-paper)'}>
         {o.photo
-          // eslint-disable-next-line @next/next/no-img-element
           ? <img src={o.photo} alt="" className="s-img size-full object-cover" />
           : <ProductPlaceholder mtrl={lead?.mtrl ?? 0} name={o.title} label={false} />}
         <div className="absolute inset-0 bg-linear-to-t from-[#0B1620]/70 via-transparent to-transparent" />

@@ -134,7 +134,7 @@ function RolePermissionsEditor({
   const toggle = (id: string) => {
     setSelected((s) => {
       const next = new Set(s);
-      next.has(id) ? next.delete(id) : next.add(id);
+      if (next.has(id)) next.delete(id); else next.add(id);
       return next;
     });
   };
@@ -157,7 +157,7 @@ function RolePermissionsEditor({
   const toggleAllInResource = (perms: Permission[], on: boolean) => {
     setSelected((s) => {
       const next = new Set(s);
-      for (const p of perms) on ? next.add(p.id) : next.delete(p.id);
+      for (const p of perms) { if (on) next.add(p.id); else next.delete(p.id); }
       return next;
     });
   };

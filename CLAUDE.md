@@ -7,6 +7,7 @@
 - **Ασφάλεια:** πριν από κάθε merge `npm audit` χωρίς high/critical. Ποτέ τυφλό `npm audit fix --force` — προτείνει υποβαθμίσεις (π.χ. `exceljs@3`, `swagger-ui-react@3`). Αν μια ευπάθεια είναι σε υπο-εξάρτηση που χρησιμοποιείται μόνο από CLI του πακέτου, λύση με `overrides` στο `package.json` (υπάρχουν ήδη: uuid, argparse, postcss-selector-parser).
 - **Major αναβάθμιση:** διάβασε τα breaking changes και τρέξε `npx tsc --noEmit`, `npm test`, `npx next build`, και `npm ci` με το npm του Docker image (npm 10) ώστε το lockfile να δουλεύει εκεί.
 - **shadcn CLI:** δεν μπαίνει στα dependencies — `npx shadcn@latest add <component>`.
+- **Lint:** `npm run lint` (ESLint 10, `eslint.config.mjs`) πρέπει να βγάζει **0 errors** πριν από merge· οι προειδοποιήσεις διορθώνονται σταδιακά (`npm run lint:fix` για τις αυτόματες). Νέος κώδικας χωρίς νέες προειδοποιήσεις. Δεν χρησιμοποιούμε `@next/eslint-plugin-next` (φέρνει ευπάθεια χωρίς διόρθωση) — άρα όχι σχόλια `eslint-disable … @next/next/…`.
 
 ### Tailwind CSS 4 — τι προσέχουμε
 - Είσοδος: `@import 'tailwindcss'` + `@config '../tailwind.config.ts'` στο `app/globals.css`· PostCSS: `@tailwindcss/postcss`.

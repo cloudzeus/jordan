@@ -69,7 +69,6 @@ function MediaCard({
         {m.kind === 'DOCUMENT' ? <DocumentPreview m={m} /> : m.kind === 'VIDEO' ? (
           <video src={`${m.url}#t=0.5`} preload="metadata" muted playsInline controls className="size-full object-contain" aria-label={m.name} />
         ) : (
-          // eslint-disable-next-line @next/next/no-img-element
           <img src={m.thumbUrl ?? m.url} alt={m.name} loading="lazy" className="size-full object-cover" />
         )}
         {m.isPrimary && (

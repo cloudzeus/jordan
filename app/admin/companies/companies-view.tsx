@@ -205,7 +205,6 @@ export function CompaniesView({
         return (
           <div className="flex items-center gap-2 min-w-0">
             {row.original.logoUrl
-              // eslint-disable-next-line @next/next/no-img-element
               ? <img src={row.original.logoUrl} alt="" className="h-6 w-6 rounded-sm object-contain border border-border bg-background shrink-0" />
               : (
                 <span className="inline-flex h-6 w-6 items-center justify-center rounded-sm bg-primary text-primary-foreground text-(length:--fs-10) font-semibold shrink-0">
@@ -1304,7 +1303,6 @@ function AvatarUploader({
         aria-label={url ? 'Αλλαγή avatar' : 'Ανέβασμα avatar'}
       >
         {url
-          // eslint-disable-next-line @next/next/no-img-element
           ? <img src={url} alt="avatar" className="h-full w-full object-cover" />
           : <span className="text-(length:--fs-11) font-semibold">{initials}</span>}
         <span className={`absolute -bottom-0.5 -right-0.5 inline-flex h-4 w-4 items-center justify-center rounded-full border border-background text-(length:--fs-8) ${
@@ -1384,7 +1382,6 @@ function ContactsPanel({ companyId }: { companyId: string }) {
         {list.map((c) => (
           <li key={c.id} className="flex items-start gap-2 px-3 py-2">
             {c.avatarUrl
-              // eslint-disable-next-line @next/next/no-img-element
               ? <img src={c.avatarUrl} alt="" className="mt-0.5 h-7 w-7 rounded-sm object-cover border border-border shrink-0" />
               : (
                 <span className="mt-0.5 inline-flex h-7 w-7 items-center justify-center rounded-sm bg-muted text-foreground text-(length:--fs-10) font-semibold shrink-0">
@@ -2399,7 +2396,6 @@ function LogoBlock({
         title={canUpload ? (logoUrl ? 'Αλλαγή λογότυπου' : 'Ανέβασμα λογότυπου') : 'Αποθήκευσε εταιρία πρώτα'}
       >
         {logoUrl
-          // eslint-disable-next-line @next/next/no-img-element
           ? <img src={logoUrl} alt="logo" className="h-full w-full object-contain" />
           : <span className="text-(length:--fs-12) font-semibold">{initials}</span>}
         {/* Camera badge always visible — affordance for upload */}

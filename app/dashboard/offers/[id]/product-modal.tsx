@@ -67,11 +67,9 @@ export function ProductModal({ item, open, onOpenChange, levels, filled, onBook,
                 <video key={cur.url} src={cur.url} poster={cur.thumb ?? undefined} controls playsInline preload="metadata" className="absolute inset-0 size-full bg-black object-contain" aria-label={cur.title ?? `Βίντεο ${item.name}`} />
               ) : cur.kind === 'PANORAMA' ? (
                 <div className="absolute inset-0 overflow-x-auto" aria-label="Πανόραμα — σύρετε οριζόντια">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={cur.url} alt={cur.title ?? `Πανόραμα ${item.name}`} className="h-full max-w-none" />
                 </div>
               ) : (
-                // eslint-disable-next-line @next/next/no-img-element
                 <img key={cur.url} src={cur.url} alt={cur.title ?? item.name} className="absolute inset-0 size-full object-cover" />
               )}
               {'placeholder' in cur && cur.placeholder && <span className="absolute bottom-3 left-3 bg-white/85 px-2 py-0.5 text-(length:--fs-11) text-(--s-ink-2)">Ενδεικτική φωτογραφία</span>}
@@ -88,7 +86,6 @@ export function ProductModal({ item, open, onOpenChange, levels, filled, onBook,
                   <li key={m.url + i}>
                     <button type="button" onClick={() => setIdx(i)} aria-current={i === idx} aria-label={`${m.kind === 'VIDEO' ? 'Βίντεο' : m.kind === 'PANORAMA' ? 'Πανόραμα' : 'Φωτογραφία'} ${i + 1}`}
                       className={cn('relative block size-16 shrink-0 cursor-pointer overflow-hidden border-2 transition-opacity', i === idx ? 'border-(--s-ink)' : 'border-transparent opacity-60 hover:opacity-100')}>
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
                       {m.thumb ? <img src={m.thumb} alt="" className="size-full object-cover" /> : <span className="block size-full bg-(--s-line)" />}
                       {m.kind === 'VIDEO' && <span className="absolute inset-0 grid place-items-center bg-black/35 text-white"><FiPlay className="size-5" aria-hidden /></span>}
                     </button>
@@ -137,7 +134,6 @@ export function ProductModal({ item, open, onOpenChange, levels, filled, onBook,
                   <ul className="grid grid-cols-2 gap-3">
                     {APPLICATIONS.map((a) => (
                       <li key={a.src} className="relative aspect-4/3 overflow-hidden bg-(--s-paper)">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img src={a.src} alt={a.caption} loading="lazy" className="size-full object-cover" />
                         <span className="absolute bottom-0 left-0 bg-white/90 px-2 py-1 text-(length:--fs-12)">{a.caption}</span>
                       </li>

@@ -463,7 +463,6 @@ export function OcrTable({
             aria-label="Toggle"
           >
             {r.thumbUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
               <img src={r.thumbUrl} alt="" className="size-full object-cover" />
             ) : (
               <span className="flex size-full items-center justify-center text-muted-foreground">

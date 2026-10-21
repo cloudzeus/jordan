@@ -44,7 +44,6 @@ export default async function ProductPage({ params }: { params: Params }) {
         <div className="space-y-4">
           <div className="relative aspect-square overflow-hidden bg-(--s-paper)">
             {main
-              // eslint-disable-next-line @next/next/no-img-element
               ? <img src={main.url} alt={p.name} className="size-full object-cover" />
               : <ProductPlaceholder mtrl={p.mtrl} name={p.name} />}
           </div>
@@ -53,7 +52,6 @@ export default async function ProductPage({ params }: { params: Params }) {
               {rest.slice(0, 8).map((ph, i) => (
                 <li key={ph.url} className="aspect-square overflow-hidden bg-(--s-paper)">
                   <a href={ph.url} target="_blank" rel="noreferrer" aria-label={`Φωτογραφία ${i + 2} σε πλήρες μέγεθος`}>
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={ph.thumb} alt="" loading="lazy" className="size-full object-cover" />
                   </a>
                 </li>

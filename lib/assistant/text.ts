@@ -39,6 +39,7 @@ export function phonetic(s: string | null | undefined): string {
     .replace(/ch/g, 'h').replace(/x/g, 'h').replace(/ph/g, 'f').replace(/ps/g, 'ps')
     .replace(/ou/g, '\u0001').replace(/mp/g, 'b').replace(/nt/g, 'd').replace(/gk|gg/g, 'g')
     .replace(/ei|oi|yi/g, 'i').replace(/ai/g, 'e').replace(/[yu]/g, 'i').replace(/w/g, 'o')
+    // eslint-disable-next-line no-control-regex -- το \u0001 είναι προσωρινό σημάδι για το «ou»
     .replace(/\u0001/g, 'ou').replace(/c/g, 'k').replace(/q/g, 'k').replace(/b/g, 'b')
     .replace(/(.)\1+/g, '$1'); // διπλά σύμφωνα (λλ, ss) → ένα
   return t.replace(/[^a-z0-9 ]+/g, ' ').replace(/\s+/g, ' ').trim();

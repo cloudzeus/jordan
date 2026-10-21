@@ -246,7 +246,6 @@ export function RegionMarker({
             // the page scroll over a full-page document image would trap a touch user on it.
             touchAction: isMarking ? 'none' : undefined,
           }}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={objUrl} alt={pageLabel ?? `Δείγμα εγγράφου, σελίδα ${page + 1}`} draggable={false}
             className={fit === 'width' ? 'block w-full' : fit === 'page' ? 'block h-auto w-auto max-w-full' : 'block max-w-none'}

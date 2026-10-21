@@ -306,7 +306,6 @@ function FileTile({ file, onDelete, onPick }: { file: MediaFile; onDelete: () =>
       >
         <div className="relative flex aspect-square items-center justify-center bg-muted">
           {file.isImage ? (
-            // eslint-disable-next-line @next/next/no-img-element
             <img src={file.publicUrl} alt={file.name} className="absolute inset-0 h-full w-full object-cover" loading="lazy" />
           ) : (
             <FiFile className="size-9 text-muted-foreground" aria-hidden />

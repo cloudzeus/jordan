@@ -343,7 +343,6 @@ export function OcrResultModal({ open, documentId, onClose }: ResultModalProps) 
                   className="size-full min-h-[520px] rounded-md border border-border bg-card shadow-fluent-4"
                 />
               ) : doc ? (
-                // eslint-disable-next-line @next/next/no-img-element
                 <img
                   src={fileUrl} alt={doc.fileName}
                   className="mx-auto max-h-[600px] w-auto rounded-md border border-border bg-card shadow-fluent-4 object-contain"

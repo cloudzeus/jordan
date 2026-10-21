@@ -49,7 +49,6 @@ export function MediaPicker({
         <div className="flex items-center gap-2 rounded-lg border border-border bg-card p-1.5">
           <div className="relative flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-md bg-muted ring-1 ring-border">
             {value.isImage ? (
-              // eslint-disable-next-line @next/next/no-img-element
               <img src={value.publicUrl} alt={value.name} className="size-full object-cover" />
             ) : (
               <FiImage className="size-5 text-muted-foreground" aria-hidden />

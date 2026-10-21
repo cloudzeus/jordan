@@ -143,7 +143,6 @@ export function ImageEditorDialog({
                 className="absolute"
                 style={{ left: p.left * k, top: p.top * k, width: p.width * k, height: p.height * k }}
               >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={media.originalUrl ?? media.url}
                   alt={media.name}

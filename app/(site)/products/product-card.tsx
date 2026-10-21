@@ -10,7 +10,6 @@ export function ProductCard({ p }: { p: P }) {
     <Link href={`/products/${p.mtrl}`} className="group block">
       <div className="relative aspect-square overflow-hidden bg-(--s-paper)">
         {p.photo
-          // eslint-disable-next-line @next/next/no-img-element -- φωτογραφίες από το CDN (Bunny), ήδη σε σωστό μέγεθος
           ? <img src={p.photo} alt={p.name} loading="lazy" decoding="async" className="s-img size-full object-cover" />
           : <ProductPlaceholder mtrl={p.mtrl} name={p.name} />}
       </div>
