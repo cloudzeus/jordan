@@ -3721,6 +3721,7 @@ model Contract {
   /// Χαρτογράφηση κάτοψης από την οποία βγήκε (κάτοψη & χώροι στο PDF πελάτη και συνεργείων).
   floorPlanId String?
   floorPlan   FloorPlan? @relation(fields: [floorPlanId], references: [id], onDelete: SetNull)
+  rfps        Rfp[]
 
   @@index([prjc])
   @@index([trdr])
@@ -3833,6 +3834,87 @@ model ContractMilestone {
   sortOrder    Int            @default(0)
 
   @@index([contractId, sortOrder])
+}
+
+// ── Αιτήματα προσφοράς (RFP) προς τεχνικές εταιρίες / συνεργεία / μαστόρους ─────────────────────────
+// Για μια προσφορά/σύμβαση ζητάμε τιμή από συνεργεία: specs σε PDF ΧΩΡΙΣ τις τιμές μας (εργασίες με
+// ποσότητες, κάτοψη & χώροι, περιοχή — όχι το όνομα του πελάτη) + μοναδικός σύνδεσμος ανά παραλήπτη.
+// Ο παραλήπτης απαντά (ποσό χωρίς ΦΠΑ, έναρξη, διάρκεια, σχόλια, αποδοχή όρων) από τον σύνδεσμο ή
+// από το portal του. Κάθε ενέργεια γράφεται στο RfpEvent με IP, browser, session και αλυσίδα hash
+// (απόδειξη). Η «Ανάθεση» κάνει τον παραλήπτη συνεργείο της σύμβασης. Λογική: lib/rfp/*.
+model Rfp {
+  id                 String         @id @default(cuid())
+  number             Int            @unique @default(autoincrement()) // «ΑΠΡ-000123»
+  contractId         String
+  contract           Contract       @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  title              String
+  scope              String         @default("") // τι ζητάμε (εμφανίζεται στο PDF, στο email και στη σελίδα)
+  dueDate            DateTime?      @db.Date // προθεσμία απάντησης
+  status             String         @default("OPEN") // OPEN · AWARDED · CLOSED · CANCELLED
+  specsFileId        String? // EntityFile (PDF specs)
+  specsFileName      String?
+  specsSha256        String? // αποτύπωμα του PDF που είδε/αποδέχτηκε ο παραλήπτης
+  awardedRecipientId String?
+  createdById        String?
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+  recipients         RfpRecipient[]
+
+  @@index([contractId])
+}
+
+model RfpRecipient {
+  id            String     @id @default(cuid())
+  rfpId         String
+  rfp           Rfp        @relation(fields: [rfpId], references: [id], onDelete: Cascade)
+  kind          String // SUPPLIER · PARTNER
+  trdr          Int?
+  partnerId     String?
+  name          String
+  email         String?
+  phone         String?
+  afm           String?
+  specialty     String?
+  /// SHA-256 του μοναδικού token του συνδέσμου (το ίδιο το token δεν αποθηκεύεται).
+  tokenHash     String     @unique
+  /// INVITED · VIEWED · SUBMITTED · DECLINED · AWARDED · NOT_AWARDED
+  status        String     @default("INVITED")
+  amount        Float? // χωρίς ΦΠΑ
+  startDate     DateTime?  @db.Date
+  durationDays  Int?
+  notes         String?
+  termsAccepted Boolean    @default(false)
+  viewedAt      DateTime?
+  submittedAt   DateTime?
+  declinedAt    DateTime?
+  sends         Json       @default("[]") // [{ to, at, by, result }]
+  partyId       String? // ContractParty μετά την ανάθεση
+  createdAt     DateTime   @default(now())
+  events        RfpEvent[]
+
+  @@index([rfpId])
+  @@index([trdr])
+  @@index([partnerId])
+}
+
+/// Ημερολόγιο συνεδρίας (απόδειξη): κάθε γεγονός «δένεται» με το προηγούμενο (hash = sha256(prevHash + δεδομένα)).
+model RfpEvent {
+  id          String       @id @default(cuid())
+  recipientId String
+  recipient   RfpRecipient @relation(fields: [recipientId], references: [id], onDelete: Cascade)
+  /// INVITED · EMAIL_SENT · LINK_RENEWED · OPEN · SPECS_DOWNLOAD · SUBMIT · DECLINE · AWARDED · NOT_AWARDED
+  type        String
+  at          DateTime     @default(now())
+  actor       String // link · portal · staff · system
+  userId      String?
+  ip          String?
+  userAgent   String?
+  sessionId   String?
+  data        Json         @default("{}")
+  prevHash    String?
+  hash        String
+
+  @@index([recipientId, at])
 }
 
 // Έγγραφα που συνέταξε το AI: CUSTOMER (προσφορά/σύμβαση πελάτη) ή PARTY (σύμβαση συνεργείου).

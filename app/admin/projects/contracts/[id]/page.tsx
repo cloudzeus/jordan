@@ -11,13 +11,16 @@ import { ContractActions, CreateProjectBanner } from './contract-actions';
 import { DocumentsPanel } from './documents-panel';
 import { MilestonesProgress } from './milestones-progress';
 import { FloorPlanPanel } from './floor-plan-panel';
+import { RfpPanel } from './rfp-panel';
+import { contractRfps } from '@/lib/rfp/service';
+import { rfpDefaults } from '@/lib/rfp/core';
 
 export const dynamic = 'force-dynamic';
 
 export default async function ContractPage({ params }: { params: Promise<{ id: string }> }) {
   await requirePermission('projects.read');
   const { id } = await params;
-  const [c, staff, canManage] = await Promise.all([getContract(id), staffOptions(), hasPermission('projects.manage')]);
+  const [c, staff, canManage, rfps] = await Promise.all([getContract(id), staffOptions(), hasPermission('projects.manage'), contractRfps(id)]);
   if (!c) notFound();
   const closed = c.status === 'COMPLETED' || c.status === 'CANCELLED';
   return (
@@ -40,6 +43,7 @@ export default async function ContractPage({ params }: { params: Promise<{ id: s
         {canManage && <CreateProjectBanner contract={c} />}
         <DocumentsPanel contract={c} canManage={canManage} />
         {c.floorPlanId && <FloorPlanPanel floorPlanId={c.floorPlanId} />}
+        {c.kind !== 'PRODUCT' && <RfpPanel contractId={c.id} title={rfpDefaults(c).title} summary={rfpDefaults(c).scope} rfps={rfps} canManage={canManage && c.status !== 'COMPLETED' && c.status !== 'CANCELLED'} />}
         {c.status === 'ACTIVE' || c.status === 'COMPLETED' ? <MilestonesProgress contract={c} canManage={canManage && c.status === 'ACTIVE'} /> : null}
         <ContractEditor initial={c} staff={staff} readOnly={!canManage || closed} />
       </div>

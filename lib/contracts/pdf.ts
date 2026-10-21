@@ -38,23 +38,23 @@ export type PdfFloorPlan = {
   rows: { name: string; floorM2: number; perimeterM: number; walls: { heightM: number; netM2: number; openings: string } | null; material: string | null }[];
 };
 
-const A4 = { w: 595.28, h: 841.89 };
-const M = { x: 50, top: 54, bottom: 60 };
-const CW = A4.w - M.x * 2;
+export const A4 = { w: 595.28, h: 841.89 };
+export const M = { x: 50, top: 54, bottom: 60 };
+export const CW = A4.w - M.x * 2;
 // Παλέτα «πέτρα»: βαθύ ανθρακί, ζεστό χρυσό-ώχρα, απαλό ασβεστόλευκο.
-const C = {
+export const C = {
   ink: rgb(0.12, 0.12, 0.13), body: rgb(0.22, 0.23, 0.25), muted: rgb(0.47, 0.47, 0.5), line: rgb(0.87, 0.85, 0.82),
   night: rgb(0.13, 0.14, 0.16), gold: rgb(0.72, 0.56, 0.3), goldSoft: rgb(0.97, 0.94, 0.88), stone: rgb(0.965, 0.957, 0.945),
   warn: rgb(0.7, 0.33, 0.06), warnSoft: rgb(1, 0.95, 0.88), ok: rgb(0.1, 0.45, 0.32), okSoft: rgb(0.92, 0.97, 0.94), white: rgb(1, 1, 1),
 };
-const FONT_DIR = path.join(process.cwd(), 'lib/install-guide/fonts');
-const upper = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase();
+export const FONT_DIR = path.join(process.cwd(), 'lib/install-guide/fonts');
+export const upper = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase();
 
 const KIND_TITLE: Record<ContractPdfData['docKind'], string> = {
   OFFER: 'ΠΡΟΣΦΟΡΑ', CONTRACT: 'ΣΥΜΒΑΣΗ ΠΩΛΗΣΗΣ & ΕΚΤΕΛΕΣΗΣ', PARTY: 'ΣΥΜΒΑΣΗ ΑΝΑΘΕΣΗΣ ΕΡΓΑΣΙΩΝ',
 };
 
-class W {
+export class W {
   page!: PDFPage;
   y = 0;
   pages: PDFPage[] = [];
@@ -118,10 +118,10 @@ class W {
   }
 }
 
-type Col = { label: string; w: number; align?: 'left' | 'right' };
+export type Col = { label: string; w: number; align?: 'left' | 'right' };
 
 /** Πίνακας με αναδίπλωση στην πρώτη «φαρδιά» στήλη και επανάληψη κεφαλίδας σε νέα σελίδα. */
-function table(w: W, cols: Col[], rows: { cells: string[]; sub?: string | null }[], wrapCol: number) {
+export function table(w: W, cols: Col[], rows: { cells: string[]; sub?: string | null }[], wrapCol: number) {
   const size = 9; const lh = 12;
   const totalW = cols.reduce((t, c) => t + c.w, 0);
   const xs: number[] = [];
@@ -161,7 +161,7 @@ function table(w: W, cols: Col[], rows: { cells: string[]; sub?: string | null }
 }
 
 /** Γραμμές σύνοψης ποσών δεξιά (Καθαρή αξία / ΦΠΑ / Σύνολο). */
-function sums(w: W, rows: [string, string, boolean?][]) {
+export function sums(w: W, rows: [string, string, boolean?][]) {
   const bw = 220; const x = A4.w - M.x - bw;
   w.ensure(rows.length * 18 + 10);
   rows.forEach(([k, v, strong]) => {
@@ -195,7 +195,7 @@ const m2 = (n: number) => `${qtyEl(Math.round(n * 100) / 100)} m²`;
  * Κάτοψη & χώροι: η εικόνα της χαρτογράφησης σε όλο το πλάτος και πίνακας χώρων. Στο συνεργείο
  * μπαίνουν και περίμετροι, ύψος πλακιδίων και ανοίγματα — είναι οδηγία για το πού και πόσο.
  */
-async function floorPlanSection(w: W, fp: PdfFloorPlan, party: boolean) {
+export async function floorPlanSection(w: W, fp: PdfFloorPlan, party: boolean) {
   w.section(party ? 'Παράρτημα — Κάτοψη & χώροι εργασίας' : 'Κάτοψη χώρων', { newPage: true });
   w.para(party
     ? `Η κάτοψη «${fp.title}» με τους χώρους όπου γίνονται οι εργασίες. Τα εμβαδά είναι καθαρά (δάπεδο ανάμεσα στους τοίχους· τοίχοι = περίμετρος × ύψος πλακιδίων − ανοίγματα). Ελέγξτε τις διαστάσεις επί τόπου πριν από την παραγγελία/κοπή υλικών.`

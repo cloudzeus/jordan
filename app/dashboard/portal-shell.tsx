@@ -9,7 +9,7 @@ import { Container } from '@/components/site/ui';
 import { SiteMotion } from '@/components/site/motion';
 import { cn } from '@/lib/utils';
 
-export type PortalSection = 'home' | 'offers' | 'projects' | 'contracts' | 'orders' | 'new-order' | 'assignments' | 'payments';
+export type PortalSection = 'home' | 'offers' | 'projects' | 'contracts' | 'orders' | 'new-order' | 'assignments' | 'payments' | 'rfps';
 
 const isCustomer = (u: NonNullable<UserWithRole>) => u.role.key === 'CUSTOMER' && u.customerTrdr != null;
 const isCrew = (u: NonNullable<UserWithRole>) => u.role.key === 'SUPPLIER';
@@ -21,8 +21,8 @@ const ROLE_ONE: Record<string, string> = { CUSTOMER: 'πελάτης', COLLABORA
 /**
  * Ενότητες του B2B portal ανά ρόλο:
  *  • πελάτης (SoftOne TRDR): container, έργα, προσφορές & συμβάσεις, παραγγελίες·
- *  • συνεργάτης: αναθέσεις, πληρωμές, container·
- *  • συνεργείο: αναθέσεις, πληρωμές (τα container είναι για αγοραστές).
+ *  • συνεργάτης: αιτήματα προσφοράς, αναθέσεις, πληρωμές, container·
+ *  • συνεργείο: αιτήματα προσφοράς, αναθέσεις, πληρωμές (τα container είναι για αγοραστές).
  */
 export function portalNav(user: NonNullable<UserWithRole>) {
   const home = { key: 'home' as const, href: homeFor(user.role.key), label: 'Επισκόπηση' };
@@ -36,6 +36,7 @@ export function portalNav(user: NonNullable<UserWithRole>) {
     ];
   }
   const work = [
+    { key: 'rfps' as const, href: '/dashboard/rfps', label: 'Αιτήματα προσφοράς' },
     { key: 'assignments' as const, href: '/dashboard/assignments', label: 'Αναθέσεις' },
     { key: 'payments' as const, href: '/dashboard/payments', label: 'Πληρωμές' },
   ];
