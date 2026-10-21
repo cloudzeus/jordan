@@ -13,6 +13,8 @@ import { PortalShell } from '../../../portal-shell';
 import { date, eur, PageTitle, qty } from '../../_ui/bits';
 import { contractTone } from '../../_ui/tones';
 import { DocList, MilestoneList } from '../../../_party/ui';
+import { zonedParts } from '@/lib/appointments-core';
+import { AcceptOffer } from './accept-offer';
 
 export const dynamic = 'force-dynamic';
 export const metadata: Metadata = { title: 'Προσφορά / σύμβαση' };
@@ -31,6 +33,10 @@ export default async function CustomerContractPage({ params }: { params: Promise
   ]);
   if (!c) notFound();
   const paid = c.milestones.filter((m) => m.status === 'PAID').reduce((t, m) => t + m.amount, 0);
+  const expired = !!c.validUntil && c.validUntil < zonedParts(new Date()).date;
+  const acceptBlock = user.viewAs
+    ? 'Σε «Προβολή ως» το κουμπί αποδοχής είναι απενεργοποιημένο — αποδέχεται μόνο ο πελάτης.'
+    : expired ? 'Η ισχύς της προσφοράς έληξε. Επικοινωνήστε μαζί μας για ανανέωση.' : null;
 
   return (
     <PortalShell user={user} org={org?.name ?? null} active="contracts">
@@ -115,13 +121,16 @@ export default async function CustomerContractPage({ params }: { params: Promise
             </dl>
             {c.site && <p className="mt-5 flex items-start gap-2 border-t border-(--s-line) pt-4 text-(length:--fs-14) text-(--s-ink-2)"><FiMapPin className="mt-0.5 size-4 shrink-0 text-(--s-accent)" aria-hidden />{c.site}</p>}
           </Panel>
-          {c.status === 'SENT' && (
-            <div className="border-l-2 border-(--s-accent) bg-(--s-paper) px-5 py-4 text-(length:--fs-14) text-(--s-ink-2)">
-              <p className="text-(--s-ink)">Θέλετε να προχωρήσουμε;</p>
-              <p className="mt-1">Απαντήστε στο email της προσφοράς ή καλέστε μας — θα ενεργοποιήσουμε τη σύμβαση και το πρόγραμμα.</p>
-              <a href={`tel:${company.phones[0].replace(/\s/g, '')}`} className="mt-2 inline-flex min-h-11 items-center gap-2 tabular-nums text-(--s-ink)"><FiPhone className="size-4 text-(--s-accent)" aria-hidden /><span className="s-link">{company.phones[0]}</span></a>
-            </div>
+          {c.status === 'SENT' && <AcceptOffer id={c.id} total={eur(c.total)} validUntil={c.validUntil ? date(c.validUntil) : null} disabledReason={acceptBlock} />}
+          {c.status !== 'SENT' && c.acceptedAt && (
+            <p className="border-l-2 border-[#2F6B3A] bg-(--s-paper) px-5 py-4 text-(length:--fs-14) text-(--s-ink-2)">
+              Αποδεχτήκατε την προσφορά στις {new Date(c.acceptedAt).toLocaleString('el-GR', { timeZone: 'Europe/Athens', dateStyle: 'long', timeStyle: 'short' })}.
+            </p>
           )}
+          <div className="border-l-2 border-(--s-ink) bg-(--s-paper) px-5 py-4 text-(length:--fs-14) text-(--s-ink-2)">
+            <p className="text-(--s-ink)">Ερώτηση ή αλλαγή;</p>
+            <a href={`tel:${company.phones[0].replace(/\s/g, '')}`} className="mt-2 inline-flex min-h-11 items-center gap-2 tabular-nums text-(--s-ink)"><FiPhone className="size-4 text-(--s-accent)" aria-hidden /><span className="s-link">{company.phones[0]}</span></a>
+          </div>
         </aside>
       </Container>
     </PortalShell>

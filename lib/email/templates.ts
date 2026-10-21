@@ -204,6 +204,20 @@ export function orderRequestStaffEmail(brand: EmailBrand, d: {
   });
 }
 
+export function contractAcceptedStaffEmail(brand: EmailBrand, d: {
+  ref: string; title: string; who: string; by?: string | null; total: string; when: string; link?: string | null;
+}): RenderedEmail {
+  return renderEmail({
+    brand, internal: true, subject: `Αποδοχή προσφοράς ${d.ref} — ${d.who}`, label: 'B2B πύλη', band: { tone: 'accent', text: 'Ο πελάτης αποδέχτηκε την προσφορά από την πύλη' },
+    eyebrow: d.ref, title: d.title, intro: `Η προσφορά έγινε σύμβαση (Αποδεκτή). Επόμενο βήμα: σύνδεση με έργο και ενεργοποίηση.`,
+    blocks: [
+      facts([['Πελάτης', d.who], ['Αποδοχή από', d.by], ['Σύνολο με ΦΠΑ', d.total], ['Πότε', d.when]]),
+      d.link ? button(d.link, 'Άνοιγμα της σύμβασης') : none,
+    ],
+    note: 'Η αποδοχή καταγράφηκε στο audit log με τον χρήστη της πύλης.',
+  });
+}
+
 // ── Newsletter ───────────────────────────────────────────────────────────────────────────────
 
 export function newsletterConfirmEmail(brand: EmailBrand, d: { link: string }): RenderedEmail {

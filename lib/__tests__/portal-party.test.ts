@@ -5,7 +5,8 @@ vi.mock('server-only', () => ({}));
 const prisma = vi.hoisted(() => ({
   contractParty: { findMany: vi.fn() },
   contractDocument: { findFirst: vi.fn() },
-  contract: { findMany: vi.fn() },
+  contract: { findMany: vi.fn(), findFirst: vi.fn() },
+  softoneTrader: { findUnique: vi.fn() },
   entityFile: { findUnique: vi.fn() },
   softoneProject: { findMany: vi.fn() },
   projectTaskFile: { findFirst: vi.fn() },
@@ -13,9 +14,15 @@ const prisma = vi.hoisted(() => ({
 }));
 vi.mock('@/lib/db', () => ({ prisma }));
 vi.mock('@/lib/project-tasks', () => ({ listTasks: vi.fn() }));
+const transition = vi.hoisted(() => vi.fn());
+vi.mock('@/lib/contracts/service', () => ({ transition, ContractError: class extends Error {} }));
+vi.mock('@/lib/audit', () => ({ logAudit: vi.fn(async () => null) }));
+vi.mock('@/lib/settings', () => ({ getSetting: vi.fn(async () => 'off') }));
+vi.mock('@/lib/mailgun', () => ({ mailgunConfig: () => ({ address: 'x@y' }), sendTransactionalEmail: vi.fn() }));
+vi.mock('@/lib/email/brand', () => ({ emailBrand: vi.fn(async () => ({})) }));
 
 import { partyAssignments, partyContractDocFile, partyTaskFile, paymentSummary, type PartyAssignment } from '../portal-party';
-import { customerContractDocFile, customerContracts } from '../portal-customer';
+import { AcceptError, customerAcceptContract, customerContractDocFile, customerContracts } from '../portal-customer';
 
 const crew = { partnerId: null, supplierTrdr: 501 } as const;
 const partner = { partnerId: 'p1', supplierTrdr: null } as const;
@@ -104,5 +111,31 @@ describe('portal πελάτη — προσφορές & συμβάσεις', () =
     prisma.entityFile.findUnique.mockResolvedValue({ id: 'f9' });
     expect(await customerContractDocFile(42, 'd1')).toEqual({ id: 'f9' });
     expect(prisma.contractDocument.findFirst.mock.calls[0][0].where).toMatchObject({ id: 'd1', audience: 'CUSTOMER', contract: { trdr: 42 } });
+  });
+});
+
+describe('αποδοχή προσφοράς από τον πελάτη', () => {
+  const by = { id: 'u1', email: 'c@x.gr', name: 'Ν' };
+  const offer = (o: object = {}) => ({ id: 'k1', number: 2, title: 'Δάπεδο', status: 'SENT', validUntil: null, vatRate: 24, lines: [{ qty: 1, unitPrice: 100, discount: 0 }], ...o });
+
+  it('μόνο δική του: αναζήτηση με το TRDR του χρήστη', async () => {
+    prisma.contract.findFirst.mockResolvedValue(null);
+    await expect(customerAcceptContract(42, 'k1', by)).rejects.toBeInstanceOf(AcceptError);
+    expect(prisma.contract.findFirst.mock.calls[0][0].where).toEqual({ id: 'k1', trdr: 42 });
+    expect(transition).not.toHaveBeenCalled();
+  });
+
+  it('όχι αν δεν είναι «Στάλθηκε» ή αν έληξε', async () => {
+    prisma.contract.findFirst.mockResolvedValue(offer({ status: 'ACTIVE' }));
+    await expect(customerAcceptContract(42, 'k1', by)).rejects.toThrow(/ήδη/);
+    prisma.contract.findFirst.mockResolvedValue(offer({ validUntil: new Date('2020-01-01') }));
+    await expect(customerAcceptContract(42, 'k1', by)).rejects.toThrow(/έληξε/);
+    expect(transition).not.toHaveBeenCalled();
+  });
+
+  it('έγκυρη προσφορά → ίδια μετάβαση με το admin (accept) από τον χρήστη της πύλης', async () => {
+    prisma.contract.findFirst.mockResolvedValue(offer({ validUntil: new Date('2099-01-01') }));
+    await customerAcceptContract(42, 'k1', by);
+    expect(transition).toHaveBeenCalledWith('k1', 'accept', 'u1');
   });
 });
