@@ -7,6 +7,7 @@
 //   3. Μέτρηση: κλικ μέσα σε χώρο (αυτόματο περίγραμμα) ή χειροκίνητο πολύγωνο· διαχωριστικά για
 //      ανοιχτές πόρτες/ενιαίους χώρους. Εμβαδά, περίμετροι, σύνολο, εξαγωγή CSV/PNG ή αποθήκευση
 //      στα αρχεία του έργου.
+//   4. Προσφορά: υλικό ή συνταγή τοποθέτησης ανά χώρο → νέα προσφορά (Συμβάσεις & Προσφορές) στο έργο.
 // Όλη η επεξεργασία γίνεται στον browser — τίποτα δεν φεύγει πριν πατηθεί «Αποθήκευση στο έργο».
 import * as React from 'react';
 import gsap from 'gsap';
@@ -27,8 +28,11 @@ import {
 import { blankPlan, loadPlan, type LoadedPlan } from './load-plan';
 import { PlanViewer, WALL_DRAW, type ViewerRoom, type ViewerTool } from './plan-viewer';
 import { annotatedPng, download, fmtM, fmtM2, roomsCsv, roomsText, type ExportRoom } from './export';
+import { MaterialChip, OfferStepBody, RoomMaterialEditor, type RoomMaterial } from './offer-panel';
+import { FloorPlanOfferDialog, type OfferRoom, type OfferSubmit } from './offer-dialog';
+import type { RecipeView } from '@/lib/install-recipes';
 
-type Room = { id: string; name: string; color: string; polygon: Pt[]; areaPx: number; perimeterPx: number; manual: boolean };
+type Room = { id: string; name: string; color: string; polygon: Pt[]; areaPx: number; perimeterPx: number; manual: boolean; material: RoomMaterial | null };
 type Calib = { a: Pt; b: Pt; meters: number };
 /** Τοίχος σχεδιασμένος από τον χρήστη: τμήμα a→b με πάχος t (px ανάλυσης). */
 type DrawnWall = { a: Pt; b: Pt; t: number };
@@ -64,12 +68,12 @@ function maskOverlay(auto: Mask | null, drawn: Mask, w: number, h: number): HTML
   return c;
 }
 
-function Step({ n, title, done, active, children }: { n: number; title: string; done: boolean; active: boolean; children: React.ReactNode }) {
+function Step({ n, title, done, active, raised, children }: { n: number; title: string; done: boolean; active: boolean; raised?: boolean; children: React.ReactNode }) {
   return (
     <section
       data-fp-step
       className="relative rounded-xl border bg-card p-3 transition-colors"
-      style={{ borderColor: active ? 'var(--primary)' : 'var(--border)', boxShadow: active ? '0 0 0 3px color-mix(in oklab, var(--primary) 14%, transparent)' : undefined }}
+      style={{ borderColor: active ? 'var(--primary)' : 'var(--border)', boxShadow: active ? '0 0 0 3px color-mix(in oklab, var(--primary) 14%, transparent)' : undefined, zIndex: raised ? 2 : undefined }}
     >
       <header className="mb-2 flex items-center gap-2">
         <span
@@ -104,10 +108,12 @@ function Range({ label, value, min, max, step = 1, display, onChange, disabled }
   );
 }
 
-export function FloorPlanDialog({ prjc, projectLabel, open, onOpenChange, canSave = false }: {
+export function FloorPlanDialog({ prjc, projectLabel, open, onOpenChange, canSave = false, canOffer = false }: {
   prjc: number; projectLabel: string; open: boolean; onOpenChange: (o: boolean) => void;
   /** files.manage: «Αποθήκευση στο έργο» ανεβάζει PNG + CSV στον φάκελο «Κατόψεις». */
   canSave?: boolean;
+  /** projects.manage: υλικό/συνταγή ανά χώρο και «Δημιουργία προσφοράς». */
+  canOffer?: boolean;
 }) {
   const [file, setFile] = React.useState<File | null>(null);
   const [plan, setPlan] = React.useState<LoadedPlan | null>(null);
@@ -134,6 +140,11 @@ export function FloorPlanDialog({ prjc, projectLabel, open, onOpenChange, canSav
   const [selected, setSelected] = React.useState<string | null>(null);
   const [fitKey, setFitKey] = React.useState(0);
   const [saving, setSaving] = React.useState(false);
+  const [recipes, setRecipes] = React.useState<RecipeView[] | null>(null);
+  const [recipesError, setRecipesError] = React.useState<string | null>(null);
+  const [offering, setOffering] = React.useState(false);
+  const [offerOpen, setOfferOpen] = React.useState(false);
+  const [createdOffer, setCreatedOffer] = React.useState<string | null>(null);
   const railRef = React.useRef<HTMLDivElement | null>(null);
   const totalRef = React.useRef<HTMLSpanElement | null>(null);
   const metersRef = React.useRef<HTMLInputElement | null>(null);
@@ -208,6 +219,21 @@ export function FloorPlanDialog({ prjc, projectLabel, open, onOpenChange, canSav
     return b;
   }, [plan, autoWalls, walls, autoMask, drawnMask, dividers, w, h]);
 
+  // Συνταγές τοποθέτησης για την επιλογή υλικού ανά χώρο (μία φορά, όταν ανοίξει κάτοψη).
+  React.useEffect(() => {
+    if (!canOffer || !plan || recipes || recipesError) return;
+    let ignore = false;
+    fetch('/api/admin/recipes', { cache: 'no-store' })
+      .then(async (res) => {
+        if (res.status === 403) throw new Error('Χωρίς δικαίωμα συνταγών — μόνο είδη από το μητρώο.');
+        if (!res.ok) throw new Error('Οι συνταγές δεν φορτώθηκαν — μόνο είδη από το μητρώο.');
+        return (await res.json()).recipes as RecipeView[];
+      })
+      .then((r) => { if (!ignore) setRecipes(r); })
+      .catch((e: Error) => { if (!ignore) setRecipesError(e.message); });
+    return () => { ignore = true; };
+  }, [canOffer, plan, recipes, recipesError]);
+
   // Είσοδος στο πάνελ: απαλή εμφάνιση βημάτων.
   React.useEffect(() => {
     if (!plan || !railRef.current || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
@@ -236,7 +262,7 @@ export function FloorPlanDialog({ prjc, projectLabel, open, onOpenChange, canSav
   const seq = React.useRef(0);
   const addRoom = (polygon: Pt[], areaPx: number, perimeterPx: number, manual: boolean) => {
     const n = ++seq.current;
-    const r: Room = { id: uid(), name: `Χώρος ${n}`, color: PALETTE[(n - 1) % PALETTE.length], polygon, areaPx, perimeterPx, manual };
+    const r: Room = { id: uid(), name: `Χώρος ${n}`, color: PALETTE[(n - 1) % PALETTE.length], polygon, areaPx, perimeterPx, manual, material: null };
     setRooms((rs) => [...rs, r]);
     setSelected(r.id);
   };
@@ -331,10 +357,10 @@ export function FloorPlanDialog({ prjc, projectLabel, open, onOpenChange, canSav
 
   // Πλήκτρα συντόμευσης (μόνο όταν το modal έχει κάτοψη και δεν γράφουμε σε πεδίο).
   React.useEffect(() => {
-    if (!open || !plan) return;
+    if (!open || !plan || offerOpen) return;
     const onKey = (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement | null)?.tagName;
-      if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
       if (e.key === 'Escape' && draft.length) { e.preventDefault(); e.stopPropagation(); setDraft([]); return; }
       if (e.key === 'Enter') { finish(); return; }
       if (e.key === 'Backspace' && draft.length) { e.preventDefault(); setDraft((d) => d.slice(0, -1)); return; }
@@ -355,8 +381,8 @@ export function FloorPlanDialog({ prjc, projectLabel, open, onOpenChange, canSav
   const scaleNote = calib ? `Κλίμακα: ${nf.format(calib.meters)} m = ${Math.round(calib.meters / (mPerPx ?? 1))} px · αρχείο ${plan?.name ?? ''}${plan && plan.pages > 1 ? ` (σελ. ${plan.page})` : ''}` : 'Χωρίς κλίμακα';
   const png = () => annotatedPng({ image: plan!.display, w, h, rooms: exportRooms, dividers, walls: drawnWalls, title: projectLabel, scaleNote });
 
-  const save = async () => {
-    if (!plan || !rooms.length) return;
+  const save = async (): Promise<boolean> => {
+    if (!plan || !rooms.length) return false;
     setSaving(true);
     try {
       const files: Array<[Blob, string]> = [[await png(), `${baseName}.png`], [roomsCsv(exportRooms, wallLenM), `${baseName}.csv`]];
@@ -369,10 +395,50 @@ export function FloorPlanDialog({ prjc, projectLabel, open, onOpenChange, canSav
         if (!r.ok) throw new Error((await r.json().catch(() => null))?.message ?? 'Η αποθήκευση απέτυχε.');
       }
       toast.success('Αποθηκεύτηκαν PNG και CSV στα αρχεία του έργου (φάκελος «Κατόψεις»).');
+      return true;
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Η αποθήκευση απέτυχε.');
+      return false;
     } finally {
       setSaving(false);
+    }
+  };
+
+  // ── Προσφορά ─────────────────────────────────────────────────────────────────────────
+  const setMaterial = (id: string, m: RoomMaterial | null) => setRooms((rs) => rs.map((x) => (x.id === id ? { ...x, material: m } : x)));
+  const selectedRoom = rooms.find((r) => r.id === selected) ?? null;
+  const withMaterial = rooms.filter((r) => r.material).length;
+  const offerRooms: OfferRoom[] = mPerPx
+    ? rooms.map((r) => ({ name: r.name.trim() || 'Χώρος', areaM2: toM2(r.areaPx, mPerPx), perimeterM: r.perimeterPx * mPerPx, color: r.color, material: r.material }))
+    : [];
+  const createOffer = async (o: OfferSubmit) => {
+    if (!offerRooms.length) return;
+    setOffering(true);
+    try {
+      if (o.attachPlan && !(await save())) return;
+      const res = await fetch(`/api/admin/projects/${prjc}/floorplan-offer`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          rooms: offerRooms.map((r) => ({
+            name: r.name, areaM2: r.areaM2, perimeterM: r.perimeterM,
+            material: r.material ? (r.material.type === 'recipe' ? { type: 'recipe', recipeId: r.material.recipeId } : { type: 'item', mtrl: r.material.mtrl }) : null,
+          })),
+          markupPct: o.markupPct, mode: o.mode, wallLenM,
+          title: o.title, trdr: o.trdr, kind: o.kind, validUntil: o.validUntil, vatRate: o.vatRate, terms: o.terms,
+          source: plan ? `${plan.name}${plan.pages > 1 ? `, σελ. ${plan.page}` : ''}` : null,
+        }),
+      });
+      const d = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(d?.message ?? 'Η προσφορά δεν δημιουργήθηκε.');
+      setCreatedOffer(d.id);
+      setOfferOpen(false);
+      toast.success(`Δημιουργήθηκε πρόχειρη προσφορά με ${d.lines} γραμμές.`, {
+        action: { label: 'Άνοιγμα', onClick: () => window.location.assign(`/admin/projects/contracts/${d.id}`) },
+      });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Η προσφορά δεν δημιουργήθηκε.');
+    } finally {
+      setOffering(false);
     }
   };
 
@@ -552,7 +618,8 @@ export function FloorPlanDialog({ prjc, projectLabel, open, onOpenChange, canSav
                 )}
               </Step>
 
-              <Step n={3} title="Μέτρηση χώρων" done={rooms.length > 0} active={step === 3}>
+              {/* raised: το dropdown αναζήτησης είδους να περνά πάνω από το βήμα «Προσφορά» */}
+              <Step n={3} title="Μέτρηση χώρων" done={rooms.length > 0} active={step === 3} raised>
                 <div className="grid grid-cols-3 gap-1.5">
                   {TOOLS.filter((t) => t.key === 'room' || t.key === 'polygon' || t.key === 'divider').map((t) => (
                     <button
@@ -603,11 +670,15 @@ export function FloorPlanDialog({ prjc, projectLabel, open, onOpenChange, canSav
                           onClick={() => setSelected(r.id)}
                         >
                           <span className="size-3 shrink-0 rounded-sm" style={{ background: r.color }} aria-hidden />
-                          <input
-                            value={r.name} aria-label="Όνομα χώρου"
-                            onChange={(e) => setRooms((rs) => rs.map((x) => (x.id === r.id ? { ...x, name: e.target.value } : x)))}
-                            className="min-w-0 flex-1 rounded border border-transparent bg-transparent px-1 py-0.5 text-[length:var(--fs-12)] hover:border-border focus:border-ring focus:outline-none"
-                          />
+                          <span className="min-w-0 flex-1">
+                            <input
+                              value={r.name} aria-label="Όνομα χώρου"
+                              onChange={(e) => setRooms((rs) => rs.map((x) => (x.id === r.id ? { ...x, name: e.target.value } : x)))}
+                              onFocus={() => setSelected(r.id)}
+                              className="w-full rounded border border-transparent bg-transparent px-1 py-0.5 text-[length:var(--fs-12)] hover:border-border focus:border-ring focus:outline-none"
+                            />
+                            {canOffer && <span className="block px-1"><MaterialChip material={r.material} /></span>}
+                          </span>
                           <span className="shrink-0 text-right font-mono text-[length:var(--fs-12)] font-semibold tabular-nums">
                             {a == null ? '—' : nf.format(a)}<span className="ml-0.5 text-[10px] font-normal text-muted-foreground">m²</span>
                             {mPerPx && <span className="block text-[10px] font-normal text-muted-foreground">Π {nf.format(r.perimeterPx * mPerPx)} m{r.manual ? ' · χειρ.' : ''}</span>}
@@ -624,7 +695,31 @@ export function FloorPlanDialog({ prjc, projectLabel, open, onOpenChange, canSav
                     })}
                   </ul>
                 )}
+                {canOffer && selectedRoom && mPerPx && (
+                  <RoomMaterialEditor
+                    key={selectedRoom.id}
+                    roomName={selectedRoom.name} value={selectedRoom.material} recipes={recipes} recipesError={recipesError}
+                    onChange={(m, note) => { setMaterial(selectedRoom.id, m); if (note) toast.message(note); }}
+                    canApplyAll={rooms.some((r) => r.id !== selectedRoom.id && !r.material)}
+                    onApplyAll={() => setRooms((rs) => rs.map((x) => (x.material ? x : { ...x, material: selectedRoom.material })))}
+                  />
+                )}
               </Step>
+
+              {canOffer && (
+                <Step n={4} title="Προσφορά" done={!!createdOffer} active={step === 3 && rooms.length > 0}>
+                  <OfferStepBody
+                    withMaterial={withMaterial} total={rooms.length} ready={!!calib && rooms.length > 0}
+                    onOpen={() => setOfferOpen(true)} created={createdOffer}
+                  />
+                </Step>
+              )}
+              {canOffer && (
+                <FloorPlanOfferDialog
+                  open={offerOpen} onOpenChange={setOfferOpen} prjc={prjc} rooms={offerRooms} recipes={recipes}
+                  canAttach={canSave} busy={offering || saving} onSubmit={(o) => void createOffer(o)}
+                />
+              )}
 
               {/* Σύνολο + εξαγωγή */}
               <section data-fp-step className="rounded-xl p-3 text-slate-100" style={{ background: '#0B1220' }}>

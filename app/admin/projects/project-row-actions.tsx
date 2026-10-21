@@ -138,7 +138,7 @@ export function ProjectRowActions({
       )}
       {plan !== 'closed' && (
         <FloorPlanDialog
-          prjc={prjc} projectLabel={`${code} · ${name}`} canSave={manageFiles}
+          prjc={prjc} projectLabel={`${code} · ${name}`} canSave={manageFiles} canOffer={canManage}
           open={plan === 'open'} onOpenChange={(o) => setPlan(o ? 'open' : 'hidden')}
         />
       )}
