@@ -27,8 +27,14 @@ import {
 import { blankPlan, loadPlan, type LoadedPlan } from './load-plan';
 import { PlanViewer, WALL_DRAW, type ViewerRoom, type ViewerTool } from './plan-viewer';
 import { annotatedPng, download, fmtM, fmtM2, roomsCsv, roomsText, type ExportRoom } from './export';
+import { RoomWallsPanel, WallsToggle } from './room-walls';
+import { DEFAULT_HEIGHT, wallArea, type RoomWalls } from '@/lib/floorplan/walls';
 
-type Room = { id: string; name: string; color: string; polygon: Pt[]; areaPx: number; perimeterPx: number; manual: boolean };
+type Room = {
+  id: string; name: string; color: string; polygon: Pt[]; areaPx: number; perimeterPx: number; manual: boolean;
+  /** Πλακάκι και στους τοίχους (ύψος + ανοίγματα) — undefined/on:false = μόνο δάπεδο. */
+  walls?: RoomWalls;
+};
 type Calib = { a: Pt; b: Pt; meters: number };
 /** Τοίχος σχεδιασμένος από τον χρήστη: τμήμα a→b με πάχος t (px ανάλυσης). */
 type DrawnWall = { a: Pt; b: Pt; t: number };
@@ -132,6 +138,8 @@ export function FloorPlanDialog({ prjc, projectLabel, open, onOpenChange, canSav
   const [doorCm, setDoorCm] = React.useState(100);
   const [rooms, setRooms] = React.useState<Room[]>([]);
   const [selected, setSelected] = React.useState<string | null>(null);
+  // Το τελευταίο ύψος πλακιδίων που διάλεξε ο χρήστης — προτείνεται στον επόμενο χώρο.
+  const [lastHeight, setLastHeight] = React.useState(DEFAULT_HEIGHT);
   const [fitKey, setFitKey] = React.useState(0);
   const [saving, setSaving] = React.useState(false);
   const railRef = React.useRef<HTMLDivElement | null>(null);
@@ -225,6 +233,21 @@ export function FloorPlanDialog({ prjc, projectLabel, open, onOpenChange, canSav
   const fmtLen = React.useCallback((px: number) => (mPerPx ? fmtM(px * mPerPx) : `${Math.round(px)} px`), [mPerPx]);
   const areaOf = (r: Room) => (mPerPx ? toM2(r.areaPx, mPerPx) : null);
   const total = rooms.reduce((s, r) => s + (mPerPx ? toM2(r.areaPx, mPerPx) : 0), 0);
+  const wallsTotal = mPerPx ? rooms.reduce((s, r) => s + (r.walls?.on ? wallArea(r.perimeterPx * mPerPx, r.walls).net : 0), 0) : 0;
+  const wallRooms = rooms.filter((r) => r.walls?.on).length;
+
+  // Τοίχοι: το κουμπί ανοίγει την κάρτα του χώρου (και τον επιλέγει)· ενεργό + επιλεγμένο = κλείσιμο κάρτας.
+  const toggleWalls = (id: string) => {
+    const r = rooms.find((x) => x.id === id);
+    if (!r) return;
+    if (r.walls?.on && selected === id) { setSelected(null); return; }
+    if (!r.walls?.on) setRooms((rs) => rs.map((x) => (x.id === id ? { ...x, walls: { heightM: lastHeight, openings: [], ...x.walls, on: true } } : x)));
+    setSelected(id);
+  };
+  const updateWalls = (id: string, walls: RoomWalls) => {
+    setRooms((rs) => rs.map((x) => (x.id === id ? { ...x, walls } : x)));
+    setLastHeight(walls.heightM);
+  };
 
   // Σύνολο: «μετρητής» με GSAP όταν αλλάζει.
   const shown = React.useRef({ v: 0 });
@@ -353,9 +376,14 @@ export function FloorPlanDialog({ prjc, projectLabel, open, onOpenChange, canSav
   });
 
   // ── Εξαγωγή ──────────────────────────────────────────────────────────────────────────
-  const exportRooms: ExportRoom[] = rooms.map((r) => ({
-    name: r.name, color: r.color, polygon: r.polygon, areaM2: areaOf(r), perimeterM: mPerPx ? r.perimeterPx * mPerPx : null,
-  }));
+  const exportRooms: ExportRoom[] = rooms.map((r) => {
+    const perimeterM = mPerPx ? r.perimeterPx * mPerPx : null;
+    const wc = r.walls?.on && perimeterM != null ? wallArea(perimeterM, r.walls) : null;
+    return {
+      name: r.name, color: r.color, polygon: r.polygon, areaM2: areaOf(r), perimeterM,
+      walls: wc ? { m2: wc.net, heightM: r.walls!.heightM, openingsM2: wc.openings } : null,
+    };
+  });
   const wallLenM = mPerPx && drawnWalls.length ? drawnWalls.reduce((sum, d) => sum + Math.hypot(d.b.x - d.a.x, d.b.y - d.a.y), 0) * mPerPx : null;
   const baseName = `katopsi-${prjc}-${new Date().toISOString().slice(0, 10)}`;
   const scaleNote = calib ? `Κλίμακα: ${nf.format(calib.meters)} m = ${Math.round(calib.meters / (mPerPx ?? 1))} px · αρχείο ${plan?.name ?? ''}${plan && plan.pages > 1 ? ` (σελ. ${plan.page})` : ''}` : 'Χωρίς κλίμακα';
@@ -604,10 +632,11 @@ export function FloorPlanDialog({ prjc, projectLabel, open, onOpenChange, canSav
                       return (
                         <li
                           key={r.id}
-                          className="flex items-center gap-2 px-2 py-1.5"
+                          className="px-2 py-1.5"
                           style={r.id === selected ? { background: 'color-mix(in oklab, var(--primary) 7%, transparent)' } : undefined}
                           onClick={() => setSelected(r.id)}
                         >
+                          <div className="flex items-center gap-2">
                           <span className="size-3 shrink-0 rounded-sm" style={{ background: r.color }} aria-hidden />
                           <input
                             value={r.name} aria-label="Όνομα χώρου"
@@ -625,6 +654,19 @@ export function FloorPlanDialog({ prjc, projectLabel, open, onOpenChange, canSav
                           >
                             <FiTrash2 className="size-3.5" aria-hidden />
                           </button>
+                          </div>
+                          {mPerPx && <WallsToggle walls={r.walls} perimeterM={r.perimeterPx * mPerPx} color={r.color} open={selected === r.id} onToggle={() => toggleWalls(r.id)} />}
+                          {r.walls?.on && selected === r.id && (
+                            <>
+                              <RoomWallsPanel walls={r.walls} perimeterM={mPerPx ? r.perimeterPx * mPerPx : null} color={r.color} onChange={(wl) => updateWalls(r.id, wl)} />
+                              <button
+                                type="button" onClick={(e) => { e.stopPropagation(); updateWalls(r.id, { ...r.walls!, on: false }); }}
+                                className="mt-1 cursor-pointer text-[10px] text-muted-foreground underline-offset-2 hover:text-destructive hover:underline"
+                              >
+                                Χωρίς πλακάκι στους τοίχους
+                              </button>
+                            </>
+                          )}
                         </li>
                       );
                     })}
@@ -640,7 +682,14 @@ export function FloorPlanDialog({ prjc, projectLabel, open, onOpenChange, canSav
                 </div>
                 <p className="mt-1 font-mono text-[28px] font-semibold leading-none tabular-nums" style={{ color: '#22D3EE' }}>
                   <span ref={totalRef}>0,00</span><span className="ml-1 text-[14px] text-slate-400">m²</span>
+                  {wallRooms > 0 && <span className="ml-2 align-middle font-sans text-[10px] font-medium uppercase tracking-wider text-slate-400">δάπεδο</span>}
                 </p>
+                {wallRooms > 0 && (
+                  <dl className="mt-2 space-y-0.5 border-t border-white/10 pt-2 font-mono text-(length:--fs-12) tabular-nums">
+                    <div className="flex justify-between gap-2"><dt className="font-sans text-slate-400">Τοίχοι · {wallRooms} χώρ{wallRooms === 1 ? 'ος' : 'οι'}</dt><dd>{fmtM2(wallsTotal)}</dd></div>
+                    <div className="flex justify-between gap-2 font-semibold text-white"><dt className="font-sans">Δάπεδο + τοίχοι</dt><dd style={{ color: '#22D3EE' }}>{fmtM2(total + wallsTotal)}</dd></div>
+                  </dl>
+                )}
                 <div className="mt-3 grid grid-cols-3 gap-1.5">
                   <Button
                     size="sm" variant="secondary" disabled={!rooms.length || !calib}
