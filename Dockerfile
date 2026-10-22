@@ -39,6 +39,8 @@ COPY . .
 
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_ENV=production
+# Το `next build` ξεπερνά πλέον το προεπιλεγμένο όριο μνήμης του Node (OOM) — μόνο στο build, όχι στο runtime.
+ENV NODE_OPTIONS=--max-old-space-size=6144
 # Prisma's PrismaClient throws at construction if DATABASE_URL is unset, even
 # during build (no connection is opened). A placeholder keeps `next build` happy;
 # the real value is injected at runtime by Coolify. Override at build time with

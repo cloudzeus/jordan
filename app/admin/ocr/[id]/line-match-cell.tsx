@@ -25,7 +25,7 @@ import { depreciationAdvice } from '@/lib/ocr/depreciation';
 import { CreateRegistryEntryModal } from '@/components/admin/create-registry-entry-modal';
 import { AssetSearch, CreateAssetDialog, type AssetPick } from '@/components/admin/asset-picker';
 import { lineKindFits, lineKindsReason } from '@/lib/ocr/resolution-plan';
-import { assetFits, type PostingTarget } from '@/lib/ocr/posting-target';
+import { assetFits, POST_LINES_LABEL, type PostingTarget } from '@/lib/ocr/posting-target';
 import { matchKindOf, type LineCategoryOption, type LineMatch } from './line-match-kind';
 import type { MatchKind } from '@/lib/ocr/line-match';
 import { cn } from '@/lib/utils';
@@ -45,8 +45,8 @@ export interface LineAnalyticsState {
 const KIND_META: Record<MatchKind, { label: string; bg: string; fg: string; icon: React.ReactNode }> = {
   product: { label: 'Είδος', bg: '#EAF4FC', fg: '#0078D4', icon: <FiPackage aria-hidden className="size-3" /> },
   service: { label: 'Υπηρεσία', bg: '#E8F7F0', fg: '#047857', icon: <FiTool aria-hidden className="size-3" /> },
-  expense: { label: 'Έξοδο', bg: '#FDF3E3', fg: '#B45309', icon: <FiDollarSign aria-hidden className="size-3" /> },
-  lineitem: { label: 'Χρεοπίστωση', bg: '#F3EEFF', fg: '#6D28D9', icon: <FiTag aria-hidden className="size-3" /> },
+  expense: { label: 'Κατηγορία εξόδου', bg: '#FDF3E3', fg: '#B45309', icon: <FiDollarSign aria-hidden className="size-3" /> },
+  lineitem: { label: 'Κατηγορία εξόδου', bg: '#F3EEFF', fg: '#6D28D9', icon: <FiTag aria-hidden className="size-3" /> },
 };
 
 const SEGMENTS: MatchKind[] = ['product', 'service', 'expense', 'lineitem'];
@@ -646,7 +646,7 @@ export function LineMatchCell({
                             type="button"
                             aria-pressed={kind === k}
                             disabled={!fits}
-                            title={fits ? undefined : `Ο προορισμός «${target?.lines}» δεν δέχεται ${KIND_META[k].label.toLowerCase()}.`}
+                            title={fits ? undefined : `Ο προορισμός «${target ? POST_LINES_LABEL[target.lines] : '—'}» δεν δέχεται ${KIND_META[k].label.toLowerCase()}.`}
                             onClick={() => { setKind(k); if (k !== 'lineitem') setLineCategory(null); }}
                             className={cn(
                               'flex h-7 flex-1 items-center justify-center gap-1 rounded px-1 text-(length:--fs-11) font-semibold outline-hidden',

@@ -5,20 +5,32 @@ import type { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/db';
 import { decideLineUnits, hasBuyUnit } from '@/lib/ocr/line-units';
 import { getSetting } from '@/lib/settings';
-import { softoneCall, softoneGetData } from '@/lib/softone';
+import { softoneCall, softoneGetData, SoftoneTransportError } from '@/lib/softone';
+import { logAudit } from '@/lib/audit';
 import { fetchNoteState } from '@/lib/softone-sync/delivery-notes';
 import { normalizeDocRef } from '@/lib/doc-reference';
 import { buildReviewFlags } from '@/lib/templates/run-logic';
 import type { DocumentJson } from './canonical';
 import { loadDocumentJson } from './document';
 import {
-  accountCheckInputs, buildPurdocPayload, documentReference, postingBlockers, postingWarnings,
+  accountCheckInputs, buildPurdocPayload, documentReference, postingBlockers, postingWarnings, serialVerdicts,
   type BlockerCode, type DocReference, type PostingPayload, type PurdocContext, type PurdocLineCtx, type WarningCode,
 } from './purdoc-payload';
 import { accountDetails, checkAccounts, type AccountCheck } from './account-check';
 import { loadAccountChart } from './account-chart';
 import { describeTargetShort, resolvePostingTarget, type PostingTarget } from './posting-target';
 import { VAT_RATE_MAP_SETTING, buildVatRateMap, parseVatRateOverrides } from './vat-map';
+import { postingComment } from './posting-comment';
+import { periodVerdict } from '@/lib/softone-sync/periods';
+import { isCreditNote } from './credit-link';
+import { analyzeWithholding, isServiceInvoice, withholdingNote } from './withholding';
+import { approvalStatusFor } from './approvals-server';
+import { approvalBlockerMessage } from './approvals';
+import { clip } from './posting-comment';
+import { softoneErrorLine } from './softone-error-text';
+import { serialIssueText } from './serial-tracking';
+import { serialTrackingFor } from '@/lib/softone-sync/serial-tracking';
+import { UTILITY_KIND_TITLE, analyzeUtility, utilityInputFromDocument } from './utility-bills';
 
 /** Αριθμός ή `null` — ο ΦΠΑ μιας γραμμής όπως τον κρατά το κανονικό έγγραφο. */
 const vatRateOf = (v: unknown): number | null => {
@@ -29,7 +41,7 @@ const vatRateOf = (v: unknown): number | null => {
 /** Ο διακόπτης ασφαλείας. Κλειστός = καμία εγγραφή δεν φεύγει προς το SoftOne (μόνο dry-run). */
 export const POSTING_ENABLED_KEY = 'softone.postingEnabled';
 
-export type PostErrorCode = 'not_found' | 'posting_disabled' | 'already_posted' | 'duplicate' | 'conversion_check' | BlockerCode;
+export type PostErrorCode = 'not_found' | 'posting_disabled' | 'already_posted' | 'duplicate' | 'conversion_check' | 'amounts_check' | BlockerCode;
 
 export class PostError extends Error {
   constructor(public code: PostErrorCode, message: string) {
@@ -44,41 +56,52 @@ export class PostError extends Error {
  * list, so a user sees the same sentence whichever way the posting was attempted.
  */
 export const POST_ERROR_TEXT: Record<PostErrorCode, string> = {
-  not_found: 'Το έγγραφο δεν βρέθηκε',
-  conversion_check: 'Ο έλεγχος του μετασχηματισμού από δελτίο απέτυχε — τίποτα δεν γράφτηκε',
-  not_completed: 'Το έγγραφο δεν έχει ολοκληρωθεί',
-  no_category: 'Δεν έχει οριστεί κατηγορία εγγράφου',
-  line_discount_ambiguous: 'Υπάρχει γραμμή με έκπτωση που δεν συμφωνεί με το σύνολό της — δεν μπορεί να κριθεί αν είναι ποσοστό ή ποσό, και λάθος ερμηνεία γράφει λάθος ποσό στο SoftOne',
+  // ΚΑΝΟΝΑΣ ΚΕΙΜΕΝΟΥ: τι λείπει/τι δεν ταιριάζει, ΚΑΙ τι να κάνεις — χωρίς ονόματα πινάκων της
+  // SoftOne (EXPANAL, LINLINES, MTRTYPE) και χωρίς λογιστική ορολογία που δεν εξηγείται.
+  // Οι όροι «είδος / υπηρεσία / έξοδο αγοράς / δαπάνη σε λογαριασμό / πάγιο» είναι αυτοί του
+  // γλωσσαρίου (`lib/ocr/glossary.ts`) — ίδια λέξη, ίδια έννοια παντού.
+  not_found: 'Το παραστατικό δεν βρέθηκε (μάλλον διαγράφηκε).',
+  conversion_check: 'Ο έλεγχος πριν από τη μετατροπή του δελτίου σε τιμολόγιο απέτυχε — δεν γράφτηκε τίποτα στη SoftOne.',
+  amounts_check: 'Η SoftOne θα κατέγραφε άλλο ποσό από αυτό του παραστατικού — δεν γράφτηκε τίποτα.',
+  not_completed: 'Η ανάγνωση του παραστατικού δεν ολοκληρώθηκε. Κάνε «Επανασάρωση».',
+  no_category: 'Διάλεξε «Κατηγορία» στην κάτω μπάρα.',
+  line_discount_ambiguous: 'Μια γραμμή έχει έκπτωση που δεν βγαίνει από τα ποσά της, οπότε δεν ξέρουμε αν είναι ποσοστό ή ποσό. Διόρθωσε έκπτωση ή καθαρή αξία της γραμμής στην «Επεξεργασία γραμμών».',
   // Τρία μηνύματα για τρεις καταστάσεις: η δουλειά που πρέπει να γίνει είναι ΑΛΛΗ σε κάθε μία.
-  no_trader: 'Ο ΑΦΜ του εκδότη διαβάστηκε, αλλά δεν υπάρχει καρτέλα με αυτόν στο SoftOne — φτιάξε την από «Νέοι συναλλασσόμενοι»',
-  no_trader_afm_missing: 'Το παραστατικό δεν έχει ΑΦΜ εκδότη — χωρίς αυτόν δεν μπορεί να βρεθεί ούτε να δημιουργηθεί καρτέλα· συμπλήρωσέ τον στα πεδία του εκδότη',
-  no_trader_afm_invalid: 'Ο ΑΦΜ που διαβάστηκε δεν είναι έγκυρος (δεν περνά τον έλεγχο της ΑΑΔΕ και δεν έχει πρόθεμα χώρας) — διόρθωσέ τον στα πεδία του εκδότη',
-  no_series: 'Δεν έχει επιλεγεί σειρά παραστατικού',
-  no_date: 'Λείπει η ημερομηνία του παραστατικού',
-  no_number: 'Λείπει ο αριθμός του παραστατικού',
-  no_lines: 'Το έγγραφο δεν έχει γραμμές',
-  unmatched_lines: 'Υπάρχουν γραμμές χωρίς αντιστοίχιση σε είδος ή έξοδο',
-  no_vat_category: 'Συντελεστής ΦΠΑ γραμμής χωρίς κωδικό στο μητρώο ΦΠΑ',
-  totals_mismatch: 'Το άθροισμα των γραμμών δεν συμφωνεί με την καθαρή αξία',
-  lines_need_mtrl: 'Ο πίνακας γραμμών της σειράς δέχεται μόνο είδη ή υπηρεσίες — υπάρχει γραμμή αντιστοιχισμένη σε έξοδο ή χρεοπίστωση',
-  lines_need_expn: 'Ο πίνακας «Έξοδα» (EXPANAL) δέχεται μόνο έξοδα — υπάρχει γραμμή αντιστοιχισμένη σε είδος, υπηρεσία ή χρεοπίστωση',
-  lines_need_lineitem: 'Οι «Ειδικές συναλλαγές» (LINLINES) δέχονται μόνο ΧΡΕΟΠΙΣΤΩΣΕΙΣ — υπάρχει γραμμή αντιστοιχισμένη σε είδος, υπηρεσία ή έξοδο',
-  lines_lineitem_unsupported: 'Η σειρά καταχωρεί σε παραστατικό αγορών, που δεν έχει γραμμές χρεοπίστωσης — άλλαξε τον πίνακα γραμμών σε «Ειδικές συναλλαγές» ή αντιστοίχισε τη γραμμή σε είδος/υπηρεσία/έξοδο',
-  lines_sxdoc_unsupported: 'Η σειρά ανήκει στα «Παραστατικά εξόδων» (απλογραφικά βιβλία). Το μητρώο λογαριασμών εσόδων/εξόδων έχει συγχρονιστεί, αλλά η ΚΑΤΑΧΩΡΙΣΗ σε αυτή την ενότητα δεν έχει υλοποιηθεί ακόμη — διάλεξε σειρά άλλης ενότητας ή περίμενε την υποστήριξη',
-  lines_asset_unsupported: 'Υπάρχει γραμμή αντιστοιχισμένη σε ΠΑΓΙΟ, αλλά η σειρά δεν καταχωρεί σε παραστατικό αγορών με γραμμές «ανά γραμμή» — οι γραμμές παγίων (ASSLINES) υπάρχουν μόνο εκεί· διάλεξε σειρά αγορών',
-  asset_no_whouse: 'Δεν είναι γνωστή η αποθήκη παγίων της εγκατάστασης — τρέξε τον συγχρονισμό «Πάγια» (Μητρώα αναφοράς)',
-  lines_no_mtrtype: 'Χρεοπίστωση χωρίς «Τύπο» (MTRTYPE) στο μητρώο — συγχρόνισε ξανά τις χρεοπιστώσεις',
-  series_unknown: 'Η σειρά του παραστατικού δεν υπάρχει (ή δεν είναι σε χρήση) στο μητρώο σειρών — διάλεξε σειρά από τη λίστα ή συγχρόνισε τις σειρές',
-  series_module_unsupported: 'Η ενότητα της σειράς δεν υποστηρίζεται για καταχώριση — επίλεξε σειρά αγορών (1251), προμηθευτών (1253), χρεωστών (1553) ή πιστωτών (1653)',
-  registry_not_in_installation: 'Γραμμή δείχνει σε χρεοπίστωση, έξοδο ή πάγιο που δεν υπάρχει στην τωρινή εγκατάσταση SoftOne (απομεινάρι προηγούμενης σύνδεσης) — αντιστοίχισέ τη ξανά',
-  trader_kind_mismatch: 'Ο συναλλασσόμενος δεν είναι του τύπου που δέχεται το παραστατικό — άλλαξέ τον από «Νέοι συναλλασσόμενοι» ή διάλεξε άλλη σειρά',
-  account_missing: 'Χρεοπίστωση χωρίς λογαριασμό γενικής λογιστικής — η λογιστική εγγραφή δεν θα είχε πού να πάει',
-  account_not_in_chart: 'Ο λογαριασμός γενικής της χρεοπίστωσης δεν υπάρχει στο λογιστικό σχέδιο του SoftOne',
-  account_not_postable: 'Ο λογαριασμός γενικής της χρεοπίστωσης είναι συγκεντρωτικός λογαριασμός — δεν δέχεται εγγραφές',
-  account_is_mask: 'Η χρεοπίστωση έχει μάσκα λογαριασμού (με *) αντί για συγκεκριμένο λογαριασμό γενικής — η εφαρμογή δεν μπορεί ακόμη να διαλέξει λογαριασμό μέσα στη μάσκα',
-  posting_disabled: 'Η καταχώριση είναι απενεργοποιημένη (Ρυθμίσεις → Διασυνδέσεις)',
-  already_posted: 'Έχει ήδη καταχωριστεί στο SoftOne',
-  duplicate: 'Το ίδιο τιμολόγιο (ίδιος ΑΦΜ εκδότη και αριθμός) έχει ήδη καταχωριστεί',
+  no_trader: 'Ο εκδότης δεν υπάρχει ακόμη στη SoftOne. Δημιούργησέ τον με τα στοιχεία της ΑΑΔΕ (λωρίδα ελέγχων, πάνω).',
+  no_trader_afm_missing: 'Δεν διαβάστηκε ΑΦΜ εκδότη, οπότε ο εκδότης δεν μπορεί να βρεθεί στη SoftOne. Συμπλήρωσε τον ΑΦΜ στα πεδία του εκδότη.',
+  no_trader_afm_invalid: 'Ο ΑΦΜ εκδότη που διαβάστηκε δεν είναι έγκυρος. Διόρθωσέ τον στα πεδία του εκδότη (για ξένο, με το πρόθεμα χώρας, π.χ. DE…).',
+  no_series: 'Διάλεξε «Είδος παραστατικού στη SoftOne» στην κάτω μπάρα.',
+  no_date: 'Λείπει η ημερομηνία του παραστατικού — συμπλήρωσέ τη στα πεδία.',
+  no_number: 'Λείπει ο αριθμός του παραστατικού — συμπλήρωσέ τον στα πεδία.',
+  no_lines: 'Το παραστατικό δεν έχει γραμμές. Πρόσθεσέ τες από την «Επεξεργασία γραμμών» ή κάνε «Επανασάρωση».',
+  unmatched_lines: 'Κάποιες γραμμές δεν έχουν ακόμη «τι αφορούν» στη SoftOne. Άνοιξε κάθε γραμμή και διάλεξε.',
+  no_vat_category: 'Ένας συντελεστής ΦΠΑ των γραμμών δεν έχει αντίστοιχο κωδικό ΦΠΑ στη SoftOne. Όρισέ τον από τη λωρίδα ελέγχων.',
+  totals_mismatch: 'Οι γραμμές δεν αθροίζουν στην καθαρή αξία του παραστατικού. Δες «Τα ποσά δεν κλείνουν».',
+  lines_need_mtrl: 'Το είδος παραστατικού που διάλεξες δέχεται μόνο είδη ή υπηρεσίες. Κάποια γραμμή έχει οριστεί ως δαπάνη σε λογαριασμό ή έξοδο αγοράς: άλλαξε τη γραμμή, ή διάλεξε είδος παραστατικού για δαπάνες.',
+  lines_need_expn: 'Το είδος παραστατικού που διάλεξες δέχεται μόνο έξοδα αγοράς. Κάποια γραμμή έχει οριστεί ως είδος, υπηρεσία ή δαπάνη σε λογαριασμό: άλλαξε τη γραμμή ή το είδος παραστατικού.',
+  lines_need_lineitem: 'Το είδος παραστατικού που διάλεξες δέχεται μόνο δαπάνες σε λογαριασμό (π.χ. ρεύμα, ενοίκιο, συνδρομές). Κάποια γραμμή έχει οριστεί ως είδος, υπηρεσία ή έξοδο αγοράς: άλλαξε τη γραμμή ή το είδος παραστατικού.',
+  lines_lineitem_unsupported: 'Κάποια γραμμή έχει οριστεί ως δαπάνη σε λογαριασμό, αλλά το είδος παραστατικού που διάλεξες καταχωρεί αγορές ειδών. Διάλεξε είδος παραστατικού για δαπάνες (ειδικές συναλλαγές), ή όρισε τη γραμμή ως είδος/υπηρεσία.',
+  lines_sxdoc_unsupported: 'Αυτό το είδος παραστατικού ανήκει στα απλογραφικά βιβλία, που η εφαρμογή δεν καταχωρεί ακόμη. Διάλεξε άλλο είδος παραστατικού.',
+  lines_asset_unsupported: 'Κάποια γραμμή έχει οριστεί ως πάγιο, αλλά το είδος παραστατικού που διάλεξες δεν δέχεται πάγια. Διάλεξε είδος παραστατικού αγορών.',
+  asset_no_whouse: 'Για τα πάγια λείπει μια ρύθμιση από τη SoftOne (αποθήκη παγίων). Ζήτησε από τον διαχειριστή να τρέξει τον συγχρονισμό «Πάγια» στα Μητρώα αναφοράς.',
+  lines_no_mtrtype: 'Μια δαπάνη σε λογαριασμό δεν έχει πλήρη στοιχεία στη SoftOne. Ζήτησε από τον διαχειριστή νέο συγχρονισμό στα Μητρώα αναφοράς.',
+  series_unknown: 'Το είδος παραστατικού που έχει οριστεί δεν υπάρχει (ή είναι ανενεργό) στη SoftOne. Διάλεξε άλλο από τη λίστα στην κάτω μπάρα.',
+  series_module_unsupported: 'Αυτό το είδος παραστατικού δεν καταχωρείται από την εφαρμογή. Διάλεξε παραστατικό αγορών, προμηθευτών, χρεωστών ή πιστωτών.',
+  approval_required: 'Χρειάζεται έγκριση πριν την καταχώριση.',
+  serials_count_mismatch: 'Σε είδος με σειριακούς αριθμούς, οι σειριακοί δεν είναι όσοι και τα τεμάχια. Διόρθωσέ τους στην «Επεξεργασία γραμμών» (στήλη S/N) — αλλιώς στην πώληση το απόθεμα και οι σειριακοί δεν θα συμφωνούν.',
+  serials_bad_format: 'Κάποιος σειριακός αριθμός δεν έχει τη μορφή που ζητά η SoftOne για το είδος. Διόρθωσέ τον στην «Επεξεργασία γραμμών» (στήλη S/N).',
+  withholding_unhandled: 'Το παραστατικό έχει παρακράτηση φόρου, που η SoftOne δεν περνά αυτόματα σε αυτή την εγκατάσταση. Επιβεβαίωσε ότι θα την καταχωρίσει ο λογιστής.',
+  credit_not_linked: 'Είναι πιστωτικό: σύνδεσέ το με το αρχικό παραστατικό που πιστώνει — ή δήλωσε ρητά «χωρίς αρχικό» (π.χ. έκπτωση τζίρου).',
+  period_closed: 'Η ημερομηνία του παραστατικού πέφτει σε κλειστή περίοδο της SoftOne. Αν διαβάστηκε λάθος, διόρθωσέ τη· αλλιώς ζήτησε από τον λογιστή να ανοίξει την περίοδο.',
+  registry_not_in_installation: 'Κάποια γραμμή δείχνει σε κωδικό που δεν υπάρχει στη SoftOne που είμαστε συνδεδεμένοι (παλιά σύνδεση). Άνοιξε τη γραμμή και διάλεξε ξανά τι αφορά.',
+  trader_kind_mismatch: 'Ο εκδότης είναι συνδεδεμένος με καρτέλα άλλου τύπου (π.χ. πιστωτή αντί για προμηθευτή) από αυτόν που δέχεται το είδος παραστατικού. Διόρθωσέ το από τη λωρίδα ελέγχων, ή άλλαξε είδος παραστατικού.',
+  account_missing: 'Μια δαπάνη σε λογαριασμό δεν έχει λογαριασμό λογιστικής στη SoftOne. Διάλεξε άλλη για τη γραμμή, ή ζήτησε από τον λογιστή να της ορίσει λογαριασμό.',
+  account_not_in_chart: 'Ο λογαριασμός λογιστικής μιας γραμμής δεν υπάρχει στο λογιστικό σχέδιο της SoftOne. Διάλεξε άλλη δαπάνη για τη γραμμή ή ρώτησε τον λογιστή.',
+  account_not_postable: 'Ο λογαριασμός λογιστικής μιας γραμμής είναι συγκεντρωτικός και δεν δέχεται εγγραφές. Διάλεξε άλλη δαπάνη για τη γραμμή ή ρώτησε τον λογιστή.',
+  account_is_mask: 'Μια δαπάνη σε λογαριασμό έχει γενικό πρότυπο λογαριασμού (με *) αντί για συγκεκριμένο λογαριασμό. Ζήτησε από τον λογιστή να ορίσει συγκεκριμένο λογαριασμό.',
+  posting_disabled: 'Η καταχώριση στη SoftOne είναι απενεργοποιημένη (Ρυθμίσεις → Διασυνδέσεις).',
+  already_posted: 'Έχει ήδη καταχωριστεί στη SoftOne.',
+  duplicate: 'Το ίδιο τιμολόγιο (ίδιος ΑΦΜ εκδότη και ίδιος αριθμός) έχει ήδη καταχωριστεί',
 };
 
 /**
@@ -93,6 +116,9 @@ export const POST_WARNING_TEXT: Record<WarningCode, string> = {
   account_unknown: 'Ο έλεγχος λογαριασμού γενικής δεν μπόρεσε να κρίνει — ούτε εγκρίνει ούτε εμποδίζει',
   account_not_covered: 'Ο έλεγχος λογαριασμού γενικής δεν καλύπτει ακόμη γραμμές ειδών, υπηρεσιών και εξόδων — ο λογαριασμός τους συντίθεται στο SoftOne',
   account_vat_mismatch: 'Υπάρχει γραμμή που πάει σε λογαριασμό για άλλον συντελεστή ΦΠΑ από αυτόν της γραμμής — έλεγξε τη χρεοπίστωση',
+  withholding_check: 'Έλεγξε την παρακράτηση φόρου του παραστατικού.',
+  serials_missing: 'Είδος που η SoftOne παρακολουθεί με σειριακούς αριθμούς δεν έχει σειριακούς στο παραστατικό — πρόσθεσέ τους στην «Επεξεργασία γραμμών», αλλιώς θα χρειαστεί να μπουν στη SoftOne πριν την πώληση',
+  serials_untracked: 'Υπάρχουν σειριακοί αριθμοί σε είδος που η SoftOne δεν παρακολουθεί με σειριακούς — γράφονται μόνο στο σχόλιο της γραμμής. Για να φαίνονται στις πωλήσεις, ενεργοποίησε «SN» στην καρτέλα του είδους στη SoftOne',
   shared_code_many_products: 'Γραμμές με ΔΙΑΦΟΡΕΤΙΚΕΣ περιγραφές μοιράζονται τον ίδιο κωδικό και ταίριαξαν όλες στο ίδιο είδος — συχνά ο κωδικός είναι δασμολογικός (CN), όχι κωδικός προϊόντος· έλεγξε τις γραμμές πριν την καταχώριση',
 };
 
@@ -103,7 +129,17 @@ export const ACCOUNT_CHART_NOT_SYNCED = 'Το λογιστικό σχέδιο δ
  * Το κείμενο ενός εμποδίου, με τις ανά γραμμή λεπτομέρειες όταν είναι εμπόδιο του ελέγχου
  * λογαριασμού: ο λογιστής πρέπει να δει ΠΟΙΑ χρεοπίστωση και ΠΟΙΟΝ λογαριασμό, όχι μια γενική φράση.
  */
-export function blockerMessage(code: BlockerCode, accounts: AccountCheck | null): string {
+export function blockerMessage(code: BlockerCode, accounts: AccountCheck | null, document?: DocumentJson | null): string {
+  // ΜΕ ΤΑ ΝΟΥΜΕΡΑ: «οι γραμμές δεν αθροίζουν» χωρίς πόσο, δεν λέει στον χρήστη τι να ψάξει.
+  if (code === 'totals_mismatch' && document) {
+    const lines = Math.round(document.lines.reduce((t, l) => t + (Number(l.net) || 0), 0) * 100) / 100;
+    const net = document.totals?.net;
+    if (net != null && Number.isFinite(net)) {
+      const diff = Math.round((net - lines) * 100) / 100;
+      const e = (v: number) => `${v.toLocaleString('el-GR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
+      return `Οι γραμμές αθροίζουν ${e(lines)} ενώ η καθαρή αξία του παραστατικού είναι ${e(net)} — ${diff > 0 ? `λείπουν ${e(diff)} (μάλλον γραμμή που δεν διαβάστηκε)` : `περισσεύουν ${e(-diff)}`}. Άνοιξε το παραστατικό: «Τα ποσά δεν κλείνουν» δείχνει τη λύση.`;
+    }
+  }
   if (code === 'account_missing' || code === 'account_not_in_chart' || code === 'account_is_mask' || code === 'account_not_postable') {
     const details = accountDetails(code, accounts);
     return details.length ? `${POST_ERROR_TEXT[code]}: ${details.join(' · ')}` : POST_ERROR_TEXT[code];
@@ -174,6 +210,16 @@ type Gathered = {
   warnings: WarningCode[];
   payload: PostingPayload;
   accounts: AccountCheck;
+  /** Το συγκεκριμένο μήνυμα της περιόδου (χρήση/μήνας ονομαστικά) όταν υπάρχει `period_closed`. */
+  periodMessage?: string | null;
+  /** Πάγιο σε σειρά που δεν το δέχεται: ποιες ενεργές σειρές αγορών το δέχονται. */
+  assetMessage?: string | null;
+  /** Σειριακοί: ΠΟΙΑ γραμμή, ΠΟΙΟ είδος, ΠΟΙΟΣ σειριακός — ανά κωδικό εμποδίου/παρατήρησης. */
+  serialTexts?: Partial<Record<SerialCode, string>>;
+  /** Το συγκεκριμένο μήνυμα του ελέγχου παρακράτησης (ποσοστό / πληρωτέο / πιθανή έλλειψη). */
+  withholdingWarning?: string | null;
+  /** Τι λείπει στις εγκρίσεις (ή ποιος απέρριψε, γιατί). */
+  approvalMessage?: string | null;
 };
 
 /**
@@ -183,7 +229,7 @@ type Gathered = {
  */
 async function loadTarget(
   code: string | null, sosource: number | null,
-): Promise<{ target: PostingTarget; known: boolean; enabled: boolean }> {
+): Promise<{ target: PostingTarget; known: boolean; enabled: boolean; name?: string | null }> {
   if (!code) return { target: resolvePostingTarget({ sosource }), known: false, enabled: false };
   const row = sosource === 1251
     ? await prisma.purchaseDocType.findUnique({
@@ -200,6 +246,7 @@ async function loadTarget(
     target: resolvePostingTarget({ sosource, ...(row ?? {}) }),
     known: Boolean(row),
     enabled: Boolean(row?.enabled),
+    name: row?.name ?? null,
   };
 }
 
@@ -218,6 +265,47 @@ export interface ConversionSpec {
   links: Map<number, { findoc: number; mtrlines: number; qty1: number }[]>;
   /** Τα δελτία-πηγές — για τον έλεγχο μετά την καταχώριση. */
   findocs: number[];
+}
+
+function utilityTitleOf(document: DocumentJson): string | null {
+  const input = utilityInputFromDocument(document);
+  const u = input ? analyzeUtility(input) : null;
+  return u ? UTILITY_KIND_TITLE[u.kind] : null;
+}
+
+/** Εμπόδια με μήνυμα που ξέρει τα συγκεκριμένα του παραστατικού (περίοδος, πάγιο, εγκρίσεις). */
+type SerialCode = 'serials_count_mismatch' | 'serials_bad_format' | 'serials_missing' | 'serials_untracked';
+
+/** Τα ανά γραμμή κείμενα σειριακών, ομαδοποιημένα στον κωδικό εμποδίου/παρατήρησης που τα αφορά. */
+function serialTextsOf(document: DocumentJson, ctx: PurdocContext, labels: Map<number, string>): Partial<Record<SerialCode, string>> {
+  const acc: Record<SerialCode, string[]> = { serials_count_mismatch: [], serials_bad_format: [], serials_missing: [], serials_untracked: [] };
+  for (const v of serialVerdicts(document, ctx)) {
+    const label = labels.get(v.rowIndex) ?? null;
+    const one = (flag: boolean, code: SerialCode, part: Partial<typeof v>) => {
+      if (flag) acc[code].push(...serialIssueText({ ...v, countMismatch: false, badFormat: [], missing: false, untracked: false, unknown: false, ...part }, label));
+    };
+    one(v.countMismatch, 'serials_count_mismatch', { countMismatch: true });
+    one(v.badFormat.length > 0, 'serials_bad_format', { badFormat: v.badFormat });
+    one(v.missing, 'serials_missing', { missing: true });
+    one(v.untracked || v.unknown, 'serials_untracked', { untracked: v.untracked, unknown: v.unknown });
+  }
+  const out: Partial<Record<SerialCode, string>> = {};
+  for (const [k, list] of Object.entries(acc) as [SerialCode, string[]][]) {
+    if (!list.length) continue;
+    const tail = k === 'serials_untracked' ? ' Για να φαίνονται στις πωλήσεις, ενεργοποίησε «SN» στην καρτέλα του είδους στη SoftOne — ο έλεγχος το βλέπει αμέσως.'
+      : k === 'serials_missing' ? ' Πρόσθεσέ τους στην «Επεξεργασία γραμμών» (στήλη S/N).'
+        : ' Διόρθωσέ τους στην «Επεξεργασία γραμμών» (στήλη S/N).';
+    out[k] = `${list.join(' ')}${tail}`;
+  }
+  return out;
+}
+
+function specificMessage(code: BlockerCode, m: { periodMessage?: string | null; assetMessage?: string | null; approvalMessage?: string | null; serialTexts?: Partial<Record<SerialCode, string>> }): string | null {
+  if ((code === 'serials_count_mismatch' || code === 'serials_bad_format') && m.serialTexts?.[code]) return m.serialTexts[code]!;
+  if (code === 'period_closed') return m.periodMessage ?? null;
+  if (code === 'lines_asset_unsupported') return m.assetMessage ?? null;
+  if (code === 'approval_required') return m.approvalMessage ?? null;
+  return null;
 }
 
 async function gather(id: string, conv?: ConversionSpec): Promise<Gathered> {
@@ -239,7 +327,7 @@ async function gather(id: string, conv?: ConversionSpec): Promise<Gathered> {
         rowIndex: true, softoneMtrl: true, softoneExpn: true, softoneLinMtrl: true, softoneAsset: true, softoneIsService: true,
         softoneCostCntr: true, softonePrjc: true, softonePrjcStage: true, softoneMatchedBy: true, total: true,
         // Ο επιμερισμός σε πολλούς λογαριασμούς — όταν υπάρχει, ΥΠΕΡΙΣΧΥΕΙ της μονής αντιστοίχισης.
-        allocations: { orderBy: { order: 'asc' }, select: { registryMtrl: true, amount: true, percent: true, kind: true, prjc: true, prjcStage: true } },
+        allocations: { orderBy: { order: 'asc' }, select: { registryMtrl: true, amount: true, percent: true, kind: true, costCntr: true, prjc: true, prjcStage: true } },
       },
     }),
     // Η σειρά ΔΕΝ είναι διακοσμητική: δύο ενεργές εγγραφές με τον ίδιο συντελεστή (π.χ. κανονικό /
@@ -282,7 +370,7 @@ async function gather(id: string, conv?: ConversionSpec): Promise<Gathered> {
   const assetById = new Map(assetRows.map((r) => [r.mtrl, r]));
   const [itemRows, linRows, expenseRows] = await Promise.all([
     mtrls.length
-      ? prisma.softoneItem.findMany({ where: { mtrl: { in: mtrls } }, select: { mtrl: true, myDataCode: true, unit1: true, unitBuy: true, buyRatio: true } })
+      ? prisma.softoneItem.findMany({ where: { mtrl: { in: mtrls } }, select: { mtrl: true, code: true, name: true, myDataCode: true, unit1: true, unitBuy: true, buyRatio: true, snUse: true, snMask: true } })
       : Promise.resolve([]),
     lins.length
       ? prisma.softoneLineItem.findMany({
@@ -301,6 +389,14 @@ async function gather(id: string, conv?: ConversionSpec): Promise<Gathered> {
       : Promise.resolve([]),
   ]);
   const itemById = new Map(itemRows.map((r) => [r.mtrl, r]));
+  // ΣΕΙΡΙΑΚΟΙ: για όσα είδη έχουν σειριακούς στο χαρτί, η παρακολούθηση διαβάζεται ΖΩΝΤΑΝΑ (ο χρήστης
+  // μπορεί μόλις να την άνοιξε στην καρτέλα του είδους)· για τα υπόλοιπα αρκεί ο καθρέφτης.
+  const serialMtrls = items.filter((i) => i.softoneMtrl != null && (document.lines[i.rowIndex]?.serials ?? []).length > 0).map((i) => i.softoneMtrl as number);
+  const liveSn = serialMtrls.length && doc.postStatus !== 'POSTED' ? await serialTrackingFor(serialMtrls) : new Map<number, { snUse: number; snMask: string | null }>();
+  const itemLabels = new Map<number, string>(items.flatMap((i) => {
+    const it = i.softoneMtrl != null ? itemById.get(i.softoneMtrl) : undefined;
+    return it ? [[i.rowIndex, `${it.code} — ${it.name}`] as [number, string]] : [];
+  }));
   // Οι μονάδες του μητρώου, για να καταλάβουμε σε ΠΟΙΑ μονάδα τυπώνει την ποσότητα το τιμολόγιο.
   const unitRows = itemRows.some((r) => hasBuyUnit(r))
     ? await prisma.softoneLookup.findMany({ where: { kind: 'MTRUNIT' }, select: { code: true, name: true } })
@@ -359,8 +455,7 @@ async function gather(id: string, conv?: ConversionSpec): Promise<Gathered> {
               amount: Number(a.amount),
               percent: Number(a.percent),
               label: reg ? `${reg.code} — ${reg.name}` : null,
-              prjc: a.prjc,
-              prjcStage: a.prjcStage,
+              costCntr: a.costCntr ?? null, prjc: a.prjc ?? null, prjcStage: a.prjcStage ?? null,
             };
           }),
         }
@@ -376,6 +471,10 @@ async function gather(id: string, conv?: ConversionSpec): Promise<Gathered> {
       ...(item ? (({ buyRatio, qtyInBase }) => ({ buyRatio, qtyInBase }))(decideLineUnits(item, document.lines[i.rowIndex], unitRows)) : {}),
       // Το πάγιο χαρακτηρίζεται από τη λογιστική του κατηγορία στο SoftOne — όχι παρατήρηση εδώ.
       noClassification: Boolean(matched) && !hasClass && i.softoneAsset == null,
+      ...(i.softoneMtrl != null ? (() => {
+        const live = liveSn.get(i.softoneMtrl);
+        return { snUse: live?.snUse ?? item?.snUse ?? null, snMask: live ? live.snMask : (item?.snMask ?? null) };
+      })() : {}),
       ...(conv?.links.get(i.rowIndex)?.length ? { sourceLinks: conv.links.get(i.rowIndex) } : {}),
     };
   });
@@ -386,7 +485,15 @@ async function gather(id: string, conv?: ConversionSpec): Promise<Gathered> {
     trdr: doc.softoneTrdr ?? 0,
     lines: lineCtx,
     vatIdByRate,
-    comments: document.notes,
+    // ΤΙ ΑΦΟΡΑ — όχι το ελεύθερο κείμενο του χαρτιού (βλ. lib/ocr/posting-comment.ts).
+    comments: (() => {
+      // Παρακράτηση που θα περάσει ο λογιστής: το λέει και το σχόλιο της εγγραφής στη SoftOne.
+      const base = postingComment(document, { utilityTitle: utilityTitleOf(document) });
+      const ack = (document.custom as Record<string, unknown> | undefined)?.withholdingAck === true;
+      const note = ack ? withholdingNote(analyzeWithholding(document)) : null;
+      return note ? clip([base, note].filter(Boolean).join(' · ')) : base;
+    })(),
+    relatedFindoc: document.references?.linkedFindoc ?? null,
     assetWhouse,
   };
 
@@ -422,9 +529,53 @@ async function gather(id: string, conv?: ConversionSpec): Promise<Gathered> {
     || (i.softoneAsset != null && assetById.get(i.softoneAsset)?.isActive !== true));
   if (foreign && !blockers.includes('registry_not_in_installation')) blockers.push('registry_not_in_installation');
 
+  // ΠΕΡΙΟΔΟΣ: κλειστή / κλειδωμένη χρήση ή περίοδος της SoftOne — ΠΡΙΝ φτάσουμε στην άρνηση της ίδιας.
+  // Σε ήδη καταχωρισμένο δεν έχει νόημα (και δεν πληρώνουμε την ανάγνωση).
+  // ΠΑΡΑΚΡΑΤΗΣΗ: η SoftOne δεν την υπολογίζει μόνη της (ούτε η σειρά ΔΠΡΚ) — ρητή απόφαση πριν την καταχώριση.
+  const wh = analyzeWithholding(document, { isServiceInvoice: isServiceInvoice(document, seriesTarget.name) });
+  const whAck = (document.custom as Record<string, unknown> | undefined)?.withholdingAck === true;
+  if (wh.amount != null && !whAck && doc.postStatus !== 'POSTED') blockers.push('withholding_unhandled');
+  const withholdingWarning = wh.issues.length
+    ? wh.issues.join(' ')
+    : wh.maybeMissing ? 'Τιμολόγιο παροχής υπηρεσιών άνω των 300 € χωρίς παρακράτηση φόρου — αν ο εκδότης είναι ελεύθερος επαγγελματίας, συνήθως παρακρατείται 20%. Έλεγξε το χαρτί.' : null;
+
+  // ΠΙΣΤΩΤΙΚΟ: πρέπει να ξέρουμε τι πιστώνει — ή ο χρήστης να πει ρητά «χωρίς αρχικό».
+  const credit = isCreditNote({ seriesName: seriesTarget.name, category: doc.category, myDataType: document.type.myDataType, typeLabel: document.type.label });
+  if (credit && doc.postStatus !== 'POSTED' && document.references?.linkedFindoc == null && document.references?.noLink !== true) {
+    blockers.push('credit_not_linked');
+  }
+
+  // ΠΑΓΙΑ σε σειρά που δεν τα δέχεται: ονομάζουμε τις ενεργές σειρές αγορών που τα δέχονται, αντί για
+  // ένα γενικό «διάλεξε σειρά αγορών» — ο χρήστης δεν ξέρει ποια από τις δεκάδες είναι.
+  let assetMessage: string | null = null;
+  if (blockers.includes('lines_asset_unsupported')) {
+    const buy = await prisma.purchaseDocType.findMany({
+      where: { enabled: true, isActive: true, name: { contains: 'Τιμολόγιο' }, NOT: { name: { contains: 'Πιστωτικ' } } },
+      select: { abbrev: true, name: true }, orderBy: { code: 'asc' }, take: 3,
+    }).catch(() => []);
+    if (buy.length) {
+      assetMessage = `Κάποια γραμμή είναι πάγιο, αλλά το είδος παραστατικού που διάλεξες δεν δέχεται πάγια (μόνο τα τιμολόγια αγορών τα δέχονται). Διάλεξε π.χ. ${buy.map((b) => `«${b.abbrev ? `${b.abbrev} · ` : ''}${b.name}»`).join(' ή ')} στην κάτω μπάρα — ή όρισε τη γραμμή ως κατηγορία εξόδου.`;
+    }
+  }
+
+  let periodMessage: string | null = null;
+  if (doc.postStatus !== 'POSTED' && document.date) {
+    const v = await periodVerdict(document.date);
+    if (v && v.code !== 'ok' && v.code !== 'no_date') { blockers.push('period_closed'); periodMessage = v.message; }
+  }
+
+  const warnings = [...postingWarnings(ctx, accounts, document), ...(withholdingWarning ? ['withholding_check' as const] : [])];
+
+  // ΕΓΚΡΙΣΕΙΣ: όριο ποσού / παρατηρήσεις — ο άνθρωπος εγκρίνει πριν φύγει (και ο εκτελεστής προτύπων σταματά).
+  let approvalMessage: string | null = null;
+  if (doc.postStatus !== 'POSTED') {
+    const a = await approvalStatusFor(id, document, doc.softoneTrdr, seriesOk ? seriesCode : null, warnings.length > 0).catch(() => null);
+    if (a && !a.status.satisfied) { blockers.push('approval_required'); approvalMessage = approvalBlockerMessage(a.status); }
+  }
+
   return {
-    doc, document, ctx, blockers,
-    warnings: postingWarnings(ctx, accounts, document),
+    doc, document, ctx, blockers, periodMessage, assetMessage, withholdingWarning, approvalMessage,
+    warnings, serialTexts: serialTextsOf(document, ctx, itemLabels),
     payload: buildPurdocPayload(document, ctx),
     accounts,
   };
@@ -462,13 +613,18 @@ export type PostingPreview = {
  * Ό,τι επιστρέφει εδώ είναι ακριβώς ό,τι θα έστελνε το `postDocumentToSoftone`.
  */
 export async function postingPreview(id: string): Promise<PostingPreview> {
-  const { doc, document, ctx, blockers, warnings, payload, accounts } = await gather(id);
+  const { doc, document, ctx, blockers, warnings, payload, accounts, periodMessage, assetMessage, withholdingWarning, approvalMessage, serialTexts } = await gather(id);
   const enabled = (await getSetting<boolean>(POSTING_ENABLED_KEY)) === true;
   const ref = documentReference(document.type);
   return {
     enabled,
-    blockers: blockers.map((code) => ({ code, message: blockerMessage(code, accounts) })),
-    warnings: warnings.map((code) => ({ code, message: warningMessage(code, accounts) })),
+    blockers: blockers.map((code) => ({ code, message: specificMessage(code, { periodMessage, assetMessage, approvalMessage, serialTexts }) ?? blockerMessage(code, accounts, document) })),
+    warnings: warnings.map((code) => ({
+      code,
+      message: code === 'withholding_check' && withholdingWarning ? withholdingWarning
+        : (code === 'serials_missing' || code === 'serials_untracked') && serialTexts?.[code] ? serialTexts[code]!
+          : warningMessage(code, accounts),
+    })),
     target: { ...ctx.target, label: describeTargetShort(ctx.target) },
     payload,
     accounts,
@@ -552,7 +708,7 @@ export async function conversionCalculateCheck(payload: PostingPayload, document
     ...payload,
     LOCATEINFO: `${payload.OBJECT}:SUMAMNT;ITELINES:LINENUM,MTRL,FINDOCS,MTRLINESS`,
   });
-  if (res.success === false) return { error: `Η SoftOne απέρριψε τον υπολογισμό: ${res.error ?? 'άγνωστο σφάλμα'}`, total: null };
+  if (res.success === false) return { error: softoneErrorLine(res.error ?? 'άγνωστο σφάλμα', payload), total: null };
   const sent = (payload.DATA.ITELINES ?? []) as { FINDOCS?: number }[];
   const back = (res.data?.ITELINES ?? []) as Record<string, unknown>[];
   const linkedSent = sent.filter((l) => l.FINDOCS != null).length;
@@ -571,8 +727,80 @@ export async function conversionCalculateCheck(payload: PostingPayload, document
   return { error: null, total };
 }
 
-export async function postDocumentToSoftone(id: string, opts: PostOptions = {}): Promise<{ ref: string; warning?: string }> {
-  const { doc, document, ctx, blockers, payload, accounts } = await gather(id, opts.conversion);
+const eurText = (v: number) => `${v.toLocaleString('el-GR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
+const round2 = (x: number) => Math.round((x + Number.EPSILON) * 100) / 100;
+
+/** Η καθαρή αξία που ΠΡΕΠΕΙ να βγάλει η SoftOne: το άθροισμα των γραμμών που στέλνουμε. */
+export function expectedNetOf(document: DocumentJson): number {
+  return round2(document.lines.reduce((t, l) => t + (Number(l.net) || 0), 0));
+}
+
+/**
+ * ΔΙΧΤΥ ΑΣΦΑΛΕΙΑΣ ΣΕ ΚΑΘΕ ΚΑΤΑΧΩΡΙΣΗ: `calculate` (δεν αποθηκεύει) πριν από το `setData`, και η
+ * καθαρή αξία της SoftOne πρέπει να είναι αυτή των γραμμών μας.
+ *
+ * Γιατί: οι ειδικές συναλλαγές στέλνονταν χωρίς `LINEVAL`, η SoftOne τις δεχόταν με `success:true`
+ * — και τις έγραφε με ΜΗΔΕΝ (ΕΥΔΑΠ 115601, ΗΡΩΝ 115571). Το read-back έλεγχε μόνο αριθμό και
+ * συναλλασσόμενο, οπότε κανείς δεν το είδε. Ό,τι κι αν αλλάξει στο μέλλον στο payload, ένα ποσό που
+ * η SoftOne δεν θα κρατήσει σταματά ΕΔΩ, πριν γραφτεί οτιδήποτε.
+ *
+ * Τα «Έξοδα» αγορών (EXPANAL) προστίθενται στη SoftOne έξω από την καθαρή αξία των ειδών, οπότε σε
+ * παραστατικό με τέτοιες γραμμές ελέγχεται μόνο το «όχι μηδέν». `null` = εντάξει ή δεν κρίνεται.
+ */
+export async function amountsPreflight(payload: PostingPayload, expected: number): Promise<string | null> {
+  const res = await softoneCall<{ success?: boolean; error?: string; data?: Record<string, Record<string, unknown>[]> }>('calculate', {
+    ...payload,
+    LOCATEINFO: `${payload.OBJECT}:NETAMNT,SUMAMNT`,
+  });
+  if (res.success === false) return softoneErrorLine(res.error ?? 'άγνωστο σφάλμα', payload);
+  const head = res.data?.[payload.OBJECT]?.[0];
+  const net = Number(String(head?.NETAMNT ?? '').replace(',', '.'));
+  if (!head || !Number.isFinite(net)) return null;
+  const hasExpenses = ((payload.DATA as Record<string, unknown[] | undefined>).EXPANAL ?? []).length > 0;
+  if (Math.abs(expected) > 0.5 && Math.abs(net) < 0.005) {
+    return `Η SoftOne θα κατέγραφε το παραστατικό με ΜΗΔΕΝΙΚΗ αξία, ενώ οι γραμμές του είναι ${eurText(expected)} — δεν γράφτηκε τίποτα. Στείλε το στον τεχνικό (πιθανό πρόβλημα στη μορφή των γραμμών).`;
+  }
+  if (!hasExpenses && Math.abs(net - expected) > Math.max(0.1, Math.abs(expected) * 0.002)) {
+    return `Η SoftOne υπολογίζει καθαρή αξία ${eurText(net)}, ενώ οι γραμμές του παραστατικού είναι ${eurText(expected)} — δεν γράφτηκε τίποτα. Έλεγξε ποσότητες, τιμές και μονάδες των γραμμών.`;
+  }
+  return null;
+}
+
+/** Ο έλεγχος διπλού του «Καταχώριση» (πριν από το παράθυρο επιβεβαίωσης) θεωρείται φρέσκος για τόσο. */
+const FRESH_DUPLICATE_CHECK_MS = 5 * 60_000;
+
+/**
+ * Χρόνος ανά βήμα της καταχώρισης. «Τεράστια καθυστέρηση» χωρίς μέτρηση δεν διορθώνεται: εδώ φαίνεται
+ * αν φταίει η SoftOne (setData / read-back) ή η εφαρμογή (gather), στο log του server και στο UI.
+ */
+export type PostTimings = Record<string, number> & { total: number };
+function stepTimer() {
+  const t0 = Date.now();
+  let last = t0;
+  const steps: Record<string, number> = {};
+  return {
+    mark(step: string) { const now = Date.now(); steps[step] = now - last; last = now; },
+    done(): PostTimings { return { ...steps, total: Date.now() - t0 }; },
+  };
+}
+
+export async function postDocumentToSoftone(id: string, opts: PostOptions = {}): Promise<{ ref: string; warning?: string; timings: PostTimings }> {
+  const timer = stepTimer();
+  try {
+    const out = await postDocument(id, opts, timer.mark);
+    const timings = timer.done();
+    console.info(`[post] ${id} → ${out.ref} σε ${timings.total}ms`, JSON.stringify(timings));
+    return { ...out, timings };
+  } catch (e) {
+    const timings = timer.done();
+    if (timings.total > 3_000) console.warn(`[post] ${id} απέτυχε μετά από ${timings.total}ms`, JSON.stringify(timings));
+    throw e;
+  }
+}
+
+async function postDocument(id: string, opts: PostOptions, mark: (step: string) => void): Promise<{ ref: string; warning?: string }> {
+  const { doc, document, ctx, blockers, payload, accounts, periodMessage, assetMessage, approvalMessage, serialTexts } = await gather(id, opts.conversion);
+  mark('gather');
   // ΙΔΕΜΠΟΤΗΤΑ, πρώτο απ' όλα: ένα δεύτερο κλικ (ή μια δεύτερη εκτέλεση προτύπου) δεν δημιουργεί
   // δεύτερο παραστατικό στο SoftOne. Πριν από κάθε έλεγχο εμποδίων — ένα ήδη καταχωρισμένο
   // παραστατικό δεν είναι «μπλοκαρισμένο», είναι τελειωμένο.
@@ -580,14 +808,25 @@ export async function postDocumentToSoftone(id: string, opts: PostOptions = {}):
     throw new PostError('already_posted', alreadyPostedText(doc.postedRef));
   }
   if (blockers.length) {
-    throw new PostError(blockers[0], blockers.map((c) => blockerMessage(c, accounts)).join(' · '));
+    throw new PostError(blockers[0], blockers.map((c) => specificMessage(c, { periodMessage, assetMessage, approvalMessage, serialTexts }) ?? blockerMessage(c, accounts, document)).join(' · '));
   }
-  if ((await getSetting<boolean>(POSTING_ENABLED_KEY)) !== true) {
+  const [enabled, lastCheck] = await Promise.all([
+    getSetting<boolean>(POSTING_ENABLED_KEY),
+    prisma.ocrDocument.findUnique({ where: { id }, select: { softoneTrdr: true, softoneDocExists: true, softoneDocChecked: true } }),
+  ]);
+  if (enabled !== true) {
     // Σκόπιμα ΠΡΙΝ από οποιαδήποτε εγγραφή: ένα κλειστό σύστημα δεν αλλάζει καν `postStatus`.
     throw new PostError('posting_disabled', POST_ERROR_TEXT.posting_disabled);
   }
   // ΤΟ ΙΔΙΟ ΧΑΡΤΙ ΔΕΝ ΚΑΤΑΧΩΡΙΖΕΤΑΙ ΔΥΟ ΦΟΡΕΣ — με ΑΦΜ + αριθμό, όχι με καρτέλα (βλ. duplicate-post.ts).
-  const dup = await findDuplicatePosting({ id, afm: document.issuer.vat, type: document.type, date: document.date });
+  // Η καρτέλα που μόλις βρέθηκε καθαρή στο παράθυρο επιβεβαίωσης δεν ξαναρωτιέται· οι άλλες ναι.
+  const freshClear = lastCheck?.softoneDocExists === false && lastCheck.softoneTrdr === ctx.trdr
+    && lastCheck.softoneDocChecked != null && Date.now() - lastCheck.softoneDocChecked.getTime() < FRESH_DUPLICATE_CHECK_MS;
+  const dup = await findDuplicatePosting({
+    id, afm: document.issuer.vat, type: document.type, date: document.date,
+    skipSoftoneTrdr: freshClear ? ctx.trdr : null,
+  });
+  mark('duplicates');
   if (dup) {
     throw new PostError('duplicate', dup.where === 'app'
       ? `${POST_ERROR_TEXT.duplicate} από το «${dup.fileName ?? 'άλλο αρχείο'}»${dup.ref ? ` (SoftOne ${dup.ref})` : ''}. Αν είναι διπλό ανέβασμα, διάγραψέ το.`
@@ -598,16 +837,41 @@ export async function postDocumentToSoftone(id: string, opts: PostOptions = {}):
   // διαφέρει, ΤΙΠΟΤΑ δεν γράφεται (ούτε καν `postStatus`).
   if (opts.conversion) {
     const check = await conversionCalculateCheck(payload, document.totals?.total ?? null);
+    mark('calculate');
     if (check.error) throw new PostError('conversion_check', check.error);
+  } else {
+    // Σε ΚΑΘΕ καταχώριση: η SoftOne πρέπει να βγάζει το ίδιο ποσό με τις γραμμές, πριν γραφτεί κάτι.
+    const problem = await amountsPreflight(payload, expectedNetOf(document));
+    mark('calculate');
+    if (problem) throw new PostError('amounts_check', problem);
   }
 
-  await prisma.ocrDocument.update({ where: { id }, data: { postStatus: 'PENDING' } });
+  // ΚΛΕΙΔΩΜΑ, ατομικά: δύο ταυτόχρονα κλικ (ή κλικ + εκτελεστής προτύπων) δεν περνούν και τα δύο.
+  // Πριν, το `PENDING` γραφόταν χωρίς όρο — και τα δύο αιτήματα θα έφταναν στο `setData`.
+  const claimed = await prisma.ocrDocument.updateMany({
+    where: { id, postStatus: { notIn: ['PENDING', 'POSTED'] } },
+    data: { postStatus: 'PENDING' },
+  });
+  if (claimed.count === 0) {
+    throw new PostError('already_posted', 'Η καταχώριση αυτού του παραστατικού είναι ήδη σε εξέλιξη ή έχει ολοκληρωθεί — ανανέωσε τη σελίδα.');
+  }
+  const audit = (ok: boolean, extra: Record<string, unknown>) => logAudit({
+    userId: opts.verifiedById ?? null, action: 'ocr.post', resource: 'ocr_document', resourceId: id,
+    // Το ΑΚΡΙΒΕΣ payload που στάλθηκε: αν κάτι γραφτεί στραβά, φαίνεται τι ακριβώς ζητήσαμε.
+    metadata: { ok, object: ctx.target.object, series: ctx.series, trdr: ctx.trdr, payload, ...extra },
+  }).catch(() => null);
+  /** Το `setData` έφυγε αλλά δεν ξέρουμε αν η SoftOne το εκτέλεσε (διακοπή / χρονικό όριο). */
+  let inFlight = false;
   try {
     const object = ctx.target.object;
+    inFlight = true;
     const res = await softoneCall<{ success?: boolean; error?: string; errorcode?: number; id?: string | number }>('setData', payload);
+    inFlight = false;
+    mark('setData');
     // ΚΑΘΑΡΗ αποτυχία: το SoftOne είπε «όχι». Τίποτα δεν δημιουργήθηκε.
     if (res.success === false) {
-      throw new Error(res.error ?? `setData ${object} απέτυχε (code ${res.errorcode ?? '?'})`);
+      // ΣΕ ΓΛΩΣΣΑ ΧΡΗΣΤΗ: «SoftOne Range Error (Name: '')» δεν λέει τίποτα σε κανέναν.
+      throw new Error(softoneErrorLine(res.error ?? `setData ${object} απέτυχε (code ${res.errorcode ?? '?'})`, payload));
     }
     // ΑΓΝΩΣΤΗ έκβαση: `success` χωρίς `id`. Μπορεί κάλλιστα να έχει δημιουργηθεί παραστατικό που
     // δεν ξέρουμε να ονομάσουμε — αν το γράψουμε «απέτυχε» και σκέτο, κάποιος θα το ξαναστείλει
@@ -635,6 +899,7 @@ export async function postDocumentToSoftone(id: string, opts: PostOptions = {}):
 
     // Η επαλήθευση διαβάζει ΤΟ ΙΔΙΟ object που γράφτηκε — αλλιώς «επιβεβαιώνει» άλλο παραστατικό.
     const tables = await softoneGetData(object, ref);
+    mark('readBack');
     // ΜΟΝΟ η κεφαλίδα του object μετράει. Ένα «πάρε ό,τι βρεις» θα μπορούσε να πιάσει `MTRDOC` ή
     // κάποιον πίνακα γραμμών, που δεν έχει FINCODE/TRDR — και θα «επιβεβαίωνε» με undefined.
     const row = tables[object]?.[0];
@@ -652,12 +917,35 @@ export async function postDocumentToSoftone(id: string, opts: PostOptions = {}):
       );
     }
 
+    // ΤΟ ΠΟΣΟ ΠΟΥ ΓΡΑΦΤΗΚΕ: το παραστατικό ΥΠΑΡΧΕΙ ήδη, οπότε διαφορά εδώ = δυνατή προειδοποίηση
+    // (όχι FAILED — θα ξαναστελνόταν διπλό). Ο έλεγχος πριν το setData πρέπει να το έχει πιάσει ήδη.
+    const savedNet = Number(String(row.NETAMNT ?? '').replace(',', '.'));
+    const expectedNet = expectedNetOf(document);
+    const warnings: string[] = [];
+    const hasExpenses = (payload.DATA.EXPANAL ?? []).length > 0;
+    if (row.NETAMNT != null && Number.isFinite(savedNet)) {
+      if (Math.abs(expectedNet) > 0.5 && Math.abs(savedNet) < 0.005) {
+        warnings.push(`ΠΟΣΑ: το παραστατικό ${ref} γράφτηκε στη SoftOne με ΜΗΔΕΝΙΚΗ καθαρή αξία αντί για ${eurText(expectedNet)}. Διόρθωσέ το στη SoftOne — ΜΗΝ το ξανακαταχωρίσεις.`);
+      } else if (!hasExpenses && Math.abs(savedNet - expectedNet) > Math.max(0.1, Math.abs(expectedNet) * 0.002)) {
+        warnings.push(`ΠΟΣΑ: η SoftOne κράτησε καθαρή αξία ${eurText(savedNet)} αντί για ${eurText(expectedNet)} στο ${ref}. Έλεγξέ το στη SoftOne — ΜΗΝ το ξανακαταχωρίσεις.`);
+      }
+    }
+    // ΦΠΑ: η SoftOne τον υπολογίζει ανά γραμμή (στρογγυλοποίηση ανά γραμμή) — μικρή απόκλιση από το
+    // τυπωμένο είναι φυσιολογική· μεγαλύτερη σημαίνει λάθος κωδικό ΦΠΑ σε κάποια γραμμή.
+    const savedVat = Number(String(row.VATAMNT ?? '').replace(',', '.'));
+    const printedVat = document.totals?.vatAmount;
+    if (row.VATAMNT != null && Number.isFinite(savedVat) && printedVat != null
+      && Math.abs(savedVat - printedVat) > Math.max(0.1, 0.02 * document.lines.length)) {
+      warnings.push(`ΦΠΑ: η SoftOne υπολόγισε ${eurText(savedVat)} ενώ το παραστατικό γράφει ${eurText(printedVat)} (${ref}). Έλεγξε τους συντελεστές ΦΠΑ των γραμμών στη SoftOne.`);
+    }
+    const amountWarning = warnings.length ? warnings.join(' ') : undefined;
+
     // ΠΑΓΙΑ: η γραμμή ASSLINES φεύγει με «Αγορά/Προσθήκη» = 0, με την υπόθεση ότι το SoftOne
     // δημιουργεί μόνο του την εγγραφή απόκτησης όπως στο πρότυπο 105283. Το επαληθεύουμε εδώ. Το
     // παραστατικό ΥΠΑΡΧΕΙ ήδη, οπότε δεν γίνεται FAILED (θα ξαναστελνόταν διπλό): μένει POSTED με
     // δυνατή σημείωση για τον χρήστη και τον integrator.
     const sentAssets = payload.DATA.ASSLINES?.length ?? 0;
-    let warning: string | undefined;
+    let warning: string | undefined = amountWarning;
     // ΜΕΤΑΣΧΗΜΑΤΙΣΜΟΣ: κάθε γραμμή που στάλθηκε με δελτίο-πηγή πρέπει να γυρίσει με αυτό, και τα
     // δελτία να έχουν πλέον μετασχηματιστεί. Το τιμολόγιο ΥΠΑΡΧΕΙ ήδη: αποτυχία εδώ = προειδοποίηση.
     if (opts.conversion) {
@@ -665,9 +953,10 @@ export async function postDocumentToSoftone(id: string, opts: PostOptions = {}):
       const back = (tables.ITELINES ?? []) as Record<string, unknown>[];
       const backLinked = back.filter((l) => Number(l.FINDOCS) > 0).length;
       const state = await fetchNoteState(opts.conversion.findocs).catch(() => null);
+      mark('noteState');
       const open = state ? state.filter((x) => x.transformed === 0).map((x) => x.findoc) : null;
       if (backLinked < sentLinked || open == null || open.length) {
-        warning = `ΜΕΤΑΣΧΗΜΑΤΙΣΜΟΣ: το τιμολόγιο ${ref} καταχωρίστηκε, αλλά `
+        warning = (warning ? `${warning} ` : '') + `ΜΕΤΑΣΧΗΜΑΤΙΣΜΟΣ: το τιμολόγιο ${ref} καταχωρίστηκε, αλλά `
           + (backLinked < sentLinked ? `μόνο ${backLinked} από ${sentLinked} γραμμές δείχνουν στο δελτίο` : '')
           + (backLinked < sentLinked && (open == null || open.length) ? ' και ' : '')
           + (open == null ? 'η κατάσταση των δελτίων δεν διαβάστηκε' : open.length ? `τα δελτία ${open.join(', ')} εμφανίζονται ακόμη ανοιχτά` : '')
@@ -679,7 +968,7 @@ export async function postDocumentToSoftone(id: string, opts: PostOptions = {}):
       const linked = back.filter((l) => Number(l.ASSDEPR) > 0).length;
       const created = (tables.ASSDEPR ?? []).length;
       if (back.length < sentAssets || linked < sentAssets || created < sentAssets) {
-        warning = `ΠΑΓΙΑ: το παραστατικό ${ref} καταχωρίστηκε, αλλά από ${sentAssets} γραμμές παγίων `
+        warning = (warning ? `${warning} ` : '') + `ΠΑΓΙΑ: το παραστατικό ${ref} καταχωρίστηκε, αλλά από ${sentAssets} γραμμές παγίων `
           + `${linked} συνδέθηκαν με εγγραφή απόκτησης («Αγορά/Προσθήκη») και ${created} εγγραφές απόκτησης δημιουργήθηκαν. `
           + 'Έλεγξε το παραστατικό στο SoftOne και συμπλήρωσε την «Αγορά/Προσθήκη» χειροκίνητα.';
       }
@@ -695,16 +984,25 @@ export async function postDocumentToSoftone(id: string, opts: PostOptions = {}):
         ...(opts.verified ? { verifiedAt: new Date(), verifiedById: opts.verifiedById ?? null } : {}),
       },
     });
+    await audit(true, { ref, warning: warning ?? null, savedNet: Number.isFinite(savedNet) ? savedNet : null, expectedNet });
     if (opts.syncTemplateRun) {
       await markLatestRunPosted(id).catch((e) => console.error('[ocr] run status not synced after post', doc.id, (e as Error).message));
     }
     return warning ? { ref, warning } : { ref };
   } catch (err) {
+    // ΑΓΝΩΣΤΗ ΕΚΒΑΣΗ: το `setData` έφυγε και η απάντηση χάθηκε (χρονικό όριο / διακοπή). Η SoftOne μπορεί
+    // να το έχει γράψει. Δεν ξαναστέλνεται ποτέ αυτόματα· ο χρήστης ελέγχει πρώτα — και ο έλεγχος
+    // διπλού της επόμενης προσπάθειας θα το βρει, αν γράφτηκε.
+    const unknown = inFlight && err instanceof SoftoneTransportError && err.phase !== 'not_sent';
+    const message = unknown
+      ? `ΑΓΝΩΣΤΗ ΕΚΒΑΣΗ: η SoftOne δεν απάντησε στην καταχώριση και ίσως την έχει κάνει. ΜΗΝ ξανακαταχωρίσεις πριν το ελέγξεις στη SoftOne (αριθμός ${documentReference(document.type).taxSeriesNum ?? document.type.number ?? '—'}). (${String((err as Error)?.message ?? err)})`
+      : String((err as Error)?.message ?? err);
     await prisma.ocrDocument.update({
       where: { id },
-      data: { postStatus: 'FAILED', postError: String((err as Error)?.message ?? err).slice(0, 2000) },
+      data: { postStatus: 'FAILED', postError: message.slice(0, 2000) },
     });
-    throw err;
+    await audit(false, { error: message.slice(0, 500), unknownOutcome: unknown });
+    throw unknown ? new Error(message) : err;
   }
 }
 

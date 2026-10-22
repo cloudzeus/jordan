@@ -40,7 +40,9 @@
     --color-border-soft:      #E2E8F0;
     --color-text-primary:     #0F172A;
     --color-text-secondary:   #475569;
-    --color-text-muted:       #64748B;
+    /* #64748B έπεφτε στο 4.3:1 πάνω στις γκρι κεφαλίδες (bg-muted) και κούραζε στα 11–12px.
+       Το #4E5C70 δίνει 6.8:1 σε λευκό / 6.2:1 σε bg-muted — ευανάγνωστο, αλλά ακόμη δευτερεύον. */
+    --color-text-muted:       #4E5C70;
 
     --color-success: #16A34A;
     --color-warning: #F59E0B;
@@ -342,6 +344,24 @@ body {
   background: #f8fafc;
 }
 
+/* Βίντεο-επεξήγηση */
+.wiki-content .wiki-video {
+  margin: 1.5rem 0;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.75rem;
+  overflow: hidden;
+  background: #f8fafc;
+  box-shadow: 0 4px 12px rgba(15,23,42,0.06);
+}
+.wiki-content .wiki-video video { width: 100%; height: auto; aspect-ratio: 16 / 9; display: block; background: #f8fafc; }
+.wiki-content .wiki-video figcaption {
+  padding: 0.625rem 0.875rem;
+  font-size: var(--fs-13, 0.8125rem);
+  color: #475569;
+  border-top: 1px solid #e2e8f0;
+}
+.wiki-content .wiki-video figcaption strong { color: #0f172a; }
+
 /* Role badge */
 .wiki-content .wiki-role-badge {
   display: inline-flex;
@@ -562,3 +582,7 @@ html.lenis, html.lenis body { height: auto; }
   html.js .site [data-split].is-in, html.js .site [data-reveal].is-in { animation: none; }
 }
 @media (prefers-reduced-motion: reduce) { .site .s-img { transition: none; } .site .group:hover .s-img { transform: none; } }
+
+/* «Λύσε» → το τμήμα της σελίδας που διορθώνει το πρόβλημα, επισημαίνεται για λίγο (focusSection). */
+.doc-flash { outline: 3px solid rgb(14 116 191 / 0.55); outline-offset: 4px; border-radius: 0.75rem; transition: outline-color 1.2s ease-out; }
+@media (prefers-reduced-motion: reduce) { .doc-flash { transition: none; } }

@@ -3,12 +3,15 @@
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
-import { FiSend, FiCheck, FiAlertTriangle, FiLoader, FiDatabase, FiTruck } from 'react-icons/fi';
+import { durationText, elapsedSuffix, useElapsedSeconds } from '@/lib/use-elapsed';
+import { FiSend, FiCheck, FiAlertTriangle, FiLoader, FiDatabase, FiTruck, FiArrowRight, FiUserCheck } from 'react-icons/fi';
 import { DeliveryNoteDialog } from '@/components/admin/delivery-note-dialog';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
 import { DOC_CATEGORY_OPTIONS } from '@/lib/ocr/doc-category';
-import { useDocLinesChanged, emitDocLinesChanged } from '@/components/admin/doc-lines-events';
+import { useDocLinesChanged, emitDocLinesChanged, emitDocTool, focusSection, DOC_SECTION } from '@/components/admin/doc-lines-events';
+import { blockerFix } from '@/lib/ocr/blocker-fix';
+import { Term } from '@/components/admin/help/term';
 
 export interface ActionBarSeries {
   code: string; abbrev: string | null; name: string; family: string; sosource: number; enabled: boolean;
@@ -51,11 +54,13 @@ export function DocActionBar({
   const [preview, setPreview] = React.useState<Preview | null>(null);
   const [saving, setSaving] = React.useState(false);
   const [posting, setPosting] = React.useState(false);
+  const postingFor = useElapsedSeconds(posting);
   const [confirm, setConfirm] = React.useState(false);
   const [tenant, setTenant] = React.useState<string | null>(null);
   /** Το αποτέλεσμα του ελέγχου διπλοτύπου — τρέχει ΠΡΙΝ εμφανιστεί το «Ναι, καταχώρισέ το». */
   const [dup, setDup] = React.useState<{ status: 'duplicate' | 'clear' | 'unknown'; message: string } | null>(null);
   const [dupBusy, setDupBusy] = React.useState(false);
+  const dupFor = useElapsedSeconds(dupBusy);
   const [markBusy, setMarkBusy] = React.useState(false);
   /** «Από δελτίο αποστολής» — μετασχηματισμός αντί για απλή καταχώριση. */
   const [noteOpen, setNoteOpen] = React.useState(false);
@@ -121,7 +126,7 @@ export function DocActionBar({
       const r = await fetch(`/api/admin/ocr/${docId}/post-softone`, { method: 'POST' });
       const j = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(j?.message ?? j?.error ?? `HTTP ${r.status}`);
-      toast.success(`Καταχωρήθηκε στο SoftOne · FINDOC ${j.ref}`);
+      toast.success(`Καταχωρήθηκε στο SoftOne · FINDOC ${j.ref}${durationText(j.timings?.total)}`);
       setConfirm(false);
       await load();
       router.refresh();
@@ -131,16 +136,46 @@ export function DocActionBar({
   }
 
   const posted = preview?.postStatus === 'POSTED';
+  /**
+   * Καταχωρισμένο: συμφωνούν τα ποσά στη SoftOne με το χαρτί; Ένα αθόρυβο `success:true` της SoftOne
+   * έγραψε κάποτε ειδικές συναλλαγές με ΜΗΔΕΝ — εδώ φαίνεται αμέσως, με τη διόρθωση ένα κλικ μακριά.
+   */
+  const [amountsState, setAmountsState] = React.useState<'ok' | 'mismatch' | 'unknown' | null>(null);
+  // Όχι πια καταχωρισμένο → καμία ένδειξη (adjust-state-while-rendering)· ο έλεγχος στο effect.
+  const [prevPosted, setPrevPosted] = React.useState(posted);
+  if (prevPosted !== posted) { setPrevPosted(posted); if (!posted) setAmountsState(null); }
+  React.useEffect(() => {
+    if (!posted) return;
+    let alive = true;
+    fetch(`/api/admin/ocr/${docId}/posted-amounts`, { cache: 'no-store' })
+      .then(async (r) => (r.ok ? r.json() : null))
+      .then((d) => { if (alive) setAmountsState(d?.status === 'ok' ? 'ok' : d?.status === 'mismatch' ? 'mismatch' : 'unknown'); })
+      .catch(() => { if (alive) setAmountsState('unknown'); });
+    return () => { alive = false; };
+  }, [posted, docId]);
   const blockers = preview?.blockers ?? [];
+  const warnings = preview?.warnings ?? [];
+  const [blockersOpen, setBlockersOpen] = React.useState(false);
+  /** «Λύσε»: πήγαινε στο σημείο που διορθώνει το εμπόδιο, ή άνοιξε το εργαλείο. */
+  const runFix = (t: NonNullable<ReturnType<typeof blockerFix>>['target']) => {
+    setBlockersOpen(false);
+    setTimeout(() => {
+      if (t.kind === 'tool') { if (!emitDocTool(docId, { tool: t.tool })) toast.error('Άνοιξε τη σελίδα του παραστατικού για να το διορθώσεις.'); return; }
+      if (t.kind === 'section' && !focusSection(DOC_SECTION[t.section])) {
+        toast.message('Το σημείο αυτό δεν εμφανίζεται εδώ — άνοιξε τη σελίδα του παραστατικού.');
+      }
+    }, 120);
+  };
   const ready = !!preview && blockers.length === 0 && !posted;
   const families = [...new Set(series.map((s) => s.family))];
 
   return (
     <div className="sticky bottom-0 z-30 -mx-6 border-t border-border bg-card/95 px-6 py-2.5 shadow-[0_-2px_10px_rgba(0,0,0,0.06)] backdrop-blur-sm">
       <div className="flex flex-wrap items-end gap-x-3 gap-y-2">
-        <label className="flex min-w-56 flex-2 flex-col gap-0.5">
-          <span className={LABEL}>Είδος παραστατικού στο SoftOne</span>
+        <div className="flex min-w-56 flex-2 flex-col gap-0.5">
+          <span className={cn(LABEL, 'flex items-center gap-1')}><label htmlFor={DOC_SECTION.series}>Είδος παραστατικού στο SoftOne</label> <Term k="seira"><span className="sr-only">Τι είναι;</span></Term></span>
           <select
+            id={DOC_SECTION.series}
             value={seriesKey} disabled={!canEdit || saving || posted}
             title={series.find((o) => `${o.sosource}:${o.code}` === seriesKey)?.name ?? 'Δεν έχει επιλεγεί σειρά'}
             onChange={(e) => {
@@ -162,10 +197,11 @@ export function DocActionBar({
               </optgroup>
             ))}
           </select>
-        </label>
-        <label className="flex min-w-40 flex-1 flex-col gap-0.5">
-          <span className={LABEL}>Κατηγορία</span>
+        </div>
+        <div className="flex min-w-40 flex-1 flex-col gap-0.5">
+          <span className={cn(LABEL, 'flex items-center gap-1')}><label htmlFor={DOC_SECTION.category}>Κατηγορία</label> <Term k="kategoria"><span className="sr-only">Τι είναι;</span></Term></span>
           <select
+            id={DOC_SECTION.category}
             value={category} disabled={!canEdit || saving || posted}
             title={DOC_CATEGORY_OPTIONS.find((o) => o.value === category)?.label ?? 'Δεν έχει επιλεγεί κατηγορία'}
             onChange={(e) => { setCategory(e.target.value); void patch({ category: e.target.value || null }); }}
@@ -174,7 +210,7 @@ export function DocActionBar({
             <option value="">— Επιλογή —</option>
             {DOC_CATEGORY_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
-        </label>
+        </div>
 
         {/* Η ΚΑΤΑΣΤΑΣΗ σε μία γραμμή: έτοιμο, ή πόσα εμπόδια μένουν — με τη λίστα ένα πάτημα μακριά. */}
         <div className="flex min-h-8 flex-1 items-center">
@@ -183,6 +219,13 @@ export function DocActionBar({
           ) : posted ? (
             <span className={cn(STATUS, 'flex-wrap gap-2')}>
               <FiCheck className="size-3.5" style={{ color: '#047857' }} aria-hidden /> Καταχωρήθηκε · FINDOC {preview.postedRef}
+              {amountsState === 'ok' && <span className="text-(length:--fs-11) font-normal text-muted-foreground">· ποσά επαληθευμένα στη SoftOne</span>}
+              {amountsState === 'mismatch' && (
+                <button type="button" onClick={() => { if (!emitDocTool(docId, { tool: 'posted-amounts' })) toast.error('Άνοιξε τη σελίδα του παραστατικού.'); }}
+                  className="inline-flex min-h-8 items-center gap-1 rounded-md border border-amber-400 bg-amber-50 px-2.5 text-(length:--fs-12) font-semibold text-amber-900 hover:bg-amber-100">
+                  <FiAlertTriangle className="size-3.5" aria-hidden /> Τα ποσά στη SoftOne διαφέρουν — Διόρθωση
+                </button>
+              )}
               {canPost && (
                 <button
                   type="button" onClick={syncMark} disabled={markBusy}
@@ -195,9 +238,21 @@ export function DocActionBar({
               )}
             </span>
           ) : blockers.length === 0 ? (
-            <span className={STATUS}><FiCheck className="size-3.5" style={{ color: '#047857' }} aria-hidden /> Έτοιμο για καταχώριση</span>
+            <span className={cn(STATUS, 'flex-wrap gap-2')}>
+              <FiCheck className="size-3.5" style={{ color: '#047857' }} aria-hidden /> Έτοιμο για καταχώριση
+              {warnings.length > 0 && (
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <button type="button" className="cursor-pointer rounded-md px-1.5 py-0.5 text-(length:--fs-12) font-semibold text-amber-800 underline decoration-dotted underline-offset-2 hover:bg-amber-50">
+                      {warnings.length === 1 ? '1 παρατήρηση' : `${warnings.length} παρατηρήσεις`}
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent align="start" className="w-[32rem] max-w-[92vw] p-0"><WarningsList warnings={warnings} onFix={runFix} /></PopoverContent>
+                </Popover>
+              )}
+            </span>
           ) : (
-            <Popover>
+            <Popover open={blockersOpen} onOpenChange={setBlockersOpen}>
               <PopoverTrigger asChild>
                 <button type="button" className={cn(STATUS, 'cursor-pointer rounded-md px-1.5 py-1 hover:bg-muted')}>
                   <FiAlertTriangle className="size-3.5" style={{ color: '#B45309' }} aria-hidden />
@@ -205,15 +260,28 @@ export function DocActionBar({
                   <span className="text-muted-foreground underline decoration-dotted underline-offset-2">ποια;</span>
                 </button>
               </PopoverTrigger>
-              <PopoverContent align="start" className="w-md max-w-[90vw]">
-                <ol className="space-y-1.5 text-(length:--fs-12) text-foreground">
-                  {blockers.map((b, i) => (
-                    <li key={b.code} className="flex gap-2">
-                      <span className="mt-0.5 grid size-4 shrink-0 place-items-center rounded-full bg-muted text-(length:--fs-10) font-bold">{i + 1}</span>
-                      <span>{b.message}</span>
-                    </li>
-                  ))}
+              <PopoverContent align="start" className="w-[32rem] max-w-[92vw] p-0">
+                <p className="border-b border-border px-3 py-2 text-(length:--fs-12) font-semibold text-foreground">Τι μένει πριν την καταχώριση</p>
+                <ol className="max-h-[60dvh] divide-y divide-border overflow-auto text-(length:--fs-12) text-foreground">
+                  {blockers.map((b, i) => {
+                    const fix = blockerFix(b.code);
+                    return (
+                      <li key={b.code} className="flex items-start gap-2 px-3 py-2">
+                        <span className="mt-0.5 grid size-4 shrink-0 place-items-center rounded-full bg-amber-100 text-(length:--fs-10) font-bold text-amber-900 dark:bg-amber-900/40 dark:text-amber-100">{i + 1}</span>
+                        <span className="min-w-0 flex-1 leading-snug">{b.message}</span>
+                        {fix && fix.target.kind !== 'admin' ? (
+                          <button type="button" onClick={() => runFix(fix.target)}
+                            className="inline-flex min-h-8 shrink-0 cursor-pointer items-center gap-1 rounded-md bg-sisyphus-500 px-2.5 text-(length:--fs-12) font-semibold text-white hover:bg-sisyphus-600 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring">
+                            {fix.label} <FiArrowRight aria-hidden className="size-3.5" />
+                          </button>
+                        ) : fix ? (
+                          <span className="inline-flex shrink-0 items-center gap-1 rounded-md bg-muted px-2 py-1 text-(length:--fs-11) font-semibold text-muted-foreground"><FiUserCheck aria-hidden className="size-3.5" /> {fix.label}</span>
+                        ) : null}
+                      </li>
+                    );
+                  })}
                 </ol>
+                {warnings.length > 0 && <WarningsList warnings={warnings} onFix={runFix} />}
               </PopoverContent>
             </Popover>
           )}
@@ -234,9 +302,17 @@ export function DocActionBar({
                 </span>
               </span>
               <button type="button" onClick={() => { setConfirm(false); setDup(null); }} className={BTN_GHOST}>Πίσω</button>
+              {dup?.status === 'duplicate' && (
+                // Διπλό = δεν καταχωρείται (προστασία από διπλή εγγραφή). Αν όμως ΔΙΑΒΑΣΤΗΚΕ λάθος ο
+                // αριθμός ή η ημερομηνία, η διόρθωση είναι στα πεδία — όχι αδιέξοδο.
+                <button type="button" title="Αν διαβάστηκε λάθος αριθμός ή ημερομηνία, διόρθωσέ τα και ξαναδοκίμασε"
+                  onClick={() => { setConfirm(false); setDup(null); setTimeout(() => focusSection(DOC_SECTION.fields), 120); }} className={BTN_GHOST}>
+                  Διόρθωση αριθμού / ημερομηνίας
+                </button>
+              )}
               {dup?.status !== 'duplicate' && (
                 <button type="button" onClick={post} disabled={posting} className={BTN_POST}>
-                  <FiSend className="size-3.5" /> {posting ? 'Καταχώριση…' : 'Ναι, καταχώρισέ το'}
+                  <FiSend className="size-3.5" /> {posting ? `Καταχώριση…${elapsedSuffix(postingFor)}` : 'Ναι, καταχώρισέ το'}
                 </button>
               )}
             </>
@@ -244,14 +320,14 @@ export function DocActionBar({
             <>
             {canPost && !posted && (
               <button type="button" onClick={() => setNoteOpen(true)} className={BTN_GHOST}
-                title="Το τιμολόγιο ήρθε μετά το δελτίο αποστολής: σύγκριση με τα ανοιχτά δελτία του προμηθευτή και μετασχηματισμός σε τιμολόγιο">
-                <FiTruck className="size-3.5" /> Από δελτίο αποστολής
+                title="Το τιμολόγιο ήρθε μετά από δελτίο αποστολής ή παραγγελία: σύγκριση με τα ανοιχτά του προμηθευτή και μετασχηματισμός σε τιμολόγιο">
+                <FiTruck className="size-3.5" /> Από δελτίο / παραγγελία
               </button>
             )}
             <button type="button" disabled={!canPost || !ready || posting || dupBusy} onClick={askConfirm} className={BTN_POST}
               title={!canPost ? 'Δεν έχεις δικαίωμα καταχώρισης' : posted ? 'Έχει ήδη καταχωρηθεί' : !ready ? 'Λύσε πρώτα τα βήματα που μένουν' : undefined}>
               {dupBusy ? <FiLoader className="size-3.5 animate-spin" /> : <FiSend className="size-3.5" />}
-              {posted ? 'Καταχωρήθηκε' : dupBusy ? 'Έλεγχος διπλοτύπου…' : 'Καταχώριση στο SoftOne'}
+              {posted ? 'Καταχωρήθηκε' : dupBusy ? `Έλεγχος διπλοτύπου…${elapsedSuffix(dupFor)}` : 'Καταχώριση στο SoftOne'}
             </button>
             </>
           )}
@@ -272,3 +348,29 @@ const BTN_POST =
   'disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground disabled:shadow-none';
 const BTN_GHOST =
   'inline-flex h-8 items-center gap-1.5 rounded-md border border-input bg-background px-3 text-(length:--fs-12) font-semibold text-foreground transition hover:bg-muted';
+
+/** Παρατηρήσεις που ΔΕΝ εμποδίζουν — αλλά ο χρήστης πρέπει να τις δει πριν καταχωρίσει. */
+function WarningsList({ warnings, onFix }: { warnings: { code: string; message: string }[]; onFix?: (t: NonNullable<ReturnType<typeof blockerFix>>['target']) => void }) {
+  return (
+    <div className="border-t border-border">
+      <p className="px-3 pt-2 text-(length:--fs-11) font-semibold uppercase tracking-wide text-muted-foreground">Παρατηρήσεις — δεν εμποδίζουν</p>
+      <ul className="max-h-[40dvh] divide-y divide-border overflow-auto text-(length:--fs-12)">
+        {warnings.map((w) => (
+          <li key={w.code} className="flex items-start gap-2 px-3 py-2">
+            <FiAlertTriangle className="mt-0.5 size-3.5 shrink-0" style={{ color: '#B45309' }} aria-hidden />
+            <span className="min-w-0 flex-1 leading-snug">{w.message}</span>
+            {(() => {
+              const fix = onFix ? blockerFix(w.code) : null;
+              return fix && fix.target.kind !== 'admin' ? (
+                <button type="button" onClick={() => onFix!(fix.target)}
+                  className="inline-flex min-h-8 shrink-0 cursor-pointer items-center gap-1 rounded-md border border-sisyphus-500/50 px-2.5 text-(length:--fs-12) font-semibold text-sisyphus-700 hover:bg-sisyphus-500/10 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring dark:text-sisyphus-200">
+                  {fix.label} <FiArrowRight aria-hidden className="size-3.5" />
+                </button>
+              ) : null;
+            })()}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}

@@ -548,6 +548,10 @@ model SoftoneItem {
   buyRatio   Float? // MU31 «Σχέση με κύρια» (βασικές ανά 1 μονάδα αγορών)
   unitSell   String? // MTRUNIT4 «Μ.Μ.Πώλησης»
   sellRatio  Float? // MU41
+  // Σειριακοί αριθμοί: MTRSNUSE > 0 ⇒ η SoftOne κρατά S/N για το είδος (πίνακας SNLINES του PURDOC).
+  // `null` = δεν έχει διαβαστεί ακόμη (συγχρονισμός πριν προστεθεί το πεδίο).
+  snUse      Int? // MTRSNUSE «SN»
+  snMask     String? // SNCODEMSK «Μορφή κωδ.SN»
 
   @@index([name])
   @@index([code])
@@ -984,6 +988,7 @@ model OcrDocument {
   company           Company?         @relation(fields: [companyId], references: [id], onDelete: SetNull)
   taxTemplateId     String?
   taxTemplate       TaxFormTemplate? @relation(fields: [taxTemplateId], references: [id], onDelete: SetNull)
+  approvals        OcrApproval[]
   templateRuns      TemplateRun[]
   reviewFlags       Json? // { review: string[], blocked: string[], templateSlug, templateName, runStatus, runId } — latest run, for the list
   fiscalYear        Int?
@@ -1481,9 +1486,11 @@ model OcrInvoiceItemAllocation {
   amount  Decimal @db.Decimal(18, 4)
 
   /**
-   * ΕΡΓΟ του κομματιού (SoftOne `PRJC`) — π.χ. ένα αεροπορικό «Έξοδα Ταξιδίων» 50/50 σε δύο έργα.
-   * Κενό ⇒ κληρονομεί το έργο της γραμμής. Το ίδιο για τη φάση έργου (`PRJCSTAGE`).
+   * Αναλυτικά του ΚΟΜΜΑΤΙΟΥ (κέντρο κόστους / έργο / φάση). Κενά = της γραμμής. Επιτρέπουν τον ΙΔΙΟ
+   * λογαριασμό σε άλλο κέντρο κόστους (ρεύμα 60% Παραγωγή / 40% Διοίκηση) ή σε άλλο ΕΡΓΟ (SoftOne
+   * `PRJC`, π.χ. ένα αεροπορικό «Έξοδα Ταξιδίων» 50/50 σε δύο έργα).
    */
+  costCntr  Int?
   prjc      Int?
   prjcStage Int?
 
@@ -3992,4 +3999,23 @@ model InstallRecipeLine {
   sortOrder Int           @default(0)
 
   @@index([recipeId, sortOrder])
+}
+
+/// Έγκριση (ή απόρριψη) καταχώρισης παραστατικού, ανά επίπεδο (βλ. lib/ocr/approvals.ts). Το
+/// `fingerprint` δένει την έγκριση με ΑΥΤΑ τα ποσά/εκδότη/γραμμές: αν αλλάξουν, η έγκριση δεν ισχύει.
+model OcrApproval {
+  id          String      @id @default(cuid())
+  documentId  String
+  document    OcrDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  level       Int
+  /// APPROVED | REJECTED
+  decision    String
+  userId      String?
+  userEmail   String?
+  roleKey     String?
+  comment     String?
+  fingerprint String
+  createdAt   DateTime    @default(now())
+
+  @@index([documentId])
 }

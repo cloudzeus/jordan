@@ -8,6 +8,8 @@
 // δαπανών πάει σε `LINSUPDOC`/`LINLINES`, μια αγορά εμπορευμάτων σε `PURDOC`/`ITELINES`, ένα
 // παραστατικό χρεώστη σε `LINDEBDOC`/`LINLINES`.
 import { normalizeDocRef } from '@/lib/doc-reference';
+import { clip } from './posting-comment';
+import { serialVerdict, splitSerials, type SerialLineVerdict } from './serial-tracking';
 import { normalizeVatId } from './validate';
 import type { DocumentJson } from './canonical';
 import { analyzeLine } from './invoice-math';
@@ -61,6 +63,13 @@ export type PurdocLineCtx = {
   /** `true` όταν το μητρώο δεν κουβαλά κανέναν χαρακτηρισμό myDATA (προειδοποίηση, όχι εμπόδιο). */
   noClassification?: boolean;
   /**
+   * `MTRSNUSE` του είδους: > 0 ⇒ η SoftOne κρατά σειριακούς και οι σειριακοί της γραμμής πάνε στο
+   * `SNLINES`· 0 ⇒ μένουν στο σχόλιο· `null`/λείπει ⇒ άγνωστο (σχόλιο + παρατήρηση). Βλ. `serial-tracking.ts`.
+   */
+  snUse?: number | null;
+  /** `SNCODEMSK` — η «Μορφή κωδ.SN» που ελέγχει η SoftOne (π.χ. `NNNNN`). */
+  snMask?: string | null;
+  /**
    * ΜΕΤΑΣΧΗΜΑΤΙΣΜΟΣ από δελτίο αποστολής: οι γραμμές του δελτίου (σε βασικές μονάδες) που καλύπτει
    * αυτή η γραμμή. Μία γραμμή-πηγή ⇒ μία γραμμή ITELINES με `FINDOCS`/`MTRLINESS`· πολλές ⇒ τόσες
    * γραμμές, με την ίδια τιμή (η αξία μοιράζεται κατά ποσότητα). Βλ. `lib/ocr/delivery-note-match.ts`.
@@ -96,7 +105,8 @@ export type PurdocLineCtx = {
     percent: number;
     /** «κωδικός — περιγραφή», για τα μηνύματα των ελέγχων. */
     label?: string | null;
-    /** Έργο / φάση του κομματιού· κενό ⇒ της γραμμής (βλ. {@link allocationAnalytics}). */
+    /** Αναλυτικά του κομματιού· κενά ⇒ της γραμμής (βλ. {@link allocationAnalytics}). */
+    costCntr?: number | null;
     prjc?: number | null;
     prjcStage?: number | null;
   }[];
@@ -115,6 +125,8 @@ export type PurdocContext = {
   /** Συντελεστής ΦΠΑ (π.χ. 24) → κωδικός ΦΠΑ SoftOne (`VatCategory.code`). */
   vatIdByRate: Record<number, number>;
   comments?: string | null;
+  /** Πιστωτικό: FINDOC του αρχικού παραστατικού → «Παραστατικό προέλευσης» (`FINDOCS`) της κεφαλίδας. */
+  relatedFindoc?: number | null;
   /**
    * Η αποθήκη παγίων (`WHOUSE`) — υποχρεωτική στη γραμμή ASSLINES, χωρίς default. Βγαίνει από τις
    * υπάρχουσες εγγραφές απόκτησης της εγκατάστασης (συγχρονισμός «Πάγια»).
@@ -144,6 +156,8 @@ export type PurdocHeader = {
   TAXSERIESNUM?: string;
   COMPANY?: number;
   COMMENTS?: string;
+  /** «Παραστατικό προέλευσης» — σε πιστωτικό, το FINDOC του αρχικού. */
+  FINDOCS?: number;
   /**
    * Ο ΜΑΡΚ και το UID του παραστατικού στο myDATA.
    *
@@ -187,6 +201,11 @@ export type PurdocItemLine = {
   FINDOCS?: number; MTRLINESS?: number;
 };
 /**
+ * Σειριακός αριθμός είδους (πίνακας SNLINES του PURDOC): ένας ανά γραμμή, δεμένος με τη γραμμή
+ * ITELINES μέσω `MTRLINES` (= το `LINENUM` της). Το `SNLINES` (αύξων) το δίνει η SoftOne.
+ */
+export type PurdocSerialLine = { MTRLINES: number; MTRL: number; CODE: string };
+/**
  * Γραμμή ΠΑΓΙΟΥ (ASSLINES, DB MTRLINES με SODTYPE 54) σε PURDOC.
  *
  * `ASSDEPR` («Αγορά/Προσθήκη») είναι υποχρεωτικό. Στο πρότυπο της εγκατάστασης (FINDOC 105283) η
@@ -204,12 +223,20 @@ export type PurdocAssetLine = {
 };
 /** Γραμμή ανάλυσης εξόδων (EXPANAL) — δεν έχει ποσότητα/τιμή, μόνο αξία. */
 export type PurdocExpenseLine = { LINENUM: number; EXPN: number; VAT?: number; EXPVAL: number };
-/** Γραμμή ειδικών συναλλαγών (LINLINES): `MTRL` = ΧΡΕΟΠΙΣΤΩΣΗ, με τον τύπο της. */
+/**
+ * Γραμμή ειδικών συναλλαγών (LINLINES): `MTRL` = ΧΡΕΟΠΙΣΤΩΣΗ, με τον τύπο της.
+ *
+ * ΤΟ ΠΟΣΟ ΕΙΝΑΙ ΤΟ `LINEVAL` («Αξία»). Μετρημένο στη Demo (22/10/2026, `calculate`): η SoftOne
+ * υπολογίζει την καθαρή αξία της γραμμής ΜΟΝΟ από το `LINEVAL` — αγνοεί ποσότητα × τιμή, έκπτωση
+ * και το `NETLINEVAL` που της στέλνουμε. Χωρίς `LINEVAL` η γραμμή γράφεται με ΜΗΔΕΝ: έτσι
+ * καταχωρίστηκαν με 0 € ο λογαριασμός ΕΥΔΑΠ (115601) και ο εκκαθαριστικός ΗΡΩΝ (115571).
+ * Άρα `LINEVAL` = η ΚΑΘΑΡΗ αξία της γραμμής (με την έκπτωση ήδη αφαιρεμένη), και ΚΑΜΙΑ έκπτωση.
+ */
 export type PurdocLinLine = {
   LINENUM: number; MTRL: number; MTRTYPE: number; QTY1: number; PRICE: number;
-  /** Έκπτωση ΠΟΣΟΣΤΟ / ΠΟΣΟ — δες {@link discountFields}. */
+  LINEVAL: number;
+  /** Πάντα 0 — η έκπτωση είναι ήδη μέσα στο `LINEVAL` (η SoftOne την αγνοεί έτσι κι αλλιώς εδώ). */
   DISC1PRC?: number;
-  DISC1VAL?: number;
   NETLINEVAL: number; VAT?: number; COMMENTS?: string;
   COSTCNTR?: number; PRJC?: number; PRJCSTAGE?: number;
 };
@@ -229,6 +256,7 @@ export type PostingPayload = {
     EXPANAL?: PurdocExpenseLine[];
     LINLINES?: PurdocLinLine[];
     ASSLINES?: PurdocAssetLine[];
+    SNLINES?: PurdocSerialLine[];
   };
 };
 /** Παλιό όνομα, διατηρείται για τους υπάρχοντες καλούντες. */
@@ -283,13 +311,31 @@ export type BlockerCode =
   | 'account_is_mask'
   | 'account_not_postable'
   // Η γραμμή δείχνει σε χρεοπίστωση/έξοδο που ΔΕΝ υπάρχει στην τωρινή εγκατάσταση (βλ. `post-softone.ts`).
-  | 'registry_not_in_installation';
+  | 'registry_not_in_installation'
+  /** Η ημερομηνία πέφτει σε κλειστή/κλειδωμένη χρήση ή περίοδο της SoftOne (ή σε καμία χρήση). */
+  | 'period_closed'
+  /** Πιστωτικό χωρίς σύνδεση με το αρχικό παραστατικό (ούτε ρητό «χωρίς αρχικό»). */
+  | 'credit_not_linked'
+  /** Παρακράτηση φόρου που η SoftOne δεν θα περάσει μόνη της — θέλει ρητή απόφαση πριν την καταχώριση. */
+  | 'withholding_unhandled'
+  /** Χρειάζεται έγκριση (όριο ποσού / παρατηρήσεις) — ή απορρίφθηκε. */
+  | 'approval_required'
+  /** Είδος με σειριακούς: άλλος αριθμός σειριακών από τα τεμάχια της γραμμής. */
+  | 'serials_count_mismatch'
+  /** Σειριακός που δεν έχει τη «Μορφή κωδ.SN» του είδους — η SoftOne θα τον απέρριπτε. */
+  | 'serials_bad_format';
 
 /** Μη-αποτρεπτικές παρατηρήσεις: φαίνονται στην προεπισκόπηση, δεν κλειδώνουν το κουμπί. */
 export type WarningCode =
   | 'no_mydata_classification' | 'mydata_from_master'
   | 'account_unknown' | 'account_not_covered' | 'account_vat_mismatch'
-  | 'shared_code_many_products';
+  | 'shared_code_many_products'
+  /** Παρακράτηση με άγνωστο ποσοστό / πληρωτέο που δεν βγαίνει, ή παροχή υπηρεσιών > 300 € χωρίς παρακράτηση. */
+  | 'withholding_check'
+  /** Είδος που παρακολουθεί σειριακούς, χωρίς σειριακούς στο χαρτί. */
+  | 'serials_missing'
+  /** Σειριακοί σε είδος χωρίς παρακολούθηση (ή άγνωστη) — μένουν μόνο στο σχόλιο της γραμμής. */
+  | 'serials_untracked';
 
 const num = (v: unknown, fallback: number): number => (typeof v === 'number' && Number.isFinite(v) ? v : fallback);
 
@@ -489,12 +535,16 @@ const analyticsOf = (m: PurdocLineCtx): { COSTCNTR?: number; PRJC?: number; PRJC
  */
 const allocationAnalytics = (
   m: PurdocLineCtx,
-  a: { prjc?: number | null; prjcStage?: number | null },
+  a: { costCntr?: number | null; prjc?: number | null; prjcStage?: number | null },
 ): { COSTCNTR?: number; PRJC?: number; PRJCSTAGE?: number } => {
-  if (!a.prjc) return analyticsOf(m);
+  // Το κέντρο κόστους του ΚΟΜΜΑΤΙΟΥ υπερισχύει της γραμμής: έτσι γίνεται το μοίρασμα σε κέντρα
+  // κόστους με τον ίδιο λογαριασμό (ρεύμα 60% Παραγωγή / 40% Διοίκηση).
+  const cc = a.costCntr != null ? { COSTCNTR: a.costCntr } : {};
+  if (!a.prjc) return { ...analyticsOf(m), ...cc };
   const stage = a.prjcStage ?? (a.prjc === m.prjc ? m.prjcStage : null);
   return {
     ...(m.costCntr ? { COSTCNTR: m.costCntr } : {}),
+    ...cc,
     PRJC: a.prjc,
     ...(stage ? { PRJCSTAGE: stage } : {}),
   };
@@ -543,6 +593,40 @@ export const hasAllocations = (m: PurdocLineCtx | undefined | null): boolean =>
   (m?.allocations?.length ?? 0) > 0;
 
 /**
+ * Η κρίση σειριακών μιας γραμμής — ΜΙΑ πηγή για payload, εμπόδια και παρατηρήσεις. Σειριακοί
+ * υπάρχουν μόνο σε είδος ΑΠΟΘΗΚΗΣ (ITELINES) του PURDOC.
+ */
+export function serialOf(
+  line: { serials?: readonly string[] | null; quantity?: number | null },
+  m: PurdocLineCtx,
+  target: PostLineTable | 'ASSLINES' | null,
+): SerialLineVerdict {
+  return serialVerdict({
+    rowIndex: m.rowIndex,
+    serials: line.serials,
+    quantity: line.quantity,
+    buyRatio: m.buyRatio,
+    qtyInBase: m.qtyInBase === true,
+    isStockLine: target === 'ITELINES' && m.mtrl != null && !m.isService && m.asset == null && !hasAllocations(m),
+    snUse: m.snUse,
+    snMask: m.snMask,
+  });
+}
+
+/** Οι κρίσεις σειριακών όλων των γραμμών (για εμπόδια, παρατηρήσεις και το UI). */
+export function serialVerdicts(document: DocumentJson, ctx: Pick<PurdocContext, 'lines' | 'target'>): SerialLineVerdict[] {
+  if (ctx.target.object !== 'PURDOC') return [];
+  const byRow = new Map(ctx.lines.map((l) => [l.rowIndex, l]));
+  return document.lines.flatMap((line, i) => {
+    const m = byRow.get(i);
+    if (!m || m.omit) return [];
+    const target = ctx.target.lines === 'AUTO' ? autoTableFor(m) : ctx.target.lines;
+    if (!target || (target !== 'ASSLINES' && !lineFits(target, m))) return [];
+    return [serialOf(line, m, target)];
+  });
+}
+
+/**
  * Χτίζει το payload του `setData` για τον στόχο της σειράς. ΔΕΝ κρίνει αν επιτρέπεται η
  * καταχώριση — αυτό είναι δουλειά του `postingBlockers`, ώστε το dry-run να δείχνει payload ΚΑΙ
  * εμπόδια μαζί. Γραμμές που δεν χωρούν στον στόχο ΠΑΡΑΛΕΙΠΟΝΤΑΙ εδώ και γίνονται εμπόδιο εκεί:
@@ -565,9 +649,12 @@ export function buildPurdocPayload(document: DocumentJson, ctx: PurdocContext): 
   if (ref.taxSeries) header.TAXSERIES = ref.taxSeries;
   if (ref.taxSeriesNum) header.TAXSERIESNUM = ref.taxSeriesNum;
   const comments = text(ctx.comments);
-  if (comments) header.COMMENTS = comments;
+  // Το πεδίο χωρά 255 χαρακτήρες: μεγαλύτερο κείμενο η SoftOne το απορρίπτει ΜΟΝΟ στην αποθήκευση
+  // («Range Error»), όχι στο `calculate`.
+  if (comments) header.COMMENTS = clip(comments);
   const mark = text(document.digital.mark);
   if (mark) header.SomyDataMARK = mark;
+  if (ctx.relatedFindoc != null && Number.isFinite(ctx.relatedFindoc)) header.FINDOCS = ctx.relatedFindoc;
   const uid = text(document.digital.uid);
   if (uid) header.SomyDataUID = uid;
 
@@ -575,6 +662,7 @@ export function buildPurdocPayload(document: DocumentJson, ctx: PurdocContext): 
   const expenses: PurdocExpenseLine[] = [];
   const linLines: PurdocLinLine[] = [];
   const assetLines: PurdocAssetLine[] = [];
+  const serialLines: PurdocSerialLine[] = [];
 
   document.lines.forEach((line, i) => {
     const match = byRow.get(i);
@@ -584,10 +672,14 @@ export function buildPurdocPayload(document: DocumentJson, ctx: PurdocContext): 
     // παρακολούθηση σειριακών· οι σειριακοί που βλέπουμε (ταμειακές μηχανές πελατών σε τιμολόγια
     // αναβάθμισης) δεν είναι απόθεμα. Το σχόλιο της γραμμής είναι ο σωστός χώρος — και μπαίνουν μόνο
     // όσοι ΔΕΝ γράφονται ήδη στην περιγραφή, για να μη διπλασιαστούν.
-    const baseName = text(line.name);
-    const extra = (line.serials ?? []).filter((sn) => !(baseName ?? '').includes(sn));
-    const name = extra.length ? `${baseName ? `${baseName} · ` : ''}S/N: ${extra.join(', ')}` : baseName;
+    //
+    // ΕΚΤΟΣ αν το είδος ΠΑΡΑΚΟΛΟΥΘΕΙ σειριακούς στη SoftOne: τότε ο χώρος τους είναι το `SNLINES`
+    // (βλ. παρακάτω και `serial-tracking.ts`) — εκεί τους βρίσκει η πώληση.
     const target = table === 'AUTO' ? autoTableFor(match) : table;
+    const sv = serialOf(line, match, target);
+    const baseName = text(line.name);
+    const extra = sv.toSnLines ? [] : sv.serials.filter((sn) => !(baseName ?? '').includes(sn));
+    const name = extra.length ? `${baseName ? `${baseName} · ` : ''}S/N: ${extra.join(', ')}` : baseName;
     if (target === 'ASSLINES') {
       // Χωρίς αποθήκη παγίων η γραμμή δεν εκφράζεται — το λέει το εμπόδιο `asset_no_whouse`.
       if (ctx.assetWhouse == null) return;
@@ -603,7 +695,7 @@ export function buildPurdocPayload(document: DocumentJson, ctx: PurdocContext): 
         ...analyticsOf(match),
       };
       if (vat != null) row.VAT = vat;
-      if (name) row.COMMENTS = name;
+      if (name) row.COMMENTS = clip(name);
       assetLines.push(row);
       return;
     }
@@ -621,6 +713,7 @@ export function buildPurdocPayload(document: DocumentJson, ctx: PurdocContext): 
             MTRTYPE: num(a.mtrType, 0),
             QTY1: 1,
             PRICE: a.amount,
+            LINEVAL: a.amount,
             DISC1PRC: 0,
             NETLINEVAL: a.amount,
             ...allocationAnalytics(match, a),
@@ -629,7 +722,7 @@ export function buildPurdocPayload(document: DocumentJson, ctx: PurdocContext): 
           // Το σχόλιο κουβαλά και το ποσοστό: στο ERP η γραμμή θα φαίνεται μόνη της, και χωρίς
           // αυτό κανείς δεν καταλαβαίνει γιατί το ποσό δεν είναι το τυπωμένο του παραστατικού.
           const share = `${String(a.percent).replace('.', ',')}%`;
-          row.COMMENTS = name ? `${name} · ${share}` : share;
+          row.COMMENTS = clip(name ? `${name} · ${share}` : share);
           linLines.push(row);
         }
         return;
@@ -640,12 +733,13 @@ export function buildPurdocPayload(document: DocumentJson, ctx: PurdocContext): 
         MTRTYPE: num(match.linMtrType, 0),
         QTY1: num(line.quantity, 1),
         PRICE: num(line.unitPrice, 0),
-        ...discountFields(line),
+        LINEVAL: num(line.net, 0),
+        DISC1PRC: 0,
         NETLINEVAL: num(line.net, 0),
         ...analyticsOf(match),
       };
       if (vat != null) row.VAT = vat;
-      if (name) row.COMMENTS = name;
+      if (name) row.COMMENTS = clip(name);
       linLines.push(row);
       return;
     }
@@ -674,23 +768,30 @@ export function buildPurdocPayload(document: DocumentJson, ctx: PurdocContext): 
         ...analyticsOf(match),
       };
       if (vat != null) row.VAT = vat;
-      if (name) row.COMMENTS = name;
+      if (name) row.COMMENTS = clip(name);
       // Ο χαρακτηρισμός myDATA υπάρχει ΜΟΝΟ σε αυτούς τους τρεις πίνακες γραμμών.
       if (cls) row.MYDATACODE = cls;
       return row;
     };
+    const pushSerials = (row: PurdocItemLine, codes: readonly string[]) => {
+      for (const CODE of codes) serialLines.push({ MTRLINES: row.LINENUM, MTRL: row.MTRL, CODE });
+    };
     // Από δελτίο: μία γραμμή ανά γραμμή-πηγή, ποσότητα στη μονάδα αγορών (βασικές ÷ MU31).
     if (target === 'ITELINES' && match.sourceLinks?.length) {
       const r = Number(match.buyRatio) > 0 ? Number(match.buyRatio) : 1;
-      for (const s of match.sourceLinks) {
+      const parts = sv.toSnLines ? splitSerials(sv.serials, match.sourceLinks.map((s) => s.qty1)) : [];
+      match.sourceLinks.forEach((s, k) => {
         const row = makeRow(Math.round((s.qty1 / r) * 1_000_000) / 1_000_000);
         row.FINDOCS = s.findoc;
         row.MTRLINESS = s.mtrlines;
         bucket.push(row);
-      }
+        if (parts[k]?.length) pushSerials(row, parts[k]);
+      });
       return;
     }
-    bucket.push(makeRow(qp.QTY));
+    const row = makeRow(qp.QTY);
+    bucket.push(row);
+    if (sv.toSnLines) pushSerials(row, sv.serials);
   });
 
   const DATA: PostingPayload['DATA'] = { [object]: [header] };
@@ -699,6 +800,8 @@ export function buildPurdocPayload(document: DocumentJson, ctx: PurdocContext): 
   if (expenses.length) DATA.EXPANAL = expenses;
   if (linLines.length) DATA.LINLINES = linLines;
   if (assetLines.length) DATA.ASSLINES = assetLines;
+  // Μόνο PURDOC έχει πίνακα σειριακών (τα LIN*DOC δεν έχουν είδη αποθήκης).
+  if (serialLines.length && object === 'PURDOC') DATA.SNLINES = serialLines;
   return { OBJECT: object, KEY: '', DATA };
 }
 
@@ -847,6 +950,11 @@ export function postingBlockers(
     const sum = document.lines.reduce((acc, l) => acc + (l.net ?? 0), 0);
     if (Math.abs(sum - document.totals.net) > NET_TOLERANCE) out.push('totals_mismatch');
   }
+  // ΣΕΙΡΙΑΚΟΙ σε είδος που τους παρακολουθεί: όσοι και τα τεμάχια, στη μορφή του είδους. Η SoftOne
+  // δέχεται λάθος πλήθος σιωπηλά — και μετά το απόθεμα δεν συμφωνεί ποτέ με τους σειριακούς του.
+  const sv = serialVerdicts(document, ctx);
+  if (sv.some((v) => v.countMismatch)) out.push('serials_count_mismatch');
+  if (sv.some((v) => v.badFormat.length > 0)) out.push('serials_bad_format');
   // Κενός λογαριασμός ή λογαριασμός εκτός σχεδίου σε γραμμή LINLINES. Ένα ΑΓΝΩΣΤΟ (ασυγχρόνιστο
   // σχέδιο) δεν είναι εμπόδιο — είναι παρατήρηση, βλ. `postingWarnings`.
   out.push(...accountBlockers(accounts));
@@ -907,6 +1015,11 @@ export function postingWarnings(
   // Οι πίνακες χωρίς πεδίο MYDATACODE: ο χαρακτηρισμός έρχεται αποκλειστικά από το μητρώο.
   if (hasLines && (ctx.target.lines === 'LINLINES' || ctx.target.lines === 'EXPANAL')) {
     out.push('mydata_from_master');
+  }
+  if (document) {
+    const sv = serialVerdicts(document, ctx);
+    if (sv.some((v) => v.missing)) out.push('serials_missing');
+    if (sv.some((v) => v.untracked || v.unknown)) out.push('serials_untracked');
   }
   out.push(...accountWarnings(accounts));
   return out;

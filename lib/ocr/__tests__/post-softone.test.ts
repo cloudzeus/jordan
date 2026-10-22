@@ -5,7 +5,7 @@ import { emptyDocument, type DocumentJson } from '../canonical';
 
 const { db, softone, settings, documentMod } = vi.hoisted(() => ({
   db: {
-    ocrDocument: { findUnique: vi.fn(), update: vi.fn() },
+    ocrDocument: { findUnique: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
     ocrInvoiceItem: { findMany: vi.fn() },
     vatCategory: { findMany: vi.fn() },
     purchaseDocType: { findUnique: vi.fn() },
@@ -18,7 +18,7 @@ const { db, softone, settings, documentMod } = vi.hoisted(() => ({
     templateRun: { findFirst: vi.fn(), update: vi.fn() },
     $transaction: vi.fn(),
   },
-  softone: { softoneCall: vi.fn(), softoneGetData: vi.fn() },
+  softone: { softoneCall: vi.fn(), softoneGetData: vi.fn(), SoftoneTransportError: class extends Error { phase = 'unknown'; } },
   settings: { getSetting: vi.fn() },
   documentMod: { loadDocumentJson: vi.fn() },
 }));
@@ -27,6 +27,7 @@ vi.mock('@/lib/db', () => ({ prisma: db }));
 vi.mock('@/lib/softone', () => softone);
 vi.mock('@/lib/settings', () => settings);
 vi.mock('@/lib/ocr/document', () => documentMod);
+vi.mock('@/lib/audit', () => ({ logAudit: vi.fn().mockResolvedValue(undefined) }));
 
 import { postDocumentToSoftone, postingPreview, PostError } from '../post-softone';
 
@@ -51,6 +52,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   db.ocrDocument.findUnique.mockResolvedValue({ ...READY_DOC });
   db.ocrDocument.update.mockResolvedValue({});
+  db.ocrDocument.updateMany.mockResolvedValue({ count: 1 });
   db.ocrInvoiceItem.findMany.mockResolvedValue([{ rowIndex: 0, softoneMtrl: 555, softoneExpn: null, softoneIsService: false }]);
   db.vatCategory.findMany.mockResolvedValue([{ code: '1', rate: 24 }, { code: '4', rate: 0 }]);
   // Σειρά αγοράς εμπορευμάτων → PURDOC με πίνακα ανά γραμμή (η προεπιλογή της ενότητας 1251).
@@ -111,7 +113,7 @@ describe('postingPreview (dry-run)', () => {
     expect(preview.payload.OBJECT).toBe('LINCREDOC');
     expect(preview.payload.DATA.LINCREDOC?.[0]).toMatchObject({ SERIES: 1001, TRDR: 12345 });
     expect(preview.payload.DATA.LINLINES).toEqual([
-      { LINENUM: 9000001, MTRL: 777, MTRTYPE: 1, QTY1: 2, PRICE: 50, NETLINEVAL: 100, VAT: 1, COMMENTS: 'Είδος Α' },
+      { LINENUM: 9000001, MTRL: 777, MTRTYPE: 1, QTY1: 2, PRICE: 50, LINEVAL: 100, DISC1PRC: 0, NETLINEVAL: 100, VAT: 1, COMMENTS: 'Είδος Α' },
     ]);
     // Το LINLINES δεν έχει πεδίο χαρακτηρισμού — δεν στέλνουμε MYDATACODE εκεί.
     expect(preview.payload.DATA.LINLINES?.[0]).not.toHaveProperty('MYDATACODE');
@@ -160,12 +162,12 @@ describe('postingPreview (dry-run)', () => {
     expect(preview.blockers).toEqual([]);
     expect(preview.target).toMatchObject({ object: 'LINDEBDOC', lines: 'LINLINES', source: 'default' });
     // Η κάρτα ονομάζει τον στόχο στα ελληνικά, με το σωστό όνομα object και πίνακα.
-    expect(preview.target.label).toBe('Ειδικές συναλλαγές χρεωστών · γραμμές LINLINES');
+    expect(preview.target.label).toBe('Ειδικές συναλλαγές χρεωστών');
     expect(preview.payload.OBJECT).toBe('LINDEBDOC');
     expect(preview.payload.DATA.LINDEBDOC?.[0]).toMatchObject({ SERIES: 6645, TRDR: 12345, FINCODE: 'ΤΠΥ 17', TAXSERIES: 'ΤΠΥ', TAXSERIESNUM: '17' });
     expect(preview.payload.DATA.LINDEBDOC?.[0]).not.toHaveProperty('SODTYPE');
     expect(preview.payload.DATA.LINLINES).toEqual([
-      { LINENUM: 9000001, MTRL: 777, MTRTYPE: 1, QTY1: 2, PRICE: 50, NETLINEVAL: 100, VAT: 1, COMMENTS: 'Είδος Α' },
+      { LINENUM: 9000001, MTRL: 777, MTRTYPE: 1, QTY1: 2, PRICE: 50, LINEVAL: 100, DISC1PRC: 0, NETLINEVAL: 100, VAT: 1, COMMENTS: 'Είδος Α' },
     ]);
     expect(preview.warnings.map((w) => w.code)).toContain('mydata_from_master');
   });
@@ -182,7 +184,7 @@ describe('postingPreview (dry-run)', () => {
 
     const preview = await postingPreview('d1');
     expect(preview.blockers.map((b) => b.code)).toContain('lines_need_lineitem');
-    expect(preview.blockers.find((b) => b.code === 'lines_need_lineitem')?.message).toMatch(/ΧΡΕΟΠΙΣΤΩΣΕΙΣ/);
+    expect(preview.blockers.find((b) => b.code === 'lines_need_lineitem')?.message).toMatch(/μόνο δαπάνες σε λογαριασμό/);
     // Καμία γραμμή δεν χώρεσε: το payload το λέει καθαρά αντί να «καθαρίσει» το πρόβλημα.
     expect(preview.payload.DATA.LINLINES).toBeUndefined();
   });
@@ -228,7 +230,7 @@ describe('postingPreview (dry-run)', () => {
 
     const preview = await postingPreview('d1');
     expect(preview.blockers.map((b) => b.code)).toContain('trader_kind_mismatch');
-    expect(preview.blockers.find((b) => b.code === 'trader_kind_mismatch')?.message).toMatch(/συναλλασσόμεν/i);
+    expect(preview.blockers.find((b) => b.code === 'trader_kind_mismatch')?.message).toMatch(/καρτέλα άλλου τύπου/i);
   });
 
   it('εμπόδια σε ελληνικά, με payload για να φαίνεται τι ΘΑ έφευγε', async () => {
@@ -336,7 +338,7 @@ describe('postingPreview (dry-run)', () => {
       const err = await postDocumentToSoftone('d1').catch((e) => e);
       expect(err).toBeInstanceOf(PostError);
       expect(err.code).toBe('account_missing');
-      expect(err.message).toMatch(/χωρίς λογαριασμό γενικής/);
+      expect(err.message).toMatch(/δεν έχει λογαριασμό λογιστικής/);
       expect(softone.softoneCall).not.toHaveBeenCalled();
       expect(db.ocrDocument.update).not.toHaveBeenCalled();
     });
@@ -514,11 +516,48 @@ describe('postDocumentToSoftone', () => {
 
   it('setData αποτυγχάνει → FAILED και το σφάλμα ανεβαίνει', async () => {
     settings.getSetting.mockResolvedValue(true);
-    softone.softoneCall.mockResolvedValue({ success: false, error: 'ΛΑΘΟΣ ΣΕΙΡΑ', errorcode: 0 });
+    softone.softoneCall.mockImplementation(async (service: string) => (service === 'calculate'
+      ? { success: true }
+      : { success: false, error: 'ΛΑΘΟΣ ΣΕΙΡΑ', errorcode: 0 }));
     await expect(postDocumentToSoftone('d1')).rejects.toThrow(/ΛΑΘΟΣ ΣΕΙΡΑ/);
     expect(softone.softoneGetData).not.toHaveBeenCalled();
     const last = db.ocrDocument.update.mock.calls.at(-1)?.[0];
     expect(last.data.postStatus).toBe('FAILED');
+  });
+
+  it('ΚΛΕΙΔΩΜΑ: δεύτερο ταυτόχρονο αίτημα δεν φτάνει στο setData', async () => {
+    settings.getSetting.mockResolvedValue(true);
+    db.ocrDocument.updateMany.mockResolvedValue({ count: 0 });
+    const calls: string[] = [];
+    softone.softoneCall.mockImplementation(async (service: string) => { calls.push(service); return { success: true, id: 1 }; });
+    await expect(postDocumentToSoftone('d1')).rejects.toThrow(/ήδη σε εξέλιξη/);
+    expect(calls).not.toContain('setData');
+  });
+
+  it('χρονικό όριο ΣΤΟ setData ⇒ «ΑΓΝΩΣΤΗ ΕΚΒΑΣΗ», όχι σκέτο «απέτυχε»', async () => {
+    settings.getSetting.mockResolvedValue(true);
+    softone.softoneCall.mockImplementation(async (service: string) => {
+      if (service === 'calculate') return { success: true };
+      throw new softone.SoftoneTransportError('Το SoftOne δεν απάντησε σε 90″.');
+    });
+    await expect(postDocumentToSoftone('d1')).rejects.toThrow(/ΑΓΝΩΣΤΗ ΕΚΒΑΣΗ/);
+    const last = db.ocrDocument.update.mock.calls.at(-1)?.[0];
+    expect(last.data.postStatus).toBe('FAILED');
+    expect(last.data.postError).toMatch(/^ΑΓΝΩΣΤΗ ΕΚΒΑΣΗ/);
+  });
+
+  it('ΜΗΔΕΝΙΚΗ αξία στο calculate (το σφάλμα των ειδικών συναλλαγών) ⇒ ΤΙΠΟΤΑ δεν γράφεται', async () => {
+    settings.getSetting.mockResolvedValue(true);
+    const calls: string[] = [];
+    softone.softoneCall.mockImplementation(async (service: string, params: { OBJECT?: string }) => {
+      calls.push(service);
+      return service === 'calculate'
+        ? { success: true, data: { [params.OBJECT ?? 'PURDOC']: [{ NETAMNT: '0', SUMAMNT: '0' }] } }
+        : { success: true, id: 1 };
+    });
+    await expect(postDocumentToSoftone('d1')).rejects.toThrow(/ΜΗΔΕΝΙΚΗ αξία/);
+    expect(calls).toEqual(['calculate']);
+    expect(db.ocrDocument.update.mock.calls.some((c) => c[0].data?.postStatus === 'PENDING')).toBe(false);
   });
 
   it('το read-back διαβάζει ΤΟ ΙΔΙΟ object που γράφτηκε', async () => {

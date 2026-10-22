@@ -109,7 +109,7 @@ export function seriesConfidenceTone(confidence: number | null): { color: string
 }
 
 const CATEGORY_LABEL: Record<string, string> = {
-  EXPENSE: 'Έξοδο',
+  EXPENSE: 'Δαπάνη',
   INVOICE_IN: 'Τιμολόγιο αγοράς',
   INVOICE_OUT: 'Τιμολόγιο πώλησης',
   RECEIPT: 'Απόδειξη',
@@ -266,7 +266,14 @@ export function OcrTable({
     const end = () => { setBusyId(null); setBusyLabel(null); };
     return {
       ok: (msg: string, description?: string) => { toast.success(msg, { id, description: description ?? row.fileName }); end(); },
-      fail: (msg: string) => { toast.error(msg, { id, description: row.fileName }); end(); },
+      fail: (msg: string, fixCode?: string | null) => {
+        // ΠΟΤΕ ΑΔΙΕΞΟΔΟ: εμπόδιο καταχώρισης ⇒ κουμπί που ανοίγει το παραστατικό ΣΤΟ σημείο της λύσης.
+        toast.error(msg, {
+          id, description: row.fileName, duration: fixCode ? 12000 : undefined,
+          ...(fixCode ? { action: { label: 'Λύσε', onClick: () => router.push(`/admin/ocr/${row.id}?fix=${encodeURIComponent(fixCode)}`) } } : {}),
+        });
+        end();
+      },
       cancel: () => { toast.dismiss(id); end(); },
     };
   }
@@ -288,7 +295,10 @@ export function OcrTable({
     try {
       const res = await fetch(`/api/admin/ocr/${row.id}/post-softone`, { method: 'POST' });
       const json = await res.json();
-      if (!res.ok) throw new Error(json?.message ?? json?.error ?? `HTTP ${res.status}`);
+      if (!res.ok) {
+        p.fail(`Αποτυχία καταχώρισης: ${json?.message ?? json?.error ?? `HTTP ${res.status}`}`, typeof json?.error === 'string' ? json.error : null);
+        return;
+      }
       p.ok(`Καταχωρίστηκε στο SoftOne (ref: ${json.ref})`);
       router.refresh();
     } catch (err) {
@@ -333,7 +343,7 @@ export function OcrTable({
         body: JSON.stringify({ docType }),
       });
       const json = await res.json();
-      if (!res.ok) throw new Error(json?.error ?? `HTTP ${res.status}`);
+      if (!res.ok) throw new Error(json?.message ?? json?.error ?? `HTTP ${res.status}`);
       p.ok(`Το επανασκανάρισμα ολοκληρώθηκε (${json.model})`);
       router.refresh();
     } catch (err) {
@@ -414,6 +424,46 @@ export function OcrTable({
     }
     const failNote = fail ? `, ${fail} αποτυχία${firstError ? ` — ${firstError}` : ''}` : '';
     toast.success(`Ολοκληρώθηκε: ${ok} επιτυχία${failNote}`, { id: t });
+    router.refresh();
+  }
+
+  /**
+   * ΕΠΑΝΑΣΑΡΩΣΗ ΗΜΕΡΑΣ με τους νέους κανόνες ανάγνωσης. Πρώτα ρωτά τον server ποια ξαναδιαβάζονται
+   * με ασφάλεια: καταχωρισμένα και διορθωμένα με το χέρι ΠΑΡΑΛΕΙΠΟΝΤΑΙ (θα χανόταν δουλειά) και το
+   * παράθυρο λέει ποια και γιατί. Ένα-ένα, όχι παράλληλα — κάθε ανάγνωση είναι κλήση στο μοντέλο.
+   */
+  async function handleBulkRescan(dayRows: OcrRow[], label: string) {
+    let docs: { id: string; label: string; skip: string | null }[];
+    try {
+      const r = await fetch('/api/admin/ocr/rescan-eligibility', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids: dayRows.map((d) => d.id) }) });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(d.message ?? `HTTP ${r.status}`);
+      docs = d.docs;
+    } catch (err) { toast.error(`Δεν ελέγχθηκαν τα παραστατικά: ${err instanceof Error ? err.message : String(err)}`); return; }
+    const go = docs.filter((d) => !d.skip);
+    const skipped = docs.filter((d) => d.skip);
+    const skippedText = skipped.length
+      ? `\n\nΔεν θα ξαναδιαβαστούν (${skipped.length}):\n${skipped.slice(0, 8).map((d) => `• ${d.label} — ${d.skip}`).join('\n')}${skipped.length > 8 ? `\n• …και ${skipped.length - 8} ακόμη` : ''}`
+      : '';
+    if (!go.length) { toast.info(`Κανένα παραστατικό της ${label} δεν ξαναδιαβάζεται μαζικά.${skipped.length ? ` (${skipped.length} με καταχώριση ή χειροκίνητες διορθώσεις — επανασάρωσέ τα ένα-ένα αν θες.)` : ''}`); return; }
+    if (!(await confirmAction({
+      title: `Επανασάρωση ${go.length} παραστατικών;`,
+      message: `Θα ξαναδιαβαστούν με τους νέους κανόνες και το ισχυρότερο μοντέλο. Κρατιούνται αντιστοιχίσεις, σειρά, εκδότης, σύνδεση πιστωτικού και απόφαση παρακράτησης.${skippedText}`,
+      confirmLabel: `Επανασάρωση ${go.length}`,
+      destructive: false,
+    }))) return;
+    const t = toast.loading(`Επανασάρωση 0/${go.length}…`);
+    let ok = 0, fail = 0;
+    let firstError: string | null = null;
+    for (const d of go) {
+      try {
+        const res = await fetch(`/api/admin/ocr/${d.id}/reextract`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ bulk: true }) });
+        if (!res.ok) { const j = await res.json().catch(() => null); throw new Error(j?.message ?? `HTTP ${res.status}`); }
+        ok++;
+      } catch (err) { fail++; firstError ??= `${d.label}: ${err instanceof Error ? err.message : String(err)}`; }
+      toast.loading(`Επανασάρωση ${ok + fail}/${go.length}…`, { id: t });
+    }
+    toast.success(`Επανασαρώθηκαν ${ok}${fail ? ` · ${fail} απέτυχαν (${firstError})` : ''}${skipped.length ? ` · ${skipped.length} παραλείφθηκαν` : ''}`, { id: t, duration: 8000 });
     router.refresh();
   }
 
@@ -968,6 +1018,11 @@ export function OcrTable({
                       <DropdownMenuItem onClick={() => setProblemsDay({ label, rows: dayRows })}>
                         <FiAlertCircle className="size-4" /> Προβλήματα & λύσεις
                       </DropdownMenuItem>
+                      {canCategorize && (
+                        <DropdownMenuItem onClick={() => handleBulkRescan(dayRows, label)}>
+                          <FiRefreshCw className="size-4" /> Επανασάρωση (νέοι κανόνες)
+                        </DropdownMenuItem>
+                      )}
                       {canPost && (
                         <DropdownMenuItem onClick={() => handleBulkPost(dayRows)}>
                           <FiSend className="size-4" /> Ανάρτηση όλων (SoftOne)

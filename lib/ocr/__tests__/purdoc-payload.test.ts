@@ -330,8 +330,8 @@ describe('buildPurdocPayload — LINLINES', () => {
     expect(payload.DATA.PURDOC).toBeUndefined();
     expect(payload.DATA.LINSUPDOC?.[0]).toMatchObject({ SERIES: 7001, TRDR: 12345, FINCODE: 'ΤΠΥ 17', TAXSERIES: 'ΤΠΥ', TAXSERIESNUM: '17' });
     expect(payload.DATA.LINLINES).toEqual([
-      { LINENUM: 9000001, MTRL: 777, MTRTYPE: 1, QTY1: 2, PRICE: 50, NETLINEVAL: 100, VAT: 1, COMMENTS: 'Είδος Α' },
-      { LINENUM: 9000002, MTRL: 778, MTRTYPE: 0, QTY1: 1, PRICE: 100, NETLINEVAL: 100, VAT: 1, COMMENTS: 'Υπηρεσία Β' },
+      { LINENUM: 9000001, MTRL: 777, MTRTYPE: 1, QTY1: 2, PRICE: 50, LINEVAL: 100, DISC1PRC: 0, NETLINEVAL: 100, VAT: 1, COMMENTS: 'Είδος Α' },
+      { LINENUM: 9000002, MTRL: 778, MTRTYPE: 0, QTY1: 1, PRICE: 100, LINEVAL: 100, DISC1PRC: 0, NETLINEVAL: 100, VAT: 1, COMMENTS: 'Υπηρεσία Β' },
     ]);
   });
 
@@ -730,6 +730,19 @@ describe('επιμερισμός → γραμμές LINLINES', () => {
     const lin = linesOf();
     expect(lin[0].COMMENTS).toContain('33,33%');
     expect(lin[1].COMMENTS).toContain('66,67%');
+  });
+
+  it('κέντρο κόστους ΑΝΑ ΚΟΜΜΑΤΙ, με τον ίδιο λογαριασμό (60/40 Παραγωγή/Διοίκηση) — και LINEVAL', () => {
+    const lin = linesOf(splitCtx({
+      lines: [{
+        rowIndex: 0,
+        allocations: [
+          { registryMtrl: 3308, mtrType: 1, amount: 633, percent: 60, costCntr: 10 },
+          { registryMtrl: 3308, mtrType: 1, amount: 422, percent: 40, costCntr: 20, prjc: 7 },
+        ],
+      }],
+    }));
+    expect(lin.map((r) => [r.MTRL, r.LINEVAL, r.COSTCNTR, r.PRJC])).toEqual([[3308, 633, 10, undefined], [3308, 422, 20, 7]]);
   });
 
   it('οι αριθμοί γραμμής είναι συνεχόμενοι', () => {

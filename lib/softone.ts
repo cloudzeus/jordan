@@ -188,15 +188,26 @@ const READ_SERVICES = new Set([
 ]);
 /** Μια ανάγνωση που δεν απαντά σε τόσο χρόνο έχει κολλήσει (στη μέτρηση απαντούν σε ~0,2″). */
 const READ_TIMEOUT_MS = 15_000;
-const PING_TIMEOUT_MS = 8_000;
+/** Το `ping` απαντά σε ~0,1–0,4″· αν αργήσει τόσο, ο host δεν είναι διαθέσιμος — δεν το περιμένουμε άλλο. */
+const PING_TIMEOUT_MS = 5_000;
 /** Οι εγγραφές μπορεί να είναι νόμιμα αργές (νέο παραστατικό με πολλές γραμμές). */
 const WRITE_TIMEOUT_MS = 90_000;
 /** Μετά από τόση αδράνεια, η ανοιχτή σύνδεση keep-alive μπορεί να έχει κλείσει σιωπηλά. */
 const IDLE_WARMUP_MS = 20_000;
 const SLOW_CALL_MS = 3_000;
 let lastOkAt = 0;
+/** Ένα «ζέσταμα» τη φορά: παράλληλες εγγραφές μετά από αδράνεια μοιράζονται το ίδιο ping. */
+let warming: Promise<void> | null = null;
 /** Μόνο για tests: ορίζει πότε απάντησε τελευταία φορά το SoftOne (για το «ζέσταμα» πριν από εγγραφή). */
 export function __setSoftoneLastOkAt(at: number): void { lastOkAt = at; }
+
+/**
+ * Το `ping` της SoftOne ΔΕΝ απαντά JSON αλλά απλό κείμενο (`0;<serial>`, μετρημένο στη Demo
+ * 21/10/2026). Το `JSON.parse` αποτύγχανε και κάθε ping μετρούσε ως «Μη αναγνώσιμη απάντηση»: το
+ * «ζέσταμα» πριν από εγγραφή δεν ανανέωνε ποτέ το `lastOkAt`, και ο έλεγχος «απαντά ο host;»
+ * έλεγε «όχι» σε host που απαντούσε. HTTP 200 στο ping = ο host ζει, ό,τι κι αν γράφει.
+ */
+const isAlivePingReply = (e: unknown) => e instanceof SoftoneTransportError && e.httpStatus === 200;
 
 const isTimeout = (e: unknown) => (e as { name?: string })?.name === 'TimeoutError' || (e as { name?: string })?.name === 'AbortError';
 
@@ -218,8 +229,13 @@ export async function softoneFetch<T = Record<string, unknown>>(
   const service = String((payload as { service?: unknown; SERVICE?: unknown }).service ?? (payload as { SERVICE?: unknown }).SERVICE ?? '').toLowerCase();
   const isRead = READ_SERVICES.has(service);
   if (!isRead && Date.now() - lastOkAt > IDLE_WARMUP_MS) {
-    // Ζεσταίνει (ή αντικαθιστά) τη σύνδεση. Αποτυχία εδώ δεν σταματά τίποτα — η εγγραφή θα πει την αλήθεια.
-    await softoneFetch(endpoint, { service: 'ping' }).catch(() => null);
+    // Ζεσταίνει (ή αντικαθιστά) τη σύνδεση. ΜΙΑ προσπάθεια, χωρίς επανάληψη: πριν ήταν 8″ + 8″, δηλαδή
+    // 16″ αναμονή ΠΡΙΝ καν φύγει η εγγραφή όταν ο host αργούσε. Αποτυχία εδώ δεν σταματά τίποτα — η
+    // εγγραφή θα πει την αλήθεια.
+    warming ??= softoneFetchOnce(endpoint, { service: 'ping' }, PING_TIMEOUT_MS)
+      .then(() => { lastOkAt = Date.now(); }, (e) => { if (isAlivePingReply(e)) lastOkAt = Date.now(); })
+      .finally(() => { warming = null; });
+    await warming;
   }
   const attempts = isRead ? 2 : 1;
   for (let attempt = 1; ; attempt++) {
@@ -231,6 +247,10 @@ export async function softoneFetch<T = Record<string, unknown>>(
       if (ms > SLOW_CALL_MS) console.warn(`[softone] ${service || '?'} αργή απάντηση: ${ms}ms`);
       return out;
     } catch (e) {
+      if (service === 'ping' && isAlivePingReply(e)) {
+        lastOkAt = Date.now();
+        return { success: true } as T;
+      }
       const retryable = isRead && attempt < attempts && e instanceof SoftoneTransportError && e.phase !== 'not_sent' && e.httpStatus == null;
       if (!retryable) throw e;
       console.warn(`[softone] ${service} απέτυχε μετά από ${Date.now() - started}ms (${(e as Error).message.slice(0, 80)}) — νέα προσπάθεια`);
@@ -952,11 +972,14 @@ export interface ItemRow {
   /** UPDDATE / INSDATE αυτούσια (watermarks αυξητικού συγχρονισμού). */
   updDate?: string | null;
   insDate?: string | null;
+  /** MTRSNUSE «SN»: > 0 ⇒ το είδος παρακολουθείται με σειριακούς · SNCODEMSK η μορφή τους. */
+  snUse: number | null;
+  snMask: string | null;
 }
 
 const MTRL_FIELDS = [
   'MTRL', 'CODE', 'CODE1', 'CODE2', 'NAME', 'NAME1', 'PRICER', 'SODTYPE', 'ISACTIVE', 'MYDATACODE',
-  'MTRUNIT1', 'MTRUNIT3', 'MU31', 'MTRUNIT4', 'MU41', 'UPDDATE', 'INSDATE',
+  'MTRUNIT1', 'MTRUNIT3', 'MU31', 'MTRUNIT4', 'MU41', 'UPDDATE', 'INSDATE', 'MTRSNUSE', 'SNCODEMSK',
 ];
 
 /** Σχέση μονάδας: θετικός αριθμός, αλλιώς `null` (κενό/0 = «δεν ορίστηκε»). */
@@ -985,6 +1008,8 @@ function mapItem(o: Record<string, string>): ItemRow {
     sellRatio: ratioOrNull(o.MU41),
     updDate: o.UPDDATE || null,
     insDate: o.INSDATE || null,
+    snUse: o.MTRSNUSE === '' || o.MTRSNUSE == null || !Number.isFinite(Number(o.MTRSNUSE)) ? null : Number(o.MTRSNUSE),
+    snMask: (o.SNCODEMSK ?? '').trim() || null,
   };
 }
 
@@ -1600,6 +1625,18 @@ export interface CreateSupplierInput {
    */
   kad?: number | null;
   kad1?: number | null;
+  /**
+   * ΑΝΤΙΓΡΑΦΗ ΑΠΟ ΥΠΑΡΧΟΥΣΑ ΚΑΡΤΕΛΑ (π.χ. προμηθευτής από πιστωτή): τιμές που η ίδια η SoftOne
+   * έδωσε, άρα γράφονται ως έχουν. `countryId` = `TRDR.COUNTRY` (υπερισχύει του ISO `country`),
+   * `vatStatus` = `VATSTS`, `payment` = `PAYMENT`, `currency` = `SOCURRENCY`. Η λογιστική κατηγορία
+   * (`TRDCATEGORY`) ΔΕΝ είναι εδώ: προμηθευτές και πιστωτές έχουν ΔΙΑΦΟΡΕΤΙΚΕΣ κατηγορίες (Demo:
+   * 50xx / 53xx), οπότε μια αντιγραφή θα έγραφε κατηγορία άλλου τύπου.
+   */
+  countryId?: string | null;
+  district?: string | null;
+  vatStatus?: string | null;
+  payment?: string | null;
+  currency?: string | null;
 }
 /**
  * Το SoftOne αρνήθηκε τη δημιουργία επειδή ΛΕΙΠΕΙ ο κωδικός;
@@ -1819,12 +1856,13 @@ function traderRow(input: CreateTraderInput, countries: SoftoneCountry[] = []): 
   };
   // `TRDR.COUNTRY` είναι αριθμητικό FK: γράφεται ΜΟΝΟ όταν ο ISO-2 βρεθεί στο
   // μητρώο. Χωρίς μητρώο (κενή λίστα) το πεδίο μένει στην προεπιλογή του SoftOne.
-  const countryId = matchCountryId(input.country, countries);
+  const countryId = /^\d+$/.test(String(input.countryId ?? '')) ? String(input.countryId) : matchCountryId(input.country, countries);
   if (countryId) row.COUNTRY = Number(countryId);
   if (input.code) row.CODE = input.code;
   if (input.irsData) row.IRSDATA = input.irsData;
   if (input.profession) row.JOBTYPETRD = input.profession;
   if (input.address) row.ADDRESS = input.address;
+  if (input.district) row.DISTRICT = input.district;
   if (input.zip) row.ZIP = input.zip;
   if (input.city) row.CITY = input.city;
   if (input.phone) row.PHONE01 = input.phone;
@@ -1832,6 +1870,9 @@ function traderRow(input: CreateTraderInput, countries: SoftoneCountry[] = []): 
   if (input.fax) row.FAX = input.fax;
   if (input.webpage) row.WEBPAGE = input.webpage;
   if (input.email) row.EMAIL = input.email;
+  for (const [col, v] of [['VATSTS', input.vatStatus], ['PAYMENT', input.payment], ['SOCURRENCY', input.currency]] as const) {
+    if (/^\d+$/.test(String(v ?? ''))) row[col] = Number(v);
+  }
   // Συντεταγμένες: ή και τα δύο πεδία με έγκυρο ζεύγος, ή κανένα. Ποτέ «0 = άγνωστο».
   const coords = validCoords(input.latitude, input.longitude);
   if (coords) {
@@ -2509,7 +2550,7 @@ export async function softoneCreateLineItem(
   }
   if (Number(row.SODTYPE) !== LINEITEM_SODTYPE) {
     throw new SoftoneOrphanError(
-      `Η εγγραφή ${mtrl} γράφτηκε με SODTYPE ${row.SODTYPE ?? '—'} αντί για ${LINEITEM_SODTYPE}: δεν είναι χρεοπίστωση και δεν μπορεί να μπει σε γραμμή LINLINES.`,
+      `Η εγγραφή ${mtrl} γράφτηκε με SODTYPE ${row.SODTYPE ?? '—'} αντί για ${LINEITEM_SODTYPE}: δεν είναι χρεοπίστωση και δεν μπορεί να μπει σε γραμμή ειδικών συναλλαγών.`,
       mtrl,
     );
   }

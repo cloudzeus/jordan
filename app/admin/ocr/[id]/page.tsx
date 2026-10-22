@@ -24,6 +24,8 @@ import { analyzeUtility, utilityInputFromDocument } from '@/lib/ocr/utility-bill
 import { UtilityBillCard } from '@/components/admin/utility-bill-card';
 import { suggestionsForDocument } from '@/lib/ocr/line-suggestions';
 import { decideLineUnits, hasBuyUnit } from '@/lib/ocr/line-units';
+import { DocActionsMenu, DocToolsHost } from '@/components/admin/doc-tools';
+import { isCreditNote } from '@/lib/ocr/credit-link';
 
 export const dynamic = 'force-dynamic';
 
@@ -51,10 +53,11 @@ export default async function OcrDetailPage({ params }: { params: Promise<{ id: 
   });
   if (!doc) notFound();
 
-  const [canDelete, canManage, canPost] = await Promise.all([
+  const [canDelete, canManage, canPost, canRescan] = await Promise.all([
     hasPermission('ocr.delete'),
     hasPermission('ocr.categorize'),
     hasPermission('ocr.post'),
+    hasPermission('ocr.create'),
   ]);
 
   // Οι κατηγορίες δαπανών (LINCATEGORY) τροφοδοτούν ΜΟΝΟ το φίλτρο χρεοπιστώσεων του picker
@@ -70,17 +73,19 @@ export default async function OcrDetailPage({ params }: { params: Promise<{ id: 
   // Οι γραμμές κρατούν ΑΡΙΘΜΟΥΣ αναλυτικής (`softoneCostCntr` κ.λπ.). Οι ετικέτες
   // «κωδικός — περιγραφή» έρχονται με τρία ερωτήματα για ΟΛΟ το παραστατικό, όχι ανά γραμμή.
   const items = doc.items;
-  const ids = (pick: (i: (typeof items)[number]) => number | null) =>
-    Array.from(new Set(items.map(pick).filter((v): v is number => v != null)));
+  // Και τα αναλυτικά των ΚΟΜΜΑΤΙΩΝ του μοιράσματος (κέντρο κόστους / έργο ανά κομμάτι).
+  const allocs = items.flatMap((i) => i.allocations ?? []);
+  const ids = (pick: (i: (typeof items)[number]) => number | null, pickAlloc?: (a: (typeof allocs)[number]) => number | null) =>
+    Array.from(new Set([...items.map(pick), ...(pickAlloc ? allocs.map(pickAlloc) : [])].filter((v): v is number => v != null)));
   const [ccRows, pjRows, psRows, lineAccounts] = await Promise.all([
-    ids((i) => i.softoneCostCntr).length
+    ids((i) => i.softoneCostCntr, (a) => a.costCntr).length
       ? prisma.softoneCostCenter.findMany({
-        where: { costcntr: { in: ids((i) => i.softoneCostCntr) } }, select: { costcntr: true, code: true, name: true },
+        where: { costcntr: { in: ids((i) => i.softoneCostCntr, (a) => a.costCntr) } }, select: { costcntr: true, code: true, name: true },
       })
       : Promise.resolve([]),
-    ids((i) => i.softonePrjc).length
+    ids((i) => i.softonePrjc, (a) => a.prjc).length
       ? prisma.softoneProject.findMany({
-        where: { prjc: { in: ids((i) => i.softonePrjc) } }, select: { prjc: true, code: true, name: true },
+        where: { prjc: { in: ids((i) => i.softonePrjc, (a) => a.prjc) } }, select: { prjc: true, code: true, name: true },
       })
       : Promise.resolve([]),
     ids((i) => i.softonePrjcStage).length
@@ -180,6 +185,9 @@ export default async function OcrDetailPage({ params }: { params: Promise<{ id: 
   const lineSuggestions = completed && canManage
     ? await suggestionsForDocument({ document: doc.document, issuerAfm: doc.issuerAfm, items, target: postingTarget }).catch(() => ({}))
     : {};
+  // Πιστωτικό: εμφανίζεται η «Σύνδεση με αρχικό» (σειρά της SoftOne πρώτα, μετά τα στοιχεία του χαρτιού).
+  const docType_ = ((doc.document ?? null) as { type?: { myDataType?: string | null; label?: string | null } } | null)?.type;
+  const isCredit = isCreditNote({ seriesName: series?.name ?? null, category: doc.category, myDataType: docType_?.myDataType ?? null, typeLabel: docType_?.label ?? null });
   const docPeriod = ((doc.document ?? null) as { references?: { period?: { from: string | null; to: string | null } | null } } | null)
     ?.references?.period ?? null;
 
@@ -190,6 +198,9 @@ export default async function OcrDetailPage({ params }: { params: Promise<{ id: 
           <FiArrowLeft className="size-4" /> Πίσω στη λίστα
         </Link>
         <div className="flex items-center gap-2">
+          {doc.status === 'COMPLETED' && (
+            <DocActionsMenu docId={doc.id} canManage={canManage} canRescan={canRescan} posted={doc.postStatus === 'POSTED'} isCredit={isCredit} />
+          )}
           <a
             href={`/api/admin/ocr/${doc.id}/file`}
             className="inline-flex h-8 items-center gap-1.5 rounded-md border border-input bg-background px-3 text-xs font-medium hover:bg-muted"
@@ -243,7 +254,7 @@ export default async function OcrDetailPage({ params }: { params: Promise<{ id: 
         )}
       </header>
 
-      {completed && <SoftoneChecksStrip docId={doc.id} helpHref={checksHelpHref} />}
+      {completed && <div id="doc-checks" className="scroll-mt-4"><SoftoneChecksStrip docId={doc.id} helpHref={checksHelpHref} /></div>}
 
       {utility && (
         <UtilityBillCard
@@ -284,7 +295,7 @@ export default async function OcrDetailPage({ params }: { params: Promise<{ id: 
       {/* ΤΟ ΠΡΟΤΥΠΟ ΕΙΝΑΙ ΕΡΓΑΛΕΙΟ, ΟΧΙ ΔΟΥΛΕΙΑ. Χωρίς εκτέλεση, η κάρτα «Δεν έχει τρέξει πρότυπο ·
           άγνωστο έντυπο» κρατούσε μια ολόκληρη ενότητα για να πει «τίποτα». Κλειστή μέχρι να χρειαστεί. */}
       {completed && runs.length === 0 && (
-        <details className="group rounded-xl border border-border bg-card">
+        <details id="doc-template" className="group rounded-xl border border-border bg-card">
           <summary className="flex cursor-pointer list-none items-center gap-2 px-5 py-3 text-(length:--fs-13) font-semibold text-foreground">
             <FiChevronRight className="size-3.5 transition-transform duration-200 group-open:rotate-90" aria-hidden />
             Πρότυπο εξαγωγής
@@ -307,6 +318,7 @@ export default async function OcrDetailPage({ params }: { params: Promise<{ id: 
         </details>
       )}
       {completed && runs.length > 0 && (
+        <div id="doc-template" className="scroll-mt-4">
         <RunResult
           docId={doc.id}
           fileName={doc.fileName}
@@ -319,9 +331,17 @@ export default async function OcrDetailPage({ params }: { params: Promise<{ id: 
           unknownForm={(doc.reviewFlags as { unknownForm?: boolean } | null)?.unknownForm === true}
           helpHref={helpHref}
         />
+        </div>
       )}
 
       {completed && <DocumentJsonCard docId={doc.id} canPost={canPost} showPosting={false} />}
+
+      {completed && (
+        <DocToolsHost
+          docId={doc.id} canManage={canManage} canRescan={canRescan} posted={doc.postStatus === 'POSTED'} canPost={canPost}
+          lineMatches={Object.fromEntries(items.map((i) => [i.rowIndex, i.softoneName ? `${i.softoneCode ? `${i.softoneCode} · ` : ''}${i.softoneName}` : null]))}
+        />
+      )}
 
       {/* Η ΣΤΑΘΕΡΗ ΜΠΑΡΑ: σειρά, κατηγορία, εμπόδια, καταχώριση — ίδια λογική με τη λίστα. */}
       {completed && (

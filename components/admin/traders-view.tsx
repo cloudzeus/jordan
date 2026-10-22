@@ -3,12 +3,14 @@
 import * as React from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { type ColumnDef } from '@tanstack/react-table';
-import { FiRefreshCw, FiGlobe, FiUsers, FiFileText, FiMoreVertical, FiEdit3, FiShield, FiEye, FiFolder, FiFilePlus } from 'react-icons/fi';
+import { FiRefreshCw, FiGlobe, FiUsers, FiFileText, FiMoreVertical, FiEdit3, FiShield, FiEye, FiFolder, FiFilePlus, FiRepeat } from 'react-icons/fi';
 import { CustomerOfferWizard } from '@/components/admin/floorplan/customer-offer-wizard';
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { TraderEditDialog, type TraderDialogMode } from '@/components/admin/trader-edit-dialog';
+import { TraderConvertDialog } from '@/components/admin/trader-convert-dialog';
+import { CONVERSION_BY_SODTYPE } from '@/lib/trader-convert';
 import { isValidAfm } from '@/lib/ocr/validate';
 import { TraderExpandPanel, openTraderTab } from '@/components/admin/trader-expand-panel';
 import { toast } from 'sonner';
@@ -82,6 +84,8 @@ export function TradersView({
   /** Wizard «Νέα προσφορά» — μένει στη θέση του μετά το κλείσιμο, ώστε το εργαλείο κάτοψης να κρατά την κατάσταση. */
   const [offerFor, setOfferFor] = React.useState<{ trdr: number; code: string; name: string } | null>(null);
   const [offerOpen, setOfferOpen] = React.useState(false);
+  /** Καρτέλα για «Μετατροπή σε προμηθευτή/πιστωτή» (νέα καρτέλα του άλλου τύπου). */
+  const [converting, setConverting] = React.useState<number | null>(null);
 
   const counts = React.useMemo(() => {
     const m = new Map<number, number>();
@@ -151,6 +155,11 @@ export function TradersView({
                   <FiGlobe aria-hidden className="mr-2 size-3.5" /> Εξακρίβωση VIES
                   {!foreign && <span className="ml-auto text-(length:--fs-10) text-muted-foreground">όχι ξένος ΑΦΜ</span>}
                 </DropdownMenuItem>
+                {canManage && CONVERSION_BY_SODTYPE[c.sodtype] && (
+                  <DropdownMenuItem onSelect={() => setConverting(c.trdr)} className="text-(length:--fs-13)">
+                    <FiRepeat aria-hidden className="mr-2 size-3.5" /> Μετατροπή σε {CONVERSION_BY_SODTYPE[c.sodtype].toAcc}
+                  </DropdownMenuItem>
+                )}
                 {canOffer && c.sodtype === 13 && (
                   <>
                     <DropdownMenuSeparator />
@@ -342,6 +351,9 @@ export function TradersView({
         />
       )}
       {offerFor && <CustomerOfferWizard key={offerFor.trdr} customer={offerFor} open={offerOpen} onOpenChange={setOfferOpen} />}
+      {converting != null && (
+        <TraderConvertDialog key={converting} trdr={converting} open onOpenChange={(o) => { if (!o) setConverting(null); }} />
+      )}
     </div>
   );
 }
