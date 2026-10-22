@@ -22,6 +22,13 @@
 - `dark:` ενεργοποιείται ΜΟΝΟ με `.dark` / `data-theme="dark"` (όχι από το σκούρο θέμα του λειτουργικού) — η εφαρμογή είναι ανοιχτού θέματος.
 - Αλλαγές εμφάνισης: έλεγχος με screenshots πριν/μετά, όχι μόνο build.
 
+## Συγχρονισμός με το postgres-boilerplate
+
+Το jordan ξεκίνησε από το https://github.com/cloudzeus/postgres-boilerplate (χωρίς κοινό git ιστορικό). **Τελευταίο ενταγμένο commit του boilerplate: `e7aa12e` (2026-10-22).** Για νέες αλλαγές: διαφορά `e7aa12e..master` του boilerplate, εφαρμογή 3-way, και:
+- οι κλάσεις του boilerplate είναι Tailwind 3 → μετατροπή σε v4 (`text-[length:var(--fs-12)]` → `text-(length:--fs-12)`, `shadow-sm` → `shadow-xs`, `outline-none` → `outline-hidden` κ.λπ.)·
+- migrations μετονομάζονται ώστε να έρχονται ΜΕΤΑ τα δικά μας· `ADD COLUMN IF NOT EXISTS` όπου η στήλη μπορεί να υπάρχει ήδη·
+- lint 0 (το boilerplate δεν έχει τους ίδιους κανόνες) και ενημέρωση αυτής της γραμμής με το νέο commit.
+
 ## Wiki convention (ΥΠΟΧΡΕΩΤΙΚΟ)
 
 **Κάθε νέο feature που αλλάζει το UI πρέπει να συνοδεύεται από αντίστοιχη wiki entry.**
