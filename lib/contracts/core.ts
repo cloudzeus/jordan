@@ -1,6 +1,7 @@
 // lib/contracts/core.ts — ΚΑΘΑΡΟ. Συμβάσεις & Προσφορές έργων: ετικέτες, σύνολα, validation, το prompt
 // προς το AI και η ανάγνωση της απάντησής του. Χωρίς βάση/δίκτυο — δοκιμάζεται με vitest.
 import { z } from 'zod';
+import { roomMaterial } from '@/lib/floorplan/saved';
 
 export const CONTRACT_KINDS = ['PRODUCT', 'PRODUCT_INSTALL', 'SUBCONTRACT'] as const;
 export type ContractKind = (typeof CONTRACT_KINDS)[number];
@@ -97,6 +98,8 @@ export const lineInput = z.object({
   /** Τοπικό κλειδί συνεργείου (`ContractPartyInput.key`). */
   partyKey: optStr(64),
   crewFee: num(0).nullish().transform((v) => v ?? null),
+  /** Χώρος της κάτοψης που παρήγαγε τη γραμμή (ξαναϋπολογίζεται όταν αλλάξει το υλικό του χώρου). */
+  roomId: optStr(64),
 });
 export const partyInput = z.object({
   key: z.string().min(1).max(64), // σταθερό στον client: id της εγγραφής ή προσωρινό
@@ -140,6 +143,12 @@ export const contractInput = z.object({
   validUntil: dateStr,
   vatRate: num(0, 100).default(24),
   terms: optStr(20_000),
+  /** Περιγραφή του έργου για τον πελάτη (AI, διορθώσιμη) — μπαίνει στην προσφορά. */
+  customerText: optStr(20_000),
+  /** Χαρτογράφηση κάτοψης· `undefined` = καμία αλλαγή, `null` = αποσύνδεση. */
+  floorPlanId: z.string().min(1).max(64).nullish(),
+  /** Υλικό/συνταγή ανά χώρο, όπως ορίστηκε στη φόρμα — γράφεται και στη χαρτογράφηση. */
+  roomMaterials: z.array(z.object({ roomId: z.string().min(1).max(64), material: roomMaterial.nullable() })).max(300).optional(),
   lines: z.array(lineInput).max(500).default([]),
   parties: z.array(partyInput).max(50).default([]),
   members: z.array(z.string().min(1).max(64)).max(50).default([]),
@@ -225,6 +234,8 @@ export type PromptInput = {
   milestones: PromptMilestone[];
   total: number;
   terms?: string | null;
+  /** Εγκεκριμένο «κείμενο για τον πελάτη» — μόνο στα έγγραφα του πελάτη. */
+  customerText?: string | null;
   guides: PromptGuide[];
 };
 
@@ -274,6 +285,7 @@ export function buildPrompt(p: PromptInput): { system: string; user: string } {
     '',
     'Περίληψη έργου (από τον χρήστη, ίσως από υπαγόρευση — διόρθωσε ορθογραφία στη διατύπωσή σου):',
     p.summary || '—',
+    !party && p.customerText ? `\nΚείμενο για τον πελάτη (εγκεκριμένο από τον υπεύθυνο — βάση για το "preamble" και το "scopeSummary"· κράτα το νόημα και τις λέξεις του όσο γίνεται):\n${p.customerText}` : '',
     '',
     `${party ? 'Εργασίες/υλικά του αναδόχου' : 'Υλικά & υπηρεσίες'}:`,
     lines || '—',

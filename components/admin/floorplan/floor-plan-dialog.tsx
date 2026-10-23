@@ -31,7 +31,7 @@ import { annotatedPng, download, fmtM, fmtM2, roomsCsv, roomsText, type ExportRo
 import { MaterialChip, OfferStepBody, RoomMaterialEditor, type RoomMaterial } from './offer-panel';
 import { FloorPlanOfferDialog, type OfferRoom, type OfferSubmit } from './offer-dialog';
 import type { RecipeView } from '@/lib/install-recipes';
-import { planData, scalePlanData, type PlanData } from '@/lib/floorplan/saved';
+import { planData, planRooms, scalePlanData, type PlanData, type PlanRoom } from '@/lib/floorplan/saved';
 import { aiResponse, chooseScale, fallbackPolygon, pickCandidate, roomsInPx } from '@/lib/floorplan/ai-core';
 import { Sparkles } from 'lucide-react';
 import type { FloorPlanListRow } from '@/lib/floorplan/plans';
@@ -126,12 +126,16 @@ function Range({ label, value, min, max, step = 1, display, onChange, disabled }
 /** Σε ποιον ανήκει η χαρτογράφηση: έργο ή πελάτης (προσφορά από το μενού του πελάτη, πριν από το έργο). */
 export type FloorPlanOwner = { prjc: number } | { trdr: number };
 
-export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSave = false, canOffer = false }: {
+export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSave = false, canOffer = false, onApply, initialPlanId = null }: {
   owner: FloorPlanOwner; projectLabel: string; open: boolean; onOpenChange: (o: boolean) => void;
   /** files.manage: «Αποθήκευση στο έργο» ανεβάζει PNG + CSV στον φάκελο «Κατόψεις». */
   canSave?: boolean;
   /** projects.manage: υλικό/συνταγή ανά χώρο και «Δημιουργία προσφοράς». */
   canOffer?: boolean;
+  /** Από τη φόρμα προσφοράς: αντί για νέα προσφορά, «Μεταφορά στην προσφορά» επιστρέφει τους χώρους. */
+  onApply?: (r: { floorPlanId: string; title: string; rooms: PlanRoom[] }) => void;
+  /** Χαρτογράφηση που ανοίγει κατευθείαν (η ήδη συνδεδεμένη με την προσφορά). */
+  initialPlanId?: string | null;
 }) {
   const ownerId = 'prjc' in owner ? owner.prjc : owner.trdr;
   // API της χαρτογράφησης ανά ιδιοκτήτη· αρχεία στον φάκελο του έργου ή του πελάτη.
@@ -257,6 +261,15 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
       setLoading(false);
     }
   };
+
+  // Συνδεδεμένη χαρτογράφηση: ανοίγει κατευθείαν την πρώτη φορά.
+  const restoredInitial = React.useRef<string | null>(null);
+  React.useEffect(() => {
+    if (!open || plan || loading || !initialPlanId || restoredInitial.current === initialPlanId) return;
+    restoredInitial.current = initialPlanId;
+    void restore(initialPlanId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, initialPlanId]);
 
   const dz = useDropzone({
     accept: { 'image/*': ['.png', '.jpg', '.jpeg', '.webp', '.gif', '.bmp'], 'application/pdf': ['.pdf'] },
@@ -667,6 +680,15 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
       wallsM2: r.walls?.on ? wallArea(r.perimeterPx * mPerPx, r.walls).net : null,
     }))
     : [];
+  /** Μέσα από τη φόρμα προσφοράς: αποθήκευση χαρτογράφησης και επιστροφή των χώρων στη φόρμα. */
+  const apply = async () => {
+    if (!onApply || !calib) return;
+    const floorPlanId = await savePlan(true);
+    if (!floorPlanId) return;
+    onApply({ floorPlanId, title: planTitle.trim() || `Κάτοψη ${projectLabel}`, rooms: planRooms(planDataNow()) });
+    toast.success(`Η κάτοψη μπήκε στην προσφορά · ${rooms.length} χώροι.`);
+    onOpenChange(false);
+  };
   const createOffer = async (o: OfferSubmit) => {
     if (!offerRooms.length) return;
     setOffering(true);
@@ -1023,7 +1045,19 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
                 )}
               </Step>
 
-              {canOffer && (
+              {onApply && (
+                <Step n={4} title="Στην προσφορά" done={false} active={step === 3 && rooms.length > 0}>
+                  <p className="text-muted-foreground">
+                    {rooms.length
+                      ? <>Οι <b className="text-foreground">{rooms.length}</b> χώροι μπαίνουν στη φόρμα της προσφοράς· υλικά/συνταγές ορίζονται κι εκεί, με το κόστος κάθε χώρου.</>
+                      : 'Μέτρησε τουλάχιστον έναν χώρο.'}
+                  </p>
+                  <Button size="sm" className="w-full" disabled={!calib || !rooms.length || planSaving} onClick={() => void apply()}>
+                    {planSaving ? <FiLoader className="animate-spin" aria-hidden /> : <FiCheck aria-hidden />} Μεταφορά στην προσφορά
+                  </Button>
+                </Step>
+              )}
+              {canOffer && !onApply && (
                 <Step n={4} title="Προσφορά" done={!!createdOffer} active={step === 3 && rooms.length > 0}>
                   <OfferStepBody
                     withMaterial={withMaterial} total={rooms.length} ready={!!calib && rooms.length > 0}
@@ -1031,7 +1065,7 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
                   />
                 </Step>
               )}
-              {canOffer && (
+              {canOffer && !onApply && (
                 <FloorPlanOfferDialog
                   open={offerOpen} onOpenChange={setOfferOpen} apiBase={apiBase} rooms={offerRooms} recipes={recipes}
                   busy={offering || planSaving} onSubmit={(o) => void createOffer(o)}

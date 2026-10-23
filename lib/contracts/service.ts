@@ -2,7 +2,8 @@
 // milestones → εργασίες έργου (ProjectTask, στο ημερολόγιο). ΚΑΜΙΑ εγγραφή στο SoftOne εδώ — η
 // δημιουργία PRJC ζει στο lib/contracts/softone.ts και θέλει ρητή επιβεβαίωση.
 import 'server-only';
-import { attachFloorPlanToProject } from '@/lib/floorplan/plans';
+import { attachFloorPlanToProject, getFloorPlan } from '@/lib/floorplan/plans';
+import { planData, planRooms, withRoomMaterials } from '@/lib/floorplan/saved';
 import { prisma } from '@/lib/db';
 import { createTask, deleteTask, updateTask, TaskError } from '@/lib/project-tasks';
 import { saveProjectSite } from '@/lib/project-site';
@@ -30,17 +31,20 @@ export async function getContract(id: string) {
     },
   });
   if (!c) return null;
-  const [trader, project, users, files] = await Promise.all([
+  const [trader, project, users, files, plan] = await Promise.all([
     c.trdr ? prisma.softoneTrader.findUnique({ where: { trdr: c.trdr }, select: { code: true, name: true, email: true, phone: true, afm: true } }) : null,
     c.prjc ? prisma.softoneProject.findUnique({ where: { prjc: c.prjc }, select: { code: true, name: true } }) : null,
     c.members.length ? prisma.user.findMany({ where: { id: { in: c.members.map((m) => m.userId) } }, select: { id: true, name: true, email: true } }) : [],
     prisma.entityFile.findMany({ where: { id: { in: c.documents.map((x) => x.fileId).filter((x): x is string => !!x) } }, select: { id: true, size: true } }),
+    c.floorPlanId ? getFloorPlan(c.floorPlanId).catch(() => null) : null,
   ]);
   const fileSize = new Map(files.map((f) => [f.id, f.size]));
   const t = totals(c.lines, c.vatRate);
   return {
     id: c.id, number: c.number, ref: contractRef(c.number), title: c.title, summary: c.summary, kind: c.kind, stage: c.stage, status: c.status,
     floorPlanId: c.floorPlanId,
+    floorPlan: plan ? { id: plan.id, title: plan.title, source: plan.source, hasImage: !!plan.annotatedFileId, rooms: planRooms(plan.data) } : null,
+    customerText: c.customerText,
     trdr: c.trdr, customer: trader ? { code: trader.code, name: trader.name, email: trader.email, phone: trader.phone, afm: trader.afm } : null,
     customerName: c.customerName, customerEmail: c.customerEmail, customerPhone: c.customerPhone,
     prjc: c.prjc, project: project ? { code: project.code, name: project.name } : null,
@@ -54,7 +58,7 @@ export async function getContract(id: string) {
     totals: t,
     lines: c.lines.map((l) => ({
       id: l.id, kind: l.kind as 'MATERIAL' | 'SERVICE', mtrl: l.mtrl, code: l.code, name: l.name, unit: l.unit, qty: l.qty, unitPrice: l.unitPrice,
-      discount: l.discount, notes: l.notes, partyKey: l.partyId, crewFee: l.crewFee,
+      discount: l.discount, notes: l.notes, partyKey: l.partyId, crewFee: l.crewFee, roomId: l.roomId,
     })),
     parties: c.parties.map((p) => ({
       key: p.id, kind: p.kind as 'SUPPLIER' | 'PARTNER', trdr: p.trdr, partnerId: p.partnerId, name: p.name, email: p.email, phone: p.phone,
@@ -115,7 +119,18 @@ function headerData(input: ContractInput) {
     siteAddress: s?.address ?? null, siteZip: s?.zip ?? null, siteDistrict: s?.district ?? null, siteCity: s?.city ?? null,
     siteFormatted: s?.formatted ?? null, siteLat: s?.lat ?? null, siteLng: s?.lng ?? null, siteSource: s?.source ?? null, sitePrecision: s?.precision ?? null,
     startDate: d(input.startDate), endDate: d(input.endDate), validUntil: d(input.validUntil), vatRate: input.vatRate, terms: input.terms,
+    customerText: input.customerText,
+    ...(input.floorPlanId !== undefined ? { floorPlanId: input.floorPlanId } : {}),
   };
+}
+
+/** Τα υλικά ανά χώρο της φόρμας γράφονται και στη χαρτογράφηση (ίδια εικόνα στο εργαλείο κάτοψης). */
+async function saveRoomMaterials(floorPlanId: string | null | undefined, input: ContractInput) {
+  if (!floorPlanId || !input.roomMaterials?.length) return;
+  const row = await prisma.floorPlan.findUnique({ where: { id: floorPlanId }, select: { data: true } });
+  const parsed = row ? planData.safeParse(row.data) : null;
+  if (!parsed?.success) return;
+  await prisma.floorPlan.update({ where: { id: floorPlanId }, data: { data: withRoomMaterials(parsed.data, input.roomMaterials) as unknown as object } });
 }
 
 async function snapshotCustomer(input: ContractInput): Promise<ContractInput> {
@@ -129,6 +144,7 @@ export async function createContract(raw: ContractInput, userId: string): Promis
   const input = await snapshotCustomer(raw);
   const c = await prisma.contract.create({ data: { ...headerData(input), createdById: userId } });
   await saveChildren(c.id, input);
+  await saveRoomMaterials(c.floorPlanId, input);
   return c.id;
 }
 
@@ -137,8 +153,9 @@ export async function updateContract(id: string, raw: ContractInput, userId: str
   if (!cur) throw new ContractError('Η σύμβαση δεν βρέθηκε', 404);
   if (cur.status === 'COMPLETED' || cur.status === 'CANCELLED') throw new ContractError('Η σύμβαση είναι κλειστή — ανοίξτε τη ξανά για αλλαγές', 409);
   const input = await snapshotCustomer(raw);
-  await prisma.contract.update({ where: { id }, data: headerData(input) });
+  const saved = await prisma.contract.update({ where: { id }, data: headerData(input), select: { floorPlanId: true } });
   await saveChildren(id, input);
+  await saveRoomMaterials(saved.floorPlanId, input);
   if (cur.prjc && input.site) await saveProjectSite(cur.prjc, input.site, userId).catch((e) => console.error('[contracts] site', e));
   if (cur.status === 'ACTIVE') await syncMilestoneTasks(id, userId);
 }
@@ -187,7 +204,7 @@ async function saveChildren(id: string, input: ContractInput) {
         data: input.lines.map((l, i) => ({
           contractId: id, kind: l.kind, mtrl: l.mtrl, code: l.code, name: l.name, unit: l.unit, qty: l.qty, unitPrice: l.unitPrice,
           discount: l.discount, notes: l.notes, partyId: l.partyKey ? keyToId.get(l.partyKey) ?? null : null,
-          crewFee: l.partyKey ? l.crewFee : null, sortOrder: i,
+          crewFee: l.partyKey ? l.crewFee : null, roomId: l.roomId, sortOrder: i,
         })),
       });
     }

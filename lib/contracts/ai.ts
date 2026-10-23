@@ -7,10 +7,11 @@ import { logAiUsage, providerFromUrl } from '@/lib/ai/usage';
 import { acrossProviders, resolveVisionEndpoints } from '@/lib/ai/vision-config';
 import { isGoogleAiStudio, providerHeaders, providerModel } from '@/lib/ai/vision-provider';
 import { buildPrompt, needsInstallation, parseContractDoc, DocParseError, type ContractDoc, type PromptInput } from './core';
+import { buildCustomerTextPrompt, parseCustomerText, type CustomerTextInput } from './customer-text-core';
 
 export const DEFAULT_CONTRACT_MODEL = 'gemini-2.5-pro';
 
-async function complete(system: string, user: string, ctx: { userId: string | null; contractId: string }): Promise<{ text: string; model: string }> {
+async function complete(system: string, user: string, ctx: { userId: string | null; contractId: string | null; operation?: string }): Promise<{ text: string; model: string }> {
   const [endpoints, modelSetting] = await Promise.all([resolveVisionEndpoints(), getSetting<string>('ai.contractModel')]);
   const base = (modelSetting || DEFAULT_CONTRACT_MODEL).trim();
   return acrossProviders(endpoints, async (e) => {
@@ -31,7 +32,7 @@ async function complete(system: string, user: string, ctx: { userId: string | nu
     const j = await res.json();
     const u = j?.usage ?? {};
     void logAiUsage({
-      scope: 'OTHER', provider: providerFromUrl(e.url), model: String(j?.model ?? model), operation: 'contracts.compose',
+      scope: 'OTHER', provider: providerFromUrl(e.url), model: String(j?.model ?? model), operation: ctx.operation ?? 'contracts.compose',
       inputTokens: u.prompt_tokens ?? 0, outputTokens: u.completion_tokens ?? 0, totalTokens: u.total_tokens ?? 0,
       costUsd: typeof u.cost === 'number' ? u.cost : null,
       durationMs: Date.now() - started, userId: ctx.userId, refType: 'Contract', refId: ctx.contractId,
@@ -56,4 +57,15 @@ export async function composeContractDoc(p: PromptInput, ctx: { userId: string |
     }
   }
   throw last instanceof Error ? last : new Error('Αποτυχία σύνταξης');
+}
+
+/** Ευανάγνωστη περιγραφή του έργου για τον πελάτη (όχι νομικό κείμενο). Μία επανάληψη σε άκυρη απάντηση. */
+export async function composeCustomerText(p: CustomerTextInput, ctx: { userId: string | null; contractId: string | null }): Promise<string> {
+  const { system, user } = buildCustomerTextPrompt(p);
+  let last: unknown = null;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const { text } = await complete(system, user, { ...ctx, operation: 'contracts.customerText' });
+    try { return parseCustomerText(text); } catch (e) { last = e; }
+  }
+  throw last instanceof Error ? last : new Error('Αποτυχία σύνταξης κειμένου');
 }

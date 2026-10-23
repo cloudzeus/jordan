@@ -7,7 +7,7 @@ import {
 } from '@dnd-kit/core';
 import { SortableContext, arrayMove, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { FiAlertTriangle, FiBriefcase, FiCalendar, FiClock, FiEdit2, FiExternalLink, FiEye, FiMoreVertical, FiPaperclip, FiPlus, FiTrash2 } from 'react-icons/fi';
+import { FiAlertCircle, FiAlertTriangle, FiBriefcase, FiCalendar, FiCheckCircle, FiClock, FiEdit2, FiExternalLink, FiEye, FiLink2, FiMoreVertical, FiPaperclip, FiPlus, FiTrash2 } from 'react-icons/fi';
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
@@ -18,6 +18,31 @@ import { cn } from '@/lib/utils';
 const ITEM = 'cursor-pointer gap-2 text-(length:--fs-12)';
 const fmt = (d: string) => new Date(`${d}T00:00:00Z`).toLocaleDateString('el-GR', { timeZone: 'UTC', day: 'numeric', month: 'short' });
 const initials = (s: string) => s.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join('').toUpperCase();
+const dayMs = 86_400_000;
+
+export type DueTone = 'done' | 'overdue' | 'today' | 'soon' | 'later';
+/** Προθεσμία ως φράση: «εκπρόθεσμη 3 μέρες» / «λήγει σήμερα» / «σε 4 μέρες». Χωρίς `today` → απλή ημερομηνία. */
+export function dueInfo(end: string, progress: number, today?: string | null): { label: string; tone: DueTone } {
+  if (progress >= 100) return { label: 'Ολοκληρώθηκε', tone: 'done' };
+  if (!today) return { label: `έως ${fmt(end)}`, tone: 'later' };
+  const n = Math.round((Date.parse(`${end}T00:00:00Z`) - Date.parse(`${today}T00:00:00Z`)) / dayMs);
+  if (n < 0) return { label: `εκπρόθεσμη ${-n === 1 ? '1 μέρα' : `${-n} μέρες`}`, tone: 'overdue' };
+  if (n === 0) return { label: 'λήγει σήμερα', tone: 'today' };
+  if (n === 1) return { label: 'λήγει αύριο', tone: 'soon' };
+  return { label: n <= 14 ? `σε ${n} μέρες` : `έως ${fmt(end)}`, tone: n <= 3 ? 'soon' : 'later' };
+}
+
+/** Σήμανση προθεσμίας — χρώμα ΜΑΖΙ με εικονίδιο και κείμενο, ποτέ μόνο χρώμα. */
+export function DueBadge({ end, progress, today, className }: { end: string; progress: number; today?: string | null; className?: string }) {
+  const d = dueInfo(end, progress, today);
+  const Icon = d.tone === 'done' ? FiCheckCircle : d.tone === 'overdue' ? FiAlertCircle : FiClock;
+  return (
+    <span title={`Λήξη ${fmt(end)}`} className={cn('inline-flex items-center gap-1 whitespace-nowrap tabular-nums',
+      d.tone === 'overdue' ? 'font-medium text-red-700 dark:text-red-300' : d.tone === 'today' ? 'font-medium text-amber-800 dark:text-amber-300' : d.tone === 'done' ? 'text-emerald-700 dark:text-emerald-300' : 'text-muted-foreground', className)}>
+      <Icon className="size-3 shrink-0" aria-hidden />{d.label}
+    </span>
+  );
+}
 
 export type BoardActions = {
   onOpen: (id: string) => void;
@@ -39,8 +64,10 @@ export type CardProject = { code: string; name: string };
  */
 export type TaskRef = { name: string; done: boolean };
 
-export function KanbanBoard({ tasks, canManage, names, actions, boardId = 'project-tasks-kanban', scopeOf, projectOf }: {
+export function KanbanBoard({ tasks, canManage, names, actions, boardId = 'project-tasks-kanban', scopeOf, projectOf, today = null }: {
   tasks: TaskView[]; canManage: boolean; names: Map<string, TaskRef>; actions: BoardActions;
+  /** «Σήμερα» (YYYY-MM-DD, Αθήνα) από τον server → προθεσμίες ως «σε N μέρες». Χωρίς αυτό: ημερομηνία. */
+  today?: string | null;
   /** Σταθερό id του DndContext (ίδια aria ids σε SSR και client). */
   boardId?: string;
   /** Kanban πολλών έργων: σε ποιο έργο ανήκει η κάρτα — η σειρά μέσα στη στήλη μετρά ανά έργο. */
@@ -117,13 +144,14 @@ export function KanbanBoard({ tasks, canManage, names, actions, boardId = 'proje
     if (!unchanged) actions.onMove(id, to, before);
   };
 
+  // Κινητό: οι στήλες κυλούν οριζόντια ΜΕΣΑ στο δικό τους πλαίσιο (snap) — η σελίδα δεν κυλά πλάγια.
   const board = (
-    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+    <div className="-mx-1 grid snap-x snap-mandatory auto-cols-[minmax(16rem,85%)] grid-flow-col gap-3 overflow-x-auto overscroll-x-contain px-1 pb-2 md:mx-0 md:snap-none md:auto-cols-auto md:grid-flow-row md:grid-cols-2 md:overflow-visible md:px-0 md:pb-0 xl:grid-cols-4">
       {PHASES.map((p) => (
         <Column key={p.key} phase={p.key} count={cols[p.key].length} canManage={canManage} onNew={actions.onNew ? () => actions.onNew!(p.key) : undefined}>
           <SortableContext items={cols[p.key]} strategy={verticalListSortingStrategy}>
             {cols[p.key].map((id) => byId.get(id) && (
-              <SortableCard key={id} task={byId.get(id)!} disabled={!canManage} names={names} actions={actions} canManage={canManage} dimmed={active === id} project={projectOf?.(byId.get(id)!) ?? null} />
+              <SortableCard key={id} task={byId.get(id)!} disabled={!canManage} names={names} actions={actions} canManage={canManage} dimmed={active === id} project={projectOf?.(byId.get(id)!) ?? null} today={today} />
             ))}
           </SortableContext>
         </Column>
@@ -145,7 +173,7 @@ export function KanbanBoard({ tasks, canManage, names, actions, boardId = 'proje
       }}>
       {board}
       <DragOverlay dropAnimation={{ duration: 180, easing: 'cubic-bezier(0.2, 0, 0, 1)' }}>
-        {active && byId.get(active) ? <CardBody task={byId.get(active)!} names={names} project={projectOf?.(byId.get(active)!) ?? null} overlay /> : null}
+        {active && byId.get(active) ? <CardBody task={byId.get(active)!} names={names} project={projectOf?.(byId.get(active)!) ?? null} today={today} overlay /> : null}
       </DragOverlay>
     </DndContext>
   );
@@ -155,37 +183,43 @@ function Column({ phase, count, canManage, onNew, children }: { phase: PhaseKey;
   const { setNodeRef, isOver } = useDroppable({ id: phase });
   const m = phaseMeta(phase);
   return (
-    <section aria-label={`${m.label}: ${count} εργασίες`} className={cn('flex min-h-40 flex-col rounded-xl border border-border bg-muted transition-colors duration-150', isOver && 'border-primary ring-1 ring-primary')}>
-      <header className="flex items-center gap-2 px-3 pb-2 pt-3">
-        <span className="size-2.5 rounded-full" style={{ background: m.color }} aria-hidden />
-        <h3 className="text-(length:--fs-13) font-semibold">{m.label}</h3>
-        <span className="text-(length:--fs-11) tabular-nums text-muted-foreground">{m.steps.map((s) => `${s}%`).join('–')}</span>
-        <span className="ml-auto rounded-full bg-background px-2 text-(length:--fs-11) font-medium tabular-nums text-muted-foreground">{count}</span>
+    <section aria-label={`${m.label}: ${count} εργασίες`}
+      className={cn('flex min-h-32 snap-start flex-col rounded-xl border border-border bg-muted/50 motion-safe:transition-colors motion-safe:duration-150', isOver && 'border-primary bg-primary/5')}>
+      <header className="flex min-h-11 items-center gap-2 py-1 pl-3 pr-1">
+        <span className="size-2 shrink-0 rounded-full" style={{ background: m.color }} aria-hidden />
+        <h3 className="truncate text-(length:--fs-13) font-semibold" title={`Ποσοστό ${m.steps.map((s) => `${s}%`).join('–')}`}>{m.label}</h3>
+        <span className="rounded-full bg-background px-1.5 text-(length:--fs-11) font-medium tabular-nums text-muted-foreground" aria-hidden>{count}</span>
         {canManage && onNew && (
-          <button type="button" onClick={onNew} className="inline-flex size-8 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-background hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring" aria-label={`Νέα εργασία στο «${m.label}»`}>
-            <FiPlus className="size-4" />
+          <button type="button" onClick={onNew} className="ml-auto inline-flex size-10 cursor-pointer items-center justify-center rounded-lg text-muted-foreground hover:bg-background hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring" aria-label={`Νέα εργασία στο «${m.label}»`}>
+            <FiPlus className="size-4" aria-hidden />
           </button>
         )}
       </header>
       <div ref={setNodeRef} className="flex flex-1 flex-col gap-2 px-2 pb-2">
         {children}
-        {count === 0 && <p className="rounded-lg border border-dashed border-border px-3 py-6 text-center text-(length:--fs-11) text-muted-foreground">{canManage ? 'Σύρετε εδώ μια κάρτα' : 'Καμία εργασία'}</p>}
+        {count === 0 && (
+          <p className="flex flex-1 items-center justify-center rounded-lg border border-dashed border-border px-3 py-4 text-center text-(length:--fs-12) text-muted-foreground">
+            {canManage ? 'Σύρετε εδώ μια κάρτα' : 'Καμία εργασία'}
+          </p>
+        )}
       </div>
     </section>
   );
 }
 
-function SortableCard({ task, disabled, names, actions, canManage, dimmed, project }: { task: TaskView; disabled: boolean; names: Map<string, TaskRef>; actions: BoardActions; canManage: boolean; dimmed: boolean; project: CardProject | null }) {
+function SortableCard({ task, disabled, names, actions, canManage, dimmed, project, today }: { task: TaskView; disabled: boolean; names: Map<string, TaskRef>; actions: BoardActions; canManage: boolean; dimmed: boolean; project: CardProject | null; today: string | null }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: task.id, disabled });
+  const due = dueInfo(task.sched.end, task.progress, today);
   return (
     <div ref={setNodeRef} style={{ transform: CSS.Translate.toString(transform), transition }} className={cn('group relative', (isDragging || dimmed) && 'opacity-40')}>
-      <div {...attributes} {...listeners} role="button" tabIndex={0} aria-roledescription="κάρτα εργασίας" aria-label={`${task.name}${project ? ` (${project.code})` : ''}, ${task.progress}%`}
+      <div {...attributes} {...listeners} role="button" tabIndex={0} aria-roledescription="κάρτα εργασίας"
+        aria-label={`${task.name}${project ? ` (${project.code})` : ''}, ${task.progress}%, ${due.label}`}
         onClick={() => actions.onOpen(task.id)} onKeyDown={(e) => { if (e.key === 'Enter') actions.onOpen(task.id); listeners?.onKeyDown?.(e); }}
         className={cn('cursor-pointer rounded-lg focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring', !disabled && 'touch-manipulation')}>
-        <CardBody task={task} names={names} project={project} />
+        <CardBody task={task} names={names} project={project} today={today} />
       </div>
       {(canManage || actions.onProject) && (
-        <div className="absolute right-1.5 top-1.5">
+        <div className="absolute right-1 top-1">
           <CardMenu task={task} actions={actions} canManage={canManage} />
         </div>
       )}
@@ -193,12 +227,13 @@ function SortableCard({ task, disabled, names, actions, canManage, dimmed, proje
   );
 }
 
-function CardBody({ task, names, project = null, overlay = false }: { task: TaskView; names: Map<string, TaskRef>; project?: CardProject | null; overlay?: boolean }) {
-  const m = phaseMeta(task.phase);
+function CardBody({ task, names, project = null, today = null, overlay = false }: { task: TaskView; names: Map<string, TaskRef>; project?: CardProject | null; today?: string | null; overlay?: boolean }) {
   const waiting = task.dependsOn.filter((d) => names.has(d) && !names.get(d)!.done);
   const people = task.parties.slice(0, 3);
+  const done = task.progress >= 100;
   return (
-    <article className={cn('rounded-lg border border-border bg-card p-3 pr-10 shadow-xs transition-shadow duration-150 hover:shadow-md', overlay && 'rotate-1 shadow-lg ring-2 ring-primary')}>
+    <article className={cn('rounded-lg border border-border bg-card p-3 pr-10 shadow-xs hover:border-foreground/20 motion-safe:transition-colors motion-safe:duration-150',
+      overlay && 'shadow-lg ring-2 ring-primary motion-safe:rotate-1')}>
       {project && (
         <p className="mb-1 flex min-w-0 items-center gap-1 text-(length:--fs-11) text-muted-foreground" title={`${project.code} · ${project.name}`}>
           <FiBriefcase className="size-3 shrink-0" aria-hidden />
@@ -206,27 +241,47 @@ function CardBody({ task, names, project = null, overlay = false }: { task: Task
           <span className="truncate">{project.name}</span>
         </p>
       )}
-      <h4 className="text-(length:--fs-13) font-medium leading-snug">{task.name}</h4>
-      <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-(length:--fs-11) tabular-nums text-muted-foreground">
-        <span>{fmt(task.sched.start)}{task.sched.end !== task.sched.start ? ` – ${fmt(task.sched.end)}` : ''}</span>
-        <span className="inline-flex items-center gap-1"><FiClock className="size-3" aria-hidden />{durationLabel(task.durationValue, task.durationUnit)}</span>
+      <h4 className={cn('line-clamp-2 text-(length:--fs-13) font-medium leading-snug', done && 'text-muted-foreground')}>{task.name}</h4>
+
+      <p className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-(length:--fs-11) text-muted-foreground">
+        <DueBadge end={task.sched.end} progress={task.progress} today={today} />
+        <span className="inline-flex items-center gap-1 tabular-nums" title={`${fmt(task.sched.start)}${task.sched.end !== task.sched.start ? ` – ${fmt(task.sched.end)}` : ''}`}>
+          <FiCalendar className="size-3" aria-hidden />{durationLabel(task.durationValue, task.durationUnit)}
+        </span>
       </p>
-      {/* 4 τμήματα = 25% το καθένα */}
-      <div className="mt-2 grid grid-cols-4 gap-0.5" role="img" aria-label={`Ολοκλήρωση ${task.progress}%`}>
-        {[25, 50, 75, 100].map((s) => <span key={s} className="h-1.5 rounded-full" style={{ background: task.progress >= s ? m.color : 'var(--muted)' }} />)}
-      </div>
-      <div className="mt-2 flex flex-wrap items-center gap-1.5">
-        {task.sched.conflict && <Chip tone="danger" icon={<FiAlertTriangle className="size-3" aria-hidden />}>Ξεκινά πριν τις εξαρτήσεις</Chip>}
-        {waiting.length > 0 && task.progress < 100 && <Chip tone="warn">Αναμένει: {waiting.map((d) => names.get(d)!.name).join(', ')}</Chip>}
-        {task.customerVisible && <Chip icon={<FiEye className="size-3" aria-hidden />}>Πελάτης</Chip>}
-        {task.inCalendar && <Chip icon={<FiCalendar className="size-3" aria-hidden />}>Ημερολόγιο</Chip>}
-        {task.files.length > 0 && <Chip icon={<FiPaperclip className="size-3" aria-hidden />}>{task.files.length}</Chip>}
+
+      {(task.sched.conflict || (waiting.length > 0 && !done)) && (
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          {task.sched.conflict && <Chip tone="danger" icon={<FiAlertTriangle className="size-3" aria-hidden />}>Ξεκινά πριν τις εξαρτήσεις</Chip>}
+          {waiting.length > 0 && !done && (
+            <Chip tone="warn" icon={<FiLink2 className="size-3" aria-hidden />} title={waiting.map((d) => names.get(d)!.name).join(', ')}>
+              Αναμένει {waiting.length === 1 ? `«${names.get(waiting[0])!.name}»` : `${waiting.length} εργασίες`}
+            </Chip>
+          )}
+        </div>
+      )}
+
+      <div className="mt-2.5 flex items-center gap-2">
+        {/* Πρόοδος: μία λεπτή μπάρα + ποσοστό (όχι πολύχρωμα τμήματα) */}
+        <span className="h-1 min-w-8 flex-1 overflow-hidden rounded-full bg-muted" role="img" aria-label={`Ολοκλήρωση ${task.progress}%`}>
+          <span className="block h-full rounded-full bg-primary" style={{ width: `${task.progress}%` }} />
+        </span>
+        <span className="text-(length:--fs-11) font-medium tabular-nums text-muted-foreground" aria-hidden>{task.progress}%</span>
+        <span className="flex items-center gap-1.5 text-muted-foreground">
+          {task.customerVisible && <FiEye className="size-3.5" aria-label="Ορατή στον πελάτη" />}
+          {task.inCalendar && <FiCalendar className="size-3.5" aria-label="Στο ημερολόγιο" />}
+          {task.files.length > 0 && (
+            <span className="inline-flex items-center gap-0.5 text-(length:--fs-11) tabular-nums" aria-label={`${task.files.length} αρχεία`}>
+              <FiPaperclip className="size-3.5" aria-hidden />{task.files.length}
+            </span>
+          )}
+        </span>
         {people.length > 0 && (
-          <span className="ml-auto flex -space-x-1.5">
+          <span className="flex -space-x-1.5" aria-label={`Εμπλεκόμενοι: ${task.parties.map((p) => p.label).join(', ')}`}>
             {people.map((p) => (
-              <span key={`${p.kind}:${p.ref}`} title={`${p.label}`} className="inline-flex size-6 items-center justify-center rounded-full border-2 border-card bg-muted text-(length:--fs-10) font-semibold text-foreground">{initials(p.label)}</span>
+              <span key={`${p.kind}:${p.ref}`} title={p.label} aria-hidden className="inline-flex size-6 items-center justify-center rounded-full border-2 border-card bg-secondary text-(length:--fs-10) font-semibold text-secondary-foreground">{initials(p.label)}</span>
             ))}
-            {task.parties.length > 3 && <span className="inline-flex size-6 items-center justify-center rounded-full border-2 border-card bg-muted text-(length:--fs-10)">+{task.parties.length - 3}</span>}
+            {task.parties.length > 3 && <span aria-hidden className="inline-flex size-6 items-center justify-center rounded-full border-2 border-card bg-muted text-(length:--fs-10) tabular-nums">+{task.parties.length - 3}</span>}
           </span>
         )}
       </div>
@@ -234,9 +289,9 @@ function CardBody({ task, names, project = null, overlay = false }: { task: Task
   );
 }
 
-function Chip({ children, icon, tone }: { children: React.ReactNode; icon?: React.ReactNode; tone?: 'warn' | 'danger' }) {
+function Chip({ children, icon, tone, title }: { children: React.ReactNode; icon?: React.ReactNode; tone?: 'warn' | 'danger'; title?: string }) {
   return (
-    <span className={cn('inline-flex max-w-full items-center gap-1 truncate rounded px-1.5 py-0.5 text-(length:--fs-10) font-medium',
+    <span title={title} className={cn('inline-flex max-w-full items-center gap-1 rounded px-1.5 py-0.5 text-(length:--fs-11) font-medium',
       tone === 'danger' ? 'bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-300' : tone === 'warn' ? 'bg-amber-50 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300' : 'bg-muted text-muted-foreground')}>
       {icon}<span className="truncate">{children}</span>
     </span>
@@ -246,7 +301,7 @@ function Chip({ children, icon, tone }: { children: React.ReactNode; icon?: Reac
 function CardMenu({ task, actions, canManage }: { task: TaskView; actions: BoardActions; canManage: boolean }) {
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger className="inline-flex size-8 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors duration-150 hover:bg-muted hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring data-[state=open]:bg-muted" aria-label={`Ενέργειες για «${task.name}»`}>
+      <DropdownMenuTrigger className="inline-flex size-9 cursor-pointer items-center justify-center rounded-md text-muted-foreground motion-safe:transition-colors motion-safe:duration-150 hover:bg-muted hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring data-[state=open]:bg-muted" aria-label={`Ενέργειες για «${task.name}»`}>
         <FiMoreVertical className="size-4" aria-hidden />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">

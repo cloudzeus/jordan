@@ -11,6 +11,8 @@ import { actor, done, doneEmpty, fail, parse, type ActionResult } from '@/lib/se
 import { contractInput, DocParseError, type ContractAction } from '@/lib/contracts/core';
 import { ContractError, deleteContract, createContract, getContract, itemDefaults, linkProject, setMilestoneStatus, transition, updateContract, type ContractView } from '@/lib/contracts/service';
 import { copyDocsToProject, sendDocument } from '@/lib/contracts/documents';
+import { composeCustomerText } from '@/lib/contracts/ai';
+import { stockSummary, type StockSummary } from '@/lib/item-stock';
 import { createPrjc, prjcPlan } from '@/lib/contracts/softone';
 import { TaskError } from '@/lib/project-tasks';
 import { SoftoneError } from '@/lib/softone';
@@ -167,6 +169,42 @@ export async function itemDefaultsAction(mtrl: number): Promise<Awaited<ReturnTy
   const a = await actor('projects.read');
   if ('error' in a || !Number.isInteger(mtrl) || mtrl <= 0) return null;
   return itemDefaults(mtrl);
+}
+
+/** Απόθεμα (σύνολο αποθηκών, καθρέφτης SoftOne) για τα είδη της φόρμας — ενδείξεις «επαρκεί / λείπουν». */
+export async function stockAction(mtrls: number[]): Promise<Record<number, StockSummary>> {
+  const a = await actor('projects.read');
+  if ('error' in a || !Array.isArray(mtrls)) return {};
+  return stockSummary(mtrls.map(Number));
+}
+
+const customerTextInput = z.object({
+  contractId: z.string().max(64).nullish(),
+  title: z.string().max(200).default(''),
+  kindLabel: z.string().max(100).default(''),
+  customerName: z.string().max(200).nullish().transform((v) => v ?? null),
+  site: z.string().max(300).nullish().transform((v) => v ?? null),
+  startDate: z.string().max(10).nullish().transform((v) => v ?? null),
+  endDate: z.string().max(10).nullish().transform((v) => v ?? null),
+  summary: z.string().max(20_000).default(''),
+  rooms: z.array(z.object({ name: z.string().max(120), floorM2: z.number().finite(), wallsM2: z.number().finite(), material: z.string().max(300).nullable() })).max(300).default([]),
+  lines: z.array(z.object({ kind: z.enum(['MATERIAL', 'SERVICE']), name: z.string().max(300), qty: z.number().finite(), unit: z.string().max(32).nullable(), room: z.string().max(120).nullable() })).max(500).default([]),
+  milestones: z.array(z.string().max(200)).max(100).default([]),
+});
+
+/** «Κείμενο για τον πελάτη» με AI από περίληψη + χώρους κάτοψης + γραμμές (δεν αποθηκεύεται εδώ). */
+export async function customerTextAction(input: unknown): Promise<ActionResult<{ text: string }>> {
+  const a = await actor('projects.manage');
+  if ('error' in a) return a.error;
+  const v = parse(customerTextInput, input);
+  if ('error' in v) return v.error;
+  if (!v.data.summary.trim() && !v.data.rooms.length && !v.data.lines.length) return fail('Γράψτε πρώτα μια περίληψη ή προσθέστε χώρους/γραμμές.');
+  try {
+    const text = await composeCustomerText(v.data, { userId: a.user.id, contractId: v.data.contractId ?? null });
+    return done({ text });
+  } catch (e) {
+    return caught(e);
+  }
 }
 
 /* ───────────── Αιτήματα προσφοράς (RFP) προς συνεργεία ───────────── */

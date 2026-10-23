@@ -91,7 +91,7 @@ export async function generateDocument(contractId: string, partyId: string | nul
     validUntil: c.validUntil?.toISOString().slice(0, 10) ?? null,
     lines: lines.map((l) => ({ kind: l.kind, name: l.name, code: l.code, qty: l.qty, unit: l.unit, notes: l.notes })),
     milestones: milestones.map((m) => ({ title: m.title, deliverables: m.deliverables, dueDate: m.dueDate?.toISOString().slice(0, 10) ?? null, amount: m.amount })),
-    total: party ? fee : t.gross, terms: c.terms,
+    total: party ? fee : t.gross, terms: c.terms, customerText: party ? null : c.customerText,
     guides: guides.map(toPromptGuide),
   }, { userId: user.id, contractId: c.id });
 

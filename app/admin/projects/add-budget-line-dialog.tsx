@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/dialog';
 import { RegistrySearch, type RegistryPick } from '@/components/admin/registry-search';
 import { emitProjectRefresh } from './project-events';
+import { StockBadge, useStock } from './contracts/editor/stock';
 import { addBudgetLineAction } from './actions';
 
 type Kind = 'product' | 'service';
@@ -79,6 +80,8 @@ export function AddBudgetLineDialog({
   };
 
   const qtyN = parseNum(qty);
+  // Απόθεμα του υλικού για την ποσότητα που γράφεται (καθρέφτης SoftOne).
+  const stock = useStock(kind === 'product' && pick ? [{ kind: 'MATERIAL', mtrl: pick.id, code: pick.code, name: pick.name, unit: null, qty: Number.isFinite(qtyN) ? qtyN : 0 }] : []);
   const priceN = price.trim() === '' ? 0 : parseNum(price);
   const qtyError = !Number.isFinite(qtyN) || qtyN <= 0 ? 'Δώσε ποσότητα μεγαλύτερη από 0.' : null;
   const priceError = !Number.isFinite(priceN) || priceN < 0 ? 'Η τιμή πρέπει να είναι αριθμός ≥ 0.' : null;
@@ -184,6 +187,7 @@ export function AddBudgetLineDialog({
                   aria-invalid={touched && !!qtyError} className="tabular-nums"
                 />
                 {fieldErr(qtyError)}
+                {kind === 'product' && pick && <span className="mt-1 block"><StockBadge need={stock.byMtrl.get(pick.id)} /></span>}
               </div>
               <div>
                 <Label htmlFor="budget-price" className="mb-1 block text-(length:--fs-12)">Τιμή μονάδας (€)</Label>

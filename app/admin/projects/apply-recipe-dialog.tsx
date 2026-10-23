@@ -12,6 +12,7 @@ import { RegistrySearch } from '@/components/admin/registry-search';
 import { RECIPE_KIND_META, parseDecimal, recipeForArea } from '@/lib/install-recipes-core';
 import type { RecipeView } from '@/lib/install-recipes';
 import { emitProjectRefresh } from './project-events';
+import { StockBadge, useStock } from './contracts/editor/stock';
 import { applyRecipeToBudgetAction, listRecipesAction } from '../recipes/actions';
 
 const TONE = '#4338CA';
@@ -72,6 +73,9 @@ export function ApplyRecipeDialog({ open, onOpenChange, prjc, projectLabel }: {
     ...(labor && recipe.laborCostPerSqm > 0 ? [{ key: 'labor', name: labor.name, unit: 'm²', qty: sqmN, cost: preview.labor }] : []),
   ] : [];
   const total = rows.reduce((s, r) => s + r.cost, 0);
+  // Απόθεμα των υλικών της συνταγής για αυτά τα m² — «επαρκεί / λείπουν» πριν μπουν στον προϋπολογισμό.
+  const mtrlOf = (key: string) => (key === 'main' ? recipe?.mtrl ?? null : key.startsWith('l') ? recipe?.lines[Number(key.slice(1))]?.mtrl ?? null : null);
+  const stock = useStock(rows.map((r) => ({ kind: 'MATERIAL' as const, mtrl: mtrlOf(r.key), code: null, name: r.name, unit: r.unit, qty: r.qty })));
   const laborSkipped = !!recipe && recipe.laborCostPerSqm > 0 && !labor;
 
   const submit = async (e: React.FormEvent) => {
@@ -175,7 +179,10 @@ export function ApplyRecipeDialog({ open, onOpenChange, prjc, projectLabel }: {
                       <tbody className="divide-y divide-border">
                         {rows.map((r) => (
                           <tr key={r.key}>
-                            <td className="max-w-0 truncate px-2.5 py-1.5" title={r.name}>{r.name}</td>
+                            <td className="max-w-0 px-2.5 py-1.5">
+                              <span className="block truncate" title={r.name}>{r.name}</span>
+                              {mtrlOf(r.key) != null && <span className="mt-0.5 block"><StockBadge need={stock.byMtrl.get(mtrlOf(r.key)!)} /></span>}
+                            </td>
                             <td className="whitespace-nowrap px-2.5 py-1.5 text-right tabular-nums">{qtyFmt.format(r.qty)}{r.unit ? ` ${r.unit}` : ''}</td>
                             <td className="whitespace-nowrap px-2.5 py-1.5 text-right tabular-nums">{eur.format(r.cost)}</td>
                           </tr>

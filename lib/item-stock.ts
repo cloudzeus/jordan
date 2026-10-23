@@ -23,6 +23,33 @@ export async function stockByItem(): Promise<Map<number, Record<string, number>>
   return out;
 }
 
+export type StockSummary = { qty: number; unit: string | null; syncedAt: string | null };
+
+/**
+ * Σύνολο αποθέματος (όλες οι αποθήκες, καθρέφτης τελευταίου συγχρονισμού) για πολλά είδη μαζί —
+ * για τις ενδείξεις «επαρκεί / λείπουν» στις γραμμές προσφοράς και στις συνταγές.
+ */
+export async function stockSummary(mtrls: number[]): Promise<Record<number, StockSummary>> {
+  const ids = [...new Set(mtrls.filter((m) => Number.isInteger(m) && m > 0))].slice(0, 500);
+  if (!ids.length) return {};
+  const [rows, items] = await Promise.all([
+    prisma.softoneStock.groupBy({ by: ['mtrl'], where: { mtrl: { in: ids } }, _sum: { qty: true }, _max: { syncedAt: true } }),
+    prisma.softoneItem.findMany({ where: { mtrl: { in: ids } }, select: { mtrl: true, unit1: true } }),
+  ]);
+  const unitCodes = [...new Set(items.map((i) => i.unit1).filter((u): u is string => !!u))];
+  const units = unitCodes.length
+    ? new Map((await prisma.softoneLookup.findMany({ where: { kind: 'MTRUNIT', code: { in: unitCodes } }, select: { code: true, name: true } })).map((u) => [u.code, u.name]))
+    : new Map<string, string>();
+  const byItem = new Map(items.map((i) => [i.mtrl, i.unit1 ? units.get(i.unit1) ?? null : null]));
+  const byStock = new Map(rows.map((r) => [r.mtrl, r]));
+  const out: Record<number, StockSummary> = {};
+  for (const id of ids) {
+    const r = byStock.get(id);
+    out[id] = { qty: Math.round((r?._sum.qty ?? 0) * 1e6) / 1e6, unit: byItem.get(id) ?? null, syncedAt: r?._max.syncedAt?.toISOString() ?? null };
+  }
+  return out;
+}
+
 /**
  * Υπόλοιπα ενός είδους. `live`: ξαναδιαβάζει από το SoftOne ΤΩΡΑ και ενημερώνει τον καθρέφτη για
  * αυτό το είδος — η λίστα δείχνει τον καθρέφτη του τελευταίου συγχρονισμού.

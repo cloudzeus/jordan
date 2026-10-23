@@ -24,7 +24,7 @@ export default async function ContractPage({ params }: { params: Promise<{ id: s
   if (!c) notFound();
   const closed = c.status === 'COMPLETED' || c.status === 'CANCELLED';
   return (
-    <div className="mx-auto w-full max-w-5xl">
+    <div className="mx-auto w-full max-w-7xl">
       <Link href="/admin/projects/contracts" className="mb-2 inline-flex items-center gap-1 text-(length:--fs-12) text-muted-foreground hover:text-foreground"><FiArrowLeft className="size-3.5" /> Συμβάσεις & Προσφορές</Link>
       <PageHeader
         icon={<FiFileText />}

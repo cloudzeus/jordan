@@ -1,0 +1,109 @@
+'use client';
+
+// Απόθεμα στη φόρμα προσφοράς: ένα αίτημα για όλα τα είδη (καθρέφτης SoftOne), ένδειξη ανά γραμμή
+// και λίστα «προς παραγγελία». Η ένδειξη έχει πάντα εικονίδιο + κείμενο (όχι μόνο χρώμα).
+import * as React from 'react';
+import Link from 'next/link';
+import { toast } from 'sonner';
+import { FiAlertTriangle, FiCheckCircle, FiCopy, FiHelpCircle, FiPackage, FiXCircle } from 'react-icons/fi';
+import { stockNeeds, type NeedLine, type StockInfo, type StockNeed } from '@/lib/contracts/stock-core';
+import { stockAction } from '../actions';
+
+const q = (n: number) => n.toLocaleString('el-GR', { maximumFractionDigits: 2 });
+
+/** Απόθεμα για τα είδη των γραμμών· ξαναζητείται μόνο όταν αλλάξει το σύνολο των ειδών. */
+export function useStock(lines: NeedLine[]): { needs: StockNeed[]; byMtrl: Map<number, StockNeed>; loading: boolean } {
+  const key = [...new Set(lines.filter((l) => l.kind === 'MATERIAL' && l.mtrl != null).map((l) => l.mtrl as number))].sort((a, b) => a - b).join(',');
+  const [stock, setStock] = React.useState<Record<number, StockInfo>>({});
+  const [loading, setLoading] = React.useState(false);
+  React.useEffect(() => {
+    if (!key) return;
+    let ignore = false;
+    const t = setTimeout(() => {
+      setLoading(true);
+      stockAction(key.split(',').map(Number))
+        .then((s) => { if (!ignore) setStock((cur) => ({ ...cur, ...s })); })
+        .catch(() => null)
+        .finally(() => { if (!ignore) setLoading(false); });
+    }, 250);
+    return () => { ignore = true; clearTimeout(t); };
+  }, [key]);
+  const needs = React.useMemo(() => stockNeeds(lines, stock), [lines, stock]);
+  const byMtrl = React.useMemo(() => new Map(needs.map((n) => [n.mtrl, n])), [needs]);
+  return { needs, byMtrl, loading };
+}
+
+const TONE = {
+  ok: { cls: 'bg-emerald-50 text-emerald-800 ring-emerald-200', icon: FiCheckCircle },
+  short: { cls: 'bg-amber-50 text-amber-900 ring-amber-200', icon: FiAlertTriangle },
+  none: { cls: 'bg-rose-50 text-rose-800 ring-rose-200', icon: FiXCircle },
+  unknown: { cls: 'bg-muted text-muted-foreground ring-border', icon: FiHelpCircle },
+} as const;
+
+export function stockLabel(n: StockNeed): { short: string; long: string } {
+  const su = n.stockUnit ?? n.unit ?? '';
+  if (n.status === 'ok') return { short: `Επαρκεί · ${q(n.have)} ${su}`, long: `Χρειάζονται ${q(n.need)} ${n.unit ?? ''} · απόθεμα ${q(n.have)} ${su}` };
+  if (n.status === 'short') return { short: `Λείπουν ${q(n.short)} ${n.unit ?? ''}`, long: `Χρειάζονται ${q(n.need)} ${n.unit ?? ''} · απόθεμα μόνο ${q(n.have)} ${su}` };
+  if (n.status === 'none') return { short: `Χωρίς απόθεμα · παραγγελία ${q(n.short)} ${n.unit ?? ''}`, long: `Χρειάζονται ${q(n.need)} ${n.unit ?? ''} · απόθεμα 0` };
+  return { short: n.stockUnit ? `Απόθεμα ${q(n.have)} ${n.stockUnit}` : 'Απόθεμα: —', long: n.stockUnit ? `Η γραμμή είναι σε ${n.unit ?? '—'}, η αποθήκη σε ${n.stockUnit} — ελέγξτε χειροκίνητα` : 'Δεν βρέθηκε απόθεμα για το είδος' };
+}
+
+/** Μικρή ένδειξη αποθέματος δίπλα σε γραμμή υλικού. */
+export function StockBadge({ need }: { need: StockNeed | undefined }) {
+  if (!need) return null;
+  const t = TONE[need.status];
+  const Icon = t.icon;
+  const l = stockLabel(need);
+  return (
+    <span title={l.long} className={`inline-flex max-w-full items-center gap-1 rounded-full px-2 py-0.5 text-(length:--fs-11) font-medium ring-1 ring-inset ${t.cls}`}>
+      <Icon className="size-3 shrink-0" aria-hidden /><span className="truncate">{l.short}</span>
+    </span>
+  );
+}
+
+/** Κάρτα «Απόθεμα & παραγγελία»: τι επαρκεί και τι πρέπει να παραγγελθεί (με αντιγραφή λίστας). */
+export function StockCard({ needs, loading }: { needs: StockNeed[]; loading: boolean }) {
+  const toOrder = needs.filter((n) => n.status === 'short' || n.status === 'none');
+  const unknown = needs.filter((n) => n.status === 'unknown').length;
+  const ok = needs.filter((n) => n.status === 'ok').length;
+  const copy = () => {
+    const text = toOrder.map((n) => `${n.code ? `${n.code} · ` : ''}${n.name} — ${q(n.short)} ${n.unit ?? ''}`).join('\n');
+    navigator.clipboard.writeText(text).then(() => toast.success('Η λίστα παραγγελίας αντιγράφηκε'), () => toast.error('Δεν επετράπη η αντιγραφή'));
+  };
+  return (
+    <section aria-labelledby="stock-h" className="rounded-xl border border-border bg-card p-4 shadow-xs">
+      <h2 id="stock-h" className="flex items-center gap-2 text-(length:--fs-13) font-semibold"><FiPackage className="size-4 text-muted-foreground" aria-hidden /> Απόθεμα & παραγγελία</h2>
+      {!needs.length ? (
+        <p className="mt-1.5 text-(length:--fs-12) text-muted-foreground">Θα δείτε εδώ αν επαρκεί το απόθεμα μόλις προσθέσετε υλικά από το μητρώο.</p>
+      ) : (
+        <>
+          <p className="mt-1.5 text-(length:--fs-12) text-muted-foreground" aria-live="polite">
+            {loading ? 'Έλεγχος αποθέματος…' : toOrder.length
+              ? <><b className="text-foreground">{toOrder.length}</b> είδ{toOrder.length === 1 ? 'ος' : 'η'} θέλ{toOrder.length === 1 ? 'ει' : 'ουν'} παραγγελία{ok ? ` · ${ok} επαρκ${ok === 1 ? 'εί' : 'ούν'}` : ''}{unknown ? ` · ${unknown} για έλεγχο` : ''}</>
+              : <>Όλα τα υλικά επαρκούν{unknown ? ` · ${unknown} για έλεγχο` : ''}.</>}
+          </p>
+          {toOrder.length > 0 && (
+            <ul className="mt-2 space-y-1.5">
+              {toOrder.map((n) => (
+                <li key={n.mtrl} className="rounded-lg bg-amber-50/60 px-2.5 py-1.5 text-(length:--fs-12)">
+                  <span className="block truncate font-medium" title={n.name}>{n.name}</span>
+                  <span className="flex justify-between gap-2 text-muted-foreground">
+                    <span>απόθ. {q(n.have)} {n.stockUnit ?? ''}</span>
+                    <span className="font-semibold tabular-nums text-amber-900">+{q(n.short)} {n.unit ?? ''}</span>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+          {toOrder.length > 0 && (
+            <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1">
+              <button type="button" onClick={copy} className="inline-flex min-h-8 cursor-pointer items-center gap-1.5 text-(length:--fs-12) font-medium text-primary hover:underline"><FiCopy className="size-3.5" aria-hidden /> Αντιγραφή λίστας</button>
+              <Link href="/admin/order-requests" className="inline-flex min-h-8 items-center text-(length:--fs-12) font-medium text-primary hover:underline">Αιτήματα παραγγελίας →</Link>
+            </div>
+          )}
+          <p className="mt-2 text-(length:--fs-11) text-muted-foreground">Σύνολο αποθηκών από τον τελευταίο συγχρονισμό SoftOne.</p>
+        </>
+      )}
+    </section>
+  );
+}

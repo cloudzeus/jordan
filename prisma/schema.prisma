@@ -3713,6 +3713,8 @@ model Contract {
   validUntil    DateTime? @db.Date // ισχύς προσφοράς
   vatRate       Float     @default(24)
   terms         String? // ειδικοί όροι που θέλει ο χρήστης να μπουν στη σύμβαση
+  /// Ευανάγνωστη περιγραφή του έργου για τον πελάτη (AI από περίληψη + χώρους + γραμμές, διορθώσιμη)
+  customerText  String?
   acceptedAt    DateTime?
   activatedAt   DateTime?
   completedAt   DateTime?
@@ -3785,6 +3787,8 @@ model ContractLine {
   partyId    String?
   party      ContractParty? @relation(fields: [partyId], references: [id], onDelete: SetNull)
   crewFee    Float?
+  /// Χώρος της κάτοψης (FloorPlan.data.rooms[].id) που παρήγαγε τη γραμμή — ξαναϋπολογίζεται μαζί του.
+  roomId     String?
   sortOrder  Int            @default(0)
 
   @@index([contractId, sortOrder])

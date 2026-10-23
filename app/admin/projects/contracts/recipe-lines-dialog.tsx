@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogBody, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { RECIPE_KIND_META, parseDecimal, recipeToOfferLines, type OfferLine, type OfferLineMode } from '@/lib/install-recipes-core';
 import type { RecipeView } from '@/lib/install-recipes';
+import { StockBadge, useStock } from './editor/stock';
 import { listRecipesAction } from '../../recipes/actions';
 
 const eur = new Intl.NumberFormat('el-GR', { style: 'currency', currency: 'EUR' });
@@ -58,6 +59,8 @@ export function RecipeLinesDialog({ open, onOpenChange, onAdd }: {
   const markupOk = Number.isFinite(markupN) && markupN >= 0 && markupN <= 1000;
   const lines = recipe && sqmOk && markupOk ? recipeToOfferLines(recipe, sqmN, { markupPct: markupN, mode }) : [];
   const total = lines.reduce((s, l) => s + l.qty * l.unitPrice, 0);
+  // Απόθεμα για τα υλικά της συνταγής στα συγκεκριμένα m² — «επαρκεί / λείπουν» πριν μπουν στη φόρμα.
+  const stock = useStock(lines);
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -139,7 +142,10 @@ export function RecipeLinesDialog({ open, onOpenChange, onAdd }: {
                       <tbody className="divide-y divide-border">
                         {lines.map((l, i) => (
                           <tr key={i}>
-                            <td className="max-w-0 truncate px-2.5 py-1.5" title={l.name}>{l.name}</td>
+                            <td className="max-w-0 px-2.5 py-1.5">
+                              <span className="block truncate" title={l.name}>{l.name}</span>
+                              {l.kind === 'MATERIAL' && l.mtrl != null && <span className="mt-0.5 block"><StockBadge need={stock.byMtrl.get(l.mtrl)} /></span>}
+                            </td>
                             <td className="whitespace-nowrap px-2.5 py-1.5 text-right tabular-nums">{qtyFmt.format(l.qty)}{l.unit ? ` ${l.unit}` : ''}</td>
                             <td className="whitespace-nowrap px-2.5 py-1.5 text-right tabular-nums">{eur.format(l.unitPrice)}</td>
                             <td className="whitespace-nowrap px-2.5 py-1.5 text-right tabular-nums">{eur.format(l.qty * l.unitPrice)}</td>

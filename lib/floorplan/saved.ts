@@ -9,7 +9,7 @@ const opening = z.object({
   id: z.string().max(64), kind: z.enum(['door', 'window', 'other']),
   w: z.number().finite().min(0).max(100), h: z.number().finite().min(0).max(100), count: z.number().int().min(0).max(1000),
 });
-const material = z.discriminatedUnion('type', [
+export const roomMaterial = z.discriminatedUnion('type', [
   z.object({ type: z.literal('recipe'), recipeId: z.string().min(1).max(64), label: z.string().max(300) }),
   z.object({ type: z.literal('item'), mtrl: z.number().int().positive(), code: z.string().max(64), label: z.string().max(300) }),
 ]);
@@ -23,7 +23,7 @@ export const savedRoom = z.object({
   perimeterPx: z.number().finite().min(0),
   manual: z.boolean().default(false),
   walls: z.object({ on: z.boolean(), heightM: z.number().finite().min(0).max(20), openings: z.array(opening).max(100) }).nullish().transform((v) => v ?? undefined),
-  material: material.nullish().transform((v) => v ?? null),
+  material: roomMaterial.nullish().transform((v) => v ?? null),
 });
 export type SavedRoom = z.infer<typeof savedRoom>;
 
@@ -92,4 +92,29 @@ export function roomSheet(d: Pick<PlanData, 'calib' | 'rooms'>): { rows: RoomShe
     };
   });
   return { rows, floorM2: rows.reduce((s, r) => s + r.floorM2, 0), wallsM2: rows.reduce((s, r) => s + (r.walls?.netM2 ?? 0), 0) };
+}
+
+/** Χώρος της χαρτογράφησης σε μέτρα, με το id του — για τον πίνακα χώρων της προσφοράς. */
+export type PlanRoom = {
+  id: string; name: string; color: string; floorM2: number; wallsM2: number; perimeterM: number;
+  material: SavedRoom['material'];
+};
+
+export function planRooms(d: Pick<PlanData, 'calib' | 'rooms'>): PlanRoom[] {
+  const mpp = mPerPxOf(d);
+  if (!mpp) return [];
+  return d.rooms.map((r) => {
+    const perimeterM = r.perimeterPx * mpp;
+    const wl = r.walls as RoomWalls | undefined;
+    return {
+      id: r.id, name: r.name.trim() || 'Χώρος', color: r.color, floorM2: r.areaPx * mpp * mpp, perimeterM,
+      wallsM2: wl?.on ? wallArea(perimeterM, wl).net : 0, material: r.material,
+    };
+  });
+}
+
+/** Νέα υλικά ανά χώρο (από τη φόρμα της προσφοράς) πάνω στα αποθηκευμένα δεδομένα. */
+export function withRoomMaterials(d: PlanData, materials: { roomId: string; material: SavedRoom['material'] }[]): PlanData {
+  const by = new Map(materials.map((m) => [m.roomId, m.material]));
+  return { ...d, rooms: d.rooms.map((r) => (by.has(r.id) ? { ...r, material: by.get(r.id) ?? null } : r)) };
 }
