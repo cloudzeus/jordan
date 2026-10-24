@@ -26,7 +26,7 @@ export async function listPlans(params: Promise<Record<string, string>>) {
   return NextResponse.json({ plans: await listFloorPlans(owner) });
 }
 
-// POST multipart { id?, title, source?, data (JSON), image (PNG), annotated (PNG), original? (φωτογραφία/PDF) }
+// POST multipart { id?, title, source?, data (JSON), image (PNG), annotated (PNG), original? (φωτογραφία/PDF), render3d? (PNG 3D) }
 export async function savePlan(req: Request, params: Promise<Record<string, string>>) {
   const u = await requirePermission('projects.manage');
   const owner = await ownerFromParams(params);
@@ -40,7 +40,7 @@ export async function savePlan(req: Request, params: Promise<Record<string, stri
     const title = str('title').slice(0, 200) || 'Κάτοψη';
     const out = await saveFloorPlan({
       owner, id: str('id') || null, title, source: str('source').slice(0, 300) || null, data,
-      image: file('image'), annotated: file('annotated'), original: file('original'), user: { id: u.id, name: u.name ?? null, email: u.email },
+      image: file('image'), annotated: file('annotated'), original: file('original'), render3d: file('render3d'), user: { id: u.id, name: u.name ?? null, email: u.email },
     });
     await logAudit({ userId: u.id, userEmail: u.email, action: out.created ? 'floorplan.create' : 'floorplan.update', resource: 'floor_plan', resourceId: out.id, metadata: { ...owner, title } }).catch(() => null);
     return NextResponse.json(out, { status: out.created ? 201 : 200 });

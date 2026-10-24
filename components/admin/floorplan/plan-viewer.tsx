@@ -16,7 +16,11 @@ import { LineMaterial } from 'three/examples/jsm/lines/LineMaterial.js';
 import type { Pt } from '@/lib/floorplan/core';
 
 export type ViewerRoom = { id: string; color: string; polygon: Pt[]; label: string; sub: string; anchor: Pt };
-export type ViewerTool = 'room' | 'polygon' | 'wall' | 'divider' | 'calibrate' | 'pan' | 'edit';
+export type ViewerTool = 'room' | 'rect' | 'polygon' | 'wall' | 'divider' | 'opening' | 'calibrate' | 'measure' | 'pan' | 'edit';
+/** Άνοιγμα (πόρτα/παράθυρο) πάνω σε τοίχο χώρου, όπως σχεδιάστηκε. */
+export type ViewerOpening = { id: string; kind: 'door' | 'window' | 'other'; a: Pt; b: Pt; selected?: boolean };
+export const OPENING_COLOR = { door: '#F59E0B', window: '#38BDF8', other: '#A78BFA' } as const;
+const DIM_COLOR = '#FDE047';
 /** Φάση επεξεργασίας περιγράμματος: start (πριν την πρώτη αλλαγή — για αναίρεση), move, end. */
 export type EditPhase = 'start' | 'move' | 'end';
 
@@ -33,6 +37,12 @@ export type PlanViewerProps = {
   selectedId: string | null;
   dividers: Array<[Pt, Pt]>;
   calibration: [Pt, Pt] | null;
+  /** Ανοίγματα που σχεδιάστηκαν πάνω στους τοίχους των χώρων. */
+  openings?: ViewerOpening[];
+  /** Διαστάσεις «από–έως» (μόνιμες, με ετικέτα μήκους). */
+  dimensions?: Array<{ id: string; a: Pt; b: Pt }>;
+  /** Είδος ανοίγματος που σχεδιάζεται τώρα (χρώμα του «λάστιχου»). */
+  openingKind?: ViewerOpening['kind'];
   draft: Pt[];
   tool: ViewerTool;
   /** Μήκος σε px → κείμενο (π.χ. «3,42 m») για τη ζωντανή ένδειξη στο σχέδιο. */
@@ -80,7 +90,7 @@ function inside(p: Pt, pts: Pt[]) {
 }
 
 export function PlanViewer(props: PlanViewerProps) {
-  const { image, w, h, wallsOverlay, showWalls, rooms, selectedId, dividers, calibration, draft, tool, fitKey } = props;
+  const { image, w, h, wallsOverlay, showWalls, rooms, selectedId, dividers, calibration, openings, dimensions, draft, tool, fitKey, formatLength } = props;
   const host = React.useRef<HTMLDivElement | null>(null);
   const labelsEl = React.useRef<HTMLDivElement | null>(null);
   const tipEl = React.useRef<HTMLDivElement | null>(null);
@@ -143,9 +153,14 @@ export function PlanViewer(props: PlanViewerProps) {
     const { draft: d, tool: t } = cbs.current;
     clear(c.layers.draft);
     if (!d.length) return;
-    const color = t === 'calibrate' ? '#F59E0B' : t === 'divider' ? '#F43F5E' : t === 'wall' ? WALL_DRAW : '#22D3EE';
+    const color = t === 'calibrate' ? '#F59E0B' : t === 'divider' ? '#F43F5E' : t === 'wall' ? WALL_DRAW : t === 'opening' ? OPENING_COLOR[cbs.current.openingKind ?? 'door'] : t === 'measure' ? '#FDE047' : '#22D3EE';
     const seq = c.hover ? [...d, c.hover] : d;
-    if (seq.length >= 2 && t === 'wall') c.layers.draft.add(line(seq, Z.draft, color, Math.max(2, cbs.current.wallThicknessPx), { world: true }));
+    if (t === 'rect' && c.hover) {
+      // Ορθογώνιο από την πρώτη γωνία ως τον κέρσορα.
+      const a = d[0], b = c.hover;
+      c.layers.draft.add(line([a, { x: b.x, y: a.y }, b, { x: a.x, y: b.y }], Z.draft, color, 2.5, { closed: true, dashed: true }));
+    } else if (t === 'opening' && seq.length >= 2) c.layers.draft.add(line(seq.slice(-2), Z.draft, color, 7));
+    else if (seq.length >= 2 && t === 'wall') c.layers.draft.add(line(seq, Z.draft, color, Math.max(2, cbs.current.wallThicknessPx), { world: true }));
     else if (seq.length >= 2) c.layers.draft.add(line(seq, Z.draft, color, 2.5, { dashed: t === 'polygon' }));
     if (t === 'polygon' && d.length >= 2 && c.hover) c.layers.draft.add(line([c.hover, d[0]], Z.draft, color, 1, { dashed: true }));
     c.layers.draft.add(dots(d, Z.draft + 0.1));
@@ -383,11 +398,18 @@ export function PlanViewer(props: PlanViewerProps) {
       if (tip) {
         const last = cbs.current.draft[cbs.current.draft.length - 1];
         const t = cbs.current.tool;
-        if (c.hover && last && (t === 'calibrate' || t === 'divider' || t === 'polygon' || t === 'wall')) {
+        if (c.hover && last && t !== 'room' && t !== 'pan' && t !== 'edit') {
           v.set(c.hover.x - w / 2, h / 2 - c.hover.y, Z.draft).project(camera);
           tip.style.opacity = '1';
           tip.style.transform = `translate(${((v.x + 1) / 2) * cw + 14}px, ${((1 - v.y) / 2) * ch + 14}px)`;
-          tip.textContent = cbs.current.formatLength(Math.hypot(c.hover.x - last.x, c.hover.y - last.y));
+          const f = cbs.current.formatLength;
+          const seg = Math.hypot(c.hover.x - last.x, c.hover.y - last.y);
+          if (t === 'rect') tip.textContent = `${f(Math.abs(c.hover.x - last.x))} × ${f(Math.abs(c.hover.y - last.y))}`;
+          else if (t === 'measure') {
+            const d = cbs.current.draft;
+            const sum = d.reduce((s, p, i) => (i ? s + Math.hypot(p.x - d[i - 1].x, p.y - d[i - 1].y) : 0), 0) + seg;
+            tip.textContent = d.length > 1 ? `${f(seg)} · Σ ${f(sum)}` : f(seg);
+          } else tip.textContent = f(seg);
         } else tip.style.opacity = '0';
       }
     };
@@ -466,11 +488,23 @@ export function PlanViewer(props: PlanViewerProps) {
     if (!c) return;
     clear(c.layers.lines);
     for (const [a, b] of dividers) c.layers.lines.add(line([a, b], Z.divider, '#F43F5E', 3));
+    // Ανοίγματα: χοντρή γραμμή στο χρώμα του είδους, με λευκό περίγραμμα όταν ο χώρος είναι επιλεγμένος.
+    for (const o of openings ?? []) {
+      if (o.selected) c.layers.lines.add(line([o.a, o.b], Z.divider, '#FFFFFF', 10));
+      c.layers.lines.add(line([o.a, o.b], Z.divider + 0.05, OPENING_COLOR[o.kind], 6));
+    }
+    // Διαστάσεις: γραμμή + κάθετα «αυτάκια» στα άκρα (το μήκος είναι ετικέτα HTML, βλ. παρακάτω).
+    for (const d of dimensions ?? []) {
+      const L = Math.hypot(d.b.x - d.a.x, d.b.y - d.a.y) || 1;
+      const nx = -(d.b.y - d.a.y) / L, ny = (d.b.x - d.a.x) / L, k = Math.max(w, h) * 0.006;
+      c.layers.lines.add(line([d.a, d.b], Z.divider, DIM_COLOR, 2));
+      for (const e of [d.a, d.b]) c.layers.lines.add(line([{ x: e.x - nx * k, y: e.y - ny * k }, { x: e.x + nx * k, y: e.y + ny * k }], Z.divider, DIM_COLOR, 2));
+    }
     if (calibration) {
       c.layers.lines.add(line(calibration, Z.divider, '#F59E0B', 3));
       c.layers.lines.add(dots(calibration, Z.divider + 0.1, 10));
     }
-  }, [dividers, calibration, image, toWorld, clear, line, dots]);
+  }, [dividers, calibration, openings, dimensions, image, w, h, toWorld, clear, line, dots]);
 
   // «Χωράει ολόκληρο».
   React.useEffect(() => {
@@ -503,6 +537,15 @@ export function PlanViewer(props: PlanViewerProps) {
           >
             <div className="text-[11px] font-medium leading-tight opacity-80">{r.label}</div>
             <div className="font-mono text-[13px] font-semibold leading-tight tabular-nums">{r.sub}</div>
+          </div>
+        ))}
+        {(dimensions ?? []).map((d) => (
+          <div
+            key={d.id} data-x={(d.a.x + d.b.x) / 2} data-y={(d.a.y + d.b.y) / 2}
+            className="absolute left-0 top-0 whitespace-nowrap rounded px-1.5 py-0.5 font-mono text-[11px] font-semibold tabular-nums shadow-sm"
+            style={{ background: DIM_COLOR, color: '#0B1220' }}
+          >
+            {formatLength(Math.hypot(d.b.x - d.a.x, d.b.y - d.a.y))}
           </div>
         ))}
       </div>

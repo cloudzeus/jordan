@@ -15,9 +15,12 @@ import { useDropzone } from 'react-dropzone';
 import { toast } from 'sonner';
 import {
   FiUploadCloud, FiLoader, FiCheck, FiMove, FiMousePointer, FiEdit3, FiScissors, FiMaximize, FiSquare, FiGrid, FiRotateCcw,
-  FiEye, FiEyeOff, FiTrash2, FiCopy, FiDownload, FiSave, FiRefreshCw, FiHelpCircle, FiChevronLeft, FiChevronRight, FiFileText,
+  FiEye, FiEyeOff, FiTrash2, FiCopy, FiDownload, FiSave, FiRefreshCw, FiHelpCircle, FiChevronLeft, FiChevronRight, FiFileText, FiCamera,
 } from 'react-icons/fi';
-import { BrickWall, Ruler, Spline } from 'lucide-react';
+import { BrickWall, DoorOpen, RectangleHorizontal, Ruler, RulerDimensionLine, Spline } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { cn } from '@/lib/utils';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -26,7 +29,8 @@ import {
   type Mask, type Pt, type WallResult,
 } from '@/lib/floorplan/core';
 import { blankPlan, loadPlan, type LoadedPlan } from './load-plan';
-import { PlanViewer, WALL_DRAW, type EditPhase, type ViewerRoom, type ViewerTool } from './plan-viewer';
+import { OPENING_COLOR, PlanViewer, WALL_DRAW, type EditPhase, type ViewerOpening, type ViewerRoom, type ViewerTool } from './plan-viewer';
+import { Plan3d, type Plan3dHandle } from './plan-3d';
 import { annotatedPng, download, fmtM, fmtM2, roomsCsv, roomsText, type ExportRoom } from './export';
 import { MaterialChip, OfferStepBody, RoomMaterialEditor, type RoomMaterial } from './offer-panel';
 import { FloorPlanOfferDialog, type OfferRoom, type OfferSubmit } from './offer-dialog';
@@ -35,8 +39,8 @@ import { planData, planRooms, scalePlanData, type PlanData, type PlanRoom } from
 import { aiResponse, chooseScale, fallbackPolygon, pickCandidate, roomsInPx } from '@/lib/floorplan/ai-core';
 import { Sparkles } from 'lucide-react';
 import type { FloorPlanListRow } from '@/lib/floorplan/plans';
-import { RoomWallsPanel, WallsToggle } from './room-walls';
-import { DEFAULT_HEIGHT, wallArea, type RoomWalls } from '@/lib/floorplan/walls';
+import { MetersInput, RoomWallsPanel, WallsToggle } from './room-walls';
+import { DEFAULT_HEIGHT, OPENING_PRESETS, snapOpening, wallArea, type Opening, type OpeningKind, type RoomWalls } from '@/lib/floorplan/walls';
 
 type Room = {
   id: string; name: string; color: string; polygon: Pt[]; areaPx: number; perimeterPx: number; manual: boolean;
@@ -58,15 +62,80 @@ const DRAWN_RGB = [251, 146, 60]; // = WALL_DRAW
 const nf = new Intl.NumberFormat('el-GR', { maximumFractionDigits: 1 });
 const uid = () => Math.random().toString(36).slice(2, 10);
 
-const TOOLS: Array<{ key: ViewerTool; label: string; hint: string; kbd: string; icon: React.ReactNode }> = [
-  { key: 'pan', label: 'Μετακίνηση', kbd: 'V', icon: <FiMove />, hint: 'Σύρε για μετακίνηση, ροδέλα για zoom.' },
-  { key: 'room', label: 'Χώρος με κλικ', kbd: 'R', icon: <FiMousePointer />, hint: 'Κάνε κλικ μέσα σε έναν χώρο — το περίγραμμα βγαίνει αυτόματα από τους τοίχους.' },
-  { key: 'polygon', label: 'Πολύγωνο', kbd: 'P', icon: <FiEdit3 />, hint: 'Κλικ στις γωνίες· διπλό κλικ, Enter ή κλικ στο πρώτο σημείο κλείνει. Shift = ορθές γωνίες.' },
-  { key: 'wall', label: 'Τοίχος', kbd: 'W', icon: <BrickWall className="size-4" />, hint: 'Κλικ σε κάθε γωνία του τοίχου· διπλό κλικ ή Enter τελειώνει. Shift = οριζόντια/κάθετα· κουμπώνει στα άκρα άλλων τοίχων.' },
-  { key: 'divider', label: 'Διαχωριστικό', kbd: 'D', icon: <FiScissors />, hint: 'Δύο κλικ: μια νοητή γραμμή που κλείνει πόρτες ή χωρίζει ενιαίους χώρους.' },
-  { key: 'edit', label: 'Επεξεργασία', kbd: 'E', icon: <Spline className="size-4" />, hint: 'Κλικ σε χώρο· σύρε κορυφές, σύρε το «+» για νέο σπάσιμο, σύρε μέσα για μετακίνηση (ή βελάκια). Διπλό κλικ σε κορυφή = διαγραφή · ⌘/Ctrl+Z αναίρεση.' },
-  { key: 'calibrate', label: 'Κλίμακα', kbd: 'K', icon: <Ruler className="size-4" />, hint: 'Δύο κλικ στα άκρα μιας γνωστής απόστασης (π.χ. μια διάσταση του σχεδίου).' },
+type ToolGroup = 'Πλοήγηση' | 'Χώροι' | 'Τοίχοι & ανοίγματα' | 'Μετρήσεις';
+/**
+ * Εργαλεία: `hint` = μία γραμμή στη μπάρα κάτω από το σχέδιο όσο είναι ενεργό· `help` = τι κάνει και
+ * πότε το χρησιμοποιώ (tooltip και «Οδηγός εργαλείων»).
+ */
+const TOOLS: Array<{ key: ViewerTool; label: string; hint: string; help: string; kbd: string; icon: React.ReactNode; group: ToolGroup }> = [
+  {
+    key: 'pan', label: 'Μετακίνηση', kbd: 'V', icon: <FiMove />, group: 'Πλοήγηση',
+    hint: 'Σύρε για μετακίνηση, ροδέλα για zoom.',
+    help: 'Μετακινεί το σχέδιο χωρίς να αλλάζει τίποτα. Ροδέλα ή δύο δάχτυλα για zoom — λειτουργούν και με κάθε άλλο εργαλείο.',
+  },
+  {
+    key: 'room', label: 'Χώρος με κλικ', kbd: 'R', icon: <FiMousePointer />, group: 'Χώροι',
+    hint: 'Κάνε κλικ μέσα σε έναν χώρο — το περίγραμμα βγαίνει αυτόματα από τους τοίχους.',
+    help: 'Ο γρηγορότερος τρόπος: κλικ στο δάπεδο ενός δωματίου και το περίγραμμα «γεμίζει» ως τους τοίχους. Αν «διαρρέει» από πόρτα, κλείσ’ την με Διαχωριστικό.',
+  },
+  {
+    key: 'rect', label: 'Ορθογώνιος χώρος', kbd: 'T', icon: <RectangleHorizontal className="size-4" />, group: 'Χώροι',
+    hint: 'Δύο κλικ σε απέναντι γωνίες — δημιουργείται ορθογώνιος χώρος. Βλέπεις πλάτος × μήκος όσο σέρνεις.',
+    help: 'Για απλά ορθογώνια δωμάτια ή όταν το σχέδιο δεν «διαβάζεται»: κλικ στη μία γωνία, κλικ στην απέναντι. Δείχνει ζωντανά πλάτος × μήκος.',
+  },
+  {
+    key: 'polygon', label: 'Πολύγωνο', kbd: 'P', icon: <FiEdit3 />, group: 'Χώροι',
+    hint: 'Κλικ στις γωνίες· διπλό κλικ, Enter ή κλικ στο πρώτο σημείο κλείνει. Shift = ορθές γωνίες.',
+    help: 'Χώρος με ελεύθερο σχήμα (Γ, σπασμένες γωνίες): κλικ σε κάθε γωνία και κλείσιμο με διπλό κλικ. Shift = μόνο οριζόντια/κάθετα.',
+  },
+  {
+    key: 'edit', label: 'Επεξεργασία χώρου', kbd: 'E', icon: <Spline className="size-4" />, group: 'Χώροι',
+    hint: 'Κλικ σε χώρο· σύρε κορυφές, σύρε το «+» για νέο σπάσιμο, σύρε μέσα για μετακίνηση (ή βελάκια). Διπλό κλικ σε κορυφή = διαγραφή · ⌘/Ctrl+Z αναίρεση.',
+    help: 'Διορθώνει ένα περίγραμμα: σύρε τις γωνίες, σύρε το «+» στη μέση πλευράς για νέα γωνία, διπλό κλικ σε γωνία για διαγραφή, βελάκια για μετακίνηση (Shift ×10). ⌘/Ctrl+Z αναίρεση.',
+  },
+  {
+    key: 'wall', label: 'Τοίχος', kbd: 'W', icon: <BrickWall className="size-4" />, group: 'Τοίχοι & ανοίγματα',
+    hint: 'Κλικ σε κάθε γωνία του τοίχου· διπλό κλικ ή Enter τελειώνει. Shift = οριζόντια/κάθετα· κουμπώνει στα άκρα άλλων τοίχων.',
+    help: 'Σχεδιάζει τοίχο με το πάχος που ορίζεις (βήμα 1). Χρήσιμο όταν η αυτόματη ανίχνευση χάνει τοίχους ή όταν δουλεύεις σε κενό κάναβο.',
+  },
+  {
+    key: 'divider', label: 'Διαχωριστικό', kbd: 'D', icon: <FiScissors />, group: 'Τοίχοι & ανοίγματα',
+    hint: 'Δύο κλικ: μια νοητή γραμμή που κλείνει πόρτες ή χωρίζει ενιαίους χώρους.',
+    help: 'Νοητή γραμμή (δεν μετρά ως τοίχος): κλείνει ένα άνοιγμα πόρτας ή χωρίζει κουζίνα από σαλόνι ώστε το «Χώρος με κλικ» να σταματά εκεί.',
+  },
+  {
+    key: 'opening', label: 'Άνοιγμα (πόρτα / παράθυρο)', kbd: 'O', icon: <DoorOpen className="size-4" />, group: 'Τοίχοι & ανοίγματα',
+    hint: 'Διάλεξε είδος αριστερά, μετά δύο κλικ πάνω στον τοίχο του χώρου, στα άκρα του ανοίγματος.',
+    help: 'Σχεδιάζει πόρτα ή παράθυρο πάνω στον τοίχο ενός χώρου: το πλάτος βγαίνει από το σχέδιο, το ύψος και η ποδιά από τις ρυθμίσεις. Αφαιρείται αυτόματα από τα m² τοίχων (πλακάκι, τσιμεντοκονία).',
+  },
+  {
+    key: 'calibrate', label: 'Κλίμακα', kbd: 'K', icon: <Ruler className="size-4" />, group: 'Μετρήσεις',
+    hint: 'Δύο κλικ στα άκρα μιας γνωστής απόστασης (π.χ. μια διάσταση του σχεδίου).',
+    help: 'Λέει στο εργαλείο πόσα μέτρα είναι μια απόσταση του σχεδίου — χωρίς αυτή δεν βγαίνουν m². Διάλεξε τη μεγαλύτερη διάσταση που αναγράφεται για ακρίβεια.',
+  },
+  {
+    key: 'measure', label: 'Διάσταση (από–έως)', kbd: 'M', icon: <RulerDimensionLine className="size-4" />, group: 'Μετρήσεις',
+    hint: 'Δύο κλικ: από–έως. Η διάσταση μένει πάνω στο σχέδιο με το μήκος της. Shift = οριζόντια/κάθετα.',
+    help: 'Τοποθετεί μόνιμη διάσταση πάνω στο σχέδιο (μήκος τοίχου, πλάτος πάγκου, άνοιγμα): κλικ στην αρχή, κλικ στο τέλος. Αποθηκεύεται με την κάτοψη και σβήνεται από τη λίστα «Διαστάσεις». Δεν αλλάζει την κλίμακα.',
+  },
 ];
+const TOOL_GROUPS: ToolGroup[] = ['Πλοήγηση', 'Χώροι', 'Τοίχοι & ανοίγματα', 'Μετρήσεις'];
+
+/** Κουμπί εργαλείου με αναλυτικό tooltip: όνομα, συντόμευση και τι κάνει. */
+function ToolTip({ tool, side = 'right', children }: { tool: (typeof TOOLS)[number]; side?: 'right' | 'top' | 'bottom'; children: React.ReactNode }) {
+  return (
+    <Tooltip delayDuration={250}>
+      <TooltipTrigger asChild>{children}</TooltipTrigger>
+      <TooltipContent side={side} sideOffset={8} className="block max-w-72 px-3 py-2 text-left">
+        <span className="flex items-center justify-between gap-3 text-(length:--fs-12) font-semibold">
+          {tool.label}
+          <kbd className="rounded border border-background/30 px-1.5 font-mono text-[10px] font-medium opacity-80">{tool.kbd}</kbd>
+        </span>
+        <span className="mt-1 block text-(length:--fs-12) leading-snug opacity-90">{tool.help}</span>
+      </TooltipContent>
+    </Tooltip>
+  );
+}
 
 /** Μάσκα τοίχων ως διαφανής εικόνα: αυτόματοι σε κυανό, σχεδιασμένοι από τον χρήστη σε πορτοκαλί. */
 function maskOverlay(auto: Mask | null, drawn: Mask, w: number, h: number): HTMLCanvasElement {
@@ -162,6 +231,14 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
   const [calibLine, setCalibLine] = React.useState<[Pt, Pt] | null>(null);
   const [meters, setMeters] = React.useState('');
   const [doorCm, setDoorCm] = React.useState(100);
+  /** Διαστάσεις «από–έως» πάνω στο σχέδιο. */
+  const [dims, setDims] = React.useState<Array<{ id: string; a: Pt; b: Pt }>>([]);
+  /** Ρυθμίσεις του εργαλείου «Άνοιγμα»: είδος, ύψος και ποδιά (m). */
+  const [openingKind, setOpeningKind] = React.useState<OpeningKind>('door');
+  const [openingH, setOpeningH] = React.useState(OPENING_PRESETS.door.h);
+  const [openingSill, setOpeningSill] = React.useState(OPENING_PRESETS.door.sill);
+  const [view3d, setView3d] = React.useState(false);
+  const plan3dRef = React.useRef<Plan3dHandle | null>(null);
   const [rooms, setRooms] = React.useState<Room[]>([]);
   const [selected, setSelected] = React.useState<string | null>(null);
   // Το τελευταίο ύψος πλακιδίων που διάλεξε ο χρήστης — προτείνεται στον επόμενο χώρο.
@@ -192,7 +269,7 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
   // ── Φόρτωση ──────────────────────────────────────────────────────────────────────────
   const reset = () => {
     setWalls(null); setThr(null); setThick(null); setDraft([]); setDividers([]); setCalib(null); setCalibLine(null);
-    setMeters(''); setRooms([]); setSelected(null); setTool('calibrate'); seq.current = 0;
+    setMeters(''); setRooms([]); setSelected(null); setTool('calibrate'); seq.current = 0; setDims([]); setView3d(false);
     setDrawnWalls([]); setAutoWalls(true);
     setSavedId(null); setPlanTitle(''); setCreatedOffer(null); imageSavedFor.current = null;
   };
@@ -249,7 +326,7 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
       reset();
       setFile(null); setPlan(p);
       setAutoWalls(d.autoWalls); setThr(d.thr); setThick(d.thick); setWallCm(d.wallCm); setDoorCm(d.doorCm);
-      setDividers(d.dividers); setDrawnWalls(d.drawnWalls); setCalib(d.calib);
+      setDividers(d.dividers); setDrawnWalls(d.drawnWalls); setCalib(d.calib); setDims(d.dims);
       setRooms(d.rooms.map((r) => ({ ...r, walls: r.walls, material: r.material })));
       seq.current = d.rooms.length;
       setSavedId(id); setPlanTitle(body.plan.title); imageSavedFor.current = p;
@@ -477,6 +554,38 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
       setSelected(hit?.id ?? null);
       return;
     }
+    if (tool === 'rect') {
+      if (!draft.length) { setDraft([p]); return; }
+      const a = draft[0];
+      if (Math.abs(p.x - a.x) < 3 || Math.abs(p.y - a.y) < 3) { toast.error('Το ορθογώνιο είναι πολύ μικρό — κάνε κλικ στην απέναντι γωνία.'); return; }
+      const poly = [a, { x: p.x, y: a.y }, p, { x: a.x, y: p.y }];
+      addRoom(poly, polygonArea(poly), polygonPerimeter(poly), true);
+      setDraft([]);
+      return;
+    }
+    if (tool === 'measure') {
+      if (!draft.length) { setDraft([p]); return; }
+      if (Math.hypot(p.x - draft[0].x, p.y - draft[0].y) < 3) return;
+      setDims((ds) => [...ds, { id: uid(), a: draft[0], b: p }]);
+      setDraft([]);
+      return;
+    }
+    if (tool === 'opening') {
+      if (!mPerPx) { toast.error('Όρισε πρώτα την κλίμακα (βήμα 2) — το πλάτος του ανοίγματος βγαίνει σε μέτρα.'); return; }
+      if (!draft.length) { setDraft([p]); return; }
+      const snapped = snapOpening(rooms.map((r) => r.polygon), draft[0], p, 0.6 / mPerPx);
+      setDraft([]);
+      if (!snapped) { toast.error('Σχεδίασε το άνοιγμα πάνω στο περίγραμμα ενός χώρου (στον τοίχο του).'); return; }
+      const r = rooms[snapped.room];
+      const wM = Math.round(Math.hypot(snapped.b.x - snapped.a.x, snapped.b.y - snapped.a.y) * mPerPx * 100) / 100;
+      if (wM < 0.2) { toast.error('Το άνοιγμα είναι πολύ μικρό — κάνε κλικ στα δύο άκρα του.'); return; }
+      const o: Opening = { id: uid(), kind: openingKind, w: wM, h: openingH, sill: openingKind === 'door' ? 0 : openingSill, count: 1, at: [snapped.a, snapped.b] };
+      const wasOn = !!r.walls?.on;
+      setRooms((rs) => rs.map((x) => (x.id === r.id ? { ...x, walls: { heightM: x.walls?.heightM ?? lastHeight, openings: [...(x.walls?.openings ?? []), o], on: true } } : x)));
+      setSelected(r.id);
+      toast.success(`${OPENING_PRESETS[openingKind].label} ${nf.format(wM)} m στον χώρο «${r.name}»${wasOn ? '' : ' · ενεργοποιήθηκε «πλακάκι και στους τοίχους»'}.`);
+      return;
+    }
     if (!blocked) return;
     if (tool === 'room') {
       const hit = [...rooms].reverse().find((r) => pointInPolygon(p, r.polygon));
@@ -634,7 +743,7 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
   // ── Αποθήκευση χαρτογράφησης ─────────────────────────────────────────────────────────
   const planDataNow = (): PlanData => ({
     v: 1, w, h, pxPerM: plan?.pxPerM ?? null, page: plan?.page ?? 1, calib, autoWalls, thr, thick, wallCm, doorCm,
-    dividers, drawnWalls,
+    dividers, drawnWalls, dims, render3dFileId: null,
     rooms: rooms.map((r) => ({ id: r.id, name: r.name, color: r.color, polygon: r.polygon, areaPx: r.areaPx, perimeterPx: r.perimeterPx, manual: r.manual, walls: r.walls, material: r.material })),
   });
   const canvasPng = (c: HTMLCanvasElement) => new Promise<Blob>((res, rej) => c.toBlob((b) => (b ? res(b) : rej(new Error('PNG export failed'))), 'image/png'));
@@ -656,6 +765,9 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
         if (file) fd.append('original', file);
       }
       fd.append('annotated', new File([await png()], 'annotated.png', { type: 'image/png' }));
+      // Η εικόνα 3D (όταν είναι ανοιχτή η προβολή) αποθηκεύεται μαζί — δεν χάνεται το render.
+      const r3d = view3d ? await plan3dRef.current?.capture().catch(() => null) : null;
+      if (r3d) fd.append('render3d', new File([r3d], 'render-3d.png', { type: 'image/png' }));
       const res = await fetch(`${apiBase}/floorplans`, { method: 'POST', body: fd });
       const d = await res.json().catch(() => null);
       if (!res.ok) throw new Error(d?.message ?? 'Η χαρτογράφηση δεν αποθηκεύτηκε.');
@@ -668,6 +780,12 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
     } finally {
       setPlanSaving(false);
     }
+  };
+
+  /** Αποθήκευση της χαρτογράφησης μαζί με την τρέχουσα εικόνα 3D. */
+  const save3d = async () => {
+    const id = await savePlan(true);
+    if (id) toast.success('Η εικόνα 3D αποθηκεύτηκε μαζί με τη χαρτογράφηση (αρχεία → «Κατόψεις»).');
   };
 
   // ── Προσφορά ─────────────────────────────────────────────────────────────────────────
@@ -727,6 +845,9 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
     sub: mPerPx ? fmtM2(toM2(r.areaPx, mPerPx)) : `${nf.format(r.areaPx)} px²`,
   })), [rooms, mPerPx]);
 
+  const viewerOpenings: ViewerOpening[] = React.useMemo(() => rooms.flatMap((r) => (r.walls?.openings ?? [])
+    .filter((o) => o.at).map((o) => ({ id: o.id, kind: o.kind, a: o.at![0], b: o.at![1], selected: r.id === selected }))), [rooms, selected]);
+
   // Η αυτόματη κλίμακα του κενού κάναβου δεν σχεδιάζεται ως γραμμή.
   const blankScale = !!calib && plan?.pxPerM != null && calib.meters === 1 && calib.a.x === 0 && calib.b.x === plan.pxPerM;
   const wallLenPx = drawnWalls.reduce((sum, d) => sum + Math.hypot(d.b.x - d.a.x, d.b.y - d.a.y), 0);
@@ -736,6 +857,7 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
   const thickCm = walls && mPerPx ? walls.minThickness * mPerPx * 100 : null;
 
   return (
+    <TooltipProvider delayDuration={250}>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         className="flex h-[calc(100dvh-1rem)] w-full max-w-[calc(100%-1rem)] flex-col gap-0 overflow-hidden p-0 sm:h-[min(92dvh,920px)] sm:max-w-[min(1440px,96vw)]"
@@ -930,16 +1052,59 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
               {/* raised: το dropdown αναζήτησης είδους να περνά πάνω από το βήμα «Προσφορά» */}
               <Step n={3} title="Μέτρηση χώρων" done={rooms.length > 0} active={step === 3} raised>
                 <div className="grid grid-cols-2 gap-1.5">
-                  {TOOLS.filter((t) => t.key === 'room' || t.key === 'polygon' || t.key === 'edit' || t.key === 'divider').map((t) => (
-                    <button
-                      key={t.key} type="button" onClick={() => changeTool(t.key)} aria-pressed={tool === t.key}
-                      className="flex cursor-pointer items-center justify-center gap-1.5 rounded-lg border px-1.5 py-2 text-(length:--fs-12) font-medium transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring [&_svg]:size-4"
-                      style={tool === t.key ? { borderColor: 'var(--primary)', background: 'color-mix(in oklab, var(--primary) 10%, transparent)', color: 'var(--primary)' } : { borderColor: 'var(--border)' }}
-                    >
-                      {t.icon}{t.label}
-                    </button>
+                  {TOOLS.filter((t) => ['room', 'rect', 'polygon', 'edit', 'divider', 'opening', 'measure'].includes(t.key)).map((t) => (
+                    <ToolTip key={t.key} tool={t}>
+                      <button
+                        type="button" onClick={() => changeTool(t.key)} aria-pressed={tool === t.key}
+                        className="flex min-h-9 cursor-pointer items-center justify-start gap-1.5 rounded-lg border px-2 py-1.5 text-left text-(length:--fs-12) font-medium leading-tight transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring [&_svg]:size-4 [&_svg]:shrink-0"
+                        style={tool === t.key ? { borderColor: 'var(--primary)', background: 'color-mix(in oklab, var(--primary) 10%, transparent)', color: 'var(--primary)' } : { borderColor: 'var(--border)' }}
+                      >
+                        {t.icon}{t.label}
+                      </button>
+                    </ToolTip>
                   ))}
                 </div>
+                {tool === 'opening' && (
+                  <div className="space-y-2 rounded-lg border border-border bg-background p-2">
+                    <p className="text-(length:--fs-11) text-muted-foreground">Διάλεξε είδος και κάνε δύο κλικ πάνω στον τοίχο του χώρου, στα άκρα του ανοίγματος. Το πλάτος μετριέται από το σχέδιο.</p>
+                    <div className="grid grid-cols-3 gap-1" role="radiogroup" aria-label="Είδος ανοίγματος">
+                      {(Object.keys(OPENING_PRESETS) as OpeningKind[]).map((k) => (
+                        <button
+                          key={k} type="button" role="radio" aria-checked={openingKind === k}
+                          onClick={() => { setOpeningKind(k); setOpeningH(OPENING_PRESETS[k].h); setOpeningSill(OPENING_PRESETS[k].sill); }}
+                          className="flex cursor-pointer items-center justify-center gap-1 rounded-md border px-1 py-1.5 text-(length:--fs-11) font-medium transition-colors"
+                          style={openingKind === k ? { borderColor: OPENING_COLOR[k], background: `color-mix(in oklab, ${OPENING_COLOR[k]} 15%, transparent)` } : { borderColor: 'var(--border)' }}
+                        >
+                          <span className="size-2 rounded-full" style={{ background: OPENING_COLOR[k] }} aria-hidden />{OPENING_PRESETS[k].label}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-(length:--fs-11)">
+                      <label className="inline-flex items-center gap-1">Ύψος <MetersInput value={openingH} onValue={setOpeningH} label="Ύψος ανοίγματος σε μέτρα" className="w-12" /> m</label>
+                      {openingKind !== 'door' && (
+                        <label className="inline-flex items-center gap-1" title="Πόσο ψηλά από το δάπεδο ξεκινά το άνοιγμα">Ποδιά <MetersInput value={openingSill} onValue={setOpeningSill} min={0} label="Ύψος ποδιάς από το δάπεδο σε μέτρα" className="w-12" /> m</label>
+                      )}
+                    </div>
+                  </div>
+                )}
+                {dims.length > 0 && (
+                  <div className="rounded-lg border border-border bg-background p-2">
+                    <div className="mb-1 flex items-center justify-between">
+                      <span className="text-(length:--fs-11) font-semibold uppercase tracking-wider text-muted-foreground">Διαστάσεις ({dims.length})</span>
+                      <Button size="xs" variant="ghost" onClick={() => setDims([])}>Όλες</Button>
+                    </div>
+                    <ul className="max-h-28 space-y-0.5 overflow-y-auto">
+                      {dims.map((d, i) => (
+                        <li key={d.id} className="flex items-center justify-between gap-2 text-(length:--fs-12)">
+                          <span className="font-mono tabular-nums">{i + 1}. {fmtLen(Math.hypot(d.b.x - d.a.x, d.b.y - d.a.y))}</span>
+                          <button type="button" aria-label={`Διαγραφή διάστασης ${i + 1}`} onClick={() => setDims((ds) => ds.filter((x) => x.id !== d.id))} className="inline-flex size-6 cursor-pointer items-center justify-center rounded text-muted-foreground hover:bg-destructive/10 hover:text-destructive">
+                            <FiTrash2 className="size-3.5" aria-hidden />
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
                 {tool === 'edit' && (
                   <div className="rounded-lg border border-border bg-background p-2 text-(length:--fs-11) text-muted-foreground">
                     {selected ? (
@@ -1126,31 +1291,93 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
             {/* ── Προβολή ── */}
             <div className="relative order-1 min-h-[45dvh] md:order-2 md:min-h-0" {...dz.getRootProps()}>
               <input {...dz.getInputProps()} />
-              <PlanViewer
-                image={plan.display} w={w} h={h}
-                wallsOverlay={overlay} showWalls={showWalls} wallThicknessPx={wallPx}
-                rooms={viewerRooms} selectedId={selected} dividers={dividers}
-                calibration={calibLine ?? (calib && !blankScale ? [calib.a, calib.b] : null)}
-                draft={draft} tool={tool} formatLength={fmtLen}
-                onPick={onPick} onFinish={finish} onEdit={onEdit} fitKey={fitKey}
-              />
+              {view3d && mPerPx ? (
+                <Plan3d ref={plan3dRef} image={plan.display} w={w} h={h} mPerPx={mPerPx} rooms={rooms} selectedId={selected} />
+              ) : (
+                <PlanViewer
+                  image={plan.display} w={w} h={h}
+                  wallsOverlay={overlay} showWalls={showWalls} wallThicknessPx={wallPx}
+                  rooms={viewerRooms} selectedId={selected} dividers={dividers}
+                  openings={viewerOpenings} openingKind={openingKind} dimensions={dims}
+                  calibration={calibLine ?? (calib && !blankScale ? [calib.a, calib.b] : null)}
+                  draft={draft} tool={tool} formatLength={fmtLen}
+                  onPick={onPick} onFinish={finish} onEdit={onEdit} fitKey={fitKey}
+                />
+              )}
 
-              {/* Εργαλειοθήκη (αριστερά) */}
-              <div className="absolute left-3 top-3 flex flex-col gap-1 rounded-xl border border-slate-700/80 bg-slate-900/85 p-1 shadow-xl backdrop-blur-sm" role="toolbar" aria-label="Εργαλεία">
-                {TOOLS.map((t) => (
-                  <button
-                    key={t.key} type="button" onClick={() => changeTool(t.key)} aria-pressed={tool === t.key}
-                    title={`${t.label} (${t.kbd})`} aria-label={t.label}
-                    className="inline-flex size-9 cursor-pointer items-center justify-center rounded-lg transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-cyan-300 [&_svg]:size-4"
-                    style={tool === t.key ? { background: '#22D3EE', color: '#0B1220' } : { color: '#CBD5E1' }}
-                  >
-                    {t.icon}
-                  </button>
-                ))}
-              </div>
+              {/* Εργαλειοθήκη (αριστερά), σε ομάδες — tooltip με το τι κάνει κάθε εργαλείο */}
+              {!view3d && (
+                <div className="absolute left-3 top-3 flex max-h-[calc(100%-5rem)] flex-col gap-0.5 overflow-y-auto rounded-xl border border-slate-700/80 bg-slate-900/85 p-1 shadow-xl backdrop-blur-sm" role="toolbar" aria-label="Εργαλεία" aria-orientation="vertical">
+                  {TOOL_GROUPS.map((g, gi) => (
+                    <React.Fragment key={g}>
+                      {gi > 0 && <span className="mx-1.5 my-0.5 h-px bg-slate-700" aria-hidden />}
+                      {TOOLS.filter((t) => t.group === g).map((t) => (
+                        <ToolTip key={t.key} tool={t}>
+                          <button
+                            type="button" onClick={() => changeTool(t.key)} aria-pressed={tool === t.key} aria-label={`${t.label} (${t.kbd})`}
+                            className="inline-flex size-9 cursor-pointer items-center justify-center rounded-lg transition-colors hover:bg-slate-800 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-cyan-300 [&_svg]:size-4"
+                            style={tool === t.key ? { background: '#22D3EE', color: '#0B1220' } : { color: '#CBD5E1' }}
+                          >
+                            {t.icon}
+                          </button>
+                        </ToolTip>
+                      ))}
+                    </React.Fragment>
+                  ))}
+                </div>
+              )}
 
               {/* Προβολή (δεξιά) */}
               <div className="absolute right-3 top-3 flex items-center gap-1 rounded-xl border border-slate-700/80 bg-slate-900/85 p-1 text-slate-200 shadow-xl backdrop-blur-sm">
+                {/* 2D / 3D */}
+                <div className="flex rounded-md bg-slate-800/80 p-0.5" role="radiogroup" aria-label="Προβολή">
+                  {(['2D', '3D'] as const).map((m) => {
+                    const on = (m === '3D') === view3d;
+                    return (
+                      <button
+                        key={m} type="button" role="radio" aria-checked={on} disabled={m === '3D' && !mPerPx}
+                        title={m === '3D' ? (mPerPx ? 'Προβολή 3D: τοίχοι, ζώνη πλακιδίων και ανοίγματα' : 'Όρισε πρώτα κλίμακα για 3D') : 'Σχέδιο 2D με τα εργαλεία'}
+                        onClick={() => { setView3d(m === '3D'); setDraft([]); }}
+                        className="h-6 cursor-pointer rounded px-2 font-mono text-[11px] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-40"
+                        style={on ? { background: '#22D3EE', color: '#0B1220' } : undefined}
+                      >
+                        {m}
+                      </button>
+                    );
+                  })}
+                </div>
+                {view3d && (
+                  <button type="button" onClick={() => void save3d()} disabled={planSaving || !rooms.length} title="Αποθήκευση της εικόνας 3D μαζί με τη χαρτογράφηση" aria-label="Αποθήκευση εικόνας 3D" className="inline-flex h-7 cursor-pointer items-center gap-1 rounded-md px-2 text-[11px] font-medium hover:bg-slate-800 disabled:opacity-40 [&_svg]:size-3.5">
+                    {planSaving ? <FiLoader className="animate-spin" aria-hidden /> : <FiCamera aria-hidden />} Αποθήκευση 3D
+                  </button>
+                )}
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <button type="button" title="Οδηγός εργαλείων" aria-label="Οδηγός εργαλείων" className="inline-flex size-7 cursor-pointer items-center justify-center rounded-md hover:bg-slate-800 [&_svg]:size-4"><FiHelpCircle /></button>
+                  </PopoverTrigger>
+                  <PopoverContent align="end" className="max-h-[70dvh] w-[min(26rem,90vw)] overflow-y-auto p-3">
+                    <p className="text-(length:--fs-13) font-semibold">Οδηγός εργαλείων</p>
+                    <p className="mb-2 text-(length:--fs-11) text-muted-foreground">Πλήκτρο σε παρένθεση · Esc ακυρώνει ό,τι σχεδιάζεις · Enter/διπλό κλικ τελειώνει · ⌘/Ctrl+Z αναίρεση</p>
+                    {TOOL_GROUPS.map((g) => (
+                      <div key={g} className="mb-2">
+                        <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{g}</p>
+                        <ul className="space-y-1.5">
+                          {TOOLS.filter((t) => t.group === g).map((t) => (
+                            <li key={t.key}>
+                              <button type="button" onClick={() => { setView3d(false); changeTool(t.key); }} className="flex w-full cursor-pointer items-start gap-2 rounded-md p-1 text-left hover:bg-muted [&_svg]:size-4">
+                                <span className="mt-0.5 shrink-0 text-muted-foreground">{t.icon}</span>
+                                <span className="min-w-0">
+                                  <span className="text-(length:--fs-12) font-semibold">{t.label} <kbd className="ml-1 rounded border border-border px-1 font-mono text-[10px] font-normal">{t.kbd}</kbd></span>
+                                  <span className="block text-(length:--fs-11) leading-snug text-muted-foreground">{t.help}</span>
+                                </span>
+                              </button>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    ))}
+                  </PopoverContent>
+                </Popover>
                 <button type="button" onClick={() => setShowWalls((s) => !s)} title="Τοίχοι" aria-label="Εναλλαγή τοίχων" aria-pressed={showWalls} className="inline-flex size-7 cursor-pointer items-center justify-center rounded-md hover:bg-slate-800 [&_svg]:size-4">
                   {showWalls ? <FiEye /> : <FiEyeOff />}
                 </button>
@@ -1172,7 +1399,7 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
               )}
 
               {/* Οδηγία εργαλείου */}
-              <div className="pointer-events-none absolute inset-x-3 bottom-3 flex justify-center">
+              <div className={cn('pointer-events-none absolute inset-x-3 bottom-3 flex justify-center', view3d && 'hidden')}>
                 <div className="flex max-w-full items-center gap-2 rounded-full border border-slate-700/80 bg-slate-900/90 px-3 py-1.5 text-(length:--fs-12) text-slate-200 shadow-xl backdrop-blur-sm">
                   {(analyzing || loading) && <FiLoader className="size-3.5 shrink-0 animate-spin text-cyan-300" aria-hidden />}
                   <span className="shrink-0 font-semibold text-cyan-300">{activeTool.label}</span>
@@ -1190,5 +1417,6 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
         )}
       </DialogContent>
     </Dialog>
+    </TooltipProvider>
   );
 }

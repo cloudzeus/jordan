@@ -23,7 +23,7 @@ const KIND_ICON: Record<OpeningKind, React.ReactNode> = {
  * Αριθμητικό πεδίο σε μέτρα που δέχεται «2,6» όσο πληκτρολογείς: κρατά το κείμενο τοπικά και
  * στέλνει τιμή μόνο όταν είναι έγκυρη. Η εξωτερική τιμή επανέρχεται όταν αλλάζει απ' έξω.
  */
-function MetersInput({ value, onValue, label, className, min = 0.01 }: { value: number; onValue: (n: number) => void; label: string; className?: string; min?: number }) {
+export function MetersInput({ value, onValue, label, className, min = 0.01 }: { value: number; onValue: (n: number) => void; label: string; className?: string; min?: number }) {
   const [text, setText] = React.useState(() => nfShort.format(value));
   const [prev, setPrev] = React.useState(value);
   if (value !== prev) { setPrev(value); if (parseMeters(text) !== value) setText(nfShort.format(value)); }
@@ -91,7 +91,7 @@ export function RoomWallsPanel({ walls, perimeterM, color, onChange }: { walls: 
   const setOpening = (id: string, patch: Partial<Opening>) => set({ openings: walls.openings.map((o) => (o.id === id ? { ...o, ...patch } : o)) });
   const addOpening = (kind: OpeningKind) => {
     const p = OPENING_PRESETS[kind];
-    set({ openings: [...walls.openings, { id: uid(), kind, w: p.w, h: p.h, count: 1 }] });
+    set({ openings: [...walls.openings, { id: uid(), kind, w: p.w, h: p.h, sill: p.sill, count: 1 }] });
   };
 
   return (
@@ -134,6 +134,7 @@ export function RoomWallsPanel({ walls, perimeterM, color, onChange }: { walls: 
               <li key={o.id} className="rounded-md bg-background px-1.5 py-1 ring-1 ring-border">
                 <div className="flex items-center gap-1">
                   <span className="inline-flex items-center gap-1 text-(length:--fs-11) font-medium">{KIND_ICON[o.kind]} {OPENING_PRESETS[o.kind].label}</span>
+                  {o.at && <span className="rounded bg-muted px-1 text-[10px] text-muted-foreground" title="Σχεδιάστηκε πάνω στο σχέδιο — το πλάτος είναι μετρημένο">στο σχέδιο</span>}
                   <span className="ml-auto font-mono text-[10px] tabular-nums text-muted-foreground">−{nfShort.format(openingArea(o, walls.heightM))} m²</span>
                   <button type="button" aria-label={`Αφαίρεση ${OPENING_PRESETS[o.kind].label.toLowerCase()}`} onClick={() => set({ openings: walls.openings.filter((x) => x.id !== o.id) })} className="inline-flex size-6 shrink-0 cursor-pointer items-center justify-center rounded text-muted-foreground hover:bg-destructive/10 hover:text-destructive">
                     <FiX className="size-3.5" aria-hidden />
@@ -144,6 +145,12 @@ export function RoomWallsPanel({ walls, perimeterM, color, onChange }: { walls: 
                 <span className="text-[10px] text-muted-foreground" aria-hidden>×</span>
                 <MetersInput value={o.h} onValue={(h) => setOpening(o.id, { h })} label={`Ύψος ${OPENING_PRESETS[o.kind].label.toLowerCase()} σε μέτρα`} className="w-12" />
                 <span className="text-[10px] text-muted-foreground">m</span>
+                {o.kind !== 'door' && (
+                  <span className="inline-flex items-center gap-0.5" title="Ύψος ποδιάς από το δάπεδο">
+                    <span className="text-[10px] text-muted-foreground">ποδιά</span>
+                    <MetersInput value={o.sill ?? 0} min={0} onValue={(sill) => setOpening(o.id, { sill })} label={`Ποδιά ${OPENING_PRESETS[o.kind].label.toLowerCase()} σε μέτρα`} className="w-11" />
+                  </span>
+                )}
                 <span className="ml-auto inline-flex items-center rounded-md ring-1 ring-border">
                   <button type="button" aria-label="Λιγότερα" disabled={o.count <= 1} onClick={() => setOpening(o.id, { count: o.count - 1 })} className="inline-flex size-6 cursor-pointer items-center justify-center text-muted-foreground hover:text-foreground disabled:cursor-default disabled:opacity-30">
                     <FiMinus className="size-3" aria-hidden />

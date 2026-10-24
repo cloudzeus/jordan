@@ -59,6 +59,8 @@ export async function saveFloorPlan(o: {
   image: File | null; annotated: File | null;
   /** Το πρωτότυπο αρχείο του χρήστη (φωτογραφία σχεδίου ή PDF) — στέλνεται όταν φορτώθηκε νέο σχέδιο. */
   original?: File | null;
+  /** Εικόνα της προβολής 3D — κρατιέται στα αρχεία ώστε να μη χάνεται το render. */
+  render3d?: File | null;
   user: User;
 }): Promise<{ id: string; created: boolean }> {
   const parsed = planData.safeParse(o.data);
@@ -75,7 +77,7 @@ export async function saveFloorPlan(o: {
   const stamp = new Date().toISOString().slice(0, 10);
   const safe = o.title.replace(/[^\p{L}\p{N}]+/gu, '-').replace(/^-|-$/g, '').slice(0, 60) || 'katopsi';
   const upload = async (f: File | null, suffix: string, notes: string) => {
-    const buf = await pngBuffer(f, suffix === 'sxedio' ? 'εικόνα κάτοψης' : 'εικόνα με τους χώρους');
+    const buf = await pngBuffer(f, suffix === 'sxedio' ? 'εικόνα κάτοψης' : suffix === '3d' ? 'εικόνα 3D' : 'εικόνα με τους χώρους');
     if (!buf) return null;
     const file = await uploadEntityFile({ ...files, buffer: buf, name: `${safe}-${suffix}-${stamp}.png`, subfolder: SUBFOLDER, notes, user: o.user });
     return file.id;
@@ -92,11 +94,15 @@ export async function saveFloorPlan(o: {
     }
   };
   const sheet = roomSheet(d);
-  const [imageFileId, annotatedFileId, sourceFileId] = await Promise.all([
+  const [imageFileId, annotatedFileId, sourceFileId, render3dFileId] = await Promise.all([
     upload(o.image, 'sxedio', `Χαρτογράφηση «${o.title}» — σχέδιο`),
     upload(o.annotated, 'xoroi', `Χαρτογράφηση «${o.title}» — ${d.rooms.length} χώροι`),
     uploadOriginal(o.original),
+    upload(o.render3d ?? null, '3d', `Χαρτογράφηση «${o.title}» — προβολή 3D`),
   ]);
+  // Χωρίς νέο render κρατιέται το προηγούμενο (ο client δεν το ξέρει πάντα).
+  const prevRender = cur ? planData.safeParse(cur.data).data?.render3dFileId ?? null : null;
+  d.render3dFileId = render3dFileId ?? prevRender;
   const fields = {
     title: o.title, source: o.source, data: d as unknown as object,
     floorM2: sheet.floorM2, wallsM2: sheet.wallsM2, roomCount: d.rooms.length,
@@ -108,6 +114,7 @@ export async function saveFloorPlan(o: {
     for (const [old, now] of [[cur.imageFileId, imageFileId], [cur.annotatedFileId, annotatedFileId], [cur.sourceFileId, sourceFileId]] as const) {
       if (old && now && old !== now) await deleteEntityFile(old).catch((e) => console.error('[floorplan] delete old file', e));
     }
+    if (prevRender && render3dFileId && prevRender !== render3dFileId) await deleteEntityFile(prevRender).catch((e) => console.error('[floorplan] delete old 3d', e));
     return { id: cur.id, created: false };
   }
   // Χαρτογράφηση έργου: κρατάμε και τον πελάτη του έργου (εμφανίζεται και στο μενού του πελάτη).

@@ -8,6 +8,8 @@ const pt = z.object({ x: z.number().finite(), y: z.number().finite() });
 const opening = z.object({
   id: z.string().max(64), kind: z.enum(['door', 'window', 'other']),
   w: z.number().finite().min(0).max(100), h: z.number().finite().min(0).max(100), count: z.number().int().min(0).max(1000),
+  sill: z.number().finite().min(0).max(100).optional(),
+  at: z.tuple([pt, pt]).optional(),
 });
 export const roomMaterial = z.discriminatedUnion('type', [
   z.object({ type: z.literal('recipe'), recipeId: z.string().min(1).max(64), label: z.string().max(300) }),
@@ -42,6 +44,10 @@ export const planData = z.object({
   doorCm: z.number().finite().min(0).max(1000).default(100),
   dividers: z.array(z.tuple([pt, pt])).max(2000).default([]),
   drawnWalls: z.array(z.object({ a: pt, b: pt, t: z.number().finite().min(0) })).max(5000).default([]),
+  /** Διαστάσεις «από–έως» που τοποθέτησε ο χρήστης (μόνο ένδειξη — δεν επηρεάζουν εμβαδά). */
+  dims: z.array(z.object({ id: z.string().min(1).max(64), a: pt, b: pt })).max(500).default([]),
+  /** Η τελευταία εικόνα της προβολής 3D (EntityFile, φάκελος «Κατόψεις»). */
+  render3dFileId: z.string().max(64).nullish().transform((v) => v ?? null),
   rooms: z.array(savedRoom).max(300),
 });
 export type PlanData = z.infer<typeof planData>;
@@ -61,7 +67,11 @@ export function scalePlanData(d: PlanData, w: number, h: number): PlanData {
     thick: d.thick == null ? null : Math.max(2, Math.round(d.thick * k)),
     dividers: d.dividers.map(([a, b]) => [p(a), p(b)] as [{ x: number; y: number }, { x: number; y: number }]),
     drawnWalls: d.drawnWalls.map((x) => ({ a: p(x.a), b: p(x.b), t: x.t * k })),
-    rooms: d.rooms.map((r) => ({ ...r, polygon: r.polygon.map(p), areaPx: r.areaPx * k * k, perimeterPx: r.perimeterPx * k })),
+    dims: d.dims.map((x) => ({ ...x, a: p(x.a), b: p(x.b) })),
+    rooms: d.rooms.map((r) => ({
+      ...r, polygon: r.polygon.map(p), areaPx: r.areaPx * k * k, perimeterPx: r.perimeterPx * k,
+      walls: r.walls ? { ...r.walls, openings: r.walls.openings.map((o) => (o.at ? { ...o, at: [p(o.at[0]), p(o.at[1])] as [{ x: number; y: number }, { x: number; y: number }] } : o)) } : r.walls,
+    })),
   };
 }
 
