@@ -3,7 +3,7 @@
 import * as React from 'react';
 import dynamic from 'next/dynamic';
 import { usePathname, useRouter } from 'next/navigation';
-import { FiMoreVertical, FiPackage, FiTool, FiExternalLink, FiRefreshCw, FiCopy, FiMapPin, FiFolder, FiTrello, FiLayers, FiSquare } from 'react-icons/fi';
+import { FiMoreVertical, FiPackage, FiTool, FiExternalLink, FiRefreshCw, FiCopy, FiMapPin, FiFolder, FiTrello, FiLayers, FiSquare, FiMessageSquare, FiClock } from 'react-icons/fi';
 import { toast } from 'sonner';
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
@@ -11,6 +11,7 @@ import {
 import { AddBudgetLineDialog } from './add-budget-line-dialog';
 import { ApplyRecipeDialog } from './apply-recipe-dialog';
 import { ProjectSiteDialog } from './project-site-dialog';
+import { MessageDialog } from '@/components/admin/message-dialog';
 import { emitProjectRefresh } from './project-events';
 import { ExportItem, useFinancialsActions } from './financials-actions';
 
@@ -46,6 +47,7 @@ export function ProjectRowActions({
   const fin = useFinancialsActions(canManage, prjc);
   const [dialog, setDialog] = React.useState<'product' | 'service' | null>(null);
   const [siteOpen, setSiteOpen] = React.useState(false);
+  const [msgOpen, setMsgOpen] = React.useState(false);
   const [recipeOpen, setRecipeOpen] = React.useState(false);
   // Μένει mounted μετά το πρώτο άνοιγμα: κλείσιμο/άνοιγμα δεν χάνει την κάτοψη και τις μετρήσεις.
   const [plan, setPlan] = React.useState<'closed' | 'open' | 'hidden'>('closed');
@@ -73,6 +75,14 @@ export function ProjectRowActions({
           <DropdownMenuLabel className="truncate text-(length:--fs-11) font-semibold text-muted-foreground">
             {code} · {name}
           </DropdownMenuLabel>
+          {/* Επικοινωνία με πελάτη / συνεργεία / συνεργάτες — και το ιστορικό της. */}
+          <DropdownMenuItem className={ITEM} onSelect={() => setMsgOpen(true)}>
+            <FiMessageSquare className="size-3.5" style={{ color: '#0F766E' }} aria-hidden /> Επικοινωνία…
+          </DropdownMenuItem>
+          <DropdownMenuItem className={ITEM} onSelect={() => router.push(`/admin/projects/${prjc}?tab=history`)}>
+            <FiClock className="size-3.5" aria-hidden /> Ιστορικό επικοινωνίας
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
           {canManage && (
             <>
               <DropdownMenuItem className={ITEM} onSelect={() => setDialog('product')}>
@@ -142,6 +152,7 @@ export function ProjectRowActions({
           open={plan === 'open'} onOpenChange={(o) => setPlan(o ? 'open' : 'hidden')}
         />
       )}
+      {msgOpen && <MessageDialog open={msgOpen} onOpenChange={setMsgOpen} prjc={prjc} label={`${code} · ${name}`} />}
       {canManage && siteOpen && (
         <ProjectSiteDialog open={siteOpen} onOpenChange={setSiteOpen} prjc={prjc} projectLabel={`${code} · ${name}`} />
       )}

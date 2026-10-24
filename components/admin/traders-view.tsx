@@ -3,13 +3,14 @@
 import * as React from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { type ColumnDef } from '@tanstack/react-table';
-import { FiRefreshCw, FiGlobe, FiUsers, FiFileText, FiMoreVertical, FiEdit3, FiShield, FiEye, FiFolder, FiFilePlus, FiRepeat } from 'react-icons/fi';
+import { FiRefreshCw, FiGlobe, FiUsers, FiFileText, FiMoreVertical, FiEdit3, FiShield, FiEye, FiFolder, FiFilePlus, FiRepeat, FiMessageSquare, FiClock } from 'react-icons/fi';
 import { CustomerOfferWizard } from '@/components/admin/floorplan/customer-offer-wizard';
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { TraderEditDialog, type TraderDialogMode } from '@/components/admin/trader-edit-dialog';
 import { TraderConvertDialog } from '@/components/admin/trader-convert-dialog';
+import { MessageDialog } from '@/components/admin/message-dialog';
 import { CONVERSION_BY_SODTYPE } from '@/lib/trader-convert';
 import { isValidAfm } from '@/lib/ocr/validate';
 import { TraderExpandPanel, openTraderTab } from '@/components/admin/trader-expand-panel';
@@ -86,6 +87,7 @@ export function TradersView({
   const [offerOpen, setOfferOpen] = React.useState(false);
   /** Καρτέλα για «Μετατροπή σε προμηθευτή/πιστωτή» (νέα καρτέλα του άλλου τύπου). */
   const [converting, setConverting] = React.useState<number | null>(null);
+  const [messaging, setMessaging] = React.useState<{ trdr: number; label: string } | null>(null);
 
   const counts = React.useMemo(() => {
     const m = new Map<number, number>();
@@ -143,6 +145,13 @@ export function TradersView({
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="w-60">
                 <DropdownMenuLabel className="truncate text-(length:--fs-11) font-normal text-muted-foreground">{c.code} · {c.name}</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onSelect={() => setMessaging({ trdr: c.trdr, label: `${c.code} · ${c.name}` })} className="text-(length:--fs-13)">
+                  <FiMessageSquare aria-hidden className="mr-2 size-3.5" /> Επικοινωνία…
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => { openTraderTab(c.trdr, 'history'); row.toggleExpanded(true); }} className="text-(length:--fs-13)">
+                  <FiClock aria-hidden className="mr-2 size-3.5" /> Ιστορικό επικοινωνίας
+                </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onSelect={() => setDialog({ trdr: c.trdr, mode: 'edit' })} className="text-(length:--fs-13)">
                   {editable ? <><FiEdit3 aria-hidden className="mr-2 size-3.5" /> Τροποποίηση</> : <><FiEye aria-hidden className="mr-2 size-3.5" /> Προβολή καρτέλας</>}
@@ -353,6 +362,9 @@ export function TradersView({
       {offerFor && <CustomerOfferWizard key={offerFor.trdr} customer={offerFor} open={offerOpen} onOpenChange={setOfferOpen} />}
       {converting != null && (
         <TraderConvertDialog key={converting} trdr={converting} open onOpenChange={(o) => { if (!o) setConverting(null); }} />
+      )}
+      {messaging && (
+        <MessageDialog open onOpenChange={(o) => { if (!o) setMessaging(null); }} trdr={messaging.trdr} label={messaging.label} />
       )}
     </div>
   );

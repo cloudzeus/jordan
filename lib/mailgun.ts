@@ -69,13 +69,16 @@ export async function allowedRecipients(to: string): Promise<string[]> {
   return list.filter((e) => ok.has(e.toLowerCase()));
 }
 
-export async function sendTransactionalEmail(to: string, subject: string, html: string, opts: { replyTo?: string | null; fromName?: string | null; attachments?: MailAttachment[]; text?: string | null } = {}) {
+export async function sendTransactionalEmail(to: string, subject: string, html: string, opts: { replyTo?: string | null; fromName?: string | null; attachments?: MailAttachment[]; text?: string | null; cc?: string[]; headers?: Record<string, string> } = {}) {
   const allowed = await allowedRecipients(to);
   if (!allowed.length) {
     console.info(`[mail] ΔΕΝ στάλθηκε (πριν το live μόνο σε χρήστες προσωπικού) → ${to}: ${subject}`);
     return { id: null, message: 'blocked-before-live', blocked: true as const };
   }
   if (allowed.length < to.split(',').filter((x) => x.trim()).length) console.info(`[mail] παραλήπτες εκτός προσωπικού αφαιρέθηκαν: ${to} → ${allowed.join(', ')}`);
+  // Η κοινοποίηση περνά από τον ίδιο φραγμό (πριν το live μόνο προσωπικό + MAIL_ALLOW).
+  const cc = opts.cc?.length ? await allowedRecipients(opts.cc.join(',')) : [];
+  if (opts.cc && cc.length < opts.cc.length) console.info(`[mail] κοινοποίηση εκτός προσωπικού αφαιρέθηκε: ${opts.cc.join(', ')} → ${cc.join(', ') || '—'}`);
   const { domain, address } = mailgunConfig();
   return getClient().messages.create(domain, {
     from: opts.fromName ? `${opts.fromName.replace(/[<>"]/g, '').trim()} <${address}>` : address,
@@ -83,7 +86,9 @@ export async function sendTransactionalEmail(to: string, subject: string, html: 
     subject,
     html,
     text: opts.text || htmlToText(html),
+    ...(cc.length ? { cc: cc.join(', ') } : {}),
     ...(opts.replyTo ? { 'h:Reply-To': opts.replyTo } : {}),
+    ...Object.fromEntries(Object.entries(opts.headers ?? {}).map(([k, v]) => [`h:${k}`, v])),
     ...(opts.attachments?.length ? { attachment: opts.attachments.map((a) => ({ filename: a.filename, data: new Blob([a.content as BlobPart], { type: a.contentType }) })) } : {}),
   });
 }

@@ -2,17 +2,17 @@
 
 import * as React from 'react';
 import { useSearchParams } from 'next/navigation';
-import { FiInfo, FiMapPin, FiTrello } from 'react-icons/fi';
+import { FiClock, FiInfo, FiMapPin, FiTrello } from 'react-icons/fi';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
-type Tab = 'overview' | 'tasks' | 'map';
-const tabOf = (v: string | null): Tab => (v === 'tasks' || v === 'map' ? v : 'overview');
+type Tab = 'overview' | 'tasks' | 'map' | 'history';
+const tabOf = (v: string | null): Tab => (v === 'tasks' || v === 'map' || v === 'history' ? v : 'overview');
 
 /**
  * Καρτέλες της σελίδας έργου. Η ενεργή καρτέλα ζει στη διεύθυνση (?tab=tasks) — ένας σύνδεσμος
  * προς αυτήν (π.χ. από τη σύνοψη εργασιών ή από το Kanban όλων των έργων) ανοίγει κατευθείαν το Kanban.
  */
-export function ProjectTabs({ openTasks, overview, tasks, map }: { openTasks: number; overview: React.ReactNode; tasks: React.ReactNode; map: React.ReactNode }) {
+export function ProjectTabs({ openTasks, overview, tasks, map, history, historyCount }: { openTasks: number; overview: React.ReactNode; tasks: React.ReactNode; map: React.ReactNode; history: React.ReactNode; historyCount: number }) {
   const sp = useSearchParams();
   const [tab, setTab] = React.useState<Tab>(() => tabOf(sp.get('tab')));
   // Συγχρονισμός με τη διεύθυνση (adjust-state-while-rendering)
@@ -36,11 +36,16 @@ export function ProjectTabs({ openTasks, overview, tasks, map }: { openTasks: nu
           {openTasks > 0 && <span className="tabular-nums opacity-70">{openTasks}</span>}
         </TabsTrigger>
         <TabsTrigger value="map"><FiMapPin className="size-3.5" aria-hidden /> Τοποθεσία</TabsTrigger>
+        <TabsTrigger value="history">
+          <FiClock className="size-3.5" aria-hidden /> Ιστορικό
+          {historyCount > 0 && <span className="tabular-nums opacity-70">{historyCount}</span>}
+        </TabsTrigger>
       </TabsList>
       <TabsContent value="overview">{overview}</TabsContent>
       <TabsContent value="tasks">{tasks}</TabsContent>
       {/* Ο χάρτης φορτώνει μόνο όταν ανοίξει η καρτέλα (οι ανενεργές δεν αποδίδονται). */}
       <TabsContent value="map">{map}</TabsContent>
+      <TabsContent value="history">{history}</TabsContent>
     </Tabs>
   );
 }

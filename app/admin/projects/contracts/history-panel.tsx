@@ -11,8 +11,10 @@ import { cn } from '@/lib/utils';
 const when = (iso: string) => new Date(iso).toLocaleString('el-GR', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' });
 const FILTERS = [['all', 'Όλα'], ['customer', 'Πελάτης'], ['events', 'Συμβάντα']] as const;
 
-export function HistoryPanel({ entries, title = 'Ιστορικό επικοινωνίας', fileName, showRef = false, initial = 5 }: {
+export function HistoryPanel({ entries, title = 'Ιστορικό επικοινωνίας', fileName, showRef = false, initial = 5, open: startOpen = false }: {
   entries: HistoryEntry[]; title?: string; fileName: string; showRef?: boolean; initial?: number;
+  /** Ανοιχτό από την αρχή (π.χ. σε δική του καρτέλα). */
+  open?: boolean;
 }) {
   const [f, setF] = React.useState<(typeof FILTERS)[number][0]>('all');
   const [more, setMore] = React.useState(false);
@@ -29,7 +31,7 @@ export function HistoryPanel({ entries, title = 'Ιστορικό επικοιν
   return (
     <section aria-labelledby="hist-h" className="rounded-xl border border-border bg-card shadow-xs">
       {/* Accordion: κλειστό — στην κεφαλίδα πλήθος, ανοιχτά αιτήματα και η τελευταία καταγραφή. */}
-      <details className="group">
+      <details className="group" open={startOpen}>
         <summary className="flex cursor-pointer list-none items-center gap-3 px-4 py-2.5 hover:bg-muted/40 [&::-webkit-details-marker]:hidden">
           <FiChevronDown className="size-4 shrink-0 -rotate-90 text-muted-foreground transition-transform group-open:rotate-0" aria-hidden />
           <span className="min-w-0 flex-1">

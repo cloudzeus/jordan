@@ -183,6 +183,12 @@ export function TextAssistLayer() {
   const recording = voice.state !== 'idle';
   busyRef.current = recording || formatting;
 
+  // Σημάδι για τους editors μορφοποιημένου κειμένου (contenteditable): έχουν δικά τους 🎤/✨ στη γραμμή εργαλείων.
+  React.useEffect(() => {
+    document.documentElement.dataset.textAssistLayer = '1';
+    return () => { delete document.documentElement.dataset.textAssistLayer; };
+  }, []);
+
   // Παρακολούθηση focus: ποιο πεδίο έχει τη μπάρα.
   React.useEffect(() => {
     const onIn = (e: FocusEvent) => {

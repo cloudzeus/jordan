@@ -6,7 +6,7 @@
  * κατάσταση λογαριασμού στο lib/statement/email.ts.
  */
 import {
-  bullets, button, none, callout, codeBox, dataTable, facts, paragraph, renderEmail, rich, esc,
+  bullets, button, none, callout, codeBox, dataTable, facts, paragraph, renderEmail, rich, rawHtml, esc, EMAIL_COLORS, SANS,
   type EmailBrand, type RenderedEmail,
 } from '@/lib/email/layout';
 
@@ -290,3 +290,42 @@ export function taskInviteEmail(brand: EmailBrand, kind: TaskMailKind, d: { name
 }
 
 export { eur as formatEurEl };
+
+/** Μήνυμα από τη διαχείριση (επικοινωνία έργου/πελάτη) — ελεύθερο κείμενο με προαιρετικό σύνδεσμο προς την πύλη. */
+/** Inline στυλ για το (ήδη καθαρισμένο) HTML του editor — τα mail clients αγνοούν τα <style>. */
+function emailizeHtml(html: string): string {
+  const C = EMAIL_COLORS;
+  return html
+    .replace(/<p>/g, '<p style="margin:0 0 12px;">')
+    .replace(/<(ul|ol)>/g, '<$1 style="margin:0 0 12px;padding-left:22px;">')
+    .replace(/<li>/g, '<li style="margin:0 0 4px;">')
+    .replace(/<li style="margin:0 0 4px;"><p style="margin:0 0 12px;">([\s\S]*?)<\/p><\/li>/g, '<li style="margin:0 0 4px;">$1</li>')
+    .replace(/<blockquote>/g, `<blockquote style="margin:0 0 12px;padding:2px 0 2px 14px;border-left:3px solid ${C.line};color:${C.muted};">`)
+    .replace(/<h3>/g, `<h3 style="margin:18px 0 8px;font:600 17px/1.35 ${SANS};color:${C.ink};">`)
+    .replace(/<a href=/g, `<a style="color:${C.accent};" href=`);
+}
+
+/**
+ * «Επικοινωνία» από το προσωπικό προς πελάτη/συνεργείο/συνεργάτη — με την ταυτότητα της εταιρείας,
+ * το έργο στην κορυφή, υπογραφή του αποστολέα και τον κωδικό αναφοράς που συνδέει την απάντηση.
+ */
+export function staffMessageEmail(brand: EmailBrand, d: {
+  subject: string; body: string; html?: string | null; context?: string | null; link?: string | null; attachments?: number;
+  greeting?: string | null; sender?: { name: string; email?: string | null } | null; replyCode?: string | null;
+}): RenderedEmail {
+  const C = EMAIL_COLORS;
+  const phone = firstPhone(brand);
+  const sig = d.sender ? rich(`<span style="color:${C.ink};font-weight:600;">${esc(d.sender.name)}</span><br/>${esc(brand.name)}${phone ? ` · ${esc(phone)}` : ''}${d.sender.email ? `<br/><a href="mailto:${esc(d.sender.email)}" style="color:${C.accent};text-decoration:none;">${esc(d.sender.email)}</a>` : ''}`) : none;
+  return renderEmail({
+    brand, subject: d.replyCode ? `${d.subject} [#${d.replyCode}]` : d.subject, preheader: d.body.slice(0, 120),
+    label: 'Μήνυμα', eyebrow: d.context ?? undefined, title: d.subject, greeting: d.greeting ?? null,
+    blocks: [
+      d.html ? rawHtml(emailizeHtml(d.html)) : rich(esc(d.body).replace(/\n/g, '<br/>')),
+      d.attachments ? callout('neutral', `${d.attachments === 1 ? 'Ένα συνημμένο αρχείο' : `${d.attachments} συνημμένα αρχεία`} σε αυτό το μήνυμα.`) : none,
+      d.link ? button(d.link, 'Άνοιγμα στην πύλη', { note: 'Το μήνυμα και όλο το ιστορικό του έργου είναι και στην πύλη πελατών.' }) : none,
+      sig,
+    ],
+    signoff: !d.sender,
+    note: d.replyCode ? `Κωδικός αναφοράς #${d.replyCode} — απαντήστε απευθείας σε αυτό το email, ώστε η απάντησή σας να μπει στο ιστορικό του έργου.` : undefined,
+  });
+}

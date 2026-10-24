@@ -3786,6 +3786,7 @@ model Contract {
   revisions   ContractRevision[]
   tasks       ContractTask[]
   notes       ContractNote[]
+  messages    Message[]
   events      ContractEvent[]
 
   @@index([prjc])
@@ -4183,4 +4184,42 @@ model OcrApproval {
   createdAt   DateTime    @default(now())
 
   @@index([documentId])
+}
+
+// Επικοινωνία από τη διαχείριση με πελάτη, συνεργείο ή συνεργάτη — ανά έργο ή/και πελάτη (και προαιρετικά
+// προσφορά). Κανάλια: email και/ή μήνυμα στην πύλη· ή μόνο καταγραφή (π.χ. τηλεφώνημα). Μπαίνει στο ιστορικό.
+model Message {
+  id                String    @id @default(cuid())
+  prjc              Int?
+  trdr              Int?
+  contractId        String?
+  contract          Contract? @relation(fields: [contractId], references: [id], onDelete: SetNull)
+  /// CUSTOMER · SUPPLIER · PARTNER · INTERNAL
+  audience          String
+  /// SEND (αποστολή) · LOG (καταγραφή επικοινωνίας που έγινε αλλού, π.χ. τηλέφωνο)
+  kind              String    @default("SEND")
+  toName            String?
+  toEmail           String?
+  /// Για συνεργείο/συνεργάτη: ποιο (TRDR προμηθευτή ή Partner.id)
+  partyRef          String?
+  viaEmail          Boolean   @default(false)
+  viaPortal         Boolean   @default(false)
+  /// SENT · BLOCKED (πριν το live) · FAILED · null (χωρίς email)
+  emailStatus       String?
+  subject           String
+  body              String
+  attachmentFileIds String[]  @default([])
+  /// Κοινοποίηση (Cc) — email
+  cc                String[]  @default([])
+  /// Μορφοποιημένο κείμενο (καθαρισμένο HTML)· το `body` κρατά το απλό κείμενο
+  bodyHtml          String?
+  /// Μυστικός κωδικός: στο θέμα «[#ΚΩΔ]», στο Reply-To (reply+κωδ@…) και στο X-DG-Ref — συνδέει μελλοντικές απαντήσεις
+  replyCode         String?   @unique
+  authorId          String?
+  authorName        String?
+  createdAt         DateTime  @default(now())
+
+  @@index([prjc, createdAt])
+  @@index([trdr, createdAt])
+  @@index([contractId])
 }

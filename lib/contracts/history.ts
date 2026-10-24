@@ -5,6 +5,8 @@ import type { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/db';
 import { contractRef } from './core';
 import { buildHistory, type HistoryEntry, type HistoryViewer } from './history-core';
+import { messageRows } from '@/lib/messages';
+import { messageEntries } from '@/lib/messages-core';
 
 type Actor = { kind: 'STAFF' | 'CUSTOMER' | 'SYSTEM'; id?: string | null; name?: string | null };
 
@@ -25,13 +27,18 @@ export async function contractHistory(scope: HistoryScope, viewer: HistoryViewer
   const where: Prisma.ContractWhereInput = 'contractId' in scope ? { id: scope.contractId }
     : 'prjc' in scope ? { prjc: scope.prjc, ...(scope.trdr != null ? { trdr: scope.trdr } : {}) } : { trdr: scope.trdr };
   const contracts = await prisma.contract.findMany({ where, select: { id: true, number: true } });
-  if (!contracts.length) return [];
   const ids = contracts.map((c) => c.id);
-  const [notes, events] = await Promise.all([
-    prisma.contractNote.findMany({ where: { contractId: { in: ids } }, orderBy: { createdAt: 'desc' }, take: opts.limit ?? 500 }),
-    prisma.contractEvent.findMany({ where: { contractId: { in: ids } }, orderBy: { createdAt: 'desc' }, take: opts.limit ?? 500 }),
+  const refs = Object.fromEntries(contracts.map((c) => [c.id, contractRef(c.number)]));
+  // Μηνύματα «Επικοινωνίας» (έργο/πελάτης/προσφορά) — υπάρχουν και χωρίς προσφορά.
+  const msgWhere: Prisma.MessageWhereInput = 'contractId' in scope ? { contractId: scope.contractId }
+    : 'prjc' in scope ? { prjc: scope.prjc, ...(scope.trdr != null ? { trdr: scope.trdr } : {}) } : { trdr: scope.trdr };
+  const [notes, events, msgs] = await Promise.all([
+    ids.length ? prisma.contractNote.findMany({ where: { contractId: { in: ids } }, orderBy: { createdAt: 'desc' }, take: opts.limit ?? 500 }) : [],
+    ids.length ? prisma.contractEvent.findMany({ where: { contractId: { in: ids } }, orderBy: { createdAt: 'desc' }, take: opts.limit ?? 500 }) : [],
+    messageRows(msgWhere, opts.limit ?? 500),
   ]);
-  return buildHistory(
+  const messages = messageEntries(msgs, viewer, { companyName: opts.companyName, refs });
+  return [...buildHistory(
     notes.map((n) => ({
       id: n.id, contractId: n.contractId, kind: n.kind, body: n.body, targetLabel: n.targetLabel, replyToId: n.replyToId, revision: n.revision,
       authorKind: n.authorKind as 'STAFF' | 'CUSTOMER', authorName: n.authorName, shareWith: n.shareWith, resolved: !!n.resolvedAt,
@@ -39,6 +46,6 @@ export async function contractHistory(scope: HistoryScope, viewer: HistoryViewer
     })),
     events.map((e) => ({ ...e, createdAt: e.createdAt.toISOString() })),
     viewer,
-    { refs: Object.fromEntries(contracts.map((c) => [c.id, contractRef(c.number)])), companyName: opts.companyName },
-  ).slice(0, opts.limit ?? 500);
+    { refs, companyName: opts.companyName },
+  ), ...messages].sort((a, b) => (a.at < b.at ? 1 : a.at > b.at ? -1 : a.id < b.id ? 1 : -1)).slice(0, opts.limit ?? 500);
 }

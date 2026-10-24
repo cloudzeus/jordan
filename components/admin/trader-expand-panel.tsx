@@ -5,7 +5,7 @@ import Link from 'next/link';
 import {
   FiInfo, FiBookOpen, FiBriefcase, FiShoppingBag, FiFileText, FiShield, FiGlobe, FiEdit3, FiAlertTriangle,
   FiRefreshCw, FiCheckCircle, FiMapPin, FiPhone, FiMail, FiLink, FiHash, FiArrowDownLeft, FiArrowUpRight, FiUsers,
-  FiMap, FiExternalLink, FiNavigation, FiFolder,
+  FiMap, FiExternalLink, FiNavigation, FiFolder, FiClock, FiMessageSquare,
 } from 'react-icons/fi';
 import { formatCoords, validCoords } from '@/lib/coords';
 import { TraderPointMap } from '@/components/admin/trader-point-map';
@@ -15,6 +15,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { TraderDocsPanel } from '@/components/admin/trader-docs-panel';
 import { CustomerContactsPanel } from '@/components/admin/customer-contacts-panel';
 import { EntityFilesPanel } from '@/components/admin/entity-files/entity-files-panel';
+import { HistoryPanel } from '@/app/admin/projects/contracts/history-panel';
+import { MessageDialog } from '@/components/admin/message-dialog';
+import { traderHistoryAction } from '@/app/admin/messages/actions';
+import type { HistoryEntry } from '@/lib/contracts/history-core';
 import type { TraderRecord } from '@/components/admin/traders-view';
 import type { TraderDialogMode } from '@/components/admin/trader-edit-dialog';
 import type { TraderActivity, TraderDoc } from '@/lib/trader-activity';
@@ -23,7 +27,7 @@ const eur = new Intl.NumberFormat('el-GR', { style: 'currency', currency: 'EUR' 
 const fmtDate = (v: string | null) => (v ? new Date(v).toLocaleDateString('el-GR', { timeZone: 'UTC' }) : '—');
 const soft = (hex: string, pct: number) => `color-mix(in srgb, ${hex} ${pct}%, var(--background))`;
 
-const TONE = { info: '#0369A1', people: '#BE185D', map: '#0F766E', ledger: '#047857', projects: '#7C3AED', orders: '#B45309', scans: '#475569', files: '#B91C1C' } as const;
+const TONE = { info: '#0369A1', people: '#BE185D', map: '#0F766E', ledger: '#047857', projects: '#7C3AED', orders: '#B45309', scans: '#475569', files: '#B91C1C', history: '#0F766E' } as const;
 const DOC_TONE: Record<string, string> = {
   invoice: '#B45309', credit: '#BE123C', payment: '#047857', order: '#0369A1', quote: '#7C3AED', movement: '#475569', other: '#475569',
 };
@@ -477,6 +481,7 @@ export function TraderExpandPanel({ trader, canManage, canFiles = false, onActio
           <TabsTrigger value="orders" className={TRIGGER} style={{ ['--tab-tone' as string]: TONE.orders }}><FiShoppingBag className="hidden size-3.5 sm:inline" aria-hidden /> Παραγγελίες <Badge n={data?.orders.length ?? null} tone={TONE.orders} /></TabsTrigger>
           <TabsTrigger value="scans" className={TRIGGER} style={{ ['--tab-tone' as string]: TONE.scans }}><FiFileText className="hidden size-3.5 sm:inline" aria-hidden /> Σκαναρίσματα <Badge n={trader.docCount ?? 0} tone={TONE.scans} /></TabsTrigger>
           {canFiles && <TabsTrigger value="files" className={TRIGGER} style={{ ['--tab-tone' as string]: TONE.files }}><FiFolder className="hidden size-3.5 sm:inline" aria-hidden /> Αρχεία <Badge n={files} tone={TONE.files} /></TabsTrigger>}
+          <TabsTrigger value="history" className={TRIGGER} style={{ ['--tab-tone' as string]: TONE.history }}><FiClock className="hidden size-3.5 sm:inline" aria-hidden /> Ιστορικό</TabsTrigger>
         </TabsList>
         <button
           type="button" onClick={load} disabled={loading} title={data ? `Από SoftOne · ${new Date(data.fetchedAt).toLocaleTimeString('el-GR')}` : undefined}
@@ -497,6 +502,32 @@ export function TraderExpandPanel({ trader, canManage, canFiles = false, onActio
       <TabsContent value="orders">{remote((d) => <OrdersTab data={d} />)}</TabsContent>
       <TabsContent value="scans"><TraderDocsPanel trdr={trader.trdr} count={trader.docCount ?? 0} /></TabsContent>
       {canFiles && <TabsContent value="files"><EntityFilesPanel scope="traders" id={trader.trdr} onCount={setFiles} /></TabsContent>}
+      <TabsContent value="history"><HistoryTab trdr={trader.trdr} label={`${trader.code} · ${trader.name}`} /></TabsContent>
     </Tabs>
+  );
+}
+
+/** Ιστορικό πελάτη: όλες οι προσφορές/συμβάσεις του και τα μηνύματα «Επικοινωνίας» — με νέα επικοινωνία από εδώ. */
+function HistoryTab({ trdr, label }: { trdr: number; label: string }) {
+  const [entries, setEntries] = React.useState<HistoryEntry[] | null>(null);
+  const [error, setError] = React.useState<string | null>(null);
+  const [msg, setMsg] = React.useState(false);
+  const load = React.useCallback(() => {
+    void traderHistoryAction(trdr).then((r) => { if (r.ok) setEntries(r.data); else setError(r.message); });
+  }, [trdr]);
+  React.useEffect(() => { void Promise.resolve().then(load); }, [load]);
+  return (
+    <div className="space-y-2">
+      <div className="flex justify-end">
+        <button type="button" onClick={() => setMsg(true)} className="inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-md border border-border bg-background px-2.5 text-(length:--fs-12) font-medium hover:bg-muted">
+          <FiMessageSquare className="size-3.5" aria-hidden /> Επικοινωνία…
+        </button>
+      </div>
+      {error ? <p role="alert" className="text-(length:--fs-12) text-destructive">{error}</p>
+        : !entries ? <Skeleton />
+        : entries.length ? <HistoryPanel entries={entries} fileName={`πελάτης-${trdr}`} showRef open initial={20} title="Ιστορικό επικοινωνίας" />
+        : <p className="rounded-md border border-dashed border-border px-3 py-6 text-center text-(length:--fs-12) text-muted-foreground">Καμία καταγραφή ακόμη. Εδώ μαζεύονται μηνύματα, τηλεφωνήματα, προσφορές και αποδοχές του πελάτη.</p>}
+      {msg && <MessageDialog open onOpenChange={(o) => { setMsg(o); if (!o) load(); }} trdr={trdr} label={label} />}
+    </div>
   );
 }

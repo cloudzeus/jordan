@@ -126,6 +126,16 @@ export const EMAIL_CATALOG: CatalogEntry[] = [
     id: 'task-invite', group: 'projects', title: 'Εργασία έργου (στον υπάλληλο)', audience: 'staff', trigger: 'Νέα/αλλαγή/αφαίρεση εργασίας με εμπλεκόμενο υπάλληλο.', attachments: ['.ics ημερολογίου'],
     render: (b) => T.taskInviteEmail(b, 'created', { name: 'Τοποθέτηση δαπέδου ισογείου', project: 'ΕΡΓ-031 · Κατοικία Βούλα', when, duration: '3 ημέρες', description: 'Έλεγχος υγρασίας πριν την έναρξη.' }),
   },
+  {
+    id: 'project-message', group: 'projects', title: 'Επικοινωνία έργου (μήνυμα του προσωπικού)', audience: 'customer',
+    trigger: 'Έργο ή πελάτης → ⋮ → Επικοινωνία… → Αποστολή με email (και κοινοποίηση).', attachments: ['Ό,τι επισυνάψει ο αποστολέας'],
+    render: (b) => T.staffMessageEmail(b, {
+      subject: 'Παράδοση υλικών την Τρίτη', context: 'ΕΡΓ-031 · Κατοικία Βούλα', replyCode: 'K7F3Q9XA', attachments: 1, link: `${APP}/dashboard/customer/projects/31`,
+      body: 'Καλησπέρα σας, τα υλικά για το μπάνιο φτάνουν την Τρίτη το πρωί.',
+      html: '<p>Καλησπέρα σας,</p><p>τα υλικά για το μπάνιο φτάνουν <strong>την Τρίτη στις 09:00</strong>. Χρειαζόμαστε:</p><ul><li><p>ελεύθερη πρόσβαση στο ισόγειο</p></li><li><p>ρεύμα στον χώρο</p></li></ul><p>Επισυνάπτουμε το δελτίο αποστολής.</p>',
+      sender: { name: 'Στέλλα Ιωάννου', email: 'stella@atelier-dm.gr' },
+    }),
+  },
 ];
 
 export const catalogEntry = (id: string) => EMAIL_CATALOG.find((e) => e.id === id) ?? null;

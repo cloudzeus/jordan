@@ -111,7 +111,13 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
         {p.remarks && <p className="mt-2 whitespace-pre-wrap border-t border-border pt-2 text-(length:--fs-12) text-muted-foreground">{p.remarks}</p>}
       </section>
 
-      <ProjectTabs openTasks={work.tasks.length - counts.DONE} map={site ? (
+      <ProjectTabs openTasks={work.tasks.length - counts.DONE} historyCount={history.length} history={history.length ? (
+        <HistoryPanel entries={history} fileName={`${p.code}`} showRef open title="Ιστορικό επικοινωνίας με τον πελάτη" initial={20} />
+      ) : (
+        <div className="rounded-xl border border-dashed border-border px-4 py-10 text-center text-(length:--fs-13) text-muted-foreground">
+          Καμία καταγραφή ακόμη. Εδώ μαζεύονται μηνύματα, ερωτήσεις, εκδόσεις και αποδοχές όλων των προσφορών και συμβάσεων του έργου.
+        </div>
+      )} map={site ? (
         <section aria-label="Τοποθεσία έργου" className="overflow-hidden rounded-xl border border-border bg-card shadow-xs">
           <TraderPointMap lat={site.lat} lng={site.lng} label={p.name} className="h-[60dvh] min-h-80 w-full" />
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-border px-4 py-2 text-(length:--fs-12)">
@@ -161,7 +167,6 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
         </AccordionSection>
       )}
 
-      {history.length > 0 && <div className="mt-3"><HistoryPanel entries={history} fileName={`${p.code}`} showRef title="Ιστορικό επικοινωνίας με τον πελάτη" /></div>}
 
       <AccordionSection id="activity" className="mt-3" title="Κινήσεις στο SoftOne" icon={<FiRepeat />}
         summary="Παραγγελίες, δελτία, τιμολόγια και εισπράξεις του έργου — ανοίγει για τη λίστα">
