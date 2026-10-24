@@ -134,7 +134,7 @@ function ToolTip({ tool, side = 'right', children }: { tool: (typeof TOOLS)[numb
       <TooltipContent side={side} sideOffset={8} className="block max-w-72 px-3 py-2 text-left">
         <span className="flex items-center justify-between gap-3 text-(length:--fs-12) font-semibold">
           {tool.label}
-          <kbd className="rounded border border-background/30 px-1.5 font-mono text-[10px] font-medium opacity-80">{tool.kbd}</kbd>
+          <kbd className="rounded border border-background/30 px-1.5 font-mono text-(length:--fs-10) font-medium opacity-80">{tool.kbd}</kbd>
         </span>
         <span className="mt-1 block text-(length:--fs-12) leading-snug opacity-90">{tool.help}</span>
       </TooltipContent>
@@ -166,7 +166,7 @@ function Step({ n, title, done, active, raised, children }: { n: number; title: 
     >
       <header className="mb-2 flex items-center gap-2">
         <span
-          className="inline-flex size-6 shrink-0 items-center justify-center rounded-full font-mono text-[11px] font-bold"
+          className="inline-flex size-6 shrink-0 items-center justify-center rounded-full font-mono text-(length:--fs-11) font-bold"
           style={done ? { background: '#10B981', color: '#fff' } : active ? { background: 'var(--primary)', color: 'var(--primary-foreground)' } : { background: 'var(--muted)', color: 'var(--muted-foreground)' }}
         >
           {done ? <FiCheck className="size-3.5" aria-hidden /> : n}
@@ -186,7 +186,7 @@ function Range({ label, value, min, max, step = 1, display, onChange, disabled }
     <div className={disabled ? 'opacity-50' : undefined}>
       <div className="mb-1 flex items-baseline justify-between gap-2">
         <label htmlFor={id} className="text-muted-foreground">{label}</label>
-        <span className="font-mono text-[11px] tabular-nums text-foreground">{display}</span>
+        <span className="font-mono text-(length:--fs-11) tabular-nums text-foreground">{display}</span>
       </div>
       <input
         id={id} type="range" min={min} max={max} step={step} value={value} disabled={disabled}
@@ -895,7 +895,7 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
     <TooltipProvider delayDuration={250}>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="flex h-[calc(100dvh-1rem)] w-full max-w-[calc(100%-1rem)] flex-col gap-0 overflow-hidden p-0 sm:h-[min(92dvh,920px)] sm:max-w-[min(1440px,96vw)]"
+        className="flex h-[calc(100dvh-1rem)] w-full max-w-[calc(100%-1rem)] flex-col gap-0 overflow-hidden p-0 sm:h-[min(92dvh,57.5rem)] sm:max-w-[min(90rem,96vw)]"
         onPointerDownOutside={(e) => e.preventDefault()}
         onEscapeKeyDown={(e) => { if (draft.length) e.preventDefault(); }}
       >
@@ -944,7 +944,7 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
                 <ol className="mt-2 grid w-full grid-cols-1 gap-2 text-left text-(length:--fs-12) text-slate-300 sm:grid-cols-3">
                   {[['1', 'Τοίχοι', 'Εντοπίζονται αυτόματα'], ['2', 'Κλίμακα', 'Μια γνωστή απόσταση'], ['3', 'Μέτρηση', 'Κλικ στον χώρο → m²']].map(([n, t, d]) => (
                     <li key={n} className="rounded-lg border border-slate-700/70 bg-slate-900/60 px-3 py-2">
-                      <span className="font-mono text-[11px] text-cyan-300">{n.padStart(2, '0')}</span>
+                      <span className="font-mono text-(length:--fs-11) text-cyan-300">{n.padStart(2, '0')}</span>
                       <span className="ml-2 font-semibold text-slate-100">{t}</span>
                       <span className="block text-slate-400">{d}</span>
                     </li>
@@ -981,7 +981,7 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
             </div>
           </div>
         ) : (
-          <div className="grid min-h-0 flex-1 grid-cols-1 grid-rows-[minmax(0,1fr)_auto] md:grid-cols-[320px_minmax(0,1fr)] md:grid-rows-1">
+          <div className="grid min-h-0 flex-1 grid-cols-1 grid-rows-[minmax(0,1fr)_auto] md:grid-cols-[20rem_minmax(0,1fr)] md:grid-rows-1">
             {/* ── Πάνελ βημάτων ── */}
             <div ref={railRef} className="order-2 max-h-[42dvh] space-y-3 overflow-y-auto border-t border-border bg-muted/30 p-3 md:order-1 md:max-h-none md:border-r md:border-t-0">
               {canOffer && plan.pxPerM == null && (
@@ -1132,7 +1132,7 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
                         return (
                           <li key={p.id} className={cn('rounded-md p-1.5', open && 'bg-muted/60')}>
                             <div className="flex items-center gap-2">
-                              <button type="button" onClick={() => setPinSel(open ? null : p.id)} className="inline-flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-full bg-rose-600 font-mono text-[11px] font-bold text-white" aria-label={`Σημείωση ${i + 1}`}>{i + 1}</button>
+                              <button type="button" onClick={() => setPinSel(open ? null : p.id)} className="inline-flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-full bg-rose-600 font-mono text-(length:--fs-11) font-bold text-white" aria-label={`Σημείωση ${i + 1}`}>{i + 1}</button>
                               <button type="button" onClick={() => setPinSel(open ? null : p.id)} className="min-w-0 flex-1 cursor-pointer truncate text-left text-(length:--fs-12)">{p.text || <span className="text-muted-foreground">Χωρίς κείμενο</span>}</button>
                               {p.photoFileIds.length > 0 && <span className="inline-flex items-center gap-0.5 text-(length:--fs-11) text-muted-foreground"><FiCamera className="size-3" aria-hidden />{p.photoFileIds.length}</span>}
                               <button type="button" aria-label={`Διαγραφή σημείωσης ${i + 1}`} onClick={() => { setPins((ps) => ps.filter((x) => x.id !== p.id)); if (open) setPinSel(null); }} className="inline-flex size-6 cursor-pointer items-center justify-center rounded text-muted-foreground hover:bg-destructive/10 hover:text-destructive"><FiTrash2 className="size-3.5" aria-hidden /></button>
@@ -1244,9 +1244,9 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
                             {canOffer && <span className="block px-1"><MaterialChip material={r.material} /></span>}
                           </span>
                           <span className="shrink-0 text-right font-mono text-(length:--fs-12) font-semibold tabular-nums">
-                            {a == null ? '—' : nf.format(a)}<span className="ml-0.5 text-[10px] font-normal text-muted-foreground">m²</span>
-                            {mPerPx && <span className="block text-[10px] font-normal text-muted-foreground">Π {nf.format(r.perimeterPx * mPerPx)} m{r.approx ? '' : r.manual ? ' · χειρ.' : ''}</span>}
-                            {r.approx && <span className="block text-[10px] font-semibold" style={{ color: '#B45309' }} title="Ορθογώνιο από την αναγνώριση AI — έλεγξε/διόρθωσε με «Πολύγωνο»">κατά προσέγγιση</span>}
+                            {a == null ? '—' : nf.format(a)}<span className="ml-0.5 text-(length:--fs-10) font-normal text-muted-foreground">m²</span>
+                            {mPerPx && <span className="block text-(length:--fs-10) font-normal text-muted-foreground">Π {nf.format(r.perimeterPx * mPerPx)} m{r.approx ? '' : r.manual ? ' · χειρ.' : ''}</span>}
+                            {r.approx && <span className="block text-(length:--fs-10) font-semibold" style={{ color: '#B45309' }} title="Ορθογώνιο από την αναγνώριση AI — έλεγξε/διόρθωσε με «Πολύγωνο»">κατά προσέγγιση</span>}
                           </span>
                           <button
                             type="button" aria-label={`Διαγραφή ${r.name}`}
@@ -1262,7 +1262,7 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
                               <RoomWallsPanel walls={r.walls} perimeterM={mPerPx ? r.perimeterPx * mPerPx : null} color={r.color} onChange={(wl) => updateWalls(r.id, wl)} />
                               <button
                                 type="button" onClick={(e) => { e.stopPropagation(); updateWalls(r.id, { ...r.walls!, on: false }); }}
-                                className="mt-1 cursor-pointer text-[10px] text-muted-foreground underline-offset-2 hover:text-destructive hover:underline"
+                                className="mt-1 cursor-pointer text-(length:--fs-10) text-muted-foreground underline-offset-2 hover:text-destructive hover:underline"
                               >
                                 Χωρίς πλακάκι στους τοίχους
                               </button>
@@ -1317,9 +1317,9 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
                   <span className="text-(length:--fs-11) font-medium uppercase tracking-wider text-slate-400">Σύνολο</span>
                   <span className="text-(length:--fs-11) text-slate-400">{rooms.length} χώρ{rooms.length === 1 ? 'ος' : 'οι'}</span>
                 </div>
-                <p className="mt-1 font-mono text-[28px] font-semibold leading-none tabular-nums" style={{ color: '#22D3EE' }}>
-                  <span ref={totalRef}>0,00</span><span className="ml-1 text-[14px] text-slate-400">m²</span>
-                  {wallRooms > 0 && <span className="ml-2 align-middle font-sans text-[10px] font-medium uppercase tracking-wider text-slate-400">δάπεδο</span>}
+                <p className="mt-1 font-mono text-(length:--fs-28) font-semibold leading-none tabular-nums" style={{ color: '#22D3EE' }}>
+                  <span ref={totalRef}>0,00</span><span className="ml-1 text-(length:--fs-14) text-slate-400">m²</span>
+                  {wallRooms > 0 && <span className="ml-2 align-middle font-sans text-(length:--fs-10) font-medium uppercase tracking-wider text-slate-400">δάπεδο</span>}
                 </p>
                 {wallRooms > 0 && (
                   <dl className="mt-2 space-y-0.5 border-t border-white/10 pt-2 font-mono text-(length:--fs-12) tabular-nums">
@@ -1413,7 +1413,7 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
                         key={m} type="button" role="radio" aria-checked={on} disabled={m === '3D' && !mPerPx}
                         title={m === '3D' ? (mPerPx ? 'Προβολή 3D: τοίχοι, ζώνη πλακιδίων και ανοίγματα' : 'Όρισε πρώτα κλίμακα για 3D') : 'Σχέδιο 2D με τα εργαλεία'}
                         onClick={() => { setView3d(m === '3D'); setDraft([]); }}
-                        className="h-6 cursor-pointer rounded px-2 font-mono text-[11px] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-40"
+                        className="h-6 cursor-pointer rounded px-2 font-mono text-(length:--fs-11) font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-40"
                         style={on ? { background: '#22D3EE', color: '#0B1220' } : undefined}
                       >
                         {m}
@@ -1422,7 +1422,7 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
                   })}
                 </div>
                 {view3d && (
-                  <button type="button" onClick={() => void save3d()} disabled={planSaving || !rooms.length} title="Αποθήκευση της εικόνας 3D μαζί με τη χαρτογράφηση" aria-label="Αποθήκευση εικόνας 3D" className="inline-flex h-7 cursor-pointer items-center gap-1 rounded-md px-2 text-[11px] font-medium hover:bg-slate-800 disabled:opacity-40 [&_svg]:size-3.5">
+                  <button type="button" onClick={() => void save3d()} disabled={planSaving || !rooms.length} title="Αποθήκευση της εικόνας 3D μαζί με τη χαρτογράφηση" aria-label="Αποθήκευση εικόνας 3D" className="inline-flex h-7 cursor-pointer items-center gap-1 rounded-md px-2 text-(length:--fs-11) font-medium hover:bg-slate-800 disabled:opacity-40 [&_svg]:size-3.5">
                     {planSaving ? <FiLoader className="animate-spin" aria-hidden /> : <FiCamera aria-hidden />} Αποθήκευση 3D
                   </button>
                 )}
@@ -1435,14 +1435,14 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
                     <p className="mb-2 text-(length:--fs-11) text-muted-foreground">Πλήκτρο σε παρένθεση · Esc ακυρώνει ό,τι σχεδιάζεις · Enter/διπλό κλικ τελειώνει · ⌘/Ctrl+Z αναίρεση</p>
                     {TOOL_GROUPS.map((g) => (
                       <div key={g} className="mb-2">
-                        <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{g}</p>
+                        <p className="mb-1 text-(length:--fs-10) font-semibold uppercase tracking-wider text-muted-foreground">{g}</p>
                         <ul className="space-y-1.5">
                           {TOOLS.filter((t) => t.group === g).map((t) => (
                             <li key={t.key}>
                               <button type="button" onClick={() => { setView3d(false); changeTool(t.key); }} className="flex w-full cursor-pointer items-start gap-2 rounded-md p-1 text-left hover:bg-muted [&_svg]:size-4">
                                 <span className="mt-0.5 shrink-0 text-muted-foreground">{t.icon}</span>
                                 <span className="min-w-0">
-                                  <span className="text-(length:--fs-12) font-semibold">{t.label} <kbd className="ml-1 rounded border border-border px-1 font-mono text-[10px] font-normal">{t.kbd}</kbd></span>
+                                  <span className="text-(length:--fs-12) font-semibold">{t.label} <kbd className="ml-1 rounded border border-border px-1 font-mono text-(length:--fs-10) font-normal">{t.kbd}</kbd></span>
                                   <span className="block text-(length:--fs-11) leading-snug text-muted-foreground">{t.help}</span>
                                 </span>
                               </button>
@@ -1466,7 +1466,7 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
 
               {/* Σελίδες PDF */}
               {plan.pages > 1 && file && (
-                <div className="absolute bottom-14 right-3 flex items-center gap-1 rounded-lg border border-slate-700/80 bg-slate-900/85 px-1 py-0.5 text-[11px] text-slate-200 backdrop-blur-sm">
+                <div className="absolute bottom-14 right-3 flex items-center gap-1 rounded-lg border border-slate-700/80 bg-slate-900/85 px-1 py-0.5 text-(length:--fs-11) text-slate-200 backdrop-blur-sm">
                   <button type="button" aria-label="Προηγούμενη σελίδα" disabled={plan.page <= 1 || loading} onClick={() => void load(file, plan.page - 1, true)} className="inline-flex size-6 cursor-pointer items-center justify-center rounded hover:bg-slate-800 disabled:opacity-40"><FiChevronLeft /></button>
                   <span className="font-mono tabular-nums">σελ. {plan.page}/{plan.pages}</span>
                   <button type="button" aria-label="Επόμενη σελίδα" disabled={plan.page >= plan.pages || loading} onClick={() => void load(file, plan.page + 1, true)} className="inline-flex size-6 cursor-pointer items-center justify-center rounded hover:bg-slate-800 disabled:opacity-40"><FiChevronRight /></button>
@@ -1479,7 +1479,7 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
                   {(analyzing || loading) && <FiLoader className="size-3.5 shrink-0 animate-spin text-cyan-300" aria-hidden />}
                   <span className="shrink-0 font-semibold text-cyan-300">{activeTool.label}</span>
                   <span className="truncate">{tool === 'room' && !calib ? 'Όρισε πρώτα την κλίμακα (βήμα 2) για εμβαδά σε m².' : activeTool.hint}</span>
-                  {draft.length > 0 && <kbd className="hidden shrink-0 rounded border border-slate-600 px-1 font-mono text-[10px] text-slate-400 sm:inline">Esc</kbd>}
+                  {draft.length > 0 && <kbd className="hidden shrink-0 rounded border border-slate-600 px-1 font-mono text-(length:--fs-10) text-slate-400 sm:inline">Esc</kbd>}
                 </div>
               </div>
               {dz.isDragActive && (

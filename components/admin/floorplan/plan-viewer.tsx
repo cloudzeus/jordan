@@ -537,14 +537,14 @@ export function PlanViewer(props: PlanViewerProps) {
             className="absolute left-0 top-0 whitespace-nowrap rounded-md border px-2 py-1 text-center shadow-lg backdrop-blur-xs"
             style={{ borderColor: r.color, background: 'rgba(11,18,32,0.82)', color: '#F8FAFC', outline: r.id === selectedId ? '2px solid #fff' : undefined }}
           >
-            <div className="text-[11px] font-medium leading-tight opacity-80">{r.label}</div>
-            <div className="font-mono text-[13px] font-semibold leading-tight tabular-nums">{r.sub}</div>
+            <div className="text-(length:--fs-11) font-medium leading-tight opacity-80">{r.label}</div>
+            <div className="font-mono text-(length:--fs-13) font-semibold leading-tight tabular-nums">{r.sub}</div>
           </div>
         ))}
         {(pins ?? []).map((p) => (
           <div
             key={p.id} data-x={p.x} data-y={p.y}
-            className="absolute left-0 top-0 inline-flex size-7 items-center justify-center rounded-full border-2 font-mono text-[12px] font-bold shadow-lg"
+            className="absolute left-0 top-0 inline-flex size-7 items-center justify-center rounded-full border-2 font-mono text-(length:--fs-12) font-bold shadow-lg"
             style={{ background: p.selected ? '#F43F5E' : '#E11D48', borderColor: p.selected ? '#FFFFFF' : '#FECDD3', color: '#FFFFFF' }}
             title={p.hasPhoto ? 'Σημείωση με φωτογραφία' : 'Σημείωση'}
           >
@@ -554,7 +554,7 @@ export function PlanViewer(props: PlanViewerProps) {
         {(dimensions ?? []).map((d) => (
           <div
             key={d.id} data-x={(d.a.x + d.b.x) / 2} data-y={(d.a.y + d.b.y) / 2}
-            className="absolute left-0 top-0 whitespace-nowrap rounded px-1.5 py-0.5 font-mono text-[11px] font-semibold tabular-nums shadow-sm"
+            className="absolute left-0 top-0 whitespace-nowrap rounded px-1.5 py-0.5 font-mono text-(length:--fs-11) font-semibold tabular-nums shadow-sm"
             style={{ background: DIM_COLOR, color: '#0B1220' }}
           >
             {formatLength(Math.hypot(d.b.x - d.a.x, d.b.y - d.a.y))}
@@ -563,7 +563,7 @@ export function PlanViewer(props: PlanViewerProps) {
       </div>
       <div
         ref={tipEl}
-        className="pointer-events-none absolute left-0 top-0 rounded bg-amber-400 px-1.5 py-0.5 font-mono text-[11px] font-semibold text-slate-900 shadow-sm transition-opacity"
+        className="pointer-events-none absolute left-0 top-0 rounded bg-amber-400 px-1.5 py-0.5 font-mono text-(length:--fs-11) font-semibold text-slate-900 shadow-sm transition-opacity"
         style={{ opacity: 0 }}
         aria-hidden
       />

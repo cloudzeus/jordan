@@ -218,6 +218,32 @@ export function contractAcceptedStaffEmail(brand: EmailBrand, d: {
   });
 }
 
+// ── Αίτημα προσφοράς από την πύλη ─────────────────────────────────────────────────────────────
+
+export function offerRequestStaffEmail(brand: EmailBrand, d: {
+  ref: string; title: string; who: string; by: string; description: string; site?: string | null; wanted?: string | null; photos: number; link?: string | null;
+}): RenderedEmail {
+  return renderEmail({
+    brand, internal: true, subject: `Νέο αίτημα προσφοράς ${d.ref} — ${d.who}`, label: 'B2B πύλη', band: { tone: 'accent', text: 'Ο πελάτης ζήτησε προσφορά από την πύλη' },
+    eyebrow: d.ref, title: d.title, intro: 'Δημιουργήθηκε πρόχειρη προσφορά με την περιγραφή του πελάτη. Συμπληρώστε τη και στείλτε την.',
+    blocks: [
+      facts([['Πελάτης', d.who], ['Από', d.by], ['Χώρος', d.site], ['Επιθυμητή έναρξη', d.wanted], ['Φωτογραφίες', d.photos ? String(d.photos) : null]]),
+      rich(esc(d.description).replace(/\n/g, '<br/>')),
+      d.link ? button(d.link, 'Άνοιγμα της προσφοράς') : none,
+    ],
+  });
+}
+
+export function offerRequestCustomerEmail(brand: EmailBrand, d: { ref: string; title: string; link?: string | null }): RenderedEmail {
+  return renderEmail({
+    brand, subject: `Λάβαμε το αίτημά σας για προσφορά · ${d.ref}`, preheader: 'Θα σας στείλουμε την προσφορά στην πύλη σας.',
+    label: 'Αίτημα προσφοράς', eyebrow: d.ref, title: d.title,
+    intro: 'Σας ευχαριστούμε. Λάβαμε το αίτημά σας και ετοιμάζουμε την προσφορά. Θα σας ειδοποιήσουμε μόλις είναι έτοιμη — θα τη δείτε και στην πύλη σας, όπου μπορείτε να μας κάνετε ερωτήσεις ή να ζητήσετε αλλαγές.',
+    blocks: [d.link ? button(d.link, 'Τα αιτήματά μου') : none],
+    signoff: true,
+  });
+}
+
 // ── Newsletter ───────────────────────────────────────────────────────────────────────────────
 
 export function newsletterConfirmEmail(brand: EmailBrand, d: { link: string }): RenderedEmail {

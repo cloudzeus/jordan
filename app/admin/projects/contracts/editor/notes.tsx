@@ -263,7 +263,7 @@ export function NoteButton({ target, className }: { target: NoteTarget; classNam
         <button type="button" aria-label={`Σημειώσεις: ${target.label}${list.length ? ` (${list.length})` : ''}`} title="Σημειώσεις & ειδικές οδηγίες"
           className={cn('relative inline-flex size-9 shrink-0 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring', list.length > 0 && (hot ? 'text-orange-700' : 'text-primary'), className)}>
           <FiMessageSquare className="size-4" aria-hidden />
-          {list.length > 0 && <span className={cn('absolute right-0.5 top-0.5 inline-flex min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-semibold leading-4 text-white', hot ? 'bg-orange-600' : 'bg-primary')}>{list.length}</span>}
+          {list.length > 0 && <span className={cn('absolute right-0.5 top-0.5 inline-flex min-w-4 items-center justify-center rounded-full px-1 text-(length:--fs-10) font-semibold leading-4 text-white', hot ? 'bg-orange-600' : 'bg-primary')}>{list.length}</span>}
         </button>
       </PopoverTrigger>
       <PopoverContent align="end" className="max-h-[70dvh] w-[min(24rem,92vw)] overflow-y-auto p-3">

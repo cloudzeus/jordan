@@ -12,6 +12,8 @@ import { ActionCard, Figure, Label, Pill, SectionHead } from '@/components/site/
 import { DimLine, Grid } from '@/components/site/blueprint';
 import { PortalShell } from './portal-shell';
 import { OfferCard } from './offer-card';
+import { customerGlance } from '@/lib/portal-glance';
+import { CustomerGlanceSection } from './customer/_ui/glance';
 
 const eur = (n: number) => n.toLocaleString('el-GR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 });
 const day = (iso: string | null) => (iso ? new Date(`${iso.slice(0, 10)}T00:00:00Z`).toLocaleDateString('el-GR', { day: 'numeric', month: 'short', timeZone: 'UTC' }) : '');
@@ -49,7 +51,7 @@ function elapsed(from: string | null, to: string | null, done: boolean) {
 export async function Portal({ user }: { user: NonNullable<UserWithRole> }) {
   const customer = user.role.key === 'CUSTOMER' && user.customerTrdr != null;
   const trdr = user.customerTrdr ?? 0;
-  const [data, c, projects, docs, requests, contracts, appts] = await Promise.all([
+  const [data, c, projects, docs, requests, contracts, appts, glance] = await Promise.all([
     portalData(user),
     siteCompany(),
     customer ? customerProjects(trdr) : Promise.resolve([]),
@@ -57,6 +59,7 @@ export async function Portal({ user }: { user: NonNullable<UserWithRole> }) {
     customer ? customerOrderRequests(trdr) : Promise.resolve([]),
     customer ? customerContracts(trdr) : Promise.resolve([]),
     customer ? customerAppointments(trdr) : Promise.resolve([]),
+    customer ? customerGlance(trdr) : Promise.resolve(null),
   ]);
   const toAnswer = contracts.filter((k) => k.status === 'SENT');
   const nextPay = contracts
@@ -104,6 +107,9 @@ export async function Portal({ user }: { user: NonNullable<UserWithRole> }) {
           </div>
         </div>
       </section>
+
+      {/* ═══ Πελάτης: με μια ματιά (τι χρειάζεται από εσάς, έργα, πληρωμές, εργαλεία) ═══ */}
+      {glance && <CustomerGlanceSection g={glance} />}
 
       {/* ═══ Ζωντανά container ═══ */}
       <section className="mx-auto w-full max-w-[1440px] px-5 py-16 sm:px-8 lg:px-12 lg:py-20" aria-labelledby="live">

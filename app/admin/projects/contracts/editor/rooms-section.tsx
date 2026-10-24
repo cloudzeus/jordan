@@ -203,7 +203,7 @@ export function RoomsSection({
               const done = pinIsTask?.(p.id) ?? false;
               return (
                 <li key={p.id} className="flex flex-wrap items-center gap-2 px-3 py-2 text-(length:--fs-12)">
-                  <span className="inline-flex size-6 shrink-0 items-center justify-center rounded-full bg-rose-600 font-mono text-[11px] font-bold text-white" aria-hidden>{i + 1}</span>
+                  <span className="inline-flex size-6 shrink-0 items-center justify-center rounded-full bg-rose-600 font-mono text-(length:--fs-11) font-bold text-white" aria-hidden>{i + 1}</span>
                   <span className="min-w-0 flex-1">
                     <span className="block truncate">{p.text}</span>
                     <span className="text-(length:--fs-11) text-muted-foreground">{p.roomName ?? 'Εκτός χώρου'}{p.photoFileIds.length ? ` · ${p.photoFileIds.length} φωτογραφ${p.photoFileIds.length === 1 ? 'ία' : 'ίες'}` : ''}</span>

@@ -9,7 +9,7 @@ import { Container } from '@/components/site/ui';
 import { SiteMotion } from '@/components/site/motion';
 import { cn } from '@/lib/utils';
 
-export type PortalSection = 'home' | 'offers' | 'projects' | 'contracts' | 'orders' | 'new-order' | 'assignments' | 'payments' | 'rfps';
+export type PortalSection = 'home' | 'offers' | 'projects' | 'contracts' | 'orders' | 'new-order' | 'assignments' | 'payments' | 'rfps' | 'requests';
 
 const isCustomer = (u: NonNullable<UserWithRole>) => u.role.key === 'CUSTOMER' && u.customerTrdr != null;
 const isCrew = (u: NonNullable<UserWithRole>) => u.role.key === 'SUPPLIER';
@@ -32,6 +32,8 @@ export function portalNav(user: NonNullable<UserWithRole>) {
       home, offers,
       { key: 'projects' as const, href: '/dashboard/customer/projects', label: 'Έργα' },
       { key: 'contracts' as const, href: '/dashboard/customer/contracts', label: 'Προσφορές & συμβάσεις' },
+      { key: 'requests' as const, href: '/dashboard/customer/requests', label: 'Αιτήματα προσφοράς' },
+      { key: 'payments' as const, href: '/dashboard/customer/payments', label: 'Πληρωμές' },
       { key: 'orders' as const, href: '/dashboard/customer/orders', label: 'Παραγγελίες' },
     ];
   }

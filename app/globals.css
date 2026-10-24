@@ -446,8 +446,10 @@ body {
     --fs-14: clamp(0.875rem, 0.96196rem - 0.1087vw, 0.9375rem);
     --fs-15: clamp(0.9375rem, 1.02446rem - 0.1087vw, 1rem);
     --fs-16: 1rem;
+    --fs-17: 1.0625rem;
     --fs-18: 1.125rem;
     --fs-20: 1.25rem;
+    --fs-22: clamp(1.0725rem, 0.95413rem + 0.52609vw, 1.375rem);
     --fs-28: clamp(1.365rem, 1.21435rem + 0.66957vw, 1.75rem);
     --fs-24: clamp(1.17rem, 1.04087rem + 0.57391vw, 1.5rem);
     --fs-30: clamp(1.4625rem, 1.30109rem + 0.71739vw, 1.875rem);

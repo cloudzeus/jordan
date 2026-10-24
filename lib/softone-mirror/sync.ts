@@ -498,7 +498,8 @@ async function tradersSync(tenantKey: string, full: boolean): Promise<number> {
   const visible = rows.filter((r) => !isHiddenTrader(r.name));
   let deleted = 0;
   if (!filter) {
-    const local = (await prisma.softoneTrader.findMany({ select: { trdr: true } })).map((t) => ({ id: t.trdr, upd: null }));
+    // Αρνητικά TRDR = demo εγγραφές μόνο στη βάση μας (δεν υπάρχουν στο SoftOne) — δεν τις σβήνει ο συγχρονισμός.
+    const local = (await prisma.softoneTrader.findMany({ where: { trdr: { gt: 0 } }, select: { trdr: true } })).map((t) => ({ id: t.trdr, upd: null }));
     const plan = planReconcile(visible.map((r) => ({ id: r.trdr, upd: null })), local);
     if (plan.abort) throw new Error(plan.abort);
     deleted = plan.toDelete.length ? (await prisma.softoneTrader.deleteMany({ where: { trdr: { in: plan.toDelete } } })).count : 0;

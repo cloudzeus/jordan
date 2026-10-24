@@ -102,7 +102,7 @@ export function RoomWallsPanel({ walls, perimeterM, color, onChange }: { walls: 
     >
       {/* Ύψος */}
       <div>
-        <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Ύψος πλακιδίων</p>
+        <p className="mb-1 text-(length:--fs-10) font-semibold uppercase tracking-wider text-muted-foreground">Ύψος πλακιδίων</p>
         <div className="flex flex-wrap items-center gap-1">
           {HEIGHT_PRESETS.map((h) => {
             const active = Math.abs(walls.heightM - h) < 0.001;
@@ -120,34 +120,34 @@ export function RoomWallsPanel({ walls, perimeterM, color, onChange }: { walls: 
           })}
           <span className="inline-flex items-center gap-0.5">
             <MetersInput value={walls.heightM} onValue={(h) => set({ heightM: h })} label="Ύψος πλακιδίων σε μέτρα" className="w-12" />
-            <span className="text-[10px] text-muted-foreground">m</span>
+            <span className="text-(length:--fs-10) text-muted-foreground">m</span>
           </span>
         </div>
       </div>
 
       {/* Ανοίγματα */}
       <div>
-        <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Ανοίγματα χωρίς πλακάκι</p>
+        <p className="mb-1 text-(length:--fs-10) font-semibold uppercase tracking-wider text-muted-foreground">Ανοίγματα χωρίς πλακάκι</p>
         {walls.openings.length > 0 && (
           <ul className="mb-1.5 space-y-1">
             {walls.openings.map((o) => (
               <li key={o.id} className="rounded-md bg-background px-1.5 py-1 ring-1 ring-border">
                 <div className="flex items-center gap-1">
                   <span className="inline-flex items-center gap-1 text-(length:--fs-11) font-medium">{KIND_ICON[o.kind]} {OPENING_PRESETS[o.kind].label}</span>
-                  {o.at && <span className="rounded bg-muted px-1 text-[10px] text-muted-foreground" title="Σχεδιάστηκε πάνω στο σχέδιο — το πλάτος είναι μετρημένο">στο σχέδιο</span>}
-                  <span className="ml-auto font-mono text-[10px] tabular-nums text-muted-foreground">−{nfShort.format(openingArea(o, walls.heightM))} m²</span>
+                  {o.at && <span className="rounded bg-muted px-1 text-(length:--fs-10) text-muted-foreground" title="Σχεδιάστηκε πάνω στο σχέδιο — το πλάτος είναι μετρημένο">στο σχέδιο</span>}
+                  <span className="ml-auto font-mono text-(length:--fs-10) tabular-nums text-muted-foreground">−{nfShort.format(openingArea(o, walls.heightM))} m²</span>
                   <button type="button" aria-label={`Αφαίρεση ${OPENING_PRESETS[o.kind].label.toLowerCase()}`} onClick={() => set({ openings: walls.openings.filter((x) => x.id !== o.id) })} className="inline-flex size-6 shrink-0 cursor-pointer items-center justify-center rounded text-muted-foreground hover:bg-destructive/10 hover:text-destructive">
                     <FiX className="size-3.5" aria-hidden />
                   </button>
                 </div>
                 <div className="mt-0.5 flex items-center gap-1">
                 <MetersInput value={o.w} onValue={(w) => setOpening(o.id, { w })} label={`Πλάτος ${OPENING_PRESETS[o.kind].label.toLowerCase()} σε μέτρα`} className="w-12" />
-                <span className="text-[10px] text-muted-foreground" aria-hidden>×</span>
+                <span className="text-(length:--fs-10) text-muted-foreground" aria-hidden>×</span>
                 <MetersInput value={o.h} onValue={(h) => setOpening(o.id, { h })} label={`Ύψος ${OPENING_PRESETS[o.kind].label.toLowerCase()} σε μέτρα`} className="w-12" />
-                <span className="text-[10px] text-muted-foreground">m</span>
+                <span className="text-(length:--fs-10) text-muted-foreground">m</span>
                 {o.kind !== 'door' && (
                   <span className="inline-flex items-center gap-0.5" title="Ύψος ποδιάς από το δάπεδο">
-                    <span className="text-[10px] text-muted-foreground">ποδιά</span>
+                    <span className="text-(length:--fs-10) text-muted-foreground">ποδιά</span>
                     <MetersInput value={o.sill ?? 0} min={0} onValue={(sill) => setOpening(o.id, { sill })} label={`Ποδιά ${OPENING_PRESETS[o.kind].label.toLowerCase()} σε μέτρα`} className="w-11" />
                   </span>
                 )}
@@ -180,7 +180,7 @@ export function RoomWallsPanel({ walls, perimeterM, color, onChange }: { walls: 
       </div>
 
       {/* Γραμμή υπολογισμού — «σχέδιο» με τα νούμερα στη σειρά που τα σκέφτεται ο τεχνίτης */}
-      <div className="rounded-md px-2.5 py-2 font-mono text-[11px] leading-relaxed text-slate-300" style={{ background: '#0B1220' }} aria-live="polite">
+      <div className="rounded-md px-2.5 py-2 font-mono text-(length:--fs-11) leading-relaxed text-slate-300" style={{ background: '#0B1220' }} aria-live="polite">
         {calc == null ? (
           <span className="text-slate-400">Όρισε πρώτα την κλίμακα για να βγουν m².</span>
         ) : (
@@ -192,8 +192,8 @@ export function RoomWallsPanel({ walls, perimeterM, color, onChange }: { walls: 
             <span className="tabular-nums">{nf.format(calc.gross)}</span>
             {calc.openings > 0 && (<><span className="text-slate-500"> − </span><span className="tabular-nums">{nf.format(calc.openings)}</span><span className="text-slate-500"> ανοίγμ.</span></>)}
             <span className="mt-1 flex items-baseline justify-between border-t border-white/10 pt-1">
-              <span className="font-sans text-[10px] font-semibold uppercase tracking-wider text-slate-400">Τοίχοι</span>
-              <span className="text-[15px] font-semibold tabular-nums" style={{ color: '#22D3EE' }}>{nf.format(calc.net)}<span className="ml-1 text-[11px] text-slate-400">m²</span></span>
+              <span className="font-sans text-(length:--fs-10) font-semibold uppercase tracking-wider text-slate-400">Τοίχοι</span>
+              <span className="text-(length:--fs-15) font-semibold tabular-nums" style={{ color: '#22D3EE' }}>{nf.format(calc.net)}<span className="ml-1 text-(length:--fs-11) text-slate-400">m²</span></span>
             </span>
           </>
         )}

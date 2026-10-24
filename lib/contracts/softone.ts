@@ -14,6 +14,7 @@ export async function prjcPlan(contractId: string) {
   // Μέχρι την αποδοχή είμαστε σε σχεδιασμό: τίποτα προς το SoftOne.
   if (c.stage === 'OFFER') throw new ContractError('Το έργο δημιουργείται στο SoftOne μόνο μετά την αποδοχή της προσφοράς', 409);
   if (!c.trdr) throw new ContractError('Για νέο έργο στο SoftOne χρειάζεται πελάτης από το SoftOne', 409);
+  if (c.trdr < 0) throw new ContractError('Demo πελάτης — δεν καταχωρείται τίποτα στο SoftOne', 409);
   const codes = (await prisma.softoneProject.findMany({ select: { code: true } })).map((p) => p.code);
   const code = nextProjectCode(codes);
   const payload = buildPrjcPayload({

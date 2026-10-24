@@ -12,7 +12,7 @@ import { buildRevisePrompt, parseRevision, ReviseParseError, type ReviseInput, t
 
 export const DEFAULT_CONTRACT_MODEL = 'gemini-2.5-pro';
 
-async function complete(system: string, user: string, ctx: { userId: string | null; contractId: string | null; operation?: string }): Promise<{ text: string; model: string }> {
+export async function aiComplete(system: string, user: string, ctx: { userId: string | null; contractId: string | null; operation?: string }): Promise<{ text: string; model: string }> {
   const [endpoints, modelSetting] = await Promise.all([resolveVisionEndpoints(), getSetting<string>('ai.contractModel')]);
   const base = (modelSetting || DEFAULT_CONTRACT_MODEL).trim();
   return acrossProviders(endpoints, async (e) => {
@@ -49,7 +49,7 @@ export async function composeContractDoc(p: PromptInput, ctx: { userId: string |
   const { system, user } = buildPrompt(p);
   let last: unknown = null;
   for (let attempt = 0; attempt < 2; attempt++) {
-    const { text, model } = await complete(system, attempt ? `${user}\n\nΠΡΟΣΟΧΗ: η προηγούμενη απάντηση δεν ήταν πλήρης. Δώσε ΟΛΟ το JSON.` : user, ctx);
+    const { text, model } = await aiComplete(system, attempt ? `${user}\n\nΠΡΟΣΟΧΗ: η προηγούμενη απάντηση δεν ήταν πλήρης. Δώσε ΟΛΟ το JSON.` : user, ctx);
     try {
       return { doc: parseContractDoc(text, { needsInstallation: needsInstallation(p) }), model };
     } catch (e) {
@@ -65,7 +65,7 @@ export async function composeCustomerText(p: CustomerTextInput, ctx: { userId: s
   const { system, user } = buildCustomerTextPrompt(p);
   let last: unknown = null;
   for (let attempt = 0; attempt < 2; attempt++) {
-    const { text } = await complete(system, user, { ...ctx, operation: 'contracts.customerText' });
+    const { text } = await aiComplete(system, user, { ...ctx, operation: 'contracts.customerText' });
     try { return parseCustomerText(text); } catch (e) { last = e; }
   }
   throw last instanceof Error ? last : new Error('Αποτυχία σύνταξης κειμένου');
@@ -78,7 +78,7 @@ export async function reviseOffer(p: ReviseInput, ctx: { userId: string | null; 
   const ids = new Set(p.requests.map((r) => r.id));
   let last: unknown = null;
   for (let attempt = 0; attempt < 2; attempt++) {
-    const { text } = await complete(system, attempt ? `${user}\n\nΠΡΟΣΟΧΗ: η προηγούμενη απάντηση δεν ήταν έγκυρη. Δώσε ΜΟΝΟ το JSON της μορφής που ζητήθηκε.` : user, { ...ctx, operation: 'contracts.revise' });
+    const { text } = await aiComplete(system, attempt ? `${user}\n\nΠΡΟΣΟΧΗ: η προηγούμενη απάντηση δεν ήταν έγκυρη. Δώσε ΜΟΝΟ το JSON της μορφής που ζητήθηκε.` : user, { ...ctx, operation: 'contracts.revise' });
     try { return parseRevision(text, keys, ids, p.customerText); } catch (e) {
       if (!(e instanceof ReviseParseError)) throw e;
       last = e;

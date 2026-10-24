@@ -6,7 +6,7 @@ export const NOTE_KIND_LABEL: Record<string, string> = {
   NOTE: 'Σημείωση', INSTRUCTION: 'Ειδική οδηγία', QUESTION: 'Ερώτηση', CHANGE: 'Αίτημα αλλαγής',
 };
 export const EVENT_LABEL: Record<string, string> = {
-  SENT: 'Αποστολή προσφοράς', ACCEPTED: 'Αποδοχή', REVISED: 'Νέα έκδοση', AI_REVISED: 'Αναπροσαρμογή (AI)', RESTORED: 'Επαναφορά έκδοσης',
+  REQUESTED: 'Αίτημα προσφοράς', SENT: 'Αποστολή προσφοράς', ACCEPTED: 'Αποδοχή', REVISED: 'Νέα έκδοση', AI_REVISED: 'Αναπροσαρμογή (AI)', RESTORED: 'Επαναφορά έκδοσης',
   ACTIVATED: 'Ενεργοποίηση', COMPLETED: 'Ολοκλήρωση', CANCELLED: 'Ακύρωση', RESOLVED: 'Κλείσιμο αιτήματος', REOPENED: 'Επανάνοιγμα αιτήματος',
 };
 

@@ -52,8 +52,10 @@ export type MailAttachment = { filename: string; content: string | Uint8Array; c
 // Μέχρι να βγει live η εφαρμογή ΔΕΝ φεύγει email σε πελάτες/προμηθευτές/τρίτους (παράπονα 10/2026):
 // επιτρέπονται ΜΟΝΟ email ενεργών χρηστών του προσωπικού (SUPER_ADMIN/ADMIN/EMPLOYEE). Οι υπόλοιποι
 // παραλήπτες κόβονται σιωπηλά (γραμμή στο log). Άνοιγμα για όλους: `MAIL_LIVE=1` στο περιβάλλον.
+// Ρητές εξαιρέσεις (π.χ. demo πελάτης): `MAIL_ALLOW=a@x.gr,b@y.gr`.
 const STAFF_ROLES: RoleKey[] = ['SUPER_ADMIN', 'ADMIN', 'EMPLOYEE'];
 export const mailLive = () => process.env.MAIL_LIVE === '1';
+export const mailAllowList = () => new Set((process.env.MAIL_ALLOW ?? '').split(',').map((x) => x.trim().toLowerCase()).filter(Boolean));
 
 /** Οι παραλήπτες (λίστα με κόμμα) που επιτρέπεται να λάβουν email τώρα. */
 export async function allowedRecipients(to: string): Promise<string[]> {
@@ -63,7 +65,7 @@ export async function allowedRecipients(to: string): Promise<string[]> {
     where: { isActive: true, email: { in: list, mode: 'insensitive' }, role: { key: { in: STAFF_ROLES } } },
     select: { email: true },
   });
-  const ok = new Set(staff.map((u) => u.email.toLowerCase()));
+  const ok = new Set([...staff.map((u) => u.email.toLowerCase()), ...mailAllowList()]);
   return list.filter((e) => ok.has(e.toLowerCase()));
 }
 

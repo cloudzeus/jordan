@@ -96,7 +96,7 @@ export default async function CustomerContractPage({ params }: { params: Promise
             <Label>Περιεχόμενο</Label>
             <h2 id="lines" className="font-site mt-2 text-(length:--fs-24) font-light">Υλικά & εργασίες</h2>
             <div className="mt-6 overflow-x-auto">
-              <table className="w-full min-w-[560px] border-collapse text-(length:--fs-14)">
+              <table className="w-full min-w-[35rem] border-collapse text-(length:--fs-14)">
                 <thead>
                   <tr className="border-b border-(--s-ink) text-left text-(length:--fs-12) uppercase tracking-[0.14em] text-(--s-mute)">
                     <th className="py-2 pr-4 font-normal">Περιγραφή</th>

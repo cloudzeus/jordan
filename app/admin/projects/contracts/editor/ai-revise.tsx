@@ -120,7 +120,7 @@ export function AiReviseDialog({ open, onOpenChange, contractId, requests, ctx, 
           <ol className="mt-2 flex items-center gap-2 text-(length:--fs-11)" aria-label="Βήματα">
             {['Αιτήματα', 'Έλεγχος πρότασης'].map((l, i) => (
               <li key={l} className={cn('inline-flex items-center gap-1.5 font-medium', step === i + 1 ? 'text-foreground' : 'text-muted-foreground')} aria-current={step === i + 1 ? 'step' : undefined}>
-                <span className={cn('inline-flex size-5 items-center justify-center rounded-full text-[10px]', step > i + 1 ? 'bg-emerald-600 text-white' : step === i + 1 ? 'bg-foreground text-background' : 'bg-muted')}>{step > i + 1 ? <FiCheck className="size-3" /> : i + 1}</span>
+                <span className={cn('inline-flex size-5 items-center justify-center rounded-full text-(length:--fs-10)', step > i + 1 ? 'bg-emerald-600 text-white' : step === i + 1 ? 'bg-foreground text-background' : 'bg-muted')}>{step > i + 1 ? <FiCheck className="size-3" /> : i + 1}</span>
                 {l}{i === 0 && <FiArrowRight className="ml-1 size-3 text-muted-foreground" aria-hidden />}
               </li>
             ))}

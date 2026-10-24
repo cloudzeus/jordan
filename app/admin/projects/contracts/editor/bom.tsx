@@ -63,8 +63,8 @@ export function BomSection({ lines, rooms, stock, loading, fileName }: {
       {view === 'items' ? (
         bom.items.length === 0 ? <p className="text-(length:--fs-13) text-muted-foreground">Δεν υπάρχουν υλικά από το μητρώο ειδών.</p> : (
           <div className="overflow-x-auto rounded-lg border border-border">
-            <table className="w-full min-w-[440px] table-fixed text-(length:--fs-11-5) leading-snug">
-              <colgroup><col /><col className="w-[92px]" /><col className="w-[132px]" /><col className="w-[84px]" /></colgroup>
+            <table className="w-full min-w-[27.5rem] table-fixed text-(length:--fs-11-5) leading-snug">
+              <colgroup><col /><col className="w-[5.75rem]" /><col className="w-[8.25rem]" /><col className="w-[5.25rem]" /></colgroup>
               <thead className="border-b border-border bg-muted/40 text-(length:--fs-10) uppercase tracking-wide text-muted-foreground">
                 <tr>
                   <th scope="col" className="px-2.5 py-1.5 text-left font-semibold">Είδος</th>
@@ -120,7 +120,7 @@ export function BomSection({ lines, rooms, stock, loading, fileName }: {
               </p>
               <ul className="divide-y divide-border">
                 {r.lines.map((l, k) => (
-                  <li key={k} className="grid grid-cols-[52px_1fr_auto] items-center gap-2 px-2.5 py-1 text-(length:--fs-11-5)">
+                  <li key={k} className="grid grid-cols-[3.25rem_1fr_auto] items-center gap-2 px-2.5 py-1 text-(length:--fs-11-5)">
                     <span className={cn('justify-self-start rounded px-1 py-px text-(length:--fs-10) font-semibold uppercase', l.kind === 'MATERIAL' ? 'bg-sky-50 text-sky-800' : 'bg-violet-50 text-violet-800')}>{l.kind === 'MATERIAL' ? 'Υλικό' : 'Εργασ.'}</span>
                     <span className="min-w-0 truncate" title={l.name}>{l.name}</span>
                     <span className="whitespace-nowrap text-right tabular-nums text-muted-foreground">{q(l.qty)} {l.unit ?? ''}</span>

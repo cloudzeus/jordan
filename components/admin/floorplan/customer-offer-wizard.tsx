@@ -54,7 +54,7 @@ export function CustomerOfferWizard({ customer, open, onOpenChange, canFiles = f
                 <ol className="mt-2 space-y-1">
                   {FLOW.map((t, i) => (
                     <li key={i} className="flex gap-2 text-(length:--fs-12)">
-                      <span className="inline-flex size-4.5 shrink-0 items-center justify-center rounded-full bg-muted font-mono text-[10px] font-bold">{i + 1}</span>
+                      <span className="inline-flex size-4.5 shrink-0 items-center justify-center rounded-full bg-muted font-mono text-(length:--fs-10) font-bold">{i + 1}</span>
                       <span>{t}</span>
                     </li>
                   ))}
