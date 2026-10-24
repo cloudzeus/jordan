@@ -83,7 +83,7 @@ const toPayload = ({ floorPlanTitle: _t, pins: _pins, rooms, ...s }: State) => (
 });
 
 const ITEM = 'cursor-pointer gap-2 text-(length:--fs-12)';
-const field = 'h-9 text-(length:--fs-12)';
+const field = 'h-8 text-(length:--fs-12)';
 const lbl = 'text-(length:--fs-12) font-medium text-foreground';
 const numVal = (v: string) => { const n = Number(v.replace(',', '.')); return Number.isFinite(n) ? n : 0; };
 const m2 = (n: number) => `${n.toLocaleString('el-GR', { maximumFractionDigits: 1 })} m²`;
@@ -113,24 +113,24 @@ function Section({ id, n, done, title, hint, actions, children, optional }: {
 }) {
   return (
     <section id={id} aria-labelledby={`${id}-h`} className="scroll-mt-20 rounded-xl border border-border bg-card shadow-xs">
-      <header className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2 px-4 pb-3 pt-4">
+      <header className="flex flex-wrap items-start justify-between gap-x-3 gap-y-1.5 px-4 pb-2 pt-3">
         <div className="flex min-w-0 items-start gap-3">
           {n != null && (
-            <span className={cn('mt-0.5 inline-flex size-7 shrink-0 items-center justify-center rounded-full text-(length:--fs-12) font-semibold tabular-nums',
+            <span className={cn('inline-flex size-6 shrink-0 items-center justify-center rounded-full text-(length:--fs-11) font-semibold tabular-nums',
               done ? 'bg-emerald-600 text-white' : 'bg-muted text-muted-foreground')} aria-label={done ? 'Ολοκληρώθηκε' : `Βήμα ${n}`}>
               {done ? <FiCheck className="size-3.5" aria-hidden /> : n}
             </span>
           )}
           <div className="min-w-0">
-            <h2 id={`${id}-h`} className="text-(length:--fs-15) font-semibold text-foreground">
+            <h2 id={`${id}-h`} className="text-(length:--fs-14) font-semibold leading-6 text-foreground">
               {title}{optional && <span className="ml-2 align-middle text-(length:--fs-11) font-normal text-muted-foreground">προαιρετικό</span>}
             </h2>
-            {hint && <p className="mt-0.5 text-(length:--fs-12) text-muted-foreground">{hint}</p>}
+            {hint && <p className="text-(length:--fs-12) leading-snug text-muted-foreground">{hint}</p>}
           </div>
         </div>
         {actions}
       </header>
-      <div className="px-4 pb-4">{children}</div>
+      <div className="px-4 pb-3">{children}</div>
     </section>
   );
 }
@@ -368,20 +368,24 @@ export function ContractEditor({ initial, staff, readOnly = false, customer = nu
     { key: 'other', room: null as PlanRoom | null, lines: s.lines.filter((l) => !isNetworkKey(l.roomId) && (!l.roomId || !roomName.has(l.roomId))) },
   ].filter((g) => g.lines.length);
 
+  // Ομάδες γραμμών: null = αυτόματα (ανοιχτές αν είναι λίγες), true/false = όλες ανοιχτές/κλειστές.
+  const [expandAll, setExpandAll] = React.useState<boolean | null>(null);
   const lineRow = (l: Line) => {
     const i = s.lines.indexOf(l);
     // Η σημείωση φαίνεται ως κείμενο· πεδίο μόνο όταν ο χρήστης θέλει να τη γράψει/αλλάξει.
     const notesOpen = openNotes.has(l.uid);
     const need = l.kind === 'MATERIAL' && l.mtrl != null ? stock.byMtrl.get(l.mtrl) : undefined;
+    const inRoom = !!l.roomId && roomName.has(l.roomId);
+    const shownNote = inRoom && l.notes ? l.notes.replace(/^Χώρος:[^—]*(—\s*)?/, '').trim() || null : l.notes;
     return (
-      <li key={l.uid} className="py-2.5 first:pt-1">
+      <li key={l.uid} className="py-1.5">
         <div className="flex items-start gap-2">
-          <span className={cn('mt-2.5 inline-flex size-5 shrink-0 items-center justify-center rounded [&_svg]:size-3', l.kind === 'SERVICE' ? 'bg-orange-50 text-orange-700' : 'bg-sky-50 text-sky-700')}
+          <span className={cn('mt-1.5 inline-flex size-5 shrink-0 items-center justify-center rounded [&_svg]:size-3', l.kind === 'SERVICE' ? 'bg-orange-50 text-orange-700' : 'bg-sky-50 text-sky-700')}
             title={l.kind === 'SERVICE' ? 'Εργασία' : 'Υλικό'} aria-label={l.kind === 'SERVICE' ? 'Εργασία' : 'Υλικό'}>
             {l.kind === 'SERVICE' ? <FiTool /> : <FiPackage />}
           </span>
-          <div className="grid min-w-0 flex-1 grid-cols-4 gap-2 lg:grid-cols-[minmax(0,1fr)_5rem_4.5rem_6rem_4rem]">
-            <div className="col-span-4 min-w-0 lg:col-span-1">
+          <div className="grid min-w-0 flex-1 grid-cols-4 gap-1.5 @2xl:grid-cols-[minmax(0,1fr)_4.5rem_4rem_5rem_3.5rem]">
+            <div className="col-span-4 min-w-0 @2xl:col-span-1">
               <Input value={l.name} onChange={(e) => setLine(l.uid, { name: e.target.value })} placeholder="Περιγραφή" className={field} disabled={ro} aria-label={`Περιγραφή γραμμής ${i + 1}`} />
             </div>
             <NumInput value={l.qty} onValue={(n) => setLine(l.uid, { qty: n ?? 0 })} className={cn(field, 'tabular-nums')} disabled={ro} aria-label="Ποσότητα" placeholder="Ποσ." />
@@ -389,7 +393,7 @@ export function ContractEditor({ initial, staff, readOnly = false, customer = nu
             <NumInput value={l.unitPrice} onValue={(n) => setLine(l.uid, { unitPrice: n ?? 0 })} className={cn(field, 'tabular-nums')} disabled={ro} aria-label="Τιμή μονάδας" placeholder="Τιμή" />
             <NumInput value={l.discount} onValue={(n) => setLine(l.uid, { discount: n ?? 0 })} className={cn(field, 'tabular-nums')} disabled={ro} aria-label="Έκπτωση %" title="Έκπτωση %" placeholder="Έκπ.%" />
           </div>
-          <span className="mt-2 w-20 shrink-0 text-right text-(length:--fs-13) font-semibold tabular-nums sm:w-24">{eur(lineNet(l))}</span>
+          <span className="mt-1.5 w-20 shrink-0 text-right text-(length:--fs-12) font-semibold tabular-nums">{eur(lineNet(l))}</span>
           {!ro ? (
             <RowMenu label={`Ενέργειες γραμμής ${i + 1}`}>
               <DropdownMenuItem className={ITEM} onSelect={() => setOpenNotes((x) => new Set(x).add(l.uid))}><FiMessageSquare className="size-3.5" />Σημείωση…</DropdownMenuItem>
@@ -400,20 +404,20 @@ export function ContractEditor({ initial, staff, readOnly = false, customer = nu
             </RowMenu>
           ) : <span className="w-9 shrink-0" />}
         </div>
-        {(l.code || need || (crews && s.parties.length > 0) || (l.notes && !notesOpen)) && (
-          <div className="ml-7 mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1.5">
+        {(l.code || need || (crews && s.parties.length > 0) || (shownNote && !notesOpen)) && (
+          <div className="ml-7 mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-1">
             {l.code && <span className="font-mono text-(length:--fs-11) text-muted-foreground">{l.code}</span>}
             <StockBadge need={need} />
-            {l.notes && !notesOpen && (
-              <button type="button" disabled={ro} onClick={() => setOpenNotes((x) => new Set(x).add(l.uid))} title="Σημείωση γραμμής — κλικ για αλλαγή"
+            {shownNote && !notesOpen && (
+              <button type="button" disabled={ro} onClick={() => setOpenNotes((x) => new Set(x).add(l.uid))} title={`${l.notes} — κλικ για αλλαγή`}
                 className="min-w-0 max-w-full cursor-pointer truncate text-left text-(length:--fs-11) text-muted-foreground hover:text-foreground disabled:cursor-default">
-                {l.notes}
+                {shownNote}
               </button>
             )}
             {crews && s.parties.length > 0 && (
               <span className="flex flex-wrap items-center gap-2">
                 <select value={l.partyKey ?? ''} onChange={(e) => setLine(l.uid, { partyKey: e.target.value || null, crewFee: e.target.value ? l.crewFee : null })} disabled={ro || !s.parties.length}
-                  className="h-8 max-w-56 cursor-pointer rounded-md border border-input bg-transparent px-2 text-(length:--fs-12) disabled:cursor-not-allowed disabled:opacity-60" aria-label="Εκτελεί">
+                  className="h-7 max-w-56 cursor-pointer rounded-md border border-input bg-transparent px-2 text-(length:--fs-11) disabled:cursor-not-allowed disabled:opacity-60" aria-label="Εκτελεί">
                   <option value="">Εκτελούμε εμείς</option>
                   {s.parties.map((p) => <option key={p.key} value={p.key}>Εκτελεί: {p.name}</option>)}
                 </select>
@@ -428,7 +432,7 @@ export function ContractEditor({ initial, staff, readOnly = false, customer = nu
           </div>
         )}
         {notesOpen && (
-          <Input value={l.notes ?? ''} onChange={(e) => setLine(l.uid, { notes: e.target.value || null })} placeholder="Σημείωση (τυπώνεται στο έγγραφο)" className="ml-7 mt-1.5 h-8 w-[calc(100%-1.75rem)] text-(length:--fs-12)" disabled={ro} aria-label="Σημείωση γραμμής" />
+          <Input value={l.notes ?? ''} onChange={(e) => setLine(l.uid, { notes: e.target.value || null })} placeholder="Σημείωση (τυπώνεται στο έγγραφο)" className="ml-7 mt-1 h-8 w-[calc(100%-1.75rem)] text-(length:--fs-12)" disabled={ro} aria-label="Σημείωση γραμμής" />
         )}
       </li>
     );
@@ -484,7 +488,7 @@ export function ContractEditor({ initial, staff, readOnly = false, customer = nu
   return (
     <NotesProvider value={notesCtx}>
     <div className="items-start gap-5 lg:grid lg:grid-cols-[minmax(0,1fr)_17.5rem]">
-      <div className="min-w-0 space-y-4">
+      <div className="min-w-0 space-y-3">
         {/* ── Αιτήματα πελάτη (portal) ── */}
         {initial?.id && customerRequests.length > 0 && (
           <Section id="c-requests" n={null} title={openRequests.length ? `Αιτήματα πελάτη · ${openRequests.length} ανοιχτά` : 'Αιτήματα πελάτη'}
@@ -618,13 +622,22 @@ export function ContractEditor({ initial, staff, readOnly = false, customer = nu
               {s.rooms.length ? 'Διαλέξτε υλικό στους χώρους παραπάνω — ή πατήστε «Προσθήκη» για άλλες γραμμές.' : 'Δεν υπάρχουν γραμμές ακόμη. Πατήστε «Προσθήκη» ή ανεβάστε κάτοψη.'}
             </div>
           ) : (
-            <div className="space-y-3">
-              <div className="ml-7 mr-[7.75rem] hidden grid-cols-[minmax(0,1fr)_5rem_4.5rem_6rem_4rem] gap-2 text-(length:--fs-11) font-medium text-muted-foreground lg:grid sm:mr-[8.75rem]" aria-hidden>
+            <div className="@container space-y-2">
+              {groups.length > 3 && (
+                <div className="flex items-center justify-between gap-2 text-(length:--fs-12) text-muted-foreground">
+                  <span>{groups.length} ομάδες · {s.lines.length} γραμμές</span>
+                  <button type="button" onClick={() => setExpandAll((x) => !(x ?? false))} className="min-h-7 cursor-pointer rounded-md px-2 font-medium text-foreground hover:bg-muted">
+                    {expandAll ? 'Κλείσιμο όλων' : 'Άνοιγμα όλων'}
+                  </button>
+                </div>
+              )}
+              <div className="ml-10 mr-[7.5rem] hidden grid-cols-[minmax(0,1fr)_4.5rem_4rem_5rem_3.5rem] gap-1.5 text-(length:--fs-11) font-medium text-muted-foreground @2xl:grid" aria-hidden>
                 <span>Περιγραφή</span><span>Ποσότητα</span><span>Μονάδα</span><span>Τιμή €</span><span>Έκπ. %</span>
               </div>
               {groups.map((g) => (
-                <details key={g.key} open className="group rounded-lg border border-border">
-                  <summary className="flex cursor-pointer list-none items-center justify-between gap-2 rounded-lg px-3 py-2 hover:bg-muted/40 [&::-webkit-details-marker]:hidden">
+                // Πολλές ομάδες (π.χ. 14 χώροι): κλειστές, με σύνολο στην κεφαλίδα — ανοίγουν όσες χρειάζεσαι.
+                <details key={`${g.key}-${String(expandAll)}`} open={expandAll ?? groups.length <= 3} className="group rounded-lg border border-border">
+                  <summary className="flex cursor-pointer list-none items-center justify-between gap-2 rounded-lg px-3 py-1.5 hover:bg-muted/40 [&::-webkit-details-marker]:hidden">
                     <span className="flex min-w-0 items-center gap-2 text-(length:--fs-13) font-semibold">
                       <FiChevronDown className="size-3.5 shrink-0 text-muted-foreground transition-transform group-open:rotate-0 -rotate-90" aria-hidden />
                       {g.room ? <span className="size-2.5 shrink-0 rounded-sm" style={{ background: g.room.color }} aria-hidden /> : null}
@@ -649,10 +662,20 @@ export function ContractEditor({ initial, staff, readOnly = false, customer = nu
         {/* ── BOM: λίστα υλικών ανά είδος / χώρο ── */}
         {s.lines.length > 0 && (
           <Section id="c-bom" n={null} title="Λίστα υλικών (BOM)" hint="Τι χρειάζεται ανά είδος και ανά χώρο, τι έχουμε και τι πρέπει να παραγγελθεί">
-            <BomSection
-              lines={bomLines} rooms={s.rooms} stock={stock.stock} loading={stock.loading}
-              fileName={s.title.trim() || 'προσφορά'}
-            />
+            {/* Βοηθητική προβολή: κλειστή — ανοίγει όταν τη χρειάζεσαι (το «Απόθεμα & παραγγελία» δείχνει ήδη τα ελλείμματα). */}
+            <details className="group">
+              <summary className="flex min-h-8 cursor-pointer list-none items-center gap-1.5 text-(length:--fs-12) font-medium text-primary [&::-webkit-details-marker]:hidden">
+                <FiChevronDown className="size-3.5 -rotate-90 transition-transform group-open:rotate-0" aria-hidden />
+                <span className="group-open:hidden">Εμφάνιση λίστας ({new Set(bomLines.filter((l) => l.kind === 'MATERIAL').map((l) => l.mtrl ?? l.name)).size} είδη)</span>
+                <span className="hidden group-open:inline">Απόκρυψη λίστας</span>
+              </summary>
+              <div className="mt-2">
+                <BomSection
+                  lines={bomLines} rooms={s.rooms} stock={stock.stock} loading={stock.loading}
+                  fileName={s.title.trim() || 'προσφορά'}
+                />
+              </div>
+            </details>
           </Section>
         )}
 

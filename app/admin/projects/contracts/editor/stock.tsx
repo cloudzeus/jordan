@@ -45,10 +45,11 @@ const TONE = {
 } as const;
 
 export function stockLabel(n: StockNeed): { short: string; long: string } {
-  const su = n.stockUnit ?? n.unit ?? '';
-  if (n.status === 'ok') return { short: `Επαρκεί · ${q(n.have)} ${su}`, long: `Χρειάζονται ${q(n.need)} ${n.unit ?? ''} · απόθεμα ${q(n.have)} ${su}` };
-  if (n.status === 'short') return { short: `Λείπουν ${q(n.short)} ${n.unit ?? ''}`, long: `Χρειάζονται ${q(n.need)} ${n.unit ?? ''} · απόθεμα μόνο ${q(n.have)} ${su}` };
-  if (n.status === 'none') return { short: `Χωρίς απόθεμα · παραγγελία ${q(n.short)} ${n.unit ?? ''}`, long: `Χρειάζονται ${q(n.need)} ${n.unit ?? ''} · απόθεμα 0` };
+  const su = unit(n.stockUnit ?? n.unit);
+  const u = unit(n.unit);
+  if (n.status === 'ok') return { short: `Επαρκεί · ${q(n.have)} ${su}`, long: `Χρειάζονται ${q(n.need)} ${u} · απόθεμα ${q(n.have)} ${su}` };
+  if (n.status === 'short') return { short: `Λείπουν ${q(n.short)} ${u}`, long: `Χρειάζονται ${q(n.need)} ${u} · απόθεμα μόνο ${q(n.have)} ${su}` };
+  if (n.status === 'none') return { short: `Απόθεμα 0 · παραγγελία ${q(n.short)} ${u}`, long: `Χρειάζονται ${q(n.need)} ${u} · απόθεμα 0` };
   return { short: n.stockUnit ? `Απόθεμα ${q(n.have)} ${n.stockUnit}` : 'Απόθεμα: —', long: n.stockUnit ? `Η γραμμή είναι σε ${n.unit ?? '—'}, η αποθήκη σε ${n.stockUnit} — ελέγξτε χειροκίνητα` : 'Δεν βρέθηκε απόθεμα για το είδος' };
 }
 
@@ -59,7 +60,7 @@ export function StockBadge({ need }: { need: StockNeed | undefined }) {
   const Icon = t.icon;
   const l = stockLabel(need);
   return (
-    <span title={l.long} className={`inline-flex max-w-full items-center gap-1 rounded-full px-2 py-0.5 text-(length:--fs-11) font-medium ring-1 ring-inset ${t.cls}`}>
+    <span title={l.long} className={`inline-flex max-w-full items-center gap-1 rounded-full px-1.5 text-(length:--fs-11) font-medium leading-5 ring-1 ring-inset ${t.cls}`}>
       <Icon className="size-3 shrink-0" aria-hidden /><span className="truncate">{l.short}</span>
     </span>
   );

@@ -40,6 +40,7 @@ export function ScheduleSection({ tasks, rooms, start, today, templates, readOnl
   noteFor?: (t: EditorTask) => React.ReactNode;
 }) {
   const [editing, setEditing] = React.useState<string | null>(null);
+  const [view, setView] = React.useState<'list' | 'gantt'>('list');
   const base = start ?? today;
   const sched = React.useMemo(() => schedule(tasks.map((t) => ({ id: t.key, startDate: t.startDate, durationValue: t.durationValue, durationUnit: t.durationUnit, dependsOn: t.dependsOn })), base), [tasks, base]);
   const name = new Map(tasks.map((t) => [t.key, t.name]));
@@ -101,6 +102,15 @@ export function ScheduleSection({ tasks, rooms, start, today, templates, readOnl
           {tasks.length > 0 && <span className="ml-auto text-(length:--fs-12) text-muted-foreground">{tasks.length} εργασίες · {dayEl(base)} → <b className="text-foreground">{dayEl(end)}</b></span>}
         </div>
       )}
+      {/* Μία προβολή τη φορά: λίστα (επεξεργασία) ή Gantt (εικόνα του χρόνου) — όχι και τα δύο το ένα κάτω από το άλλο. */}
+      {tasks.length > 0 && (
+        <div className="mb-2 inline-flex rounded-md border border-border p-0.5" role="tablist" aria-label="Προβολή εργασιών">
+          {([['list', 'Λίστα'], ['gantt', 'Gantt']] as const).map(([k, l]) => (
+            <button key={k} type="button" role="tab" aria-selected={view === k} onClick={() => setView(k)}
+              className={cn('h-7 cursor-pointer rounded px-3 text-(length:--fs-12) font-medium', view === k ? 'bg-foreground text-background' : 'text-muted-foreground hover:text-foreground')}>{l}</button>
+          ))}
+        </div>
+      )}
 
       {tasks.length === 0 ? (
         <p className="rounded-lg border border-dashed border-border px-4 py-5 text-center text-(length:--fs-13) text-muted-foreground">
@@ -108,10 +118,12 @@ export function ScheduleSection({ tasks, rooms, start, today, templates, readOnl
         </p>
       ) : (
         <>
-          <div className="overflow-hidden rounded-lg border border-border">
-            <GanttChart rows={gantt} today={today} onSelect={(id) => !readOnly && setEditing(id)} />
-          </div>
-          <ul className="divide-y divide-border rounded-lg border border-border">
+          {view === 'gantt' && (
+            <div className="overflow-hidden rounded-lg border border-border">
+              <GanttChart rows={gantt} today={today} onSelect={(id) => { if (!readOnly) { setEditing(id); setView('list'); } }} />
+            </div>
+          )}
+          {view === 'list' && <ul className="divide-y divide-border rounded-lg border border-border">
             {tasks.map((t, i) => {
               const r = sched.rows.get(t.key)!;
               const open = editing === t.key;
@@ -193,7 +205,7 @@ export function ScheduleSection({ tasks, rooms, start, today, templates, readOnl
                 </li>
               );
             })}
-          </ul>
+          </ul>}
         </>
       )}
     </div>

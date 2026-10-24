@@ -146,28 +146,27 @@ export function RoomsSection({
           const open = editing === r.id;
           return (
             <li key={r.id} className={cn(open && 'bg-muted/30')}>
-              <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 px-3 py-2.5">
+              <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 px-3 py-1">
                 <span className="size-3 shrink-0 rounded-sm" style={{ background: r.color }} aria-hidden />
-                <div className="min-w-0 flex-1 basis-40">
-                  <p className="truncate text-(length:--fs-13) font-medium">{r.name}</p>
-                  <p className="text-(length:--fs-11) tabular-nums text-muted-foreground">
-                    δάπεδο {m2(r.floorM2)}{r.wallsM2 > 0 ? ` · τοίχοι ${m2(r.wallsM2)}` : ''}
-                  </p>
-                </div>
+                {/* Όνομα και επιφάνεια σε μία γραμμή. */}
+                <p className="min-w-0 flex-1 basis-40 truncate text-(length:--fs-12)" title={`${r.name} · δάπεδο ${m2(r.floorM2)}${r.wallsM2 > 0 ? ` · τοίχοι ${m2(r.wallsM2)}` : ''}`}>
+                  <span className="font-medium">{r.name}</span>
+                  <span className="tabular-nums text-muted-foreground"> · {m2(r.floorM2)}{r.wallsM2 > 0 ? ` + τοίχοι ${m2(r.wallsM2)}` : ''}</span>
+                </p>
                 <div className="min-w-0 basis-48">
                   {readOnly ? <MaterialChip material={r.material} /> : (
                     <button type="button" onClick={() => setEditing(open ? null : r.id)} aria-expanded={open}
-                      className="flex min-h-9 w-full cursor-pointer items-center justify-between gap-2 rounded-md border border-input px-2 text-left hover:bg-muted/60 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring">
+                      className="flex min-h-8 w-full cursor-pointer items-center justify-between gap-2 rounded-md border border-input px-2 text-left hover:bg-muted/60 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring">
                       {r.material ? <MaterialChip material={r.material} /> : <span className="text-(length:--fs-12) font-medium text-primary">Διαλέξτε υλικό…</span>}
                       <FiChevronDown className={cn('size-3.5 shrink-0 text-muted-foreground transition-transform', open && 'rotate-180')} aria-hidden />
                     </button>
                   )}
                 </div>
-                <span className="w-24 shrink-0 text-right text-(length:--fs-13) font-semibold tabular-nums">{r.material ? eur(cost) : '—'}</span>
+                <span className="w-20 shrink-0 text-right text-(length:--fs-12) font-semibold tabular-nums">{r.material ? eur(cost) : '—'}</span>
                 {extra?.(r)}
                 {!readOnly && (
                   <DropdownMenu>
-                    <DropdownMenuTrigger className="inline-flex size-9 shrink-0 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring" aria-label={`Ενέργειες για ${r.name}`}>
+                    <DropdownMenuTrigger className="inline-flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring" aria-label={`Ενέργειες για ${r.name}`}>
                       <FiMoreVertical className="size-4" aria-hidden />
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="min-w-56">
