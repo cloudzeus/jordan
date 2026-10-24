@@ -27,7 +27,7 @@ export function NetworkMenu({ active, onPick }: { active: NetPick | null; onPick
     <li key={key}>
       <button type="button" onClick={() => { onPick(pick); setOpen(false); }} aria-pressed={on}
         className={cn('flex w-full cursor-pointer items-start gap-2.5 rounded-md px-2 py-1.5 text-left hover:bg-muted', on && 'bg-muted')}>
-        <span className="mt-0.5 inline-flex size-6 shrink-0 items-center justify-center rounded-full border [&_svg]:size-3.5" style={{ borderColor: c, color: c, background: '#0B1220' }}>{icon}</span>
+        <span className="mt-0.5 inline-flex size-6 shrink-0 items-center justify-center rounded-full border [&_svg]:size-3.5" style={{ borderColor: c, color: '#0B1220', background: c }}>{icon}</span>
         <span className="min-w-0">
           <span className="block text-(length:--fs-12) font-semibold">{label}</span>
           <span className="block text-(length:--fs-11) leading-snug text-muted-foreground">{help}</span>
@@ -94,7 +94,7 @@ export function NetworkPanel({ devices, cables, setDevices, setCables, selected,
       {/* Σύνοψη */}
       <dl className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-(length:--fs-12)">
         {DEVICE_KINDS.filter((k) => sum.counts[k]).map((k) => (
-          <div key={k} className="flex items-center justify-between gap-2"><dt className="inline-flex items-center gap-1.5 text-muted-foreground [&_svg]:size-3" style={{ color: DEVICE_META[k].color }}>{DEVICE_ICON[k]}<span className="text-muted-foreground">{DEVICE_META[k].short}</span></dt><dd className="font-mono tabular-nums">{sum.counts[k]}</dd></div>
+          <div key={k} className="flex items-center justify-between gap-2"><dt className="inline-flex items-center gap-1.5 text-muted-foreground"><span className="inline-flex size-4 items-center justify-center rounded-full [&_svg]:size-2.5" style={{ background: DEVICE_META[k].color, color: '#0B1220' }}>{DEVICE_ICON[k]}</span>{DEVICE_META[k].short}</dt><dd className="font-mono tabular-nums">{sum.counts[k]}</dd></div>
         ))}
         {sum.powerM != null && sum.powerM > 0 && <div className="col-span-2 flex justify-between"><dt className="text-muted-foreground">Καλώδιο ρεύματος (+10%)</dt><dd className="font-mono tabular-nums">{sum.powerM.toLocaleString('el-GR')} m</dd></div>}
         {sum.networkM != null && sum.networkM > 0 && <div className="col-span-2 flex justify-between"><dt className="text-muted-foreground">Καλώδιο δικτύου (+10%)</dt><dd className="font-mono tabular-nums">{sum.networkM.toLocaleString('el-GR')} m</dd></div>}
@@ -118,7 +118,7 @@ export function NetworkPanel({ devices, cables, setDevices, setCables, selected,
             <li key={d.id} className={cn('rounded-md', open && 'bg-muted/60')}>
               <div className="flex items-center gap-2 p-1">
                 <button type="button" onClick={() => setSelected(open ? null : d.id)} className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 text-left">
-                  <span className="inline-flex size-5 shrink-0 items-center justify-center rounded-full border [&_svg]:size-3" style={{ borderColor: m.color, color: m.color, background: '#0B1220' }}>{DEVICE_ICON[d.kind]}</span>
+                  <span className="inline-flex size-5 shrink-0 items-center justify-center rounded-full border [&_svg]:size-3" style={{ borderColor: m.color, color: '#0B1220', background: m.color }}>{DEVICE_ICON[d.kind]}</span>
                   <span className="min-w-0 flex-1 truncate text-(length:--fs-12)">{d.label || m.short}{d.brand || d.model ? <span className="text-muted-foreground"> · {[d.brand, d.model].filter(Boolean).join(' ')}</span> : null}</span>
                   {d.photoFileIds.length > 0 && <span className="inline-flex items-center gap-0.5 text-(length:--fs-11) text-muted-foreground"><FiCamera className="size-3" aria-hidden />{d.photoFileIds.length}</span>}
                 </button>

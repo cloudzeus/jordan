@@ -1508,7 +1508,7 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
             <div className="relative order-1 min-h-[45dvh] md:order-2 md:min-h-0" {...dz.getRootProps()}>
               <input {...dz.getInputProps()} />
               {view3d && mPerPx ? (
-                <Plan3d ref={plan3dRef} image={plan.display} w={w} h={h} mPerPx={mPerPx} rooms={rooms} selectedId={selected} />
+                <Plan3d ref={plan3dRef} image={plan.display} w={w} h={h} mPerPx={mPerPx} rooms={rooms} selectedId={selected} devices={devices} cables={cables} selectedDeviceId={devSel} />
               ) : (
                 <PlanViewer
                   image={plan.display} w={w} h={h}

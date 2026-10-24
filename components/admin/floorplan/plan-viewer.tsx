@@ -593,7 +593,7 @@ export function PlanViewer(props: PlanViewerProps) {
           <div
             key={d.id} data-x={d.x} data-y={d.y} title={d.label}
             className="absolute left-0 top-0 inline-flex size-5 items-center justify-center rounded-full border shadow-md [&_svg]:size-3"
-            style={{ background: '#0B1220', borderColor: d.color, color: d.color, outline: d.selected ? '2px solid #fff' : undefined, outlineOffset: 1 }}
+            style={{ background: d.color, borderColor: 'rgba(11,18,32,0.55)', color: '#0B1220', outline: d.selected ? '2px solid #fff' : undefined, outlineOffset: 1 }}
           >
             {d.icon}
           </div>

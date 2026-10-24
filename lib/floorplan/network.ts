@@ -11,15 +11,32 @@ export type CableKind = (typeof CABLE_KINDS)[number];
 
 export type DeviceGroup = 'electrical' | 'network';
 export const DEVICE_META: Record<DeviceKind, { label: string; short: string; color: string; help: string; group: DeviceGroup; rangeM?: number; fov?: number; needsNetwork: boolean; needsPower: boolean }> = {
-  socket: { label: 'Πρίζα ρεύματος', short: 'Πρίζα', color: '#F59E0B', group: 'electrical', help: 'Σημείο ρεύματος (σούκο/μονοφασική).', needsNetwork: false, needsPower: true },
-  light: { label: 'Φωτιστικό', short: 'Φως', color: '#FDE047', group: 'electrical', help: 'Σημείο φωτισμού (οροφής ή τοίχου).', needsNetwork: false, needsPower: true },
-  switch: { label: 'Διακόπτης', short: 'Διακ.', color: '#FB923C', group: 'electrical', help: 'Διακόπτης φωτισμού ή ρολών.', needsNetwork: false, needsPower: true },
-  panel: { label: 'Ηλεκτρικός πίνακας', short: 'Πίνακας', color: '#F87171', group: 'electrical', help: 'Ο πίνακας: εδώ καταλήγουν τα κυκλώματα ρεύματος.', needsNetwork: false, needsPower: false },
-  data: { label: 'Πρίζα δικτύου (RJ45)', short: 'RJ45', color: '#38BDF8', group: 'network', needsPower: false, help: 'Σημείο δικτύου· το καλώδιό του καταλήγει στο rack.', needsNetwork: true },
+  socket: { label: 'Πρίζα ρεύματος', short: 'Πρίζα', color: '#F97316', group: 'electrical', help: 'Σημείο ρεύματος (σούκο/μονοφασική).', needsNetwork: false, needsPower: true },
+  light: { label: 'Φωτιστικό', short: 'Φως', color: '#FACC15', group: 'electrical', help: 'Σημείο φωτισμού (οροφής ή τοίχου).', needsNetwork: false, needsPower: true },
+  switch: { label: 'Διακόπτης', short: 'Διακ.', color: '#A3E635', group: 'electrical', help: 'Διακόπτης φωτισμού ή ρολών.', needsNetwork: false, needsPower: true },
+  panel: { label: 'Ηλεκτρικός πίνακας', short: 'Πίνακας', color: '#F43F5E', group: 'electrical', help: 'Ο πίνακας: εδώ καταλήγουν τα κυκλώματα ρεύματος.', needsNetwork: false, needsPower: false },
+  data: { label: 'Πρίζα δικτύου (RJ45)', short: 'RJ45', color: '#22D3EE', group: 'network', needsPower: false, help: 'Σημείο δικτύου· το καλώδιό του καταλήγει στο rack.', needsNetwork: true },
   camera: { label: 'Κάμερα', short: 'Κάμερα', color: '#C084FC', group: 'network', needsPower: false, help: 'Κάμερα IP με γωνία λήψης και εμβέλεια· δεύτερο κλικ = προς τα πού κοιτά.', rangeM: 10, fov: 90, needsNetwork: true },
-  ap: { label: 'Access point (Wi-Fi)', short: 'AP', color: '#4ADE80', group: 'network', needsPower: false, help: 'Σημείο Wi-Fi με κύκλο κάλυψης.', rangeM: 12, needsNetwork: true },
-  rack: { label: 'Rack', short: 'Rack', color: '#E2E8F0', group: 'network', needsPower: false, help: 'Καμπίνα δικτύου· εδώ τερματίζουν τα καλώδια δικτύου.', needsNetwork: false },
+  ap: { label: 'Access point (Wi-Fi)', short: 'AP', color: '#34D399', group: 'network', needsPower: false, help: 'Σημείο Wi-Fi με κύκλο κάλυψης.', rangeM: 12, needsNetwork: true },
+  rack: { label: 'Rack', short: 'Rack', color: '#CBD5E1', group: 'network', needsPower: false, help: 'Καμπίνα δικτύου· εδώ τερματίζουν τα καλώδια δικτύου.', needsNetwork: false },
 };
+/**
+ * Θέση στον χώρο για την προβολή 3D: ύψος τοποθέτησης (m) και μέγεθος (πλάτος × ύψος × βάθος, m).
+ * Τυπικά ύψη εγκατάστασης· τα μικρά σημεία σχεδιάζονται μεγαλύτερα από το πραγματικό για να φαίνονται σε όλο το σπίτι.
+ */
+export const DEVICE_3D: Record<DeviceKind, { mountM: number; size: [number, number, number]; shape: 'box' | 'disc' | 'cyl' }> = {
+  socket: { mountM: 0.3, size: [0.24, 0.24, 0.1], shape: 'box' },
+  light: { mountM: 2.72, size: [0.5, 0.08, 0.5], shape: 'disc' },
+  switch: { mountM: 1.1, size: [0.24, 0.24, 0.1], shape: 'box' },
+  panel: { mountM: 1.5, size: [0.45, 0.6, 0.14], shape: 'box' },
+  data: { mountM: 0.3, size: [0.24, 0.24, 0.1], shape: 'box' },
+  camera: { mountM: 2.6, size: [0.2, 0.2, 0.42], shape: 'cyl' },
+  ap: { mountM: 2.72, size: [0.45, 0.08, 0.45], shape: 'disc' },
+  rack: { mountM: 0.5, size: [0.6, 1.0, 0.6], shape: 'box' },
+};
+/** Ύψος όδευσης καλωδίων στην 3D (κοντά στο ταβάνι, όπως σε ψευδοροφή/κανάλι). */
+export const CABLE_RUN_M = 2.65;
+
 export const CABLE_META: Record<CableKind, { label: string; color: string; spec: string; help: string }> = {
   power: { label: 'Καλώδιο ρεύματος', color: '#EF4444', spec: 'NYM 3×2,5', help: 'Από τον πίνακα ως τις πρίζες/φωτιστικά (και από συσκευή σε συσκευή)· κλικ στις γωνίες, διπλό κλικ τελειώνει.' },
   network: { label: 'Καλώδιο δικτύου', color: '#3B82F6', spec: 'Cat6 UTP', help: 'Από τη συσκευή ως το rack· κλικ στις γωνίες, διπλό κλικ τελειώνει (κουμπώνει σε συσκευές).' },
