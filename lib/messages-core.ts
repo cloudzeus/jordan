@@ -1,6 +1,6 @@
 // lib/messages-core.ts — καθαρή λογική της «Επικοινωνίας»: είσοδος, παραλήπτες και πώς ένα μήνυμα μπαίνει στο ιστορικό.
 import { z } from 'zod';
-import type { HistoryEntry } from './contracts/history-core';
+import type { HistoryEntry, HistoryMessage } from './contracts/history-core';
 
 export type Audience = 'CUSTOMER' | 'SUPPLIER' | 'PARTNER' | 'INTERNAL';
 export type Recipient = { key: string; audience: Audience; name: string; email: string | null; partyRef: string | null; hint: string | null };
@@ -56,7 +56,7 @@ export function effectiveChannels(m: Pick<MessageInput, 'kind' | 'viaEmail' | 'v
 export type MessageRow = {
   id: string; contractId: string | null; audience: string; kind: string; toName: string | null; viaEmail: boolean; viaPortal: boolean;
   emailStatus: string | null; subject: string; body: string; attachments: number; authorName: string | null; createdAt: string;
-  cc?: string[]; replyCode?: string | null;
+  cc?: string[]; replyCode?: string | null; bodyHtml?: string | null;
 };
 
 /** Τι βλέπει ο πελάτης: μόνο ό,τι του στάλθηκε στην πύλη. */
@@ -78,6 +78,23 @@ export function messageEntries(rows: MessageRow[], viewer: 'STAFF' | 'CUSTOMER',
       title, body: `${m.subject}\n${m.body}`,
       who: viewer === 'CUSTOMER' ? (opts.companyName ?? 'Εμείς') : m.authorName ?? 'Εμείς',
       fromCustomer: false, target, revision: null, open: false,
+      message: messageCard(m, viewer),
     };
   });
+}
+
+/** Η κάρτα του μηνύματος στο ιστορικό: θέμα, μορφοποιημένο κείμενο, κανάλια με την κατάστασή τους, Cc, συνημμένα, κωδικός. */
+function messageCard(m: MessageRow, viewer: 'STAFF' | 'CUSTOMER'): HistoryMessage {
+  const staff = viewer === 'STAFF';
+  const channels: HistoryMessage['channels'] = [];
+  if (staff && m.kind === 'SEND' && m.audience !== 'INTERNAL') {
+    if (m.viaEmail) channels.push(m.emailStatus === 'BLOCKED' ? { label: 'Email', ok: false, note: 'δεν στάλθηκε (πριν το live)' }
+      : m.emailStatus === 'FAILED' ? { label: 'Email', ok: false, note: 'απέτυχε' } : { label: 'Email', ok: true });
+    if (m.viaPortal) channels.push({ label: 'Πύλη', ok: true });
+  }
+  return {
+    subject: m.subject, html: m.bodyHtml ?? null, text: m.body,
+    to: staff && m.toName ? `${m.toName}${m.audience !== 'CUSTOMER' && m.audience !== 'INTERNAL' ? ` (${AUDIENCE_LABEL[m.audience as Audience] ?? m.audience})` : ''}` : null,
+    channels, cc: staff ? m.cc ?? [] : [], attachments: m.attachments, code: staff && m.viaEmail ? m.replyCode ?? null : null,
+  };
 }

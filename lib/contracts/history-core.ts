@@ -23,6 +23,15 @@ export type HistoryEntry = {
   title: string; body: string; who: string; fromCustomer: boolean; target: string | null; revision: number | null;
   /** Για μηνύματα: ανοιχτό αίτημα/ερώτηση που περιμένει απάντηση. */
   open: boolean;
+  /** Μήνυμα «Επικοινωνίας»: εμφανίζεται ως κάρτα με τη μορφοποίησή του. */
+  message?: HistoryMessage;
+};
+export type HistoryMessage = {
+  subject: string;
+  /** Καθαρισμένο HTML του editor (ή null για απλό κείμενο — τότε `text`). */
+  html: string | null; text: string;
+  to: string | null; channels: { label: string; ok: boolean; note?: string }[];
+  cc: string[]; attachments: number; code: string | null;
 };
 
 export type HistoryViewer = 'STAFF' | 'CUSTOMER';

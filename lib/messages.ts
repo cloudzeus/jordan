@@ -139,6 +139,6 @@ export async function messageRows(where: Prisma.MessageWhereInput, take = 500): 
   return rows.map((m) => ({
     id: m.id, contractId: m.contractId, audience: m.audience, kind: m.kind, toName: m.toName, viaEmail: m.viaEmail, viaPortal: m.viaPortal,
     emailStatus: m.emailStatus, subject: m.subject, body: m.body, attachments: m.attachmentFileIds.length, authorName: m.authorName, createdAt: m.createdAt.toISOString(),
-    cc: m.cc, replyCode: m.replyCode,
+    cc: m.cc, replyCode: m.replyCode, bodyHtml: m.bodyHtml,
   }));
 }

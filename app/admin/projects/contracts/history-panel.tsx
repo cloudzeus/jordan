@@ -4,8 +4,8 @@
 // με φίλτρο (όλα / πελάτης / συμβάντα) και εξαγωγή CSV. Δεν σβήνεται τίποτα από εδώ.
 import * as React from 'react';
 import Link from 'next/link';
-import { FiChevronDown, FiClock, FiDownload, FiMessageCircle, FiFlag } from 'react-icons/fi';
-import { historyCsv, type HistoryEntry } from '@/lib/contracts/history-core';
+import { FiAlertTriangle, FiCheck, FiChevronDown, FiClock, FiDownload, FiMessageCircle, FiFlag, FiPaperclip } from 'react-icons/fi';
+import { historyCsv, type HistoryEntry, type HistoryMessage } from '@/lib/contracts/history-core';
 import { cn } from '@/lib/utils';
 
 const when = (iso: string) => new Date(iso).toLocaleString('el-GR', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' });
@@ -81,9 +81,10 @@ export function HistoryPanel({ entries, title = 'Ιστορικό επικοιν
                   <time dateTime={e.at} className="tabular-nums">· {when(e.at)}</time>
                   {showRef && e.contractRef && <Link href={`/admin/projects/contracts/${e.contractId}`} className="font-medium text-primary hover:underline">· {e.contractRef}</Link>}
                   {e.revision != null && <span>· έκδ. {e.revision}</span>}
-                  {e.target && <span>· {e.target}</span>}
+                  {e.target && !e.message && <span>· {e.target}</span>}
                 </p>
-                <p className="line-clamp-2 whitespace-pre-wrap text-(length:--fs-12)" title={e.body}>{e.body}</p>
+                {e.message ? <MessageCard m={e.message} />
+                  : <p className="line-clamp-2 whitespace-pre-wrap text-(length:--fs-12)" title={e.body}>{e.body}</p>}
               </li>
             );
           })}
@@ -97,5 +98,48 @@ export function HistoryPanel({ entries, title = 'Ιστορικό επικοιν
         </div>
       </details>
     </section>
+  );
+}
+
+/** Απεσταλμένο μήνυμα: ίδια κάρτα με τις ενότητες της διαχείρισης — θέμα, μορφοποιημένο κείμενο (κλειστό σε λίγες
+ *  γραμμές, «Όλο το μήνυμα» για τα υπόλοιπα) και μία γραμμή με παραλήπτη, κανάλια, κοινοποίηση, συνημμένα, κωδικό. */
+function MessageCard({ m }: { m: HistoryMessage }) {
+  const [full, setFull] = React.useState(false);
+  const [long, setLong] = React.useState(false);
+  const bodyRef = React.useRef<HTMLDivElement>(null);
+  React.useLayoutEffect(() => {
+    const el = bodyRef.current;
+    if (el) setLong(el.scrollHeight > el.clientHeight + 2);
+  }, [m.html, m.text]);
+  return (
+    <div className="mt-1 overflow-hidden rounded-lg border border-border bg-background">
+      <div className="flex flex-wrap items-baseline gap-x-2 border-b border-border bg-muted/40 px-3 py-1.5">
+        <span className="min-w-0 flex-1 truncate text-(length:--fs-13) font-semibold" title={m.subject}>{m.subject}</span>
+        {m.code && <span className="font-mono text-(length:--fs-11) text-muted-foreground" title="Κωδικός αναφοράς — συνδέει τις απαντήσεις">#{m.code}</span>}
+      </div>
+      <div ref={bodyRef} className={cn('relative px-3 py-2', !full && 'max-h-24 overflow-hidden')}>
+        {m.html
+          ? <div className="rte-content text-(length:--fs-12) leading-relaxed" dangerouslySetInnerHTML={{ __html: m.html }} />
+          : <p className="whitespace-pre-wrap text-(length:--fs-12) leading-relaxed">{m.text}</p>}
+        {!full && long && <span aria-hidden className="pointer-events-none absolute inset-x-0 bottom-0 h-8 bg-linear-to-t from-background to-transparent" />}
+      </div>
+      {(long || m.to || m.channels.length > 0 || m.cc.length > 0 || m.attachments > 0) && (
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-border px-3 py-1.5 text-(length:--fs-11) text-muted-foreground">
+          {m.to && <span>Προς <span className="font-medium text-foreground">{m.to}</span></span>}
+          {m.channels.map((c) => (
+            <span key={c.label} className={cn('inline-flex items-center gap-1', c.ok ? 'text-emerald-700' : 'text-amber-800')} title={c.note}>
+              {c.ok ? <FiCheck className="size-3" aria-hidden /> : <FiAlertTriangle className="size-3" aria-hidden />}{c.label}{c.note ? ` · ${c.note}` : ''}
+            </span>
+          ))}
+          {m.cc.length > 0 && <span className="min-w-0 truncate" title={m.cc.join(', ')}>Κοιν. {m.cc.join(', ')}</span>}
+          {m.attachments > 0 && <span className="inline-flex items-center gap-1"><FiPaperclip className="size-3" aria-hidden />{m.attachments} συνημμέν{m.attachments === 1 ? 'ο' : 'α'}</span>}
+          {long && (
+            <button type="button" onClick={() => setFull((x) => !x)} className="ml-auto min-h-6 cursor-pointer font-medium text-primary hover:underline">
+              {full ? 'Λιγότερα' : 'Όλο το μήνυμα'}
+            </button>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
