@@ -72,17 +72,20 @@ export async function deleteBudgetLineAction(prjc: number, id: string): Promise<
 
 /* ───────────── Τοποθεσία έργου ───────────── */
 
+/** Έργα του SoftOne (θετικό PRJC) και έργα επίδειξης (αρνητικό PRJC) — η ύπαρξη ελέγχεται στο saveProjectSite. */
+const siteInt = (v: unknown) => (typeof v === 'number' && Number.isInteger(v) && v !== 0 ? v : null);
+
 export async function getSiteAction(prjc: number): Promise<ActionResult<ProjectSiteView | null>> {
   const a = await actor('projects.read');
   if ('error' in a) return a.error;
-  const p = posInt(prjc);
+  const p = siteInt(prjc);
   return p ? done(await getProjectSite(p)) : badPrjc;
 }
 
 export async function saveSiteAction(prjc: number, input: unknown): Promise<ActionResult> {
   const a = await actor('projects.manage');
   if ('error' in a) return a.error;
-  const p = posInt(prjc);
+  const p = siteInt(prjc);
   if (!p) return badPrjc;
   const v = parse(siteInput, input);
   if ('error' in v) return v.error;
@@ -99,7 +102,7 @@ export async function saveSiteAction(prjc: number, input: unknown): Promise<Acti
 export async function deleteSiteAction(prjc: number): Promise<ActionResult> {
   const a = await actor('projects.manage');
   if ('error' in a) return a.error;
-  const p = posInt(prjc);
+  const p = siteInt(prjc);
   if (!p) return badPrjc;
   if (await deleteProjectSite(p)) {
     await logAudit({ userId: a.user.id, userEmail: a.user.email, action: 'project.site.delete', resource: 'project', resourceId: String(p) }).catch(() => null);

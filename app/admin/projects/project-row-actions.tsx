@@ -3,7 +3,7 @@
 import * as React from 'react';
 import dynamic from 'next/dynamic';
 import { usePathname, useRouter } from 'next/navigation';
-import { FiMoreVertical, FiPackage, FiTool, FiExternalLink, FiRefreshCw, FiCopy, FiMapPin, FiFolder, FiTrello, FiLayers, FiSquare, FiMessageSquare, FiClock } from 'react-icons/fi';
+import { FiMoreVertical, FiPackage, FiTool, FiExternalLink, FiRefreshCw, FiCopy, FiMapPin, FiFolder, FiTrello, FiLayers, FiSquare, FiMessageSquare, FiClock, FiMap } from 'react-icons/fi';
 import { toast } from 'sonner';
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
@@ -82,6 +82,15 @@ export function ProjectRowActions({
           <DropdownMenuItem className={ITEM} onSelect={() => router.push(`/admin/projects/${prjc}?tab=history`)}>
             <FiClock className="size-3.5" aria-hidden /> Ιστορικό επικοινωνίας
           </DropdownMenuItem>
+          {/* Τοποθεσία: ορισμός/αλλαγή (διάλογος) και ο χάρτης της στην καρτέλα «Τοποθεσία». */}
+          {canManage && (
+            <DropdownMenuItem className={ITEM} onSelect={() => setSiteOpen(true)}>
+              <FiMapPin className="size-3.5" style={{ color: '#0F766E' }} aria-hidden /> Τοποθεσία έργου…
+            </DropdownMenuItem>
+          )}
+          <DropdownMenuItem className={ITEM} onSelect={() => router.push(`/admin/projects/${prjc}?tab=map`)}>
+            <FiMap className="size-3.5" aria-hidden /> Χάρτης τοποθεσίας
+          </DropdownMenuItem>
           <DropdownMenuSeparator />
           {canManage && (
             <>
@@ -93,9 +102,6 @@ export function ProjectRowActions({
               </DropdownMenuItem>
               <DropdownMenuItem className={ITEM} onSelect={() => setRecipeOpen(true)}>
                 <FiLayers className="size-3.5" style={{ color: '#4338CA' }} aria-hidden /> Προσθήκη από συνταγή…
-              </DropdownMenuItem>
-              <DropdownMenuItem className={ITEM} onSelect={() => setSiteOpen(true)}>
-                <FiMapPin className="size-3.5" style={{ color: '#0F766E' }} aria-hidden /> Τοποθεσία έργου…
               </DropdownMenuItem>
               <DropdownMenuSeparator />
             </>

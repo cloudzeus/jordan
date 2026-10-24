@@ -7,6 +7,7 @@ import { PageHeader } from '@/components/admin/page-header';
 import { AccordionSection } from '@/components/admin/accordion-section';
 import { prisma } from '@/lib/db';
 import { TraderPointMap } from '@/components/admin/trader-point-map';
+import { ProjectSiteButton } from '../project-site-button';
 import { ProjectActivityPanel } from '../project-activity-panel';
 import { ProjectRowActions } from '../project-row-actions';
 import { ensureFreshFinancials, getProjectFinancials } from '@/lib/project-profit';
@@ -101,9 +102,12 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
                 <span className="text-(length:--fs-12) text-muted-foreground">
                   {' · '}<a href={`https://www.openstreetmap.org/?mlat=${site.lat}&mlon=${site.lng}#map=18/${site.lat}/${site.lng}`} target="_blank" rel="noopener noreferrer" className="underline-offset-2 hover:text-foreground hover:underline">χάρτης</a>
                   {' · '}<a href={`https://www.google.com/maps/dir/?api=1&destination=${site.lat},${site.lng}`} target="_blank" rel="noopener noreferrer" className="underline-offset-2 hover:text-foreground hover:underline">οδηγίες</a>
+                  {canManage && <>{' · '}<ProjectSiteButton prjc={p.prjc} projectLabel={`${p.code} · ${p.name}`} hasSite variant="link" className="font-normal text-muted-foreground hover:text-foreground" /></>}
                 </span>
               </>
-            ) : <span className="text-muted-foreground">— {canManage ? '(⋮ → Τοποθεσία έργου)' : ''}</span>}
+            ) : canManage
+              ? <ProjectSiteButton prjc={p.prjc} projectLabel={`${p.code} · ${p.name}`} hasSite={false} variant="link" />
+              : <span className="text-muted-foreground">—</span>}
           </Field>
           <Field label="Πελάτης"><TraderBlock t={p.customer} /></Field>
           {p.supplier && <Field label="Προμηθευτής"><TraderBlock t={p.supplier} /></Field>}
@@ -124,11 +128,13 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
             <span className="min-w-0 flex-1 truncate font-medium">{siteLine(site)}</span>
             <a href={`https://www.google.com/maps/dir/?api=1&destination=${site.lat},${site.lng}`} target="_blank" rel="noopener noreferrer" className="font-medium text-primary hover:underline">Οδηγίες (Google Maps)</a>
             <a href={`https://www.openstreetmap.org/?mlat=${site.lat}&mlon=${site.lng}#map=18/${site.lat}/${site.lng}`} target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-foreground hover:underline">OpenStreetMap</a>
+            {canManage && <ProjectSiteButton prjc={p.prjc} projectLabel={`${p.code} · ${p.name}`} hasSite className="h-7" />}
           </div>
         </section>
       ) : (
-        <div className="rounded-xl border border-dashed border-border px-4 py-10 text-center text-(length:--fs-13) text-muted-foreground">
-          Δεν έχει οριστεί τοποθεσία για το έργο.{canManage ? ' Ορίστε την από το ⋮ πάνω δεξιά → «Τοποθεσία έργου».' : ''}
+        <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed border-border px-4 py-10 text-center text-(length:--fs-13) text-muted-foreground">
+          <p>Δεν έχει οριστεί τοποθεσία για το έργο.{canManage ? ' Γράψτε τη διεύθυνση του εργοταξίου ή βάλτε την πινέζα στον χάρτη.' : ''}</p>
+          {canManage && <ProjectSiteButton prjc={p.prjc} projectLabel={`${p.code} · ${p.name}`} hasSite={false} />}
         </div>
       )} tasks={(
         <TasksWorkspace prjc={p.prjc} tasks={work.tasks} options={options} templates={templates} canManage={canManage} canFiles={canManageFiles} today={zonedParts(new Date()).date} openTaskId={query.task ?? null} />
