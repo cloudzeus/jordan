@@ -21,9 +21,13 @@ export function RequestForm({ disabledReason, sites = [] }: { disabledReason?: s
   const [error, setError] = React.useState<string | null>(null);
   const [sent, setSent] = React.useState<string | null>(null);
   const [pending, start] = React.useTransition();
+  const [tried, setTried] = React.useState(false);
+  const hasSite = !!siteId || site.trim().length >= 2;
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
+    setTried(true);
+    if (!hasSite) { document.getElementById(sites.length ? 'rq-site-text' : 'rq-site')?.focus(); return; }
     start(async () => {
       setError(null);
       const fd = new FormData();
@@ -32,7 +36,7 @@ export function RequestForm({ disabledReason, sites = [] }: { disabledReason?: s
       const r = await createOfferRequestAction(fd);
       if (!r.ok) { setError(r.message); return; }
       setSent(r.data.ref);
-      setTitle(''); setDescription(''); setSite(''); setWanted(''); setFiles([]);
+      setTitle(''); setDescription(''); setSite(''); setWanted(''); setFiles([]); setTried(false);
       router.refresh();
     });
   };
@@ -64,7 +68,7 @@ export function RequestForm({ disabledReason, sites = [] }: { disabledReason?: s
         <p className="mt-1 text-(length:--fs-12) text-(--s-mute)">Μια φωτογραφία ή μια κάτοψη μάς βοηθά να σας δώσουμε ακριβή τιμή.</p>
       </div>
       <div className="grid gap-4 sm:grid-cols-2">
-        <SitePicker id="rq-site" sites={sites} value={siteId} onChange={setSiteId} text={site} onText={setSite} field={field} />
+        <SitePicker id="rq-site" sites={sites} value={siteId} onChange={setSiteId} text={site} onText={setSite} field={field} showError={tried} />
         <div>
           <label htmlFor="rq-when" className="block text-(length:--fs-13) text-(--s-mute)">Πότε θα θέλατε να ξεκινήσουμε</label>
           <input id="rq-when" type="date" value={wanted} onChange={(e) => setWanted(e.target.value)} className={`${field} min-h-12`} />

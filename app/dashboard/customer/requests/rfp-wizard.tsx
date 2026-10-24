@@ -20,7 +20,7 @@ const CHECKS: { k: string; l: string; ok: (d: RfpDraft, photos: number) => boole
   { k: 'size', l: 'Μέγεθος ή φωτογραφία', ok: (d, ph) => d.areas.some((a) => a.m2 != null) || ph > 0 },
   { k: 'material', l: 'Υλικό / στυλ', ok: (d) => !!d.material },
   { k: 'kind', l: 'Υλικά ή και τοποθέτηση', ok: (d) => d.kind !== 'UNKNOWN' },
-  { k: 'site', l: 'Περιοχή', ok: (d) => !!d.site },
+  { k: 'site', l: 'Πού είναι το έργο', ok: (d) => d.site.trim().length >= 2 },
   { k: 'when', l: 'Πότε', ok: (d) => !!d.timing },
 ];
 const VERDICT = {
@@ -55,7 +55,8 @@ export function RfpWizard({ disabledReason, sites = [] }: { disabledReason?: str
     if (!t || thinking) return;
     const history: ChatMsg[] = [...msgs, { role: 'user', text: t }];
     setMsgs(history); setInput(''); setQuick([]); setError(null); setThinking(true);
-    const r = await rfpAgentAction({ history: history.slice(1), draft, photos: files.length }).catch(() => null);
+    const known = sites.find((s) => s.id === siteId);
+    const r = await rfpAgentAction({ history: history.slice(1), draft, photos: files.length, knownSite: known ? `${known.label}${known.line ? ` — ${known.line}` : ''}` : null }).catch(() => null);
     setThinking(false);
     if (!r?.ok) { setError(r && 'message' in r ? r.message : 'Ο βοηθός δεν απάντησε — δοκιμάστε ξανά.'); return; }
     setMsgs((m) => [...m, { role: 'assistant', text: r.data.reply }]);
@@ -75,7 +76,8 @@ export function RfpWizard({ disabledReason, sites = [] }: { disabledReason?: str
   const eff = picked ? { ...draft, site: draft.site || picked.label } : draft;
   const done = CHECKS.filter((c) => c.ok(eff, files.length)).length;
   const userTurns = msgs.filter((m) => m.role === 'user').length;
-  const canSend = !!draft.title && (ready || userTurns >= 3);
+  const hasSite = eff.site.trim().length >= 2;
+  const canSend = !!draft.title && hasSite && (ready || userTurns >= 3);
 
   const send = async () => {
     setSending(true); setError(null);
@@ -191,7 +193,7 @@ export function RfpWizard({ disabledReason, sites = [] }: { disabledReason?: str
             })}
           </ul>
           <div className="mt-4 border-t border-(--s-line) pt-3">
-            <SitePicker id="rfp-site" sites={sites} value={siteId} onChange={setSiteId} text={draft.site ?? ''} onText={(v) => setDraft((d) => ({ ...d, site: v }))} field="mt-1 w-full border border-(--s-line) bg-white px-3 text-(length:--fs-15) outline-hidden focus-visible:border-(--s-ink)" />
+            <SitePicker id="rfp-site" sites={sites} value={siteId} onChange={setSiteId} text={draft.site ?? ''} onText={(v) => setDraft((d) => ({ ...d, site: v }))} showError={!!draft.title && !hasSite && userTurns >= 2} field="mt-1 w-full border border-(--s-line) bg-white px-3 text-(length:--fs-15) outline-hidden focus-visible:border-(--s-ink)" />
           </div>
           {draft.areas.length > 0 && (
             <ul className="mt-4 border-t border-(--s-line) pt-3 text-(length:--fs-14) text-(--s-ink-2)">
@@ -227,7 +229,7 @@ export function RfpWizard({ disabledReason, sites = [] }: { disabledReason?: str
             {sending ? 'Αποστολή…' : ready ? 'Αποστολή αιτήματος' : 'Αποστολή όπως είναι'}
           </button>
         )}
-        {!canSend && !disabledReason && <p className="text-(length:--fs-12) text-(--s-mute)">Συνεχίστε τη συζήτηση — η αποστολή ενεργοποιείται μόλις ξέρουμε τι χρειάζεστε.</p>}
+        {!canSend && !disabledReason && <p className="text-(length:--fs-12) text-(--s-mute)">{draft.title && !hasSite ? 'Λείπει μόνο πού είναι το έργο — αρκεί η πόλη ή η περιοχή.' : 'Συνεχίστε τη συζήτηση — η αποστολή ενεργοποιείται μόλις ξέρουμε τι χρειάζεστε.'}</p>}
         <button type="button" onClick={() => setManual(true)} className="s-link min-h-11 text-(length:--fs-13) text-(--s-ink-2)">Προτιμώ να συμπληρώσω απλή φόρμα</button>
       </aside>
     </div>

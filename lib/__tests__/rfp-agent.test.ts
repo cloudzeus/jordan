@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildAgentPrompt, DEFAULT_CAPABILITIES, emptyDraft, mergeDraft, parseAgentTurn, rfpText, AgentParseError } from '../rfp-agent-core';
+import { buildAgentPrompt, DEFAULT_CAPABILITIES, emptyDraft, mergeDraft, parseAgentTurn, requireSite, rfpText, AgentParseError, type AgentTurn } from '../rfp-agent-core';
 
 describe('rfp-agent-core', () => {
   it('το prompt περιέχει τι αναλαμβάνουμε, το draft και τη συνομιλία', () => {
@@ -38,5 +38,19 @@ describe('rfp-agent-core', () => {
     const txt = rfpText({ ...emptyDraft(), title: 'Βεράντα', kind: 'PRODUCT_INSTALL', areas: [{ name: 'Βεράντα', m2: 25.5, surfaces: 'δάπεδο' }], site: 'Κηφισιά' }, { verdict: 'PARTIAL', can: [], cannot: ['ηλεκτρολογικά'] });
     expect(txt).toContain('• Βεράντα — 25,5 m² (δάπεδο)');
     expect(txt).toContain('Εκτίμηση βοηθού: Το αναλαμβάνουμε εν μέρει — εκτός: ηλεκτρολογικά');
+  });
+
+  it('τοποθεσία υποχρεωτική: ο βοηθός τη ρωτά πάντα, εκτός αν ο πελάτης διάλεξε αποθηκευμένη', () => {
+    const base = { capabilities: DEFAULT_CAPABILITIES, catalog: [], company: 'Atelier', history: [{ role: 'user' as const, text: 'Πέτρα στη βεράντα' }], draft: emptyDraft(), photos: 0, customerName: null };
+    expect(buildAgentPrompt(base).system).toContain('ΤΟΠΟΘΕΣΙΑ ΥΠΟΧΡΕΩΤΙΚΗ');
+    expect(buildAgentPrompt(base).user).not.toContain('αποθηκευμένη τοποθεσία');
+    expect(buildAgentPrompt({ ...base, knownSite: 'Σπίτι — Θάσος' }).user).toContain('αποθηκευμένη τοποθεσία: Σπίτι — Θάσος');
+  });
+  it('requireSite: χωρίς πόλη/περιοχή το αίτημα δεν είναι έτοιμο', () => {
+    const t: AgentTurn = { reply: 'ok', quickReplies: [], draft: { ...emptyDraft(), title: 'Βεράντα' }, scope: { verdict: 'YES', can: [], cannot: [] }, ready: true, missing: [] };
+    expect(requireSite(t, null)).toMatchObject({ ready: false, missing: ['πόλη ή περιοχή'] });
+    expect(requireSite({ ...t, draft: { ...t.draft, site: 'Θάσος' } }, null).ready).toBe(true);
+    expect(requireSite(t, 'Σπίτι — Κηφισιά').ready).toBe(true);
+    expect(requireSite({ ...t, ready: false, missing: ['περιοχή'] }, null).missing).toEqual(['περιοχή']);
   });
 });

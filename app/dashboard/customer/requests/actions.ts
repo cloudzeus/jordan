@@ -47,6 +47,8 @@ export async function createOfferRequestAction(form: FormData): Promise<ActionRe
 const agentInput = z.object({
   history: z.array(z.object({ role: z.enum(['user', 'assistant']), text: z.string().max(2000) })).min(1).max(60),
   draft: rfpDraft, photos: z.number().int().min(0).max(20).default(0),
+  /** Αποθηκευμένη τοποθεσία που διάλεξε ο πελάτης — ο βοηθός δεν τη ρωτά ξανά. */
+  knownSite: z.string().max(300).nullish().transform((v) => v || null),
 });
 
 /** Ένας γύρος του AI βοηθού «Ζητήστε προσφορά» (δεν αποθηκεύει τίποτα). */

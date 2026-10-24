@@ -36,18 +36,21 @@ export type AgentTurn = {
 };
 export type ChatMsg = { role: 'user' | 'assistant'; text: string };
 
-export function buildAgentPrompt(p: { capabilities: string; catalog: string[]; company: string; history: ChatMsg[]; draft: RfpDraft; photos: number; customerName: string | null }) {
+export function buildAgentPrompt(p: { capabilities: string; catalog: string[]; company: string; history: ChatMsg[]; draft: RfpDraft; photos: number; customerName: string | null; knownSite?: string | null }) {
   const system = [
     `Είσαι ο ψηφιακός βοηθός του ${p.company} για αιτήματα προσφοράς. Μιλάς Ελληνικά, ζεστά και απλά, σε μη τεχνικούς ιδιοκτήτες σπιτιών.`,
     'ΣΤΟΧΟΣ: να καταλάβεις τι χρειάζεται ο πελάτης και να συμπληρώσεις ένα πλήρες αίτημα προσφοράς (RFP) για την εταιρία.',
     'ΚΑΝΟΝΕΣ:',
     '- Ο χαιρετισμός έχει ήδη γίνει — ΜΗΝ ξαναχαιρετάς. ΜΙΑ ερώτηση τη φορά, σύντομη (1–3 προτάσεις). Δώσε 2–4 έτοιμες απαντήσεις (quickReplies) όπου βοηθά.',
-    '- Σειρά: τι θέλει & σε ποιους χώρους → περίπου τετραγωνικά (ή διαστάσεις) → υλικό/στυλ/χρώμα → τι υπάρχει σήμερα → υλικά μόνο ή και τοποθέτηση → περιοχή → πότε → (προαιρετικά) προϋπολογισμός.',
+    '- Σειρά: τι θέλει & σε ποιους χώρους → περίπου τετραγωνικά (ή διαστάσεις) → υλικό/στυλ/χρώμα → τι υπάρχει σήμερα → υλικά μόνο ή και τοποθέτηση → πού είναι το έργο → πότε → (προαιρετικά) προϋπολογισμός.',
+    '- ΤΟΠΟΘΕΣΙΑ ΥΠΟΧΡΕΩΤΙΚΗ: ρώτα ΠΑΝΤΑ πού είναι το έργο (πόλη/περιοχή/νησί) και γράψ\'το στο draft.site. Είναι αλλιώς στην Αθήνα και αλλιώς σε νησί:',
+    '  επηρεάζει μεταφορικά, επίβλεψη, έξοδα και ποιο συνεργείο αναλαμβάνει — πες το με μία φράση αν διστάζει. Αν δεν θέλει να δώσει διεύθυνση, αρκεί πόλη ή περιοχή.',
+    '  Αν δώσει μόνο κάτι αόριστο («στην επαρχία», «σε νησί»), ζήτα ποια πόλη/ποιο νησί. Χωρίς τοποθεσία ΠΟΤΕ ready=true.',
     '- Αν δεν ξέρει τετραγωνικά, ζήτα διαστάσεις ή φωτογραφία/κάτοψη (μπορεί να ανεβάσει με το κουμπί). Μην πιέζεις.',
     '- ΠΟΤΕ τιμές, εκπτώσεις, χρόνους παράδοσης ή δεσμεύσεις. Αν ρωτήσει τιμή: «θα τη δείτε στην προσφορά μας».',
     '- Έλεγχε ΣΥΝΕΧΩΣ αν το ζητούμενο είναι μέσα σε όσα αναλαμβάνουμε (παρακάτω). Αν κάτι δεν το κάνουμε, πες το ευγενικά και ξεκάθαρα,',
     '  πρότεινε τι μπορούμε να κάνουμε εμείς, και σημείωσέ το στο scope.cannot. verdict: YES (όλα), PARTIAL (μέρος), NO (τίποτα), UNKNOWN (δεν ξέρουμε ακόμη).',
-    '- ready=true όταν υπάρχουν: τι & πού (χώροι), μέγεθος ή φωτογραφία, υλικό/στυλ, υλικά ή και τοποθέτηση, περιοχή. Τότε κάνε μια σύντομη',
+    '- ready=true όταν υπάρχουν: τι & πού (χώροι), μέγεθος ή φωτογραφία, υλικό/στυλ, υλικά ή και τοποθέτηση, τοποθεσία (πόλη/περιοχή). Τότε κάνε μια σύντομη',
     '  περίληψη και ρώτα αν θέλει να το στείλει ή να προσθέσει κάτι. missing: τι λείπει ακόμη (λίστα με απλές λέξεις).',
     '- Κράτα και ενημέρωσε ΟΛΟ το draft σε κάθε απάντηση (όχι μόνο τις αλλαγές). Ο τίτλος: σύντομος, π.χ. «Πέτρινο δάπεδο βεράντας 25 m²».',
     '',
@@ -60,6 +63,7 @@ export function buildAgentPrompt(p: { capabilities: string; catalog: string[]; c
   ].filter((x) => x !== '').join('\n');
   const user = [
     p.customerName ? `Πελάτης: ${p.customerName}` : '',
+    p.knownSite ? `Ο πελάτης διάλεξε αποθηκευμένη τοποθεσία: ${p.knownSite} — ΜΗ ρωτήσεις ξανά πού είναι (επιβεβαίωσε μόνο αν η συζήτηση δείχνει άλλο μέρος).` : '',
     `Τρέχον draft: ${JSON.stringify(p.draft)}`,
     `Φωτογραφίες/κατόψεις που ανέβασε: ${p.photos}`,
     'Συνομιλία:',
@@ -90,6 +94,12 @@ export function parseAgentTurn(text: string, prev: RfpDraft): AgentTurn {
   return { reply: t.data.reply.trim(), quickReplies: t.data.quickReplies, draft, scope: t.data.scope, ready: t.data.ready, missing: t.data.missing };
 }
 
+/** Χωρίς τοποθεσία (στο draft ή αποθηκευμένη) δεν είναι «έτοιμο» — ό,τι κι αν πει το AI. */
+export function requireSite(t: AgentTurn, knownSite: string | null): AgentTurn {
+  if (knownSite || t.draft.site.trim().length >= 2) return t;
+  return { ...t, ready: false, missing: t.missing.some((m) => /περιοχ|τοποθεσ|πόλη|πού/i.test(m)) ? t.missing : [...t.missing, 'πόλη ή περιοχή'] };
+}
+
 /** Ό,τι έδωσε το AI κερδίζει· κενά πεδία δεν σβήνουν ό,τι υπήρχε. */
 export function mergeDraft(prev: RfpDraft, next: RfpDraft): RfpDraft {
   const pick = <K extends keyof RfpDraft>(k: K) => {
@@ -112,7 +122,7 @@ export function rfpText(d: RfpDraft, scope?: AgentTurn['scope']): string {
     area.length ? `Χώροι:\n${area.join('\n')}` : '',
     d.material ? `Υλικό / στυλ: ${d.material}` : '',
     d.current ? `Σήμερα υπάρχει: ${d.current}` : '',
-    d.site ? `Περιοχή: ${d.site}` : '',
+    d.site ? `Τοποθεσία: ${d.site}` : '',
     d.timing ? `Πότε: ${d.timing}` : '',
     d.budget ? `Προϋπολογισμός: ${d.budget}` : '',
     d.notes ? `Σημειώσεις: ${d.notes}` : '',

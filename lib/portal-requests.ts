@@ -2,7 +2,6 @@
 // με την περιγραφή και τις φωτογραφίες του) και «Πληρωμές» (οι δόσεις όλων των συμβάσεών του). Μόνο βάση
 // εφαρμογής — τίποτα προς το SoftOne.
 import 'server-only';
-import { z } from 'zod';
 import { prisma } from '@/lib/db';
 import { contractRef } from '@/lib/contracts/core';
 import { addNote } from '@/lib/contracts/notes';
@@ -12,24 +11,12 @@ import { mailgunConfig, sendTransactionalEmail } from '@/lib/mailgun';
 import { emailBrand } from '@/lib/email/brand';
 import { offerRequestCustomerEmail, offerRequestStaffEmail } from '@/lib/email/templates';
 import { appUrl } from '@/lib/app-url';
-import { rfpDraft, verdictText } from '@/lib/rfp-agent-core';
+import { verdictText } from '@/lib/rfp-agent-core';
 import { siteLine } from '@/lib/customer-profile-core';
 import { ContractError } from '@/lib/contracts/service';
 
-export const offerRequestInput = z.object({
-  title: z.string().trim().min(3, 'Γράψτε σύντομα τι θέλετε (π.χ. «Πέτρινο δάπεδο σαλονιού»)').max(160),
-  description: z.string().trim().min(10, 'Περιγράψτε λίγο περισσότερο τι χρειάζεστε').max(4000),
-  site: z.string().trim().max(300).nullish().transform((v) => v || null),
-  /** Αποθηκευμένη τοποθεσία του πελάτη (προφίλ) — υπερισχύει του ελεύθερου κειμένου. */
-  siteId: z.string().max(64).nullish().transform((v) => v || null),
-  wanted: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullish().transform((v) => v || null),
-  kind: z.enum(['PRODUCT', 'PRODUCT_INSTALL']).default('PRODUCT_INSTALL'),
-  /** Από τον AI βοηθό: το δομημένο RFP, η εκτίμηση αντικειμένου και η συνομιλία (για εμάς). */
-  rfp: rfpDraft.nullish(),
-  scope: z.object({ verdict: z.enum(['YES', 'PARTIAL', 'NO', 'UNKNOWN']), can: z.array(z.string().max(200)).max(10), cannot: z.array(z.string().max(200)).max(10) }).nullish(),
-  transcript: z.array(z.object({ role: z.enum(['user', 'assistant']), text: z.string().max(2000) })).max(60).nullish(),
-});
-export type OfferRequestInput = z.infer<typeof offerRequestInput>;
+export { offerRequestInput, SITE_REQUIRED, type OfferRequestInput } from './portal-requests-core';
+import type { OfferRequestInput } from './portal-requests-core';
 
 type Who = { id: string; email: string; name: string | null };
 
