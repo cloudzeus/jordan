@@ -21,6 +21,8 @@ async function remove() {
   await prisma.projectBudgetLine.deleteMany({ where: { prjc: PRJC } });
   await prisma.softoneProject.deleteMany({ where: { prjc: PRJC } });
   await prisma.user.updateMany({ where: { email: EMAIL, customerTrdr: TRDR }, data: { customerTrdr: null } });
+  await prisma.customerSite.deleteMany({ where: { trdr: TRDR } });
+  await prisma.customerChangeRequest.deleteMany({ where: { trdr: TRDR } });
   await prisma.softoneTrader.deleteMany({ where: { trdr: TRDR } });
   log(`− αφαιρέθηκαν ${cs.length} συμβάσεις/προσφορές, το έργο και ο demo πελάτης`);
 }
@@ -176,8 +178,21 @@ async function seed() {
     { contractId: done.id, type: 'COMPLETED', actorKind: 'STAFF', actorName: staffName, summary: 'Ολοκληρώθηκε', customer: true, createdAt: at(-31) },
   ] });
 
+  // ── Τοποθεσίες του πελάτη (προφίλ): κάθε προσφορά/έργο δένει με τη δική της, για τον τεχνικό φάκελο ──
+  await prisma.customerSite.deleteMany({ where: { trdr: TRDR } });
+  const home = await prisma.customerSite.create({ data: {
+    trdr: TRDR, label: 'Κατοικία Κηφισιά', address: 'Λεωφ. Κηφισίας 100', floor: '2ος όροφος', zip: '14562', district: 'Κεφαλάρι', city: 'Κηφισιά', lat: 38.0745, lng: 23.8106,
+    notes: 'Ασανσέρ έως 3 άτομα· στάθμευση στον πεζόδρομο πίσω. Εργασίες με θόρυβο 9:00–14:00.', isDefault: true, createdById: user.id,
+  } });
+  const summer = await prisma.customerSite.create({ data: {
+    trdr: TRDR, label: 'Εξοχικό Πόρτο Χέλι', address: 'Οδός Ακτής 12', zip: '21300', city: 'Πόρτο Χέλι', notes: 'Κλειδιά στον γείτονα (κ. Νίκος). Νερό από δεξαμενή — ενημερώστε πριν από μεγάλη κατανάλωση.', createdById: user.id,
+  } });
+  await prisma.contract.updateMany({ where: { id: { in: [active.id, done.id, ...(stone ? [stone.id] : [])] } }, data: { customerSiteId: home.id } });
+  await prisma.contract.update({ where: { id: req.id }, data: { customerSiteId: summer.id, siteAddress: 'Οδός Ακτής 12', siteZip: '21300', siteCity: 'Πόρτο Χέλι' } });
+
   log(`✓ ενεργή σύμβαση ΣΥΜ-${String(active.number).padStart(6, '0')} στο έργο DEMO-2026-01 · ${tasks.length} εργασίες · 3 πληρωμές (1 εξοφλημένη)`);
   log('✓ ολοκληρωμένη σύμβαση «Μπάνιο επισκεπτών» (για τον τεχνικό φάκελο)');
+  log('✓ 2 τοποθεσίες (Κατοικία Κηφισιά, Εξοχικό Πόρτο Χέλι) με τις εγκαταστάσεις τους');
   log(`✓ ${EMAIL} → Πελάτης «${CUSTOMER}»`);
 }
 

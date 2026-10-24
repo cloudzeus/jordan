@@ -13,11 +13,15 @@ import { emailBrand } from '@/lib/email/brand';
 import { offerRequestCustomerEmail, offerRequestStaffEmail } from '@/lib/email/templates';
 import { appUrl } from '@/lib/app-url';
 import { rfpDraft, verdictText } from '@/lib/rfp-agent-core';
+import { siteLine } from '@/lib/customer-profile-core';
+import { ContractError } from '@/lib/contracts/service';
 
 export const offerRequestInput = z.object({
   title: z.string().trim().min(3, 'Γράψτε σύντομα τι θέλετε (π.χ. «Πέτρινο δάπεδο σαλονιού»)').max(160),
   description: z.string().trim().min(10, 'Περιγράψτε λίγο περισσότερο τι χρειάζεστε').max(4000),
   site: z.string().trim().max(300).nullish().transform((v) => v || null),
+  /** Αποθηκευμένη τοποθεσία του πελάτη (προφίλ) — υπερισχύει του ελεύθερου κειμένου. */
+  siteId: z.string().max(64).nullish().transform((v) => v || null),
   wanted: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullish().transform((v) => v || null),
   kind: z.enum(['PRODUCT', 'PRODUCT_INSTALL']).default('PRODUCT_INSTALL'),
   /** Από τον AI βοηθό: το δομημένο RFP, η εκτίμηση αντικειμένου και η συνομιλία (για εμάς). */
@@ -30,12 +34,21 @@ export type OfferRequestInput = z.infer<typeof offerRequestInput>;
 type Who = { id: string; email: string; name: string | null };
 
 export async function createOfferRequest(trdr: number, input: OfferRequestInput, photos: File[], by: Who) {
-  const trader = await prisma.softoneTrader.findUnique({ where: { trdr }, select: { name: true, email: true, phone: true } });
+  const [trader, saved] = await Promise.all([
+    prisma.softoneTrader.findUnique({ where: { trdr }, select: { name: true, email: true, phone: true } }),
+    input.siteId ? prisma.customerSite.findFirst({ where: { id: input.siteId, trdr } }) : Promise.resolve(null),
+  ]);
+  if (input.siteId && !saved) throw new ContractError('Η τοποθεσία δεν βρέθηκε — διαλέξτε ξανά.', 404);
+  // Με αποθηκευμένη τοποθεσία: πλήρης διεύθυνση στην προσφορά + δέσιμο για τον τεχνικό φάκελο.
+  if (saved) input = { ...input, site: `${saved.label} — ${siteLine(saved)}${saved.notes ? `\nΣημειώσεις χώρου: ${saved.notes}` : ''}` };
+  const where = saved
+    ? { customerSiteId: saved.id, siteAddress: [saved.address, saved.floor].filter(Boolean).join(', ') || null, siteZip: saved.zip, siteDistrict: saved.district, siteCity: saved.city, siteLat: saved.lat, siteLng: saved.lng }
+    : { siteAddress: input.site };
   const c = await prisma.contract.create({
     data: {
       title: input.title, kind: input.kind, stage: 'OFFER', status: 'DRAFT', trdr,
       customerName: trader?.name ?? null, customerEmail: by.email, customerPhone: trader?.phone ?? null,
-      summary: `Αίτημα πελάτη από την πύλη:\n${input.description}`, siteAddress: input.site, startDate: input.wanted ? new Date(`${input.wanted}T00:00:00Z`) : null,
+      summary: `Αίτημα πελάτη από την πύλη:\n${input.description}`, ...where, startDate: input.wanted ? new Date(`${input.wanted}T00:00:00Z`) : null,
     },
     select: { id: true, number: true },
   });

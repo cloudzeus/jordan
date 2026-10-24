@@ -3104,6 +3104,50 @@ model CustomerContact {
   @@index([trdr])
 }
 
+// Τοποθεσίες πελάτη (πύλη): σπίτια, καταστήματα, εργοτάξια. Δικά μας δεδομένα — όχι SoftOne.
+// Κάθε αίτημα/προσφορά δένει με μία, ώστε ο τεχνικός φάκελος να μαζεύεται ανά εγκατάσταση.
+model CustomerSite {
+  id          String     @id @default(cuid())
+  trdr        Int
+  label       String // «Σπίτι Κηφισιά», «Κατάστημα Γλυφάδας»
+  address     String?
+  zip         String?
+  district    String?
+  city        String?
+  floor       String? // όροφος / διαμέρισμα
+  notes       String? // πρόσβαση, ώρες, ασανσέρ, στάθμευση
+  lat         Float?
+  lng         Float?
+  isDefault   Boolean    @default(false)
+  createdById String?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  contracts   Contract[]
+
+  @@index([trdr])
+}
+
+// Αιτήματα αλλαγής εταιρικών στοιχείων από την πύλη. Ο πελάτης ΔΕΝ γράφει στο SoftOne:
+// το προσωπικό ελέγχει, περνά την αλλαγή στο SoftOne με το χέρι και κλείνει το αίτημα.
+model CustomerChangeRequest {
+  id          String    @id @default(cuid())
+  trdr        Int
+  userId      String?
+  userEmail   String?
+  /// [{ field, label, from, to }]
+  changes     Json
+  note        String?
+  /// PENDING · APPLIED · REJECTED
+  status      String    @default("PENDING")
+  reply       String?
+  decidedById String?
+  decidedAt   DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([trdr, status])
+  @@index([status, createdAt])
+}
+
 // Κερδοφορία έργου — ΣΤΙΓΜΙΟΤΥΠΟ του υπολογισμού από τα παραστατικά του SoftOne (μόνο ανάγνωση).
 // Υπολογίζονται ΟΛΑ τα έργα μαζί με λίγα GetTable (βλ. `lib/project-profit/`), ώστε η λίστα να
 // ταξινομείται χωρίς ζωντανή κλήση ανά γραμμή. Τα ποσά είναι καθαρά (χωρίς ΦΠΑ), εκτός από τα
@@ -3710,6 +3754,9 @@ model Contract {
   siteLat       Float?
   siteLng       Float?
   siteSource    String?
+  /// Η αποθηκευμένη τοποθεσία του πελάτη (πύλη) — τα site* παραπάνω είναι το στιγμιότυπο της διεύθυνσης.
+  customerSiteId String?
+  customerSite   CustomerSite? @relation(fields: [customerSiteId], references: [id], onDelete: SetNull)
   sitePrecision String?
   startDate     DateTime? @db.Date
   endDate       DateTime? @db.Date
@@ -3745,6 +3792,7 @@ model Contract {
   @@index([trdr])
   @@index([status])
   @@index([floorPlanId])
+  @@index([customerSiteId])
 }
 
 /// Χρονοδιάγραμμα της προσφοράς (πριν από την αποδοχή): εργασίες με διάρκεια, έναρξη ή εξαρτήσεις

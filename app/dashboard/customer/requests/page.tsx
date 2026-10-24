@@ -8,6 +8,7 @@ import { Pill } from '@/components/site/b2b';
 import { PortalShell } from '../../portal-shell';
 import { PageTitle } from '../_ui/bits';
 import { RfpWizard } from './rfp-wizard';
+import { customerSites } from '@/lib/customer-profile';
 
 export const dynamic = 'force-dynamic';
 export const metadata: Metadata = { title: 'Αιτήματα προσφοράς' };
@@ -23,9 +24,10 @@ const when = (iso: string) => new Date(iso).toLocaleDateString('el-GR', { timeZo
 /** Ο πελάτης ζητά νέα προσφορά και βλέπει πού βρίσκεται κάθε αίτημά του. */
 export default async function CustomerRequestsPage() {
   const user = await requireCustomer();
-  const [rows, org] = await Promise.all([
+  const [rows, org, sites] = await Promise.all([
     customerOfferRequests(user.customerTrdr),
     prisma.softoneTrader.findUnique({ where: { trdr: user.customerTrdr }, select: { name: true } }),
+    customerSites(user.customerTrdr),
   ]);
   return (
     <PortalShell user={user} org={org?.name ?? null} active="requests">
@@ -35,7 +37,7 @@ export default async function CustomerRequestsPage() {
             Ο βοηθός μας σας κάνει λίγες απλές ερωτήσεις και ετοιμάζει το αίτημα. Εμείς το ελέγχουμε και σας στέλνουμε προσφορά εδώ, όπου μπορείτε να ρωτήσετε ή να ζητήσετε αλλαγές.
           </PageTitle>
           <div className="mt-10">
-            <RfpWizard disabledReason={user.viewAs ? 'Σε «Προβολή ως» ο βοηθός απαντά, αλλά η αποστολή γίνεται μόνο από τον πελάτη.' : null} />
+            <RfpWizard sites={sites} disabledReason={user.viewAs ? 'Σε «Προβολή ως» ο βοηθός απαντά, αλλά η αποστολή γίνεται μόνο από τον πελάτη.' : null} />
           </div>
         </div>
         <section aria-labelledby="rq-list">

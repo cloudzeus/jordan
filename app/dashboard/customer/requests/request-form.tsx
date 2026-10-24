@@ -5,15 +5,17 @@ import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { FiCamera, FiCheck, FiLoader, FiSend, FiX } from 'react-icons/fi';
 import { createOfferRequestAction } from './actions';
+import { SitePicker, type PickSite } from './site-picker';
 
 const field = 'mt-1 w-full border border-(--s-line) bg-white px-3 text-(length:--fs-15) outline-hidden focus-visible:border-(--s-ink)';
 
-export function RequestForm({ disabledReason }: { disabledReason?: string | null }) {
+export function RequestForm({ disabledReason, sites = [] }: { disabledReason?: string | null; sites?: PickSite[] }) {
   const router = useRouter();
   const [kind, setKind] = React.useState<'PRODUCT_INSTALL' | 'PRODUCT'>('PRODUCT_INSTALL');
   const [title, setTitle] = React.useState('');
   const [description, setDescription] = React.useState('');
   const [site, setSite] = React.useState('');
+  const [siteId, setSiteId] = React.useState(() => (sites.find((s) => s.isDefault) ?? sites[0])?.id ?? '');
   const [wanted, setWanted] = React.useState('');
   const [files, setFiles] = React.useState<File[]>([]);
   const [error, setError] = React.useState<string | null>(null);
@@ -25,7 +27,7 @@ export function RequestForm({ disabledReason }: { disabledReason?: string | null
     start(async () => {
       setError(null);
       const fd = new FormData();
-      fd.set('data', JSON.stringify({ title, description, site, wanted: wanted || null, kind }));
+      fd.set('data', JSON.stringify({ title, description, site: siteId ? null : site, siteId: siteId || null, wanted: wanted || null, kind }));
       for (const f of files) fd.append('photos', f);
       const r = await createOfferRequestAction(fd);
       if (!r.ok) { setError(r.message); return; }
@@ -62,10 +64,7 @@ export function RequestForm({ disabledReason }: { disabledReason?: string | null
         <p className="mt-1 text-(length:--fs-12) text-(--s-mute)">Μια φωτογραφία ή μια κάτοψη μάς βοηθά να σας δώσουμε ακριβή τιμή.</p>
       </div>
       <div className="grid gap-4 sm:grid-cols-2">
-        <div>
-          <label htmlFor="rq-site" className="block text-(length:--fs-13) text-(--s-mute)">Πού (περιοχή ή διεύθυνση)</label>
-          <input id="rq-site" value={site} onChange={(e) => setSite(e.target.value)} maxLength={300} placeholder="π.χ. Κηφισιά" className={`${field} min-h-12`} autoComplete="street-address" />
-        </div>
+        <SitePicker id="rq-site" sites={sites} value={siteId} onChange={setSiteId} text={site} onText={setSite} field={field} />
         <div>
           <label htmlFor="rq-when" className="block text-(length:--fs-13) text-(--s-mute)">Πότε θα θέλατε να ξεκινήσουμε</label>
           <input id="rq-when" type="date" value={wanted} onChange={(e) => setWanted(e.target.value)} className={`${field} min-h-12`} />

@@ -5,6 +5,7 @@ import { SoftoneConnectionBar } from '@/components/admin/softone-connection-bar'
 import { countPendingOrderRequests } from '@/lib/order-requests';
 import { countPendingAppointments } from '@/lib/appointments';
 import { countContractInbox } from '@/lib/contracts/inbox';
+import { countPendingCustomerChanges } from '@/lib/customer-changes';
 import { AirJordanLauncher } from '@/components/assistant/air-jordan-launcher';
 import { assistantAllowed } from '@/lib/assistant/access-rules';
 import { textAssistAllowed } from '@/lib/text-assist/core';
@@ -23,10 +24,12 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   // Υπαγόρευση + AI μορφοποίηση σε κάθε πεδίο κειμένου: μόνο ADMIN / SUPER_ADMIN.
   const canTextAssist = textAssistAllowed(user.role.key);
   const canSeeContracts = user.role.key === 'SUPER_ADMIN' || user.permissionKeys.has('projects.read');
-  const [orderRequests, appointments, inbox] = await Promise.all([
+  const canSeeMeta = user.role.key === 'SUPER_ADMIN' || user.permissionKeys.has('metadata.read');
+  const [orderRequests, appointments, inbox, customerChanges] = await Promise.all([
     canSeeRequests ? countPendingOrderRequests().catch(() => 0) : 0,
     canSeeAppointments ? countPendingAppointments().catch(() => 0) : 0,
     canSeeContracts ? countContractInbox().catch(() => null) : null,
+    canSeeMeta ? countPendingCustomerChanges().catch(() => 0) : 0,
   ]);
   const contractQuestions = inbox?.questions ?? 0;
   const offerRequests = inbox?.requests ?? 0;
@@ -39,7 +42,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         roleKey={user.role.key ?? null}
         locale={locale}
         permissionKeys={permissionKeys}
-        badges={{ orderRequests, appointments, contractInbox: contractQuestions, offerRequests }}
+        badges={{ orderRequests, appointments, contractInbox: contractQuestions, offerRequests, customerChanges }}
       />
       <div className="flex min-w-0 flex-1 flex-col pb-[calc(4rem+env(safe-area-inset-bottom))] lg:pb-0">
         {/* Η κατάσταση της σύνδεσης με το ERP αφορά ΚΑΘΕ σελίδα, όχι μόνο την ουρά: η πτώση
@@ -50,7 +53,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           {children}
         </main>
       </div>
-      <AdminBottomNav user={{ name: user.name, email: user.email }} roleName={user.role.name} roleKey={user.role.key ?? null} permissionKeys={permissionKeys} badges={{ orderRequests, appointments, contractInbox: contractQuestions, offerRequests }} />
+      <AdminBottomNav user={{ name: user.name, email: user.email }} roleName={user.role.name} roleKey={user.role.key ?? null} permissionKeys={permissionKeys} badges={{ orderRequests, appointments, contractInbox: contractQuestions, offerRequests, customerChanges }} />
       {canAssistant && <AirJordanLauncher canMemory={canAssistantMemory} />}
       {canTextAssist && <TextAssistLayer />}
     </div>

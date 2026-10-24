@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { FiMail,
   FiGrid, FiUsers, FiShield, FiKey, FiImage, FiChevronDown, FiList, FiTag, FiMaximize2, FiTrendingDown, FiShoppingCart,
-  FiActivity, FiSettings, FiFileText, FiInbox, FiLogOut, FiDatabase, FiBriefcase, FiLayers, FiCpu, FiBookOpen, FiBook, FiUserCheck, FiBox, FiTool, FiFolder, FiAlertCircle, FiUserPlus, FiPackage, FiPlayCircle, FiUploadCloud, FiHelpCircle, FiClipboard, FiCalendar, FiTarget, FiCheckSquare, FiMenu, FiX,
+  FiActivity, FiSettings, FiFileText, FiInbox, FiEdit3, FiLogOut, FiDatabase, FiBriefcase, FiLayers, FiCpu, FiBookOpen, FiBook, FiUserCheck, FiBox, FiTool, FiFolder, FiAlertCircle, FiUserPlus, FiPackage, FiPlayCircle, FiUploadCloud, FiHelpCircle, FiClipboard, FiCalendar, FiTarget, FiCheckSquare, FiMenu, FiX,
 } from 'react-icons/fi';
 import { Dialog as DialogPrimitive } from 'radix-ui';
 import { AirJordanIcon } from '@/components/assistant/air-jordan-icon';
@@ -31,6 +31,8 @@ export interface Badges {
   contractInbox?: number;
   /** Νέα αιτήματα προσφοράς από την πύλη που δεν έχει ανοίξει κανείς. */
   offerRequests?: number;
+  /** Αιτήματα αλλαγής εταιρικών στοιχείων από την πύλη σε αναμονή. */
+  customerChanges?: number;
   pendingUsers?: number;
   /** Εκκρεμείς εκδότες χωρίς συναλλασσόμενο — από /api/admin/ocr/queues/counts. */
   newTraders?: number;
@@ -82,6 +84,7 @@ const NAV_GROUPS: NavGroup[] = [
     label: 'Δεδομένα',
     items: [
       { href: '/admin/traders', label: 'Συναλλασσόμενοι', icon: FiUserCheck, permissions: ['metadata.read'] },
+      { href: '/admin/customer-changes', label: 'Αλλαγές στοιχείων πελατών', icon: FiEdit3, permissions: ['metadata.read'], badgeKey: 'customerChanges' },
       { href: '/admin/items', label: 'Είδη', icon: FiBox, permissions: ['metadata.read'] },
       { href: '/admin/services', label: 'Υπηρεσίες', icon: FiTool, permissions: ['metadata.read'] },
       { href: '/admin/expenses', label: 'Έξοδα & λογιστικά', icon: FiBookOpen, permissions: ['metadata.read'] },

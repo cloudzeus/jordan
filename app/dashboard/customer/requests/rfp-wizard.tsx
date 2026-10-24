@@ -9,6 +9,7 @@ import { FiAlertTriangle, FiCamera, FiCheck, FiCheckCircle, FiCircle, FiCpu, FiL
 import { emptyDraft, verdictText, type AgentTurn, type ChatMsg, type RfpDraft } from '@/lib/rfp-agent-core';
 import { createOfferRequestAction, rfpAgentAction } from './actions';
 import { RequestForm } from './request-form';
+import { SitePicker, type PickSite } from './site-picker';
 
 const GREETING = 'Γεια σας! Είμαι ο ψηφιακός βοηθός μας. Πείτε μου με λίγα λόγια τι θα θέλατε να φτιάξουμε — θα σας κάνω μερικές απλές ερωτήσεις και θα ετοιμάσουμε μαζί το αίτημα προσφοράς.';
 const STARTERS = ['Πέτρινο δάπεδο', 'Τσιμεντοκονία στο μπάνιο', 'Πάγκος κουζίνας από πέτρα', 'Βεράντα ή εξωτερικός χώρος'];
@@ -29,7 +30,7 @@ const VERDICT = {
   UNKNOWN: { cls: 'text-(--s-mute)', bg: 'bg-(--s-paper)', icon: FiCircle },
 } as const;
 
-export function RfpWizard({ disabledReason }: { disabledReason?: string | null }) {
+export function RfpWizard({ disabledReason, sites = [] }: { disabledReason?: string | null; sites?: PickSite[] }) {
   const router = useRouter();
   const [msgs, setMsgs] = React.useState<ChatMsg[]>([{ role: 'assistant', text: GREETING }]);
   const [quick, setQuick] = React.useState<string[]>(STARTERS);
@@ -43,6 +44,7 @@ export function RfpWizard({ disabledReason }: { disabledReason?: string | null }
   const [sending, setSending] = React.useState(false);
   const [sent, setSent] = React.useState<string | null>(null);
   const [manual, setManual] = React.useState(false);
+  const [siteId, setSiteId] = React.useState(() => (sites.find((s) => s.isDefault) ?? sites[0])?.id ?? '');
   const endRef = React.useRef<HTMLDivElement>(null);
   const inputRef = React.useRef<HTMLTextAreaElement>(null);
 
@@ -68,14 +70,17 @@ export function RfpWizard({ disabledReason }: { disabledReason?: string | null }
     void ask(lastUser.text);
   };
 
-  const done = CHECKS.filter((c) => c.ok(draft, files.length)).length;
+  // Μια αποθηκευμένη τοποθεσία καλύπτει το «Περιοχή» ακόμη κι αν ο βοηθός δεν τη ρώτησε.
+  const picked = sites.find((s) => s.id === siteId);
+  const eff = picked ? { ...draft, site: draft.site || picked.label } : draft;
+  const done = CHECKS.filter((c) => c.ok(eff, files.length)).length;
   const userTurns = msgs.filter((m) => m.role === 'user').length;
   const canSend = !!draft.title && (ready || userTurns >= 3);
 
   const send = async () => {
     setSending(true); setError(null);
     const fd = new FormData();
-    fd.set('data', JSON.stringify({ rfp: draft, scope, transcript: msgs.slice(1).slice(-60) }));
+    fd.set('data', JSON.stringify({ rfp: draft, scope, siteId: siteId || null, transcript: msgs.slice(1).slice(-60) }));
     for (const f of files) fd.append('photos', f);
     const r = await createOfferRequestAction(fd).catch(() => null);
     setSending(false);
@@ -87,7 +92,7 @@ export function RfpWizard({ disabledReason }: { disabledReason?: string | null }
   if (manual) return (
     <div className="space-y-4">
       <button type="button" onClick={() => setManual(false)} className="s-link min-h-11 text-(length:--fs-14) text-(--s-ink)">← Με τον βοηθό</button>
-      <RequestForm disabledReason={disabledReason} />
+      <RequestForm disabledReason={disabledReason} sites={sites} />
     </div>
   );
 
@@ -176,7 +181,7 @@ export function RfpWizard({ disabledReason }: { disabledReason?: string | null }
           {draft.title && <p className="mt-4 text-(length:--fs-16) text-(--s-ink)">{draft.title}</p>}
           <ul className="mt-3 space-y-1.5">
             {CHECKS.map((c) => {
-              const ok = c.ok(draft, files.length);
+              const ok = c.ok(eff, files.length);
               return (
                 <li key={c.k} className={`flex items-center gap-2 text-(length:--fs-14) ${ok ? 'text-(--s-ink)' : 'text-(--s-mute)'}`}>
                   {ok ? <FiCheck className="size-4 shrink-0 text-[#15803D]" aria-hidden /> : <FiCircle className="size-3.5 shrink-0" aria-hidden />}
@@ -185,6 +190,9 @@ export function RfpWizard({ disabledReason }: { disabledReason?: string | null }
               );
             })}
           </ul>
+          <div className="mt-4 border-t border-(--s-line) pt-3">
+            <SitePicker id="rfp-site" sites={sites} value={siteId} onChange={setSiteId} text={draft.site ?? ''} onText={(v) => setDraft((d) => ({ ...d, site: v }))} field="mt-1 w-full border border-(--s-line) bg-white px-3 text-(length:--fs-15) outline-hidden focus-visible:border-(--s-ink)" />
+          </div>
           {draft.areas.length > 0 && (
             <ul className="mt-4 border-t border-(--s-line) pt-3 text-(length:--fs-14) text-(--s-ink-2)">
               {draft.areas.map((a, i) => <li key={i} className="flex justify-between gap-3 py-0.5"><span>{a.name}{a.surfaces ? ` · ${a.surfaces}` : ''}</span><span className="tabular-nums">{a.m2 != null ? `${a.m2.toLocaleString('el-GR')} m²` : '—'}</span></li>)}

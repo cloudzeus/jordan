@@ -1,6 +1,6 @@
 import Image from 'next/image';
 import Link from 'next/link';
-import { FiCreditCard, FiEye, FiFileText, FiHome, FiLayers, FiLogOut, FiMenu, FiMessageSquare, FiPackage, FiPlus, FiZap } from 'react-icons/fi';
+import { FiCalendar, FiCreditCard, FiEye, FiFileText, FiHome, FiUser, FiLayers, FiLogOut, FiMenu, FiMessageSquare, FiPackage, FiPlus, FiZap } from 'react-icons/fi';
 import type { IconType } from 'react-icons';
 import { prisma } from '@/lib/db';
 import { siteCompany } from '@/lib/site-company';
@@ -11,7 +11,7 @@ import { Container } from '@/components/site/ui';
 import { SiteMotion } from '@/components/site/motion';
 import { cn } from '@/lib/utils';
 
-export type PortalSection = 'home' | 'offers' | 'projects' | 'contracts' | 'orders' | 'new-order' | 'assignments' | 'payments' | 'rfps' | 'requests';
+export type PortalSection = 'home' | 'offers' | 'projects' | 'contracts' | 'orders' | 'new-order' | 'assignments' | 'payments' | 'rfps' | 'requests' | 'profile' | 'calendar';
 
 const isCustomer = (u: NonNullable<UserWithRole>) => u.role.key === 'CUSTOMER' && u.customerTrdr != null;
 const isCrew = (u: NonNullable<UserWithRole>) => u.role.key === 'SUPPLIER';
@@ -35,6 +35,7 @@ export function portalNav(user: NonNullable<UserWithRole>): NavItem[] {
     return [
       home,
       { key: 'projects', href: '/dashboard/customer/projects', label: 'Έργα', hint: 'Πρόοδος, εργασίες και τεχνικοί φάκελοι', icon: FiLayers, tone: '#2563EB' },
+      { key: 'calendar', href: '/dashboard/customer/calendar', label: 'Ημερολόγιο', hint: 'Πότε γίνεται κάθε βήμα και πότε πληρώνετε', icon: FiCalendar, tone: '#9D174D' },
       { key: 'contracts', href: '/dashboard/customer/contracts', label: 'Προσφορές', hint: 'Προσφορές και συμβάσεις — ερωτήσεις και αποδοχή', icon: FiFileText, tone: '#0F766E' },
       { key: 'payments', href: '/dashboard/customer/payments', label: 'Πληρωμές', hint: 'Δόσεις: τι πληρώθηκε και τι ακολουθεί', icon: FiCreditCard, tone: '#15803D' },
       { key: 'requests', href: '/dashboard/customer/requests', label: 'Ζητήστε προσφορά', hint: 'Περιγράψτε τι θέλετε — σας βοηθά ο βοηθός μας', icon: FiMessageSquare, tone: '#B45309' },
@@ -95,6 +96,16 @@ export async function PortalShell({ user, org, active = 'offers', children }: { 
                   </li>
                 ))}
               </ul>
+              {customer && (
+                <Link href="/dashboard/customer/profile" aria-current={active === 'profile' ? 'page' : undefined}
+                  className="mt-2 flex items-center gap-4 rounded-xl bg-white p-4 ring-1 ring-(--s-line) aria-[current=page]:ring-2 aria-[current=page]:ring-(--s-ink)">
+                  <span className="grid size-11 shrink-0 place-items-center rounded-full bg-(--s-ink) text-white"><FiUser className="size-5" aria-hidden /></span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-(length:--fs-17) font-semibold text-(--s-ink)">Το προφίλ μου</span>
+                    <span className="block text-(length:--fs-14) text-(--s-ink-2)">Στοιχεία, τοποθεσίες και τεχνικοί φάκελοι</span>
+                  </span>
+                </Link>
+              )}
               {customer && <Link href="/dashboard/customer/orders/new" className="p-btn p-btn-primary mt-6 w-full"><FiPlus className="size-4" aria-hidden />Νέα παραγγελία υλικών</Link>}
             </nav>
           </details>
@@ -109,13 +120,24 @@ export async function PortalShell({ user, org, active = 'offers', children }: { 
                 <Link href="/dashboard/customer/requests" className="p-btn p-btn-accent hidden sm:inline-flex"><FiMessageSquare className="size-4" aria-hidden />Ζητήστε προσφορά</Link>
               </>
             )}
-            <div className="hidden min-w-0 items-center gap-3 border-l border-(--s-line) pl-4 xl:flex">
-              <span aria-hidden className="grid size-10 shrink-0 place-items-center rounded-full bg-(--s-ink) text-(length:--fs-14) font-semibold text-white">{initials}</span>
-              <div className="min-w-0 max-w-48">
-                <p className="truncate text-(length:--fs-14) font-semibold text-(--s-ink)">{user.name ?? user.email}</p>
-                {org && <p className="truncate text-(length:--fs-13) text-(--s-ink-2)">{org}</p>}
+            {customer ? (
+              <Link href="/dashboard/customer/profile" aria-current={active === 'profile' ? 'page' : undefined} title="Το προφίλ μου — στοιχεία, τοποθεσίες, τεχνικοί φάκελοι"
+                className="hidden min-w-0 items-center gap-3 rounded-lg border-l border-(--s-line) py-1 pl-4 pr-2 transition-colors hover:bg-(--s-paper) aria-[current=page]:bg-(--s-paper) lg:flex">
+                <span aria-hidden className="grid size-10 shrink-0 place-items-center rounded-full bg-(--s-ink) text-(length:--fs-14) font-semibold text-white">{initials}</span>
+                <div className="hidden min-w-0 max-w-48 xl:block">
+                  <p className="truncate text-(length:--fs-14) font-semibold text-(--s-ink)">{user.name ?? user.email}</p>
+                  <p className="truncate text-(length:--fs-13) text-(--s-ink-2)">Το προφίλ μου{org ? ` · ${org}` : ''}</p>
+                </div>
+              </Link>
+            ) : (
+              <div className="hidden min-w-0 items-center gap-3 border-l border-(--s-line) pl-4 xl:flex">
+                <span aria-hidden className="grid size-10 shrink-0 place-items-center rounded-full bg-(--s-ink) text-(length:--fs-14) font-semibold text-white">{initials}</span>
+                <div className="min-w-0 max-w-48">
+                  <p className="truncate text-(length:--fs-14) font-semibold text-(--s-ink)">{user.name ?? user.email}</p>
+                  {org && <p className="truncate text-(length:--fs-13) text-(--s-ink-2)">{org}</p>}
+                </div>
               </div>
-            </div>
+            )}
             {/* Σε «Προβολή ως» η αποσύνδεση θα έβγαζε τον διαχειριστή — η έξοδος γίνεται από τη μπάρα. */}
             {!user.viewAs && (
               <form action="/api/auth/logout" method="post">
