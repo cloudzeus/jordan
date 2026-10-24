@@ -320,6 +320,7 @@ export function AirJordanChat({
           <textarea
             ref={inputRef}
             data-aj-input=""
+            data-text-assist="off"
             value={input}
             rows={1}
             onChange={(e) => { setInput(e.target.value); autoSize(); }}

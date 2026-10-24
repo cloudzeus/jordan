@@ -606,6 +606,7 @@ export function OcrRowDetail({
         <span className={LABEL_CLS}>{s.label}{s.required && <span className="ml-0.5 text-dg-red-500">*</span>}</span>
         {s.textarea ? (
           <textarea rows={s.key === 'fullText' ? 8 : 2} disabled={ro}
+            data-text-assist={s.key === 'fullText' ? 'off' : undefined}
             value={form[s.key] ?? ''} onChange={(e) => setField(s.key, e.target.value)}
             className={cn(INPUT_CLS, 'h-auto resize-y py-1')} />
         ) : (
@@ -916,6 +917,7 @@ export function OcrRowDetail({
                                     <span className="flex items-start gap-0.5">
                                       <textarea
                                         rows={1} value={it.name} disabled={ro}
+                                        data-text-assist="off"
                                         aria-label={`Περιγραφή γραμμής ${i + 1}`}
                                         onChange={(e) => setLine(i, 'name', e.target.value)}
                                         className={cn(INPUT_CLS, 'h-auto min-w-0 flex-1 resize-none leading-snug field-sizing-content', row ? 'min-h-6 py-[0.15rem]' : 'min-h-8 py-[0.3rem]')}

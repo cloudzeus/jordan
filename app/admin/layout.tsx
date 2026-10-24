@@ -6,6 +6,8 @@ import { countPendingOrderRequests } from '@/lib/order-requests';
 import { countPendingAppointments } from '@/lib/appointments';
 import { AirJordanLauncher } from '@/components/assistant/air-jordan-launcher';
 import { assistantAllowed } from '@/lib/assistant/access-rules';
+import { textAssistAllowed } from '@/lib/text-assist/core';
+import { TextAssistLayer } from '@/components/admin/text-assist/text-assist-layer';
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   // Πελάτες/συνεργάτες ΔΕΝ μπαίνουν στη διαχείριση — πάνε στο portal τους.
@@ -17,6 +19,8 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   // Air Jordan: μόνο ADMIN / SUPER_ADMIN (το ίδιο ελέγχεται σε κάθε API του).
   const canAssistant = assistantAllowed(user.role.key, user.permissionKeys, 'assistant.use');
   const canAssistantMemory = assistantAllowed(user.role.key, user.permissionKeys, 'assistant.memory');
+  // Υπαγόρευση + AI μορφοποίηση σε κάθε πεδίο κειμένου: μόνο ADMIN / SUPER_ADMIN.
+  const canTextAssist = textAssistAllowed(user.role.key);
   const [orderRequests, appointments] = await Promise.all([
     canSeeRequests ? countPendingOrderRequests().catch(() => 0) : 0,
     canSeeAppointments ? countPendingAppointments().catch(() => 0) : 0,
@@ -43,6 +47,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       </div>
       <AdminBottomNav user={{ name: user.name, email: user.email }} roleName={user.role.name} roleKey={user.role.key ?? null} permissionKeys={permissionKeys} badges={{ orderRequests, appointments }} />
       {canAssistant && <AirJordanLauncher canMemory={canAssistantMemory} />}
+      {canTextAssist && <TextAssistLayer />}
     </div>
   );
 }
