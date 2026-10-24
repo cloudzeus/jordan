@@ -6,6 +6,7 @@ import { getProject } from '@/lib/projects';
 import { PageHeader } from '@/components/admin/page-header';
 import { AccordionSection } from '@/components/admin/accordion-section';
 import { prisma } from '@/lib/db';
+import { TraderPointMap } from '@/components/admin/trader-point-map';
 import { ProjectActivityPanel } from '../project-activity-panel';
 import { ProjectRowActions } from '../project-row-actions';
 import { ensureFreshFinancials, getProjectFinancials } from '@/lib/project-profit';
@@ -110,7 +111,20 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
         {p.remarks && <p className="mt-2 whitespace-pre-wrap border-t border-border pt-2 text-(length:--fs-12) text-muted-foreground">{p.remarks}</p>}
       </section>
 
-      <ProjectTabs openTasks={work.tasks.length - counts.DONE} tasks={(
+      <ProjectTabs openTasks={work.tasks.length - counts.DONE} map={site ? (
+        <section aria-label="Τοποθεσία έργου" className="overflow-hidden rounded-xl border border-border bg-card shadow-xs">
+          <TraderPointMap lat={site.lat} lng={site.lng} label={p.name} className="h-[60dvh] min-h-80 w-full" />
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-border px-4 py-2 text-(length:--fs-12)">
+            <span className="min-w-0 flex-1 truncate font-medium">{siteLine(site)}</span>
+            <a href={`https://www.google.com/maps/dir/?api=1&destination=${site.lat},${site.lng}`} target="_blank" rel="noopener noreferrer" className="font-medium text-primary hover:underline">Οδηγίες (Google Maps)</a>
+            <a href={`https://www.openstreetmap.org/?mlat=${site.lat}&mlon=${site.lng}#map=18/${site.lat}/${site.lng}`} target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-foreground hover:underline">OpenStreetMap</a>
+          </div>
+        </section>
+      ) : (
+        <div className="rounded-xl border border-dashed border-border px-4 py-10 text-center text-(length:--fs-13) text-muted-foreground">
+          Δεν έχει οριστεί τοποθεσία για το έργο.{canManage ? ' Ορίστε την από το ⋮ πάνω δεξιά → «Τοποθεσία έργου».' : ''}
+        </div>
+      )} tasks={(
         <TasksWorkspace prjc={p.prjc} tasks={work.tasks} options={options} templates={templates} canManage={canManage} canFiles={canManageFiles} today={zonedParts(new Date()).date} openTaskId={query.task ?? null} />
       )} overview={(<>
       {/* Εργασίες: σύνοψη προόδου + είσοδος στην καρτέλα «Εργασίες» */}

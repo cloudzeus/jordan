@@ -2,11 +2,12 @@
 
 // «Αρχεία» πελάτη/προμηθευτή ή έργου: υποφάκελοι, drag & drop με πρόοδο, λίστα με ⋮ ανά αρχείο.
 // Στον πελάτη/προμηθευτή φαίνονται ΚΑΙ οι φάκελοι των έργων του (ό,τι ανέβηκε από το έργο).
+import { entityPreview, useFilePreview } from '@/components/admin/file-preview';
 import * as React from 'react';
 import Link from 'next/link';
 import { useDropzone } from 'react-dropzone';
 import {
-  FiAlertTriangle, FiBriefcase, FiChevronRight, FiDownload, FiEdit3, FiEye, FiFile, FiFileText, FiFolder,
+  FiAlertTriangle, FiBriefcase, FiChevronRight, FiDownload, FiEdit3, FiExternalLink, FiEye, FiFile, FiFileText, FiFolder,
   FiFolderPlus, FiGrid, FiImage, FiMessageSquare, FiMoreVertical, FiMove, FiRefreshCw, FiTrash2, FiUploadCloud, FiX,
 } from 'react-icons/fi';
 import { toast } from 'sonner';
@@ -136,7 +137,7 @@ function TextDialog({ open, title, description, label, initial, multiline, confi
   );
 }
 
-function FileRow({ f, subfolders, canManage, onChanged }: { f: EntityFileDTO; subfolders: string[]; canManage: boolean; onChanged: () => void }) {
+function FileRow({ f, subfolders, canManage, onChanged, onPreview }: { f: EntityFileDTO; subfolders: string[]; canManage: boolean; onChanged: () => void; onPreview: () => void }) {
   const [edit, setEdit] = React.useState<'rename' | 'notes' | 'move' | null>(null);
   const patch = async (body: object, ok: string) => { await api(fileUrl(f.id), { method: 'PATCH', body: JSON.stringify(body) }); toast.success(ok); onChanged(); };
   const del = async () => {
@@ -152,8 +153,8 @@ function FileRow({ f, subfolders, canManage, onChanged }: { f: EntityFileDTO; su
     <li className="flex items-start gap-2.5 px-2 py-2 sm:px-3">
       <TypeIcon family={f.family} />
       <div className="min-w-0 flex-1">
-        <a href={isPdf ? `${fileUrl(f.id)}?inline=1` : fileUrl(f.id)} target={isPdf ? '_blank' : undefined} rel="noopener"
-          className="block truncate text-(length:--fs-13) font-medium text-foreground underline-offset-2 hover:underline">{f.name}</a>
+        <button type="button" onClick={onPreview} title="Προεπισκόπηση"
+          className="block max-w-full cursor-pointer truncate text-left text-(length:--fs-13) font-medium text-foreground underline-offset-2 hover:underline">{f.name}</button>
         <p className="flex flex-wrap gap-x-2 text-(length:--fs-11) text-muted-foreground">
           <span className="tabular-nums">{fmtSize(f.size)}</span>
           <span className="tabular-nums">{fmtDate(f.createdAt)}</span>
@@ -162,13 +163,18 @@ function FileRow({ f, subfolders, canManage, onChanged }: { f: EntityFileDTO; su
         </p>
         {f.notes && <p className="mt-0.5 whitespace-pre-wrap text-(length:--fs-12) text-foreground/80">{f.notes}</p>}
       </div>
+      <button type="button" onClick={onPreview} title="Προεπισκόπηση" aria-label={`Προεπισκόπηση: ${f.name}`}
+        className="inline-flex size-8 flex-none cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors duration-150 hover:bg-muted hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring">
+        <FiEye className="size-4" aria-hidden />
+      </button>
       <DropdownMenu>
         <DropdownMenuTrigger className="inline-flex size-8 flex-none cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors duration-150 hover:bg-muted hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring data-[state=open]:bg-muted" aria-label={`Ενέργειες για ${f.name}`}>
           <FiMoreVertical className="size-4" aria-hidden />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-56">
           <DropdownMenuItem className={ITEM} onSelect={() => { window.location.href = fileUrl(f.id); }}><FiDownload className="size-3.5" aria-hidden /> Λήψη</DropdownMenuItem>
-          {isPdf && <DropdownMenuItem className={ITEM} onSelect={() => window.open(`${fileUrl(f.id)}?inline=1`, '_blank', 'noopener')}><FiEye className="size-3.5" aria-hidden /> Προβολή σε νέα καρτέλα</DropdownMenuItem>}
+          <DropdownMenuItem className={ITEM} onSelect={onPreview}><FiEye className="size-3.5" aria-hidden /> Προεπισκόπηση</DropdownMenuItem>
+          {isPdf && <DropdownMenuItem className={ITEM} onSelect={() => window.open(`${fileUrl(f.id)}?inline=1`, '_blank', 'noopener')}><FiExternalLink className="size-3.5" aria-hidden /> Σε νέα καρτέλα</DropdownMenuItem>}
           {canManage && (
             <>
               <DropdownMenuSeparator />
@@ -212,6 +218,7 @@ function FileRow({ f, subfolders, canManage, onChanged }: { f: EntityFileDTO; su
 function FolderView({ scope, folder, canManage, onChanged, compact = false }: {
   scope: Scope; folder: EntityFolderDTO; canManage: boolean; onChanged: () => void; compact?: boolean;
 }) {
+  const preview = useFilePreview();
   const [sub, setSub] = React.useState<string | null>(null); // null = όλα
   const [jobs, setJobs] = React.useState<Job[]>([]);
   const [newFolder, setNewFolder] = React.useState(false);
@@ -343,7 +350,9 @@ function FolderView({ scope, folder, canManage, onChanged, compact = false }: {
 
       {visible.length > 0 ? (
         <ul className="divide-y divide-border">
-          {visible.map((f) => <FileRow key={f.id} f={f} subfolders={subfolders} canManage={canManage} onChanged={onChanged} />)}
+          {visible.map((f, i) => <FileRow key={f.id} f={f} subfolders={subfolders} canManage={canManage} onChanged={onChanged}
+            onPreview={() => preview.open(visible.map((x) => entityPreview(x.id, x.name, [x.subfolder, fmtSize(x.size), fmtDate(x.createdAt)].filter(Boolean).join(' · '))), i)} />)}
+          {preview.element}
         </ul>
       ) : (
         <div className={cn('flex flex-col items-center justify-center gap-1.5 px-4 text-center', compact ? 'py-5' : 'py-8')}>
