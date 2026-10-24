@@ -488,7 +488,7 @@ export function ContractEditor({ initial, staff, readOnly = false, customer = nu
                 rooms: s.rooms.map((r) => ({ id: r.id, name: r.name, floorM2: r.floorM2, wallsM2: r.wallsM2 })),
                 lines: s.lines, milestones: s.milestones.filter((m) => !m.partyKey && m.title.trim()).map((m) => m.title), vatRate: s.vatRate,
               })}
-              onApply={(changes) => up((p) => ({ lines: applyRevision(p.lines, changes, p.rooms, (l) => ({ ...l, uid: uid() })) }))} />
+              onApply={(changes, text) => up((p) => ({ lines: applyRevision(p.lines, changes, p.rooms, (l) => ({ ...l, uid: uid() })), ...(text ? { customerText: text } : {}) }))} />
           </Section>
         )}
 

@@ -79,7 +79,7 @@ export async function reviseOffer(p: ReviseInput, ctx: { userId: string | null; 
   let last: unknown = null;
   for (let attempt = 0; attempt < 2; attempt++) {
     const { text } = await complete(system, attempt ? `${user}\n\nΠΡΟΣΟΧΗ: η προηγούμενη απάντηση δεν ήταν έγκυρη. Δώσε ΜΟΝΟ το JSON της μορφής που ζητήθηκε.` : user, { ...ctx, operation: 'contracts.revise' });
-    try { return parseRevision(text, keys, ids); } catch (e) {
+    try { return parseRevision(text, keys, ids, p.customerText); } catch (e) {
       if (!(e instanceof ReviseParseError)) throw e;
       last = e;
     }

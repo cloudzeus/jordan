@@ -6,11 +6,11 @@
 import * as React from 'react';
 import { toast } from 'sonner';
 import {
-  FiAlertTriangle, FiArrowRight, FiCheck, FiCornerDownRight, FiEdit3, FiHelpCircle, FiMinusCircle, FiPlusCircle, FiRefreshCw, FiZap,
+  FiAlertTriangle, FiArrowRight, FiCheck, FiCornerDownRight, FiEdit3, FiFileText, FiHelpCircle, FiMinusCircle, FiPlusCircle, FiRefreshCw, FiZap,
 } from 'react-icons/fi';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { describeChange, type ApplyLine, type ReviseChange, type ReviseLine, type Revision } from '@/lib/contracts/revise-core';
+import { describeChange, paragraphDiff, type ApplyLine, type ReviseChange, type ReviseLine, type Revision } from '@/lib/contracts/revise-core';
 import type { NoteView } from '@/lib/contracts/notes';
 import { cn } from '@/lib/utils';
 import { answerRequestsAction, reviseOfferAction } from '../actions';
@@ -33,7 +33,7 @@ const LOADING = ['Διαβάζω τα αιτήματα του πελάτη…', 
 
 export function AiReviseDialog({ open, onOpenChange, contractId, requests, ctx, onApply }: {
   open: boolean; onOpenChange: (o: boolean) => void; contractId: string; requests: NoteView[];
-  ctx: () => ReviseContext; onApply: (changes: ReviseChange[]) => void;
+  ctx: () => ReviseContext; onApply: (changes: ReviseChange[], customerText: string | null) => void;
 }) {
   // Κάθε άνοιγμα ξαναστήνει τον διάλογο (key στον γονέα): βήμα 1 με όλα τα ανοιχτά αιτήματα επιλεγμένα.
   const [picked, setPicked] = React.useState<Set<string>>(() => new Set(requests.map((r) => r.id)));
@@ -45,6 +45,8 @@ export function AiReviseDialog({ open, onOpenChange, contractId, requests, ctx, 
   const [onChanges, setOnChanges] = React.useState<Set<number>>(new Set());
   const [replies, setReplies] = React.useState<Record<string, { text: string; send: boolean; resolve: boolean }>>({});
   const [applying, setApplying] = React.useState(false);
+  // Διορθωμένο «κείμενο για τον πελάτη»: προεπιλέγεται, επεξεργάσιμο, με «τι αλλάζει» ανά παράγραφο.
+  const [text, setText] = React.useState<{ on: boolean; value: string } | null>(null);
 
   React.useEffect(() => {
     if (!loading) return;
@@ -70,6 +72,7 @@ export function AiReviseDialog({ open, onOpenChange, contractId, requests, ctx, 
     setRev(r.data);
     // Αλλαγές τιμής μονάδας: προτείνονται αλλά δεν προεπιλέγονται — θέλουν ρητή απόφαση.
     setOnChanges(new Set(r.data.changes.flatMap((c, i) => (c.op === 'update' && c.unitPrice != null ? [] : [i]))));
+    setText(r.data.customerText ? { on: true, value: r.data.customerText.text } : null);
     setReplies(Object.fromEntries(r.data.replies.map((x) => {
       const q = requests.find((n) => n.id === x.request);
       return [x.request, { text: x.text, send: true, resolve: q?.kind === 'QUESTION' }];
@@ -82,20 +85,22 @@ export function AiReviseDialog({ open, onOpenChange, contractId, requests, ctx, 
   const delta = rows.filter((r) => onChanges.has(r.i)).reduce((t, r) => t + r.d.delta, 0);
   const vat = 1 + (snapshot?.vatRate ?? 24) / 100;
   const sendCount = Object.values(replies).filter((r) => r.send && r.text.trim()).length;
+  const textOn = !!text?.on && text.value.trim().length >= 40;
+  const diff = React.useMemo(() => (rev?.customerText && snapshot?.customerText ? paragraphDiff(snapshot.customerText, text?.value ?? rev.customerText.text) : null), [rev, snapshot, text]);
 
   const apply = async () => {
     if (!rev) return;
     const chosen = rev.changes.filter((_, i) => onChanges.has(i));
     setApplying(true);
-    if (chosen.length) onApply(chosen);
+    if (chosen.length || textOn) onApply(chosen, textOn ? text!.value.trim() : null);
     const out = await answerRequestsAction(contractId, {
       replies: Object.entries(replies).filter(([, r]) => r.send && r.text.trim()).map(([request, r]) => ({ request, text: r.text, resolve: r.resolve })),
-      summary: rev.summary, changes: chosen.length,
+      summary: [rev.summary, textOn ? 'διορθώθηκε το κείμενο για τον πελάτη' : ''].filter(Boolean).join(' · '), changes: chosen.length + (textOn ? 1 : 0),
     }).catch(() => null);
     setApplying(false);
     if (!out?.ok) { toast.error('Οι αλλαγές μπήκαν στη φόρμα, αλλά οι απαντήσεις δεν στάλθηκαν — δοκιμάστε από τη συζήτηση.'); onOpenChange(false); return; }
-    toast.success(chosen.length ? 'Οι αλλαγές μπήκαν στη φόρμα — πατήστε «Αποθήκευση» και στείλτε τη νέα έκδοση' : 'Οι απαντήσεις στάλθηκαν', {
-      description: sendCount ? `${sendCount} απαντήσ${sendCount === 1 ? 'η' : 'εις'} στον πελάτη · μένουν στο ιστορικό` : undefined,
+    toast.success(chosen.length || textOn ? 'Οι αλλαγές μπήκαν στη φόρμα — πατήστε «Αποθήκευση» και στείλτε τη νέα έκδοση' : 'Οι απαντήσεις στάλθηκαν', {
+      description: sendCount ? `${sendCount === 1 ? '1 απάντηση' : `${sendCount} απαντήσεις`} στον πελάτη · μένουν στο ιστορικό` : undefined,
     });
     onOpenChange(false);
   };
@@ -180,7 +185,7 @@ export function AiReviseDialog({ open, onOpenChange, contractId, requests, ctx, 
                   )}
                 </div>
                 {rows.length === 0 ? (
-                  <p className="mt-1.5 text-(length:--fs-12) text-muted-foreground">Καμία αλλαγή γραμμών — μόνο απαντήσεις.</p>
+                  <p className="mt-1.5 text-(length:--fs-12) text-muted-foreground">Καμία αλλαγή στις γραμμές της προσφοράς.</p>
                 ) : (
                   <ul className="mt-2 divide-y divide-border rounded-lg border border-border">
                     {rows.map(({ ch, i, d }) => {
@@ -214,6 +219,35 @@ export function AiReviseDialog({ open, onOpenChange, contractId, requests, ctx, 
                   </ul>
                 )}
               </section>
+
+              {rev.customerText && text && (
+                <section aria-labelledby="ai-tx" className={cn('rounded-lg border p-3 transition-colors', text.on ? 'border-violet-300 bg-violet-50/30' : 'border-border bg-muted/30')}>
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <h3 id="ai-tx" className="flex items-center gap-1.5 text-(length:--fs-13) font-semibold"><FiFileText className="size-4 text-violet-700" aria-hidden />Κείμενο για τον πελάτη — δεν συμφωνεί με τις γραμμές</h3>
+                    <label className="inline-flex min-h-8 cursor-pointer items-center gap-1.5 text-(length:--fs-12) font-medium">
+                      <input type="checkbox" checked={text.on} onChange={(e) => setText({ ...text, on: e.target.checked })} className="size-4" />Αντικατάσταση με το διορθωμένο
+                    </label>
+                  </div>
+                  {rev.customerText.reason && (
+                    <p className="mt-1.5 flex gap-1.5 text-(length:--fs-12) text-amber-900"><FiAlertTriangle className="mt-0.5 size-3.5 shrink-0" aria-hidden /><span>{rev.customerText.reason}</span></p>
+                  )}
+                  {diff && (diff.removed.length > 0 || diff.added.length > 0) && (
+                    <div className={cn('mt-2.5 space-y-1.5', !text.on && 'opacity-60')}>
+                      <p className="text-(length:--fs-11) font-semibold uppercase tracking-wide text-muted-foreground">Τι αλλάζει</p>
+                      <ul className="space-y-1 text-(length:--fs-12)">
+                        {diff.removed.map((x, i) => <li key={`r${i}`} className="flex gap-1.5 rounded bg-rose-50 px-2 py-1 text-rose-950"><FiMinusCircle className="mt-0.5 size-3 shrink-0" aria-label="Αφαιρείται" /><span className="line-through decoration-rose-400">{x}</span></li>)}
+                        {diff.added.map((x, i) => <li key={`a${i}`} className="flex gap-1.5 rounded bg-emerald-50 px-2 py-1 text-emerald-950"><FiPlusCircle className="mt-0.5 size-3 shrink-0" aria-label="Προστίθεται" /><span>{x}</span></li>)}
+                      </ul>
+                    </div>
+                  )}
+                  <details className="mt-2.5 group">
+                    <summary className="min-h-8 cursor-pointer text-(length:--fs-12) font-medium text-primary hover:underline">Ολόκληρο το διορθωμένο κείμενο (επεξεργασία)</summary>
+                    <label htmlFor="ai-tx-v" className="sr-only">Διορθωμένο κείμενο για τον πελάτη</label>
+                    <textarea id="ai-tx-v" value={text.value} rows={10} maxLength={20_000} disabled={!text.on} onChange={(e) => setText({ ...text, value: e.target.value })}
+                      className="mt-1.5 w-full resize-y rounded-md border border-input bg-background px-2.5 py-1.5 text-(length:--fs-13) leading-relaxed outline-hidden focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60" />
+                  </details>
+                </section>
+              )}
 
               {Object.keys(replies).length > 0 && (
                 <section aria-labelledby="ai-rp">
@@ -253,9 +287,9 @@ export function AiReviseDialog({ open, onOpenChange, contractId, requests, ctx, 
               </dl>
               <div className="flex flex-wrap justify-end gap-2">
                 <Button type="button" variant="ghost" size="sm" onClick={() => void ask()} disabled={applying} className="gap-1.5"><FiRefreshCw className="size-3.5" aria-hidden />Νέα πρόταση</Button>
-                <Button type="button" size="sm" onClick={() => void apply()} disabled={applying || (onChanges.size === 0 && sendCount === 0)} className="gap-1.5">
+                <Button type="button" size="sm" onClick={() => void apply()} disabled={applying || (onChanges.size === 0 && sendCount === 0 && !textOn)} className="gap-1.5">
                   {applying ? <FiRefreshCw className="size-3.5 animate-spin" aria-hidden /> : <FiCheck className="size-3.5" aria-hidden />}
-                  Εφαρμογή · {onChanges.size} αλλαγ{onChanges.size === 1 ? 'ή' : 'ές'}{sendCount ? ` · ${sendCount} απαντήσ${sendCount === 1 ? 'η' : 'εις'}` : ''}
+                  Εφαρμογή · {onChanges.size} αλλαγ{onChanges.size === 1 ? 'ή' : 'ές'}{textOn ? ' · κείμενο' : ''}{sendCount ? ` · ${sendCount === 1 ? '1 απάντηση' : `${sendCount} απαντήσεις`}` : ''}
                 </Button>
               </div>
             </>

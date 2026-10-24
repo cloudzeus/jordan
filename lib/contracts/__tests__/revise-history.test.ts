@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { applyRevision, buildRevisePrompt, describeChange, parseRevision, ReviseParseError, type ApplyLine } from '../revise-core';
+import { applyRevision, buildRevisePrompt, describeChange, paragraphDiff, parseRevision, ReviseParseError, type ApplyLine } from '../revise-core';
 import { buildHistory, historyCsv, isOpenRequest, type HistoryEvent, type HistoryNote } from '../history-core';
 
 const line = (p: Partial<ApplyLine>): ApplyLine => ({ kind: 'MATERIAL', mtrl: 1, code: 'A', name: 'Πλακάκι', unit: 'm²', qty: 10, unitPrice: 20, discount: 0, notes: null, partyKey: null, crewFee: null, roomId: 'r1', ...p });
@@ -47,6 +47,28 @@ describe('revise-core', () => {
     expect(out.map((l) => l.name)).toEqual(['Πλακάκι', 'Τοποθέτηση', 'Σοβατεπί']);
     expect(out[0]).toMatchObject({ qty: 6, discount: 10, uid: 'u0' });
     expect(out[2]).toMatchObject({ mtrl: null, roomId: 'r9', uid: 'new' });
+  });
+});
+
+describe('revise-core: κείμενο για τον πελάτη', () => {
+  const cur = 'Τι περιλαμβάνει\n• Μπάνιο: πλήρης επένδυση σε δάπεδο και τοίχους με τραβερτίνο.\n• Σαλόνι: νέο πέτρινο δάπεδο.';
+  const fixed = 'Τι περιλαμβάνει\n• Μπάνιο: επένδυση δαπέδου με τραβερτίνο.\n• Σαλόνι: νέο πέτρινο δάπεδο.';
+  const keys = new Set(['L1']);
+  it('κρατά το διορθωμένο κείμενο όταν διαφέρει — και μόνο αυτό αρκεί ως πρόταση', () => {
+    const r = parseRevision(JSON.stringify({ changes: [], replies: [], customerText: { text: fixed, reason: 'Οι γραμμές του μπάνιου είναι μόνο δαπέδου' } }), keys, new Set(), cur);
+    expect(r.customerText).toEqual({ text: fixed, reason: 'Οι γραμμές του μπάνιου είναι μόνο δαπέδου' });
+  });
+  it('αγνοεί ίδιο κείμενο, κείμενο χωρίς τρέχον, ή πολύ σύντομο', () => {
+    const same = parseRevision(JSON.stringify({ replies: [{ request: 'q', text: 'ok' }], customerText: { text: `${cur}  `, reason: '' } }), keys, new Set(['q']), cur);
+    expect(same.customerText).toBeNull();
+    expect(parseRevision(JSON.stringify({ replies: [{ request: 'q', text: 'ok' }], customerText: { text: fixed } }), keys, new Set(['q']), null).customerText).toBeNull();
+    expect(parseRevision(JSON.stringify({ replies: [{ request: 'q', text: 'ok' }], customerText: { text: 'λίγο' } }), keys, new Set(['q']), cur).customerText).toBeNull();
+  });
+  it('paragraphDiff: μόνο οι παράγραφοι που άλλαξαν', () => {
+    expect(paragraphDiff(cur, fixed)).toEqual({
+      removed: ['• Μπάνιο: πλήρης επένδυση σε δάπεδο και τοίχους με τραβερτίνο.'],
+      added: ['• Μπάνιο: επένδυση δαπέδου με τραβερτίνο.'],
+    });
   });
 });
 
