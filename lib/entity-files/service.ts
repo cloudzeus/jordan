@@ -76,7 +76,7 @@ async function bunnyMarker(key: string) {
 
 async function folderDTO(type: EntityType, id: number, folder: { basePath: string; subfolders: string[]; id: string } | null, info: { code: string; name: string }): Promise<EntityFolderDTO> {
   const files = folder ? await prisma.entityFile.findMany({ where: { folderId: folder.id }, orderBy: [{ subfolder: 'asc' }, { createdAt: 'desc' }] }) : [];
-  return { type, id, code: info.code, name: info.name, basePath: folder?.basePath ?? '', subfolders: folder?.subfolders ?? [], files: files.map(toDTO) };
+  return { type, id, code: info.code, name: info.name, basePath: folder?.basePath ?? '', subfolders: [...new Set(folder?.subfolders ?? [])], files: files.map(toDTO) };
 }
 
 /** Τα αρχεία μιας οντότητας. Για πελάτη/προμηθευτή, ΚΑΙ οι φάκελοι των έργων του (πελάτης ή προμηθευτής έργου). */
@@ -108,7 +108,8 @@ export async function uploadEntityFile(opts: {
   const folder = await ensureFolder(opts.type, opts.id);
   const sub = cleanSubfolder(opts.subfolder ?? '');
   if (sub && !folder.subfolders.includes(sub)) {
-    await prisma.entityFolder.update({ where: { id: folder.id }, data: { subfolders: { push: sub } } });
+    // Ατομικά: παράλληλα ανεβάσματα στον ίδιο νέο φάκελο (π.χ. αποθήκευση κάτοψης) δεν τον προσθέτουν δύο φορές.
+    await prisma.$executeRaw`UPDATE "EntityFolder" SET "subfolders" = array_append("subfolders", ${sub}) WHERE "id" = ${folder.id} AND NOT (${sub} = ANY("subfolders"))`;
   }
   const key = buildFileKey(folder.basePath, sub, opts.name, fileType.ext, unique());
   await bunnyUploadPrivate({ key, body: opts.buffer, contentType: fileType.mime });

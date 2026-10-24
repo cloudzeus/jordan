@@ -1,10 +1,11 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { FiBriefcase, FiArrowLeft, FiTrello } from 'react-icons/fi';
+import { FiBriefcase, FiArrowLeft, FiTrello, FiFolder, FiRepeat } from 'react-icons/fi';
 import { requirePermission, hasPermission } from '@/lib/rbac';
 import { getProject } from '@/lib/projects';
 import { PageHeader } from '@/components/admin/page-header';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { AccordionSection } from '@/components/admin/accordion-section';
+import { prisma } from '@/lib/db';
 import { ProjectActivityPanel } from '../project-activity-panel';
 import { ProjectRowActions } from '../project-row-actions';
 import { ensureFreshFinancials, getProjectFinancials } from '@/lib/project-profit';
@@ -65,6 +66,9 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
   const counts = phaseCounts(work.tasks);
   // Ιστορικό επικοινωνίας όλων των προσφορών/συμβάσεων του έργου.
   const history = await contractHistory({ prjc: p.prjc }, 'STAFF');
+  // Σύνοψη αρχείων για την κλειστή κεφαλίδα: πλήθος, ανά φάκελο, τελευταίο.
+  const files = canFiles ? await prisma.entityFile.findMany({ where: { folder: { entityType: 'PROJECT', entityId: p.prjc } }, select: { subfolder: true, createdAt: true }, orderBy: { createdAt: 'desc' } }) : [];
+  const bySub = [...files.reduce((m, f) => m.set(f.subfolder || 'Ρίζα', (m.get(f.subfolder || 'Ρίζα') ?? 0) + 1), new Map<string, number>())];
 
   return (
     <div className="w-full max-w-5xl">
@@ -136,19 +140,19 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
       )}
 
       {canFiles && (
-        <Card id="files" className="mt-4 scroll-mt-20">
-          <CardHeader className="px-3 sm:px-6"><CardTitle className="text-(length:--fs-14)">Αρχεία έργου</CardTitle></CardHeader>
-          <CardContent className="px-3 sm:px-6"><EntityFilesPanel scope="projects" id={p.prjc} /></CardContent>
-        </Card>
+        <AccordionSection id="files" className="mt-3" title="Αρχεία έργου" icon={<FiFolder />}
+          badge={<span className="text-(length:--fs-12) font-normal text-muted-foreground">· {files.length}</span>}
+          summary={files.length ? `${bySub.map(([k, n]) => `${k} ${n}`).join(' · ')} · τελευταίο ${fmtDate(files[0].createdAt)}` : 'Κανένα αρχείο ακόμη — σχέδια, φωτογραφίες, συμβάσεις'}>
+          <EntityFilesPanel scope="projects" id={p.prjc} />
+        </AccordionSection>
       )}
 
-      {history.length > 0 && <div className="mt-4"><HistoryPanel entries={history} fileName={`${p.code}`} showRef title="Ιστορικό επικοινωνίας με τον πελάτη" /></div>}
+      {history.length > 0 && <div className="mt-3"><HistoryPanel entries={history} fileName={`${p.code}`} showRef title="Ιστορικό επικοινωνίας με τον πελάτη" /></div>}
 
-      <Card className="mt-4">
-        <CardHeader className="px-3 sm:px-6"><CardTitle className="text-(length:--fs-14)">Κινήσεις στο SoftOne</CardTitle></CardHeader>
-        {/* Στο κινητό λιγότερο padding: οι πίνακες χρειάζονται κάθε pixel πλάτους. */}
-        <CardContent className="px-3 sm:px-6"><ProjectActivityPanel prjc={p.prjc} canManage={canManage} projectLabel={`${p.code} · ${p.name}`} /></CardContent>
-      </Card>
+      <AccordionSection id="activity" className="mt-3" title="Κινήσεις στο SoftOne" icon={<FiRepeat />}
+        summary="Παραγγελίες, δελτία, τιμολόγια και εισπράξεις του έργου — ανοίγει για τη λίστα">
+        <ProjectActivityPanel prjc={p.prjc} canManage={canManage} projectLabel={`${p.code} · ${p.name}`} />
+      </AccordionSection>
       </>)} />
 
       <p className="mt-4 text-(length:--fs-11) text-muted-foreground">
