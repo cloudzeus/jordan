@@ -718,7 +718,8 @@ export function ContractEditor({ initial, staff, readOnly = false, customer = nu
         )}
 
         {/* ── 4. Περιγραφή ── */}
-        <Section id="c-text" n={stepNo('c-text')} done={stepDone('c-text')} title="Περιγραφή του έργου"
+        <Section id="c-text" n={stepNo('c-text')} done={stepDone('c-text')} collapsible title="Περιγραφή του έργου"
+          badge={<span className="text-(length:--fs-12) font-normal text-muted-foreground">· {s.customerText?.trim() ? 'με κείμενο για τον πελάτη' : 'χωρίς κείμενο για τον πελάτη'}</span>}
           hint="Οι σημειώσεις σας και ένα απλό κείμενο για τον πελάτη — και τα δύο μπαίνουν στη σύνταξη των εγγράφων">
           {s.rooms.length > 0 && (
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-lg bg-muted/50 px-3 py-1 text-(length:--fs-12)">
@@ -782,7 +783,19 @@ export function ContractEditor({ initial, staff, readOnly = false, customer = nu
         </Section>
 
         {/* ── 5. Πληρωμές ── */}
-        <Section id="c-pay" n={stepNo('c-pay')} done={stepDone('c-pay')} title="Πληρωμές"
+        <Section id="c-pay" n={stepNo('c-pay')} done={stepDone('c-pay')} collapsible title="Πληρωμές"
+          badge={(() => {
+            // Σύνοψη: πόσες δόσεις του πελάτη και αν καλύπτουν ακριβώς το σύνολο.
+            const cm = s.milestones.filter((m) => !m.partyKey);
+            if (!cm.length) return <span className="text-(length:--fs-12) font-normal text-muted-foreground">· καμία πληρωμή</span>;
+            const diff = round2(cm.reduce((a, m) => a + m.amount, 0) - t.gross);
+            return (
+              <>
+                <span className="text-(length:--fs-12) font-normal text-muted-foreground">· {cm.length} {cm.length === 1 ? 'πληρωμή' : 'πληρωμές'} πελάτη</span>
+                {Math.abs(diff) >= 0.01 && <span className="rounded bg-rose-100 px-1.5 text-(length:--fs-11) font-semibold text-rose-900">{diff > 0 ? 'ξεπερνούν' : 'λείπουν'} {eur(Math.abs(diff))}</span>}
+              </>
+            );
+          })()}
           hint="Πότε και πόσα πληρώνει ο πελάτης (και εμείς τα συνεργεία) — με την ενεργοποίηση γίνονται εργασίες στο ημερολόγιο">
           <PaymentsSection
             milestones={s.milestones} parties={crews ? s.parties : []} customerTotal={t.gross} feeOf={feeOf} readOnly={ro}
