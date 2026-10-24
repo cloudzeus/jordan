@@ -43,8 +43,8 @@ export default async function CustomerOrdersPage({ searchParams }: { searchParam
     <PortalShell user={user} org={org?.name ?? null} active="orders">
       <Container className="py-14 md:py-20">
         <div className="flex flex-wrap items-end justify-between gap-6">
-          <PageTitle eyebrow="Παραγγελίες & παραστατικά" title="Παραγγελίες">
-            Η πορεία κάθε παραγγελίας ως το δελτίο και το τιμολόγιο, όπως καταχωρίζεται στο σύστημά μας.
+          <PageTitle eyebrow="Παραγγελίες υλικών" title="Παραγγελίες">
+            Οι παραγγελίες υλικών σας και πού βρίσκεται η καθεμία: τι επιβεβαιώσαμε, τι στάλθηκε και τι τιμολογήθηκε.
           </PageTitle>
           <Link href="/dashboard/customer/orders/new" className={btn.primary}>Νέα παραγγελία</Link>
         </div>
@@ -60,7 +60,7 @@ export default async function CustomerOrdersPage({ searchParams }: { searchParam
         )}
 
         <section className="mt-14" aria-labelledby="docs">
-          <h2 id="docs" className="font-site text-(length:--fs-24) font-medium">Παραστατικά</h2>
+          <h2 id="docs" className="font-site text-(length:--fs-24) font-medium">Παραγγελίες, αποστολές & τιμολόγια</h2>
           <nav aria-label="Φίλτρο παραστατικών" className="mt-5 flex flex-wrap gap-2">
             {FILTERS.map((f) => (
               <Link key={f.key} href={f.key === 'all' ? '/dashboard/customer/orders' : `/dashboard/customer/orders?kind=${f.key}`}
@@ -73,7 +73,7 @@ export default async function CustomerOrdersPage({ searchParams }: { searchParam
           </nav>
           <div className="mt-6">
             {!docs ? <ErpUnavailable /> : shown.length ? <DocTable docs={shown} /> : (
-              <Empty title={kind === 'all' ? 'Δεν υπάρχουν παραστατικά' : `Δεν υπάρχουν ${CUSTOMER_DOC_LABEL[kind as CustomerDocKind].toLowerCase()}`} />
+              <Empty title={kind === 'all' ? 'Δεν έχετε παραγγελίες ακόμη' : `Δεν υπάρχουν ${CUSTOMER_DOC_LABEL[kind as CustomerDocKind].toLowerCase()}`}>{kind === 'all' ? 'Πατήστε «Νέα παραγγελία» για να διαλέξετε υλικά — θα σας επιβεβαιώσουμε τιμή και παράδοση.' : null}</Empty>
             )}
           </div>
         </section>

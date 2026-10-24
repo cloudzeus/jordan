@@ -14,7 +14,7 @@ export function PortalHistory({ entries, showRef = false, empty = 'Δεν υπά
             <span className="text-(--s-ink)">{e.title}</span>
             <span>{e.who} · <time dateTime={e.at}>{when(e.at)}</time></span>
             {showRef && e.contractRef && <span>· {e.contractRef}</span>}
-            {e.revision != null && <span>· έκδ. {e.revision}</span>}
+            {e.revision != null && <span>· έκδοση {e.revision}</span>}
             {e.target && <span>· {e.target}</span>}
           </p>
           <p className="mt-1 whitespace-pre-wrap text-(length:--fs-15) text-(--s-ink-2)">{e.body}</p>

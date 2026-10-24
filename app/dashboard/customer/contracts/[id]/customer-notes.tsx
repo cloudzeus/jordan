@@ -143,7 +143,7 @@ export function CustomerNotes({ id, notes, targets, disabledReason, canRequestCh
                     <span className="font-medium text-(--s-ink)">{KIND_LABEL[n.kind]}</span>
                     <span>{n.mine ? 'Εσείς' : n.author} · {n.when}</span>
                     {n.target && <span>· {n.target}</span>}
-                    {n.revision != null && <span>· έκδ. {n.revision}</span>}
+                    {n.revision != null && <span>· στην έκδοση {n.revision}</span>}
                     {st && <span className={`ml-auto inline-flex items-center gap-1 normal-case tracking-normal ${st.cls}`}>{n.resolved && <FiCheck className="size-3.5" aria-hidden />}{st.l}</span>}
                   </p>
                   <p className="mt-2 whitespace-pre-wrap text-(length:--fs-15) text-(--s-ink)">{n.body}</p>

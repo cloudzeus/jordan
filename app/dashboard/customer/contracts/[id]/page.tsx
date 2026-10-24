@@ -97,6 +97,7 @@ export default async function CustomerContractPage({ params }: { params: Promise
           <section aria-labelledby="lines">
             <Label>Περιεχόμενο</Label>
             <h2 id="lines" className="font-site mt-2 text-(length:--fs-24) font-medium">Υλικά & εργασίες</h2>
+            <p className="mt-1 text-(length:--fs-15) text-(--s-ink-2)">Τι περιλαμβάνει αναλυτικά, με ποσότητες και τιμές. Για οτιδήποτε θέλετε να αλλάξει, πατήστε «Ερώτηση / αλλαγή» κάτω από τη γραμμή.</p>
             <div className="mt-6 overflow-x-auto">
               <table className="w-full min-w-[34rem] table-fixed border-collapse text-(length:--fs-15)">
                 <colgroup><col /><col className="w-[8rem]" /><col className="w-[6.5rem]" /><col className="w-[7.5rem]" /></colgroup>
@@ -123,9 +124,9 @@ export default async function CustomerContractPage({ params }: { params: Promise
                   ))}
                 </tbody>
                 <tfoot className="text-(length:--fs-14)">
-                  <tr><td colSpan={3} className="pt-4 text-right text-(--s-mute)">Καθαρή αξία</td><td className="pt-4 text-right tabular-nums">{eur(c.net)}</td></tr>
+                  <tr><td colSpan={3} className="pt-4 text-right text-(--s-mute)">Αξία χωρίς ΦΠΑ</td><td className="pt-4 text-right tabular-nums">{eur(c.net)}</td></tr>
                   <tr><td colSpan={3} className="pt-1 text-right text-(--s-mute)">ΦΠΑ {qty(c.vatRate)}%</td><td className="pt-1 text-right tabular-nums">{eur(c.vat)}</td></tr>
-                  <tr><td colSpan={3} className="pt-3 text-right text-(--s-ink)">Σύνολο</td><td className="font-num pt-3 text-right text-(length:--fs-28) tabular-nums">{eur(c.total)}</td></tr>
+                  <tr><td colSpan={3} className="pt-3 text-right font-semibold text-(--s-ink)">Σύνολο που πληρώνετε</td><td className="font-num pt-3 text-right text-(length:--fs-28) tabular-nums">{eur(c.total)}</td></tr>
                 </tfoot>
               </table>
             </div>
@@ -135,6 +136,7 @@ export default async function CustomerContractPage({ params }: { params: Promise
             <section aria-labelledby="pay">
               <Label>Χρονοδιάγραμμα</Label>
               <h2 id="pay" className="font-site mt-2 text-(length:--fs-24) font-medium">Πληρωμές</h2>
+              <p className="mt-1 text-(length:--fs-15) text-(--s-ink-2)">Πότε πληρώνετε και για ποιο βήμα της δουλειάς.</p>
               <div className="mt-6"><MilestoneList items={c.milestones.map((m) => ({ ...m, paidAt: null }))} /></div>
             </section>
           )}
@@ -192,7 +194,7 @@ export default async function CustomerContractPage({ params }: { params: Promise
               {c.validUntil && c.status === 'SENT' && <div className="flex justify-between gap-4"><dt className="text-(--s-mute)">Ισχύει έως</dt><dd>{date(c.validUntil)}</dd></div>}
               <div className="flex justify-between gap-4"><dt className="text-(--s-mute)">Έναρξη</dt><dd>{date(c.startDate)}</dd></div>
               <div className="flex justify-between gap-4"><dt className="text-(--s-mute)">Παράδοση</dt><dd>{date(c.endDate)}</dd></div>
-              {c.milestones.length > 0 && <div className="flex justify-between gap-4"><dt className="text-(--s-mute)">Εξοφλήθηκαν</dt><dd className="tabular-nums">{eur(paid)}</dd></div>}
+              {c.milestones.length > 0 && c.status !== 'SENT' && <div className="flex justify-between gap-4"><dt className="text-(--s-mute)">Έχετε πληρώσει</dt><dd className="tabular-nums">{eur(paid)}</dd></div>}
             </dl>
             {c.site && <p className="mt-5 flex items-start gap-2 border-t border-(--s-line) pt-4 text-(length:--fs-14) text-(--s-ink-2)"><FiMapPin className="mt-0.5 size-4 shrink-0 text-(--s-accent)" aria-hidden />{c.site}</p>}
           </Panel>

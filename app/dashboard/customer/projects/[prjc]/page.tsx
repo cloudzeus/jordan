@@ -61,9 +61,8 @@ export default async function CustomerProjectPage({ params }: { params: Promise<
         <PageTitle eyebrow={`Έργο ${p.code}`} title={p.name} back={{ href: '/dashboard/customer/projects', label: 'Τα έργα μου' }} />
         <div className="mt-6 flex flex-wrap items-center gap-x-8 gap-y-3 text-(length:--fs-14) text-(--s-ink-2)">
           <Status label={p.stateLabel} tone={projectTone[p.state]} />
-          <span>Έναρξη {date(p.fromDate)}</span>
-          {p.finalDate && <span>Προβλεπόμενη λήξη {date(p.finalDate)}</span>}
-          {p.closeDate && <span>Ολοκληρώθηκε {date(p.closeDate)}</span>}
+          <span>Ξεκίνησε {date(p.fromDate)}</span>
+          {p.closeDate ? <span>Ολοκληρώθηκε {date(p.closeDate)}</span> : p.finalDate && <span>Αναμένεται να ολοκληρωθεί {date(p.finalDate)}</span>}
         </div>
 
         <div className="mt-12 grid gap-8 sm:grid-cols-3">
@@ -76,10 +75,10 @@ export default async function CustomerProjectPage({ params }: { params: Promise<
 
         <section className="mt-16" aria-labelledby="docs">
           <div className="flex flex-wrap items-end justify-between gap-4">
-            <h2 id="docs" className="font-site text-(length:--fs-24) font-medium">Παραγγελίες, δελτία & τιμολόγια</h2>
+            <div><h2 id="docs" className="font-site text-(length:--fs-24) font-medium">Υλικά & τιμολόγια</h2><p className="mt-1 text-(length:--fs-15) text-(--s-ink-2)">Οι παραγγελίες υλικών του έργου, οι αποστολές τους και τα τιμολόγια.</p></div>
             <Link href={`/dashboard/customer/orders/new?project=${p.prjc}`} className={btn.ghost}>Νέα παραγγελία για το έργο</Link>
           </div>
-          <div className="mt-6">{sales.length ? <DocTable docs={sales} /> : <Empty title="Δεν υπάρχουν ακόμη παραστατικά" />}</div>
+          <div className="mt-6">{sales.length ? <DocTable docs={sales} /> : <Empty title="Τίποτα ακόμη">Μόλις παραγγείλετε υλικά ή εκδοθεί τιμολόγιο για το έργο, θα το βλέπετε εδώ.</Empty>}</div>
         </section>
 
         {payments.length > 0 && (

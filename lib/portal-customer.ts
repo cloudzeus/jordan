@@ -19,6 +19,8 @@ import { zonedParts } from '@/lib/appointments-core';
  */
 
 const VISIBLE = ['SENT', 'ACCEPTED', 'ACTIVE', 'COMPLETED'] as const;
+/** Οι καταστάσεις όπως τις διαβάζει ο πελάτης (όχι «Στάλθηκε», που είναι η δική μας σκοπιά). */
+const CUSTOMER_STATUS: Record<string, string> = { SENT: 'Περιμένει την απάντησή σας', ACCEPTED: 'Την αποδεχτήκατε', ACTIVE: 'Σε εξέλιξη', COMPLETED: 'Ολοκληρώθηκε', CANCELLED: 'Ακυρώθηκε' };
 const dateOnly = (d: Date | null | undefined) => (d ? d.toISOString().slice(0, 10) : null);
 
 export type CustomerContract = {
@@ -47,7 +49,7 @@ async function load(trdr: number, id?: string): Promise<CustomerContract[]> {
     const t = totals(c.lines, c.vatRate);
     return {
       id: c.id, ref: contractRef(c.number), title: c.title, summary: c.summary, customerText: c.customerText?.trim() || null,
-      stage: c.stage, stageLabel: STAGE_LABEL[c.stage] ?? c.stage, status: c.status, statusLabel: STATUS_LABEL[c.status as ContractStatus] ?? c.status,
+      stage: c.stage, stageLabel: STAGE_LABEL[c.stage] ?? c.stage, status: c.status, statusLabel: CUSTOMER_STATUS[c.status] ?? STATUS_LABEL[c.status as ContractStatus] ?? c.status,
       prjc: c.prjc, site: c.siteFormatted || [c.siteAddress, c.siteCity].filter(Boolean).join(', ') || null,
       startDate: dateOnly(c.startDate), endDate: dateOnly(c.endDate), validUntil: dateOnly(c.validUntil),
       vatRate: c.vatRate, net: t.net, vat: t.vat, total: t.gross,

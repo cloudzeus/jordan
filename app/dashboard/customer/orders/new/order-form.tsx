@@ -140,7 +140,7 @@ export function OrderForm({ initial, projects, initialProject }: { initial: Cart
             </select>
           </Field>
         )}
-        <Field label="Η αναφορά σας" htmlFor="customerRef" hint="Π.χ. αριθμός εντολής ή όνομα εργοταξίου.">
+        <Field label="Δικό σας σημείωμα (προαιρετικό)" htmlFor="customerRef" hint="Π.χ. «Μπάνιο ορόφου» ή αριθμός εντολής — θα το βλέπετε στην παραγγελία.">
           <input id="customerRef" name="customerRef" maxLength={80} aria-describedby="customerRef-hint" className={inputCls} />
         </Field>
         <Field label="Επιθυμητή ημερομηνία παράδοσης" htmlFor="deliveryDate">
@@ -156,7 +156,7 @@ export function OrderForm({ initial, projects, initialProject }: { initial: Cart
         <button type="submit" disabled={sending || cart.length === 0} className={cn(btn.primary, 'w-full')}>
           {sending ? 'Αποστολή…' : `Αποστολή αιτήματος${cart.length ? ` · ${cart.length} ${cart.length === 1 ? 'υλικό' : 'υλικά'}` : ''}`}
         </button>
-        <p className="text-(length:--fs-13) text-(--s-mute)">Το αίτημα δεν είναι δεσμευτική παραγγελία μέχρι να το επιβεβαιώσουμε. Τιμές βάσει της εμπορικής σας συμφωνίας.</p>
+        <p className="text-(length:--fs-13) text-(--s-mute)">Δεν δεσμεύεστε μέχρι να σας επιβεβαιώσουμε τιμή και παράδοση. Οι τιμές είναι αυτές που έχουμε συμφωνήσει μαζί σας.</p>
       </aside>
     </form>
   );

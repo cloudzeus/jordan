@@ -35,8 +35,8 @@ export default async function NewOrderPage({ searchParams }: { searchParams: Pro
   return (
     <PortalShell user={user} org={org?.name ?? null} active="new-order">
       <Container className="py-14 md:py-20">
-        <PageTitle eyebrow="Παραγγελία από τον κατάλογο" title="Νέα παραγγελία" back={{ href: '/dashboard/customer/orders', label: 'Παραγγελίες' }}>
-          Επιλέξτε υλικά και ποσότητες. Το αίτημα έρχεται στο τμήμα πωλήσεων, που επιβεβαιώνει τιμές, διαθεσιμότητα και ημερομηνία παράδοσης πριν το καταχωρίσει ως παραγγελία.
+        <PageTitle eyebrow="Παραγγελία υλικών" title="Νέα παραγγελία" back={{ href: '/dashboard/customer/orders', label: 'Παραγγελίες' }}>
+          Διαλέξτε υλικά και ποσότητες. Πριν προχωρήσουμε σας επιβεβαιώνουμε τιμή, διαθεσιμότητα και ημερομηνία παράδοσης — μέχρι τότε δεν δεσμεύεστε σε τίποτα.
         </PageTitle>
         {repeat && <p className="mt-4 text-(length:--fs-14) text-(--s-ink-2)">Προσυμπληρώθηκε από το {repeat.doc.fincode}{initial.length < (repeat.lines.length || 0) ? ' — όσα υλικά δεν είναι πλέον στον κατάλογο παραλείφθηκαν' : ''}.</p>}
         <div className="mt-12">

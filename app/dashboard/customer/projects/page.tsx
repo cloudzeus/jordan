@@ -23,7 +23,7 @@ export default async function CustomerProjectsPage() {
     <PortalShell user={user} org={org?.name ?? null} active="projects">
       <Container className="py-14 md:py-20">
         <PageTitle eyebrow="Παρακολούθηση έργων" title="Τα έργα μου">
-          {projects.length ? `${projects.length === 1 ? '1 έργο' : `${projects.length} έργα`} · ${active} σε εξέλιξη.` : null} Για κάθε έργο βλέπετε την κατάσταση, τις παραγγελίες, τα δελτία, τα τιμολόγια και τις πληρωμές σας.
+          Δείτε πώς προχωρά κάθε έργο σας: τι έχει γίνει, τι ακολουθεί και ποια υλικά παραγγείλατε.{projects.length === 1 ? ` Έχετε 1 έργο${active ? ', σε εξέλιξη' : ''}.` : projects.length ? ` Έχετε ${projects.length} έργα${active ? ` — ${active === 1 ? 'το ένα' : `τα ${active}`} σε εξέλιξη` : ''}.` : null}
         </PageTitle>
         {projects.length === 0 ? (
           <div className="mt-12"><Empty title="Δεν υπάρχουν έργα στο όνομά σας">Όταν ανοίξει έργο για εσάς, θα εμφανιστεί εδώ.</Empty></div>
@@ -36,7 +36,7 @@ export default async function CustomerProjectsPage() {
                     <span className="block text-(length:--fs-13) tabular-nums text-(--s-mute)">{p.code}</span>
                     <span className="block text-(length:--fs-18) font-semibold leading-snug text-(--s-ink) group-hover:underline group-hover:underline-offset-4">{p.name}</span>
                     <span className="mt-1 block text-(length:--fs-13) text-(--s-ink-2)">
-                      Έναρξη {date(p.fromDate)}{p.finalDate ? ` · προβλεπόμενη λήξη ${date(p.finalDate)}` : ''}{p.closeDate ? ` · ολοκληρώθηκε ${date(p.closeDate)}` : ''}
+                      Ξεκίνησε {date(p.fromDate)}{p.closeDate ? ` · ολοκληρώθηκε ${date(p.closeDate)}` : p.finalDate ? ` · αναμένεται να ολοκληρωθεί ${date(p.finalDate)}` : ''}
                     </span>
                   </span>
                   <Status label={p.stateLabel} tone={projectTone[p.state]} />
