@@ -988,7 +988,7 @@ model OcrDocument {
   company           Company?         @relation(fields: [companyId], references: [id], onDelete: SetNull)
   taxTemplateId     String?
   taxTemplate       TaxFormTemplate? @relation(fields: [taxTemplateId], references: [id], onDelete: SetNull)
-  approvals        OcrApproval[]
+  approvals         OcrApproval[]
   templateRuns      TemplateRun[]
   reviewFlags       Json? // { review: string[], blocked: string[], templateSlug, templateName, runStatus, runId } — latest run, for the list
   fiscalYear        Int?
@@ -2262,22 +2262,25 @@ model ItemInstallGuide {
 // ένα έργο, για σύγκριση με τις πραγματικές κινήσεις του SoftOne. Το όνομα και η μονάδα κρατιούνται
 // ως στιγμιότυπο, ώστε η γραμμή να διαβάζεται ακόμη κι αν το είδος αλλάξει ή σβηστεί από τον καθρέφτη.
 model ProjectBudgetLine {
-  id          String   @id @default(cuid())
-  prjc        Int // SoftOne PRJC του έργου
-  mtrl        Int // SoftOne MTRL (υλικό ή υπηρεσία)
-  code        String
-  name        String
-  isService   Boolean  @default(false)
-  unit        String?
-  qty         Float
-  unitPrice   Float    @default(0)
-  notes       String?
-  createdById String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id               String   @id @default(cuid())
+  prjc             Int // SoftOne PRJC του έργου
+  mtrl             Int // SoftOne MTRL (υλικό ή υπηρεσία)
+  code             String
+  name             String
+  isService        Boolean  @default(false)
+  unit             String?
+  qty              Float
+  unitPrice        Float    @default(0)
+  notes            String?
+  /// Σύμβαση/προσφορά από την οποία μεταφέρθηκε η γραμμή (BOM) — ο επανασυγχρονισμός αντικαθιστά μόνο αυτές.
+  sourceContractId String?
+  createdById      String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
   @@index([prjc])
   @@index([mtrl])
+  @@index([sourceContractId])
 }
 
 // Δραστηριότητες SoftOne — object PRJCSTAGE («Δραστηριότητες») → DB πίνακας PRJCSTAGE.
@@ -3724,14 +3727,14 @@ model Contract {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
-  lines      ContractLine[]
-  parties    ContractParty[]
-  members    ContractMember[]
-  milestones ContractMilestone[]
-  documents  ContractDocument[]
+  lines       ContractLine[]
+  parties     ContractParty[]
+  members     ContractMember[]
+  milestones  ContractMilestone[]
+  documents   ContractDocument[]
   /// Χαρτογράφηση κάτοψης από την οποία βγήκε (κάτοψη & χώροι στο PDF πελάτη και συνεργείων).
   floorPlanId String?
-  floorPlan   FloorPlan? @relation(fields: [floorPlanId], references: [id], onDelete: SetNull)
+  floorPlan   FloorPlan?          @relation(fields: [floorPlanId], references: [id], onDelete: SetNull)
   rfps        Rfp[]
   revisions   ContractRevision[]
   tasks       ContractTask[]
@@ -3905,24 +3908,24 @@ model ContractMember {
 // Milestones: παραδοτέο + πληρωμή. `partyId` κενό = πληρωμή του πελάτη προς εμάς· αλλιώς πληρωμή
 // δική μας προς το συνεργείο. Με την ενεργοποίηση της σύμβασης γίνονται ProjectTask (στο ημερολόγιο).
 model ContractMilestone {
-  id           String         @id @default(cuid())
-  contractId   String
-  contract     Contract       @relation(fields: [contractId], references: [id], onDelete: Cascade)
-  partyId      String?
-  party        ContractParty? @relation(fields: [partyId], references: [id], onDelete: Cascade)
-  title        String
-  deliverables String?
-  dueDate      DateTime?      @db.Date
-  amount       Float          @default(0)
-  status       String         @default("PENDING") // PENDING · DONE · PAID
-  taskId       String? // ProjectTask που δημιουργήθηκε
-  doneAt       DateTime?
-  paidAt       DateTime?
+  id            String         @id @default(cuid())
+  contractId    String
+  contract      Contract       @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  partyId       String?
+  party         ContractParty? @relation(fields: [partyId], references: [id], onDelete: Cascade)
+  title         String
+  deliverables  String?
+  dueDate       DateTime?      @db.Date
+  amount        Float          @default(0)
+  status        String         @default("PENDING") // PENDING · DONE · PAID
+  taskId        String? // ProjectTask που δημιουργήθηκε
+  doneAt        DateTime?
+  paidAt        DateTime?
   /// Απόδειξη παράδοσης: τι παραδόθηκε (περιγραφή) και φωτογραφίες (EntityFile, φάκελος «Παραδόσεις»).
   deliveryNote  String?
   deliveredById String?
-  proofFileIds  String[]      @default([])
-  sortOrder    Int            @default(0)
+  proofFileIds  String[]       @default([])
+  sortOrder     Int            @default(0)
 
   @@index([contractId, sortOrder])
 }

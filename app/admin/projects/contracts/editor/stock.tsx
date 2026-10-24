@@ -12,7 +12,7 @@ import { stockAction } from '../actions';
 const q = (n: number) => n.toLocaleString('el-GR', { maximumFractionDigits: 2 });
 
 /** Απόθεμα για τα είδη των γραμμών· ξαναζητείται μόνο όταν αλλάξει το σύνολο των ειδών. */
-export function useStock(lines: NeedLine[]): { needs: StockNeed[]; byMtrl: Map<number, StockNeed>; loading: boolean } {
+export function useStock(lines: NeedLine[]): { needs: StockNeed[]; byMtrl: Map<number, StockNeed>; stock: Record<number, StockInfo>; loading: boolean } {
   const key = [...new Set(lines.filter((l) => l.kind === 'MATERIAL' && l.mtrl != null).map((l) => l.mtrl as number))].sort((a, b) => a - b).join(',');
   const [stock, setStock] = React.useState<Record<number, StockInfo>>({});
   const [loading, setLoading] = React.useState(false);
@@ -30,7 +30,7 @@ export function useStock(lines: NeedLine[]): { needs: StockNeed[]; byMtrl: Map<n
   }, [key]);
   const needs = React.useMemo(() => stockNeeds(lines, stock), [lines, stock]);
   const byMtrl = React.useMemo(() => new Map(needs.map((n) => [n.mtrl, n])), [needs]);
-  return { needs, byMtrl, loading };
+  return { needs, byMtrl, stock, loading };
 }
 
 const TONE = {

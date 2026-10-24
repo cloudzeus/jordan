@@ -9,6 +9,7 @@ import { uploadEntityFile } from '@/lib/entity-files/service';
 import { prisma } from '@/lib/db';
 import { createTask, deleteTask, updateTask, TaskError } from '@/lib/project-tasks';
 import { saveProjectSite } from '@/lib/project-site';
+import { syncProjectBudget } from './budget-sync';
 import {
   canTransition, contractRef, stageAfter, totals, transitionTo, type ContractAction, type ContractInput,
 } from './core';
@@ -284,7 +285,11 @@ export async function transition(id: string, action: ContractAction, userId: str
       ...(action === 'reopen' ? { completedAt: null } : {}),
     },
   });
-  if (action === 'activate') { await syncMilestoneTasks(id, userId); await syncPlanTasks(id, userId); }
+  if (action === 'activate') {
+    await syncMilestoneTasks(id, userId);
+    await syncPlanTasks(id, userId);
+    await syncProjectBudget(id, userId).catch((e) => console.error('[contracts] budget', e));
+  }
   if (action === 'cancel') await dropMilestoneTasks(id, c.milestones.map((m) => m.taskId).filter((x): x is string => !!x));
 }
 

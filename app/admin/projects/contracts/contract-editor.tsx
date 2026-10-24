@@ -38,6 +38,7 @@ import { CrewPicker, CustomerPicker, MicButton, type CrewOpt } from './editor/pi
 import { RoomsSection } from './editor/rooms-section';
 import { PaymentsSection, type EditorMilestone, type PlanPreset } from './editor/payments-section';
 import { StockBadge, StockCard, useStock } from './editor/stock';
+import { BomSection } from './editor/bom';
 import { ScheduleSection, type EditorTask, type TemplateOption } from './editor/schedule-section';
 import { NoteButton, NotesProvider, NoteThread } from './editor/notes';
 import type { NoteView } from '@/lib/contracts/notes';
@@ -194,6 +195,7 @@ export function ContractEditor({ initial, staff, readOnly = false, customer = nu
   const feeOf = (key: string) => crewTotal(s.lines.map((l) => ({ ...l, partyId: l.partyKey })), key);
   const customerMs = milestoneCoverage(s.milestones.filter((m) => !m.partyKey).map((m) => m.amount), t.gross);
   const stock = useStock(s.lines);
+  const bomLines = React.useMemo(() => s.lines.map((l) => ({ ...l, partyId: l.partyKey ?? null })), [s.lines]);
 
   // ── Συνταγές & τιμές ειδών για τις γραμμές των χώρων (φορτώνονται μία φορά, όταν χρειαστούν) ──
   const [recipes, setRecipes] = React.useState<RecipeView[] | null>(null);
@@ -606,6 +608,16 @@ export function ContractEditor({ initial, staff, readOnly = false, customer = nu
           )}
           <div className="mt-4 lg:hidden"><StockCard needs={stock.needs} loading={stock.loading} /></div>
         </Section>
+
+        {/* ── BOM: λίστα υλικών ανά είδος / χώρο ── */}
+        {s.lines.length > 0 && (
+          <Section id="c-bom" n={null} title="Λίστα υλικών (BOM)" hint="Τι χρειάζεται ανά είδος και ανά χώρο, τι έχουμε και τι πρέπει να παραγγελθεί">
+            <BomSection
+              lines={bomLines} rooms={s.rooms} stock={stock.stock} loading={stock.loading}
+              fileName={s.title.trim() || 'προσφορά'}
+            />
+          </Section>
+        )}
 
         {/* ── 4. Περιγραφή ── */}
         <Section id="c-text" n={stepNo('c-text')} done={stepDone('c-text')} title="Περιγραφή του έργου"

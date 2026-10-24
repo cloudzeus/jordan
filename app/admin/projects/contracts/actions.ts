@@ -17,6 +17,7 @@ import { prisma } from '@/lib/db';
 import { copyDocsToProject, sendDocument } from '@/lib/contracts/documents';
 import { composeCustomerText } from '@/lib/contracts/ai';
 import { stockSummary, type StockSummary } from '@/lib/item-stock';
+import { syncProjectBudget, type BudgetSyncResult } from '@/lib/contracts/budget-sync';
 import { createPrjc, prjcPlan } from '@/lib/contracts/softone';
 import { TaskError } from '@/lib/project-tasks';
 import { SoftoneError } from '@/lib/softone';
@@ -183,6 +184,21 @@ export async function deliverMilestoneAction(id: string, mid: string, form: Form
     return done(out);
   } catch (e) {
     if (e instanceof EntityFileError) return fail(e.message);
+    return caught(e);
+  }
+}
+
+/** BOM → προϋπολογισμός έργου (αντικαθιστά μόνο τις γραμμές που είχαν έρθει από αυτή τη σύμβαση). */
+export async function syncBudgetAction(id: string): Promise<ActionResult<BudgetSyncResult>> {
+  const a = await actor('projects.manage');
+  if ('error' in a) return a.error;
+  try {
+    const out = await syncProjectBudget(id, a.user.id);
+    if (!out) return fail('Ο προϋπολογισμός περνά στο έργο μετά την αποδοχή, όταν η σύμβαση συνδεθεί με έργο.');
+    await logAudit({ userId: a.user.id, userEmail: a.user.email, action: 'contract.budget.sync', resource: 'contract', resourceId: id, metadata: { created: out.created, replaced: out.replaced } }).catch(() => null);
+    refresh(id);
+    return done(out);
+  } catch (e) {
     return caught(e);
   }
 }
