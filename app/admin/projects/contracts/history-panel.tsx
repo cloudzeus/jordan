@@ -11,7 +11,7 @@ import { cn } from '@/lib/utils';
 const when = (iso: string) => new Date(iso).toLocaleString('el-GR', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' });
 const FILTERS = [['all', 'Όλα'], ['customer', 'Πελάτης'], ['events', 'Συμβάντα']] as const;
 
-export function HistoryPanel({ entries, title = 'Ιστορικό επικοινωνίας', fileName, showRef = false, initial = 12 }: {
+export function HistoryPanel({ entries, title = 'Ιστορικό επικοινωνίας', fileName, showRef = false, initial = 5 }: {
   entries: HistoryEntry[]; title?: string; fileName: string; showRef?: boolean; initial?: number;
 }) {
   const [f, setF] = React.useState<(typeof FILTERS)[number][0]>('all');
@@ -27,7 +27,7 @@ export function HistoryPanel({ entries, title = 'Ιστορικό επικοιν
     setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   };
   return (
-    <section aria-labelledby="hist-h" className="rounded-xl border border-border bg-card p-4 shadow-xs">
+    <section aria-labelledby="hist-h" className="rounded-xl border border-border bg-card px-4 py-3 shadow-xs">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
           <h2 id="hist-h" className="flex items-center gap-2 text-(length:--fs-14) font-semibold"><FiClock className="size-4 text-muted-foreground" aria-hidden />{title}</h2>
@@ -48,7 +48,7 @@ export function HistoryPanel({ entries, title = 'Ιστορικό επικοιν
       {shown.length === 0 ? (
         <p className="mt-3 text-(length:--fs-13) text-muted-foreground">Τίποτα ακόμη.</p>
       ) : (
-        <ol className="mt-4 space-y-3 border-l border-border pl-4">
+        <ol className="mt-3 space-y-2 border-l border-border pl-4">
           {shown.map((e) => {
             const Icon = e.source === 'EVENT' ? FiFlag : FiMessageCircle;
             return (
@@ -66,14 +66,14 @@ export function HistoryPanel({ entries, title = 'Ιστορικό επικοιν
                   {e.revision != null && <span>· έκδ. {e.revision}</span>}
                   {e.target && <span>· {e.target}</span>}
                 </p>
-                <p className="mt-0.5 line-clamp-4 whitespace-pre-wrap text-(length:--fs-13)">{e.body}</p>
+                <p className="line-clamp-2 whitespace-pre-wrap text-(length:--fs-12)" title={e.body}>{e.body}</p>
               </li>
             );
           })}
         </ol>
       )}
       {list.length > initial && (
-        <button type="button" onClick={() => setMore((m) => !m)} className="mt-3 min-h-8 cursor-pointer text-(length:--fs-12) font-medium text-primary hover:underline">
+        <button type="button" onClick={() => setMore((m) => !m)} className="mt-1.5 min-h-7 cursor-pointer text-(length:--fs-12) font-medium text-primary hover:underline">
           {more ? 'Λιγότερα' : `Όλα (${list.length})`}
         </button>
       )}

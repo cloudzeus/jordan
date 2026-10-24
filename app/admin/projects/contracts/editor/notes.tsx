@@ -105,7 +105,7 @@ function NoteItem({ n, ctx }: { n: NoteView; ctx: Ctx }) {
   const shareOpts = [{ v: 'CUSTOMER', l: 'Πελάτης' }, ...ctx.parties.map((p) => ({ v: `PARTY:${p.key}`, l: p.name }))];
   const isTask = !!n.taskId && ctx.taskKeys.has(n.taskId);
   return (
-    <li className={cn('rounded-lg p-2.5', n.authorKind === 'CUSTOMER' ? 'bg-amber-50/70 ring-1 ring-inset ring-amber-200' : 'bg-muted/50', n.resolved && 'opacity-60')}>
+    <li className={cn('rounded-lg px-2.5 py-1.5', n.authorKind === 'CUSTOMER' ? 'bg-amber-50/70 ring-1 ring-inset ring-amber-200' : 'bg-muted/50', n.resolved && 'opacity-60')}>
       <div className="flex items-start justify-between gap-2">
         <p className="flex flex-wrap items-center gap-1.5 text-(length:--fs-11) text-muted-foreground">
           <span className="font-semibold text-foreground">{n.authorKind === 'CUSTOMER' ? `Πελάτης · ${n.authorName ?? ''}` : n.authorName ?? 'Εμείς'}</span>
@@ -146,15 +146,18 @@ function NoteItem({ n, ctx }: { n: NoteView; ctx: Ctx }) {
           </DropdownMenu>
         )}
       </div>
-      <p className="mt-1 whitespace-pre-wrap text-(length:--fs-13) leading-relaxed">{n.body}</p>
+      <p className="mt-0.5 whitespace-pre-wrap text-(length:--fs-12) leading-relaxed">{n.body}</p>
       {n.photoFileIds.length > 0 && (
         <ul className="mt-1.5 flex flex-wrap gap-1.5">
           {n.photoFileIds.map((f, i) => (
-            <li key={f}><a href={fileUrl(f)} target="_blank" rel="noopener noreferrer"><img src={fileUrl(f)} alt={`Φωτογραφία ${i + 1} της σημείωσης`} loading="lazy" className="size-14 rounded-md object-cover ring-1 ring-border" /></a></li>
+            <li key={f}><a href={fileUrl(f)} target="_blank" rel="noopener noreferrer"><img src={fileUrl(f)} alt={`Φωτογραφία ${i + 1} της σημείωσης`} loading="lazy" className="size-12 rounded-md object-cover ring-1 ring-border" /></a></li>
           ))}
         </ul>
       )}
-      <div className="mt-1.5"><ShareChips share={n.shareWith} parties={ctx.parties} /></div>
+      <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
+        <ShareChips share={n.shareWith} parties={ctx.parties} />
+        {!ctx.readOnly && !replying && <button type="button" onClick={() => setReplying(true)} className="inline-flex min-h-7 cursor-pointer items-center gap-1 text-(length:--fs-12) font-medium text-primary hover:underline"><FiCornerDownRight className="size-3.5" aria-hidden />Απάντηση</button>}
+      </div>
       {replies.length > 0 && (
         <ul className="mt-2 space-y-1.5 border-t border-border/70 pt-2">
           {replies.map((r) => (
@@ -162,15 +165,13 @@ function NoteItem({ n, ctx }: { n: NoteView; ctx: Ctx }) {
               <FiCornerDownRight className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" aria-hidden />
               <div className="min-w-0">
                 <p className="text-(length:--fs-11) text-muted-foreground"><span className="font-semibold text-foreground">{r.authorKind === 'CUSTOMER' ? `Πελάτης · ${r.authorName ?? ''}` : r.authorName ?? 'Εμείς'}</span> · {when(r.createdAt)}</p>
-                <p className="whitespace-pre-wrap text-(length:--fs-13)">{r.body}</p>
+                <p className="whitespace-pre-wrap text-(length:--fs-12)">{r.body}</p>
               </div>
             </li>
           ))}
         </ul>
       )}
-      {!ctx.readOnly && (replying
-        ? <ReplyBox n={n} ctx={ctx} onDone={() => setReplying(false)} />
-        : <button type="button" onClick={() => setReplying(true)} className="mt-1.5 inline-flex min-h-8 cursor-pointer items-center gap-1 text-(length:--fs-12) font-medium text-primary hover:underline"><FiCornerDownRight className="size-3.5" aria-hidden />Απάντηση</button>)}
+      {!ctx.readOnly && replying && <ReplyBox n={n} ctx={ctx} onDone={() => setReplying(false)} />}
     </li>
   );
 }
@@ -194,10 +195,13 @@ function Composer({ target, ctx }: { target: NoteTarget; ctx: Ctx }) {
     setBody(''); setFiles([]); setInstruction(false); setShare([]);
   };
   const opts = [{ v: 'CUSTOMER', l: 'Πελάτης' }, ...ctx.parties.map((p) => ({ v: `PARTY:${p.key}`, l: p.name }))];
+  const [focused, setFocused] = React.useState(false);
+  const open = focused || !!body || files.length > 0;
   return (
-    <div className="space-y-2 border-t border-border pt-2">
-      <textarea value={body} onChange={(e) => setBody(e.target.value)} rows={3} maxLength={4000} aria-label="Νέα σημείωση"
-        placeholder="Σημείωση ή ειδική οδηγία…" className="w-full resize-y rounded-md border border-input bg-background px-2.5 py-1.5 text-(length:--fs-13) outline-hidden focus-visible:ring-2 focus-visible:ring-ring" />
+    <div className="space-y-2 border-t border-border pt-2" onFocus={() => setFocused(true)} onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setFocused(false); }}>
+      <textarea value={body} onChange={(e) => setBody(e.target.value)} rows={1} maxLength={4000} aria-label="Νέα σημείωση"
+        placeholder="Νέα σημείωση ή ειδική οδηγία…" className={cn('w-full resize-y rounded-md border border-input bg-background px-2.5 py-1.5 text-(length:--fs-12) outline-hidden focus-visible:ring-2 focus-visible:ring-ring', open ? 'field-sizing-content min-h-16 max-h-60' : 'h-8 resize-none')} />
+      {open && <>
       <div className="flex flex-wrap items-center gap-1.5">
         <button type="button" aria-pressed={instruction} onClick={() => setInstruction((x) => !x)}
           className={cn('inline-flex min-h-8 cursor-pointer items-center gap-1 rounded-full border px-2.5 text-(length:--fs-11) font-medium', instruction ? 'border-orange-300 bg-orange-100 text-orange-900' : 'border-border text-muted-foreground hover:text-foreground')}>
@@ -233,6 +237,7 @@ function Composer({ target, ctx }: { target: NoteTarget; ctx: Ctx }) {
         </Button>
       </div>
       <p className="text-(length:--fs-10) text-muted-foreground">Χωρίς κοινοποίηση τη βλέπουμε μόνο εμείς. Η «ειδική οδηγία» μπαίνει στα έγγραφα όσων τη βλέπουν.</p>
+      </>}
     </div>
   );
 }
@@ -242,10 +247,22 @@ export function NoteThread({ target }: { target: NoteTarget }) {
   const ctx = React.useContext(NotesCtx);
   if (!ctx) return null;
   if (!ctx.contractId) return <p className="text-(length:--fs-12) text-muted-foreground">Οι σημειώσεις γράφονται αφού δημιουργηθεί η προσφορά (πατήστε «Δημιουργία»).</p>;
+  return <Thread target={target} ctx={ctx} />;
+}
+
+const SHOW = 3;
+function Thread({ target, ctx }: { target: NoteTarget; ctx: Ctx }) {
+  const [all, setAll] = React.useState(false);
   const list = ctx.notes.filter((n) => matches(n, target) && !n.replyToId);
+  const shown = all || list.length <= SHOW ? list : list.slice(-SHOW);
   return (
     <div className="space-y-2">
-      {list.length === 0 ? <p className="text-(length:--fs-12) text-muted-foreground">Καμία σημείωση ακόμη.</p> : <ul className="space-y-1.5">{list.map((n) => <NoteItem key={n.id} n={n} ctx={ctx} />)}</ul>}
+      {list.length > SHOW && (
+        <button type="button" onClick={() => setAll((x) => !x)} className="min-h-7 cursor-pointer text-(length:--fs-12) font-medium text-primary hover:underline">
+          {all ? 'Μόνο οι πιο πρόσφατες' : `Όλες οι σημειώσεις (${list.length})`}
+        </button>
+      )}
+      {list.length === 0 ? <p className="text-(length:--fs-12) text-muted-foreground">Καμία σημείωση ακόμη.</p> : <ul className="space-y-1.5">{shown.map((n) => <NoteItem key={n.id} n={n} ctx={ctx} />)}</ul>}
       {!ctx.readOnly && <Composer target={target} ctx={ctx} />}
     </div>
   );

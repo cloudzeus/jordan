@@ -87,7 +87,7 @@ const field = 'h-8 text-(length:--fs-12)';
 const lbl = 'text-(length:--fs-12) font-medium text-foreground';
 const numVal = (v: string) => { const n = Number(v.replace(',', '.')); return Number.isFinite(n) ? n : 0; };
 const m2 = (n: number) => `${n.toLocaleString('el-GR', { maximumFractionDigits: 1 })} m²`;
-const textarea = 'w-full resize-y rounded-md border border-input bg-transparent px-3 py-2 text-(length:--fs-13) leading-relaxed outline-hidden focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-70';
+const textarea = 'w-full field-sizing-content min-h-[4.5rem] max-h-56 resize-y rounded-md border border-input bg-transparent px-2.5 py-1.5 text-(length:--fs-12) leading-relaxed outline-hidden focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-70';
 
 /** Αριθμητικό πεδίο που κρατά το κείμενο όσο γράφεις («1,», «0.5») — δέχεται κόμμα ή τελεία. */
 function NumInput({ value, onValue, nullable = false, ...rest }: Omit<React.ComponentProps<typeof Input>, 'value' | 'onChange'> & { value: number | null; onValue: (n: number | null) => void; nullable?: boolean }) {
@@ -510,12 +510,12 @@ export function ContractEditor({ initial, staff, readOnly = false, customer = nu
 
         {/* ── 1. Έργο & πελάτης ── */}
         <Section id="c-basics" n={stepNo('c-basics')} done={stepDone('c-basics')} title="Έργο & πελάτης" hint="Για ποιον είναι, τι είδους δουλειά, πού και πότε">
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-1.5 md:col-span-2">
+          <div className="grid gap-x-4 gap-y-2.5 md:grid-cols-2">
+            <div className="space-y-1 md:col-span-2">
               <Label className={lbl} htmlFor="c-title">Τίτλος έργου <span className="text-destructive" aria-hidden>*</span></Label>
               <Input id="c-title" value={s.title} onChange={(e) => up({ title: e.target.value })} placeholder="π.χ. Ανακαίνιση μπάνιου — Κηφισιά" className={field} disabled={ro} required />
             </div>
-            <div className="space-y-1.5 md:col-span-2">
+            <div className="space-y-1 md:col-span-2">
               <Label className={lbl} htmlFor="c-customer">Πελάτης <span className="text-destructive" aria-hidden>*</span></Label>
               <CustomerPicker disabled={ro} value={{ trdr: s.trdr, name: s.customerName }}
                 onPick={(h) => up(h ? { trdr: h.trdr, customerName: h.name, customerEmail: h.email, customerPhone: h.phone } : { trdr: null, customerName: null })} />
@@ -535,11 +535,11 @@ export function ContractEditor({ initial, staff, readOnly = false, customer = nu
               </div>
               {!crews && s.parties.length > 0 && <p role="alert" className="mt-1.5 text-(length:--fs-12) text-destructive">Ο τύπος «Μόνο προϊόν» δεν έχει συνεργεία — αφαιρέστε τα ή αλλάξτε τύπο.</p>}
             </fieldset>
-            <div className="space-y-1.5">
+            <div className="space-y-1">
               <Label className={lbl} htmlFor="c-email">Email πελάτη</Label>
               <Input id="c-email" type="email" value={s.customerEmail ?? ''} onChange={(e) => up({ customerEmail: e.target.value || null })} className={field} disabled={ro} autoComplete="email" />
             </div>
-            <div className="space-y-1.5">
+            <div className="space-y-1">
               <Label className={lbl} htmlFor="c-phone">Τηλέφωνο</Label>
               <Input id="c-phone" type="tel" value={s.customerPhone ?? ''} onChange={(e) => up({ customerPhone: e.target.value || null })} className={field} disabled={ro} autoComplete="tel" />
             </div>
@@ -553,11 +553,11 @@ export function ContractEditor({ initial, staff, readOnly = false, customer = nu
                 {!ro && <Button type="button" variant="ghost" size="sm" onClick={() => setSiteOpen(true)}>{s.site ? 'Αλλαγή' : 'Ορισμός στον χάρτη'}</Button>}
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-3 md:col-span-2 md:grid-cols-4">
-              <div className="space-y-1.5"><Label className={lbl} htmlFor="c-start">Έναρξη</Label><Input id="c-start" type="date" value={s.startDate ?? ''} onChange={(e) => up({ startDate: e.target.value || null })} className={field} disabled={ro} /></div>
-              <div className="space-y-1.5"><Label className={lbl} htmlFor="c-end">Λήξη</Label><Input id="c-end" type="date" value={s.endDate ?? ''} onChange={(e) => up({ endDate: e.target.value || null })} className={field} disabled={ro} /></div>
-              <div className="space-y-1.5"><Label className={lbl} htmlFor="c-valid">Ισχύς προσφοράς</Label><Input id="c-valid" type="date" value={s.validUntil ?? ''} onChange={(e) => up({ validUntil: e.target.value || null })} className={field} disabled={ro} /></div>
-              <div className="space-y-1.5"><Label className={lbl} htmlFor="c-vat">ΦΠΑ %</Label><NumInput id="c-vat" value={s.vatRate} onValue={(n) => up({ vatRate: n ?? 0 })} className={field} disabled={ro} /></div>
+            <div className="grid grid-cols-2 gap-x-3 gap-y-2.5 md:col-span-2 md:grid-cols-4">
+              <div className="space-y-1"><Label className={lbl} htmlFor="c-start">Έναρξη</Label><Input id="c-start" type="date" value={s.startDate ?? ''} onChange={(e) => up({ startDate: e.target.value || null })} className={field} disabled={ro} /></div>
+              <div className="space-y-1"><Label className={lbl} htmlFor="c-end">Λήξη</Label><Input id="c-end" type="date" value={s.endDate ?? ''} onChange={(e) => up({ endDate: e.target.value || null })} className={field} disabled={ro} /></div>
+              <div className="space-y-1"><Label className={lbl} htmlFor="c-valid">Ισχύς προσφοράς</Label><Input id="c-valid" type="date" value={s.validUntil ?? ''} onChange={(e) => up({ validUntil: e.target.value || null })} className={field} disabled={ro} /></div>
+              <div className="space-y-1"><Label className={lbl} htmlFor="c-vat">ΦΠΑ %</Label><NumInput id="c-vat" value={s.vatRate} onValue={(n) => up({ vatRate: n ?? 0 })} className={field} disabled={ro} /></div>
             </div>
           </div>
         </Section>
@@ -683,7 +683,7 @@ export function ContractEditor({ initial, staff, readOnly = false, customer = nu
         <Section id="c-text" n={stepNo('c-text')} done={stepDone('c-text')} title="Περιγραφή του έργου"
           hint="Οι σημειώσεις σας και ένα απλό κείμενο για τον πελάτη — και τα δύο μπαίνουν στη σύνταξη των εγγράφων">
           {s.rooms.length > 0 && (
-            <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-lg bg-muted/50 px-3 py-2 text-(length:--fs-12)">
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-lg bg-muted/50 px-3 py-1 text-(length:--fs-12)">
               <span className="flex items-center gap-2">
                 <FiSquare className="size-3.5 text-muted-foreground" aria-hidden />
                 Από την κάτοψη: <b className="tabular-nums">{s.rooms.length} χώροι</b> · <b className="tabular-nums">{m2(s.rooms.reduce((a, r) => a + r.floorM2, 0))}</b> δάπεδο
@@ -694,17 +694,17 @@ export function ContractEditor({ initial, staff, readOnly = false, customer = nu
               )}
             </div>
           )}
-          <div className="grid gap-4 xl:grid-cols-2">
-            <div className="space-y-1.5">
+          <div className="grid gap-3 md:grid-cols-2">
+            <div className="space-y-1">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <Label className={lbl} htmlFor="c-summary">Σημειώσεις (εσωτερικές)</Label>
                 {!ro && <MicButton onText={(txt) => up((p) => ({ summary: p.summary ? `${p.summary.trimEnd()}\n${txt}` : txt }))} />}
               </div>
-              <textarea id="c-summary" value={s.summary} onChange={(e) => up({ summary: e.target.value })} rows={7} disabled={ro}
+              <textarea id="c-summary" value={s.summary} onChange={(e) => up({ summary: e.target.value })} disabled={ro}
                 placeholder="Γράψτε ή υπαγορεύστε τι θα γίνει: π.χ. Μπάνιο στον 2ο όροφο. Αφαίρεση παλιών πλακιδίων, αδιαβροχοποίηση ντουζιέρας, μάρμαρο Βόλακα 60x120 σε δάπεδο και τοίχους…"
                 className={textarea} />
             </div>
-            <div className="space-y-1.5">
+            <div className="space-y-1">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <Label className={lbl} htmlFor="c-ctext">Κείμενο για τον πελάτη</Label>
                 {!ro && (
@@ -714,7 +714,7 @@ export function ContractEditor({ initial, staff, readOnly = false, customer = nu
                   </Button>
                 )}
               </div>
-              <textarea id="c-ctext" value={s.customerText ?? ''} onChange={(e) => up({ customerText: e.target.value || null })} rows={7} disabled={ro}
+              <textarea id="c-ctext" value={s.customerText ?? ''} onChange={(e) => up({ customerText: e.target.value || null })} disabled={ro}
                 placeholder="Πατήστε «Σύνταξη με AI»: ένα φιλικό κείμενο χωρίς τεχνικούς όρους — τι θα γίνει σε κάθε χώρο, με ποια υλικά και πώς θα προχωρήσουμε."
                 className={textarea} aria-describedby="c-ctext-hint" />
               <p id="c-ctext-hint" className="text-(length:--fs-11) text-muted-foreground">Βασίζεται στις σημειώσεις, στους χώρους και στις γραμμές. Χωρίς τιμές — τα ποσά φαίνονται στον πίνακα της προσφοράς.</p>
