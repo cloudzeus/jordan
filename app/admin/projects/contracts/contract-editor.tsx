@@ -675,22 +675,22 @@ export function ContractEditor({ initial, staff, readOnly = false, customer = nu
               {groups.map((g) => (
                 // Πολλές ομάδες (π.χ. 14 χώροι): κλειστές, με σύνολο στην κεφαλίδα — ανοίγουν όσες χρειάζεσαι.
                 <details key={`${g.key}-${String(expandAll)}`} open={expandAll ?? groups.length <= 3} className="group rounded-lg border border-border">
-                  <summary className="flex cursor-pointer list-none items-center justify-between gap-2 rounded-lg px-3 py-1.5 hover:bg-muted/40 [&::-webkit-details-marker]:hidden">
-                    <span className="flex min-w-0 items-center gap-2 text-(length:--fs-13) font-semibold">
+                  <summary className="flex cursor-pointer list-none items-center justify-between gap-2 rounded-lg px-3 py-1 hover:bg-muted/40 [&::-webkit-details-marker]:hidden">
+                    <span className="flex min-w-0 items-center gap-2 text-(length:--fs-12) font-medium">
                       <FiChevronDown className="size-3.5 shrink-0 text-muted-foreground transition-transform group-open:rotate-0 -rotate-90" aria-hidden />
                       {g.room ? <span className="size-2.5 shrink-0 rounded-sm" style={{ background: g.room.color }} aria-hidden /> : null}
                       <span className="truncate">{g.room ? g.room.name : g.key === 'net' ? 'Ηλεκτρολογικά & δίκτυο (από την κάτοψη)' : s.rooms.length ? 'Άλλα υλικά & εργασίες' : 'Γραμμές'}</span>
                       <span className="font-normal text-muted-foreground">· {g.lines.length}{g.room ? ` · ${m2(g.room.floorM2 + g.room.wallsM2)}` : ''}</span>
                     </span>
-                    <span className="shrink-0 text-(length:--fs-13) font-semibold tabular-nums">{eur(round2(g.lines.reduce((a, l) => a + lineNet(l), 0)))}</span>
+                    <span className="shrink-0 text-(length:--fs-12) tabular-nums">{eur(round2(g.lines.reduce((a, l) => a + lineNet(l), 0)))}</span>
                   </summary>
                   <ul className="divide-y divide-border border-t border-border px-3">{g.lines.map(lineRow)}</ul>
                 </details>
               ))}
-              <dl className="ml-auto grid w-full max-w-xs grid-cols-2 gap-y-1 pt-1 text-(length:--fs-13)">
+              <dl className="ml-auto grid w-full max-w-xs grid-cols-2 items-baseline gap-y-1 pt-2 text-(length:--fs-12)">
                 <dt className="text-muted-foreground">Καθαρή αξία</dt><dd className="text-right tabular-nums">{eur(t.net)}</dd>
                 <dt className="text-muted-foreground">ΦΠΑ {s.vatRate}%</dt><dd className="text-right tabular-nums">{eur(t.vat)}</dd>
-                <dt className="border-t border-border pt-1 font-semibold">Σύνολο</dt><dd className="border-t border-border pt-1 text-right font-semibold tabular-nums">{eur(t.gross)}</dd>
+                <dt className="mt-1 border-t border-foreground/80 pt-1.5 text-(length:--fs-14) font-semibold">Σύνολο</dt><dd className="mt-1 border-t border-foreground/80 pt-1.5 text-right text-(length:--fs-16) font-bold tabular-nums">{eur(t.gross)}</dd>
               </dl>
             </div>
           )}

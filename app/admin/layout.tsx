@@ -35,7 +35,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   const offerRequests = inbox?.requests ?? 0;
 
   return (
-    <div className="flex min-h-dvh bg-background">
+    <div className="admin-root flex min-h-dvh bg-background">
       <AdminSidebar
         user={{ name: user.name, email: user.email }}
         roleName={user.role.name}
