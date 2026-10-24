@@ -119,3 +119,58 @@ export function networkSummary(devices: PlanDevice[], cables: PlanCable[], mPerP
   for (const p of panels) if (p.circuits > p.ports) warnings.push(`${p.label}: ${p.circuits} κυκλώματα σε ${p.ports} θέσεις.`);
   return { counts, powerM: meters('power'), networkM: meters('network'), racks, panels, warnings };
 }
+
+/** Γραμμή προσφοράς από ηλεκτρολογικά/δίκτυο. Το `key` (σταθερό) μπαίνει ως `roomId` «net:…» ώστε το ξανα-«Εφαρμογή»
+ *  να αντικαθιστά τις ίδιες γραμμές κρατώντας τιμές/εκπτώσεις που έβαλε ο χρήστης. */
+export type NetworkLine = { key: string; kind: 'MATERIAL' | 'SERVICE'; name: string; unit: string; qty: number; notes: string };
+
+const slug = (s: string) => s.trim().toLowerCase().replace(/\s+/g, ' ');
+/** Σύντομο σταθερό κλειδί (≤ 64 χαρακτήρες για το `roomId`). */
+function keyOf(parts: string[]): string {
+  const raw = parts.map(slug).join('|');
+  let h = 2166136261;
+  for (let i = 0; i < raw.length; i++) { h ^= raw.charCodeAt(i); h = Math.imul(h, 16777619); }
+  return `net:${parts[0]}:${(h >>> 0).toString(36)}`;
+}
+export const isNetworkKey = (roomId: string | null | undefined) => !!roomId && roomId.startsWith('net:');
+
+/**
+ * Συσκευές ομαδοποιημένες ανά είδος + μάρκα + μοντέλο (τεμάχια), καλώδια ανά είδος + τύπο (μέτρα με 10% περιθώριο,
+ * μόνο με κλίμακα) και δύο εργασίες: σύνδεση σημείων ρεύματος και δικτύου. Τιμές δεν μπαίνουν — τις βάζει ο χρήστης.
+ */
+export function networkLines(devices: PlanDevice[], cables: PlanCable[], mPerPx: number | null): { lines: NetworkLine[]; noScale: boolean } {
+  const lines: NetworkLine[] = [];
+  const groups = new Map<string, { d: PlanDevice; labels: string[] }>();
+  for (const d of devices) {
+    const k = keyOf(['dev', d.kind, d.brand, d.model]);
+    const g = groups.get(k);
+    if (g) g.labels.push(d.label); else groups.set(k, { d, labels: [d.label] });
+  }
+  for (const k of DEVICE_KINDS) {
+    for (const [key, { d, labels }] of groups) {
+      if (d.kind !== k) continue;
+      const bm = [d.brand, d.model].map((x) => x.trim()).filter(Boolean).join(' ');
+      lines.push({ key, kind: 'MATERIAL', name: `${DEVICE_META[k].label}${bm ? ` — ${bm}` : ''}`, unit: 'τεμ.', qty: labels.length, notes: `Κάτοψη: ${labels.filter(Boolean).join(', ')}`.slice(0, 500) });
+    }
+  }
+  const noScale = !mPerPx && cables.length > 0;
+  if (mPerPx) {
+    const byType = new Map<string, { kind: CableKind; spec: string; px: number; n: number }>();
+    for (const c of cables) {
+      const spec = c.spec.trim() || CABLE_META[c.kind].spec;
+      const key = keyOf(['cable', c.kind, spec]);
+      const g = byType.get(key) ?? { kind: c.kind, spec, px: 0, n: 0 };
+      g.px += polyLength(c.pts); g.n += 1;
+      byType.set(key, g);
+    }
+    for (const [key, g] of byType) {
+      const m = Math.round(g.px * mPerPx * 1.1 * 10) / 10;
+      if (m > 0) lines.push({ key, kind: 'MATERIAL', name: `${CABLE_META[g.kind].label} ${g.spec}`, unit: 'm', qty: m, notes: `Κάτοψη: ${g.n} ${g.n === 1 ? 'διαδρομή' : 'διαδρομές'} · +10% περιθώριο` });
+    }
+  }
+  const points = (grp: DeviceGroup, skip: DeviceKind) => devices.filter((d) => DEVICE_META[d.kind].group === grp && d.kind !== skip).length;
+  const el = points('electrical', 'panel'), net = points('network', 'rack');
+  if (el) lines.push({ key: 'net:svc:electrical', kind: 'SERVICE', name: 'Εγκατάσταση & σύνδεση σημείων ρεύματος', unit: 'σημεία', qty: el, notes: 'Κάτοψη: πρίζες, φωτιστικά, διακόπτες' });
+  if (net) lines.push({ key: 'net:svc:network', kind: 'SERVICE', name: 'Όδευση, τερματισμός & έλεγχος σημείων δικτύου', unit: 'σημεία', qty: net, notes: 'Κάτοψη: RJ45, κάμερες, access points ως το rack' });
+  return { lines, noScale };
+}

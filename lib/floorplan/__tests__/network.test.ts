@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { angleTo, cameraWedge, nearestDevice, networkSummary, newDevice, planCable, poweredIds, type PlanCable } from '../network';
+import { angleTo, cameraWedge, isNetworkKey, nearestDevice, networkLines, networkSummary, newDevice, planCable, poweredIds, type PlanCable } from '../network';
 import { planData, scalePlanData } from '../saved';
 import { eraseHit } from '../erase';
 
@@ -62,5 +62,25 @@ describe('ηλεκτρολογικά & δίκτυο', () => {
     const x = { pins: [], dims: [], rooms: [], dividers: [], walls: [], devices: [cam], cables: [cable('n1', 'network', 'cam', 'rack')] };
     expect(eraseHit({ x: 101, y: 1 }, x, 3)).toEqual({ kind: 'device', id: 'cam' });
     expect(eraseHit({ x: 50, y: 1 }, x, 3)).toEqual({ kind: 'cable', id: 'n1' });
+  });
+});
+
+describe('γραμμές προσφοράς από ηλεκτρολογικά & δίκτυο', () => {
+  it('ομαδοποίηση συσκευών και καλωδίων, εργασίες, σταθερά κλειδιά', () => {
+    const c1 = { ...newDevice('c1', 'camera', { x: 0, y: 0 }, 1), brand: 'Hikvision', model: 'DS-2CD' };
+    const c2 = { ...newDevice('c2', 'camera', { x: 10, y: 0 }, 2), brand: ' hikvision ', model: 'ds-2cd' };
+    const s1 = newDevice('s1', 'socket', { x: 0, y: 50 }, 1);
+    const rk = newDevice('rk', 'rack', { x: 0, y: 99 }, 1);
+    const pn = newDevice('pn', 'panel', { x: 0, y: 98 }, 1);
+    const cs = [cable('n1', 'network', 'c1', 'rk'), cable('n2', 'network', 'c2', 'rk'), cable('p1', 'power', 'pn', 's1')];
+    const r = networkLines([c1, c2, s1, rk, pn], cs, 0.05);
+    expect(r.lines.map((l) => `${l.name}|${l.qty}${l.unit}`)).toEqual([
+      'Πρίζα ρεύματος|1τεμ.', 'Ηλεκτρικός πίνακας|1τεμ.', 'Κάμερα — Hikvision DS-2CD|2τεμ.', 'Rack|1τεμ.',
+      'Καλώδιο δικτύου Cat6 UTP|11m', 'Καλώδιο ρεύματος NYM 3×2,5|5.5m',
+      'Εγκατάσταση & σύνδεση σημείων ρεύματος|1σημεία', 'Όδευση, τερματισμός & έλεγχος σημείων δικτύου|2σημεία',
+    ]);
+    expect(r.lines.every((l) => isNetworkKey(l.key) && l.key.length <= 64)).toBe(true);
+    expect(networkLines([c1, c2], [], null).lines[0].key).toBe(r.lines[2].key);
+    expect(networkLines([], [cs[0]], null)).toMatchObject({ lines: [], noScale: true });
   });
 });

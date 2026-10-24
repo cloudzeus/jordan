@@ -20,6 +20,8 @@ export type OfferRoom = { name: string; areaM2: number; perimeterM: number | nul
 export type OfferSubmit = {
   title: string; trdr: number | null; kind: ContractKind; validUntil: string | null; vatRate: number; terms: string | null;
   markupPct: number; mode: OfferLineMode; includeWalls: boolean;
+  /** Και οι γραμμές ηλεκτρολογικών/δικτύου της κάτοψης. */
+  includeNetwork: boolean;
 };
 type Customer = { trdr: number; name: string; code?: string | null; email?: string | null; city?: string | null };
 
@@ -82,7 +84,7 @@ function CustomerField({ value, onChange }: { value: Customer | null; onChange: 
   );
 }
 
-export function FloorPlanOfferDialog({ open, onOpenChange, apiBase, rooms, recipes, busy, onSubmit }: {
+export function FloorPlanOfferDialog({ open, onOpenChange, apiBase, rooms, recipes, busy, onSubmit, networkLines = 0 }: {
   open: boolean;
   onOpenChange: (o: boolean) => void;
   /** `/api/admin/projects/[prjc]` ή `/api/admin/traders/[trdr]`. */
@@ -91,6 +93,8 @@ export function FloorPlanOfferDialog({ open, onOpenChange, apiBase, rooms, recip
   recipes: RecipeView[] | null;
   busy: boolean;
   onSubmit: (o: OfferSubmit) => void;
+  /** Πόσες γραμμές ηλεκτρολογικών/δικτύου βγάζει η κάτοψη (0 = καμία). */
+  networkLines?: number;
 }) {
   const [defaults, setDefaults] = React.useState<{ title: string; customer: Customer | null; site: string | null } | null>(null);
   const [loadError, setLoadError] = React.useState<string | null>(null);
@@ -103,6 +107,7 @@ export function FloorPlanOfferDialog({ open, onOpenChange, apiBase, rooms, recip
   const [mode, setMode] = React.useState<OfferLineMode>('detailed');
   const [terms, setTerms] = React.useState('');
   const [includeWalls, setIncludeWalls] = React.useState(true);
+  const [includeNetwork, setIncludeNetwork] = React.useState(true);
   const [items, setItems] = React.useState<Map<number, FloorPlanItem>>(new Map());
 
   // Προεπιλογές έργου (μία φορά ανά άνοιγμα).
@@ -164,7 +169,7 @@ export function FloorPlanOfferDialog({ open, onOpenChange, apiBase, rooms, recip
   const errors = [
     !title.trim() && 'Δώστε τίτλο',
     !customer && 'Επιλέξτε πελάτη',
-    !preview.lines.length && 'Δεν υπάρχουν γραμμές — ορίστε υλικό σε τουλάχιστον έναν χώρο',
+    !preview.lines.length && !(includeNetwork && networkLines > 0) && 'Δεν υπάρχουν γραμμές — ορίστε υλικό σε τουλάχιστον έναν χώρο',
     preview.missing.length > 0 && `Λείπει υλικό/συνταγή για: ${preview.missing.join(', ')}`,
     !markupOk && 'Μη έγκυρο περιθώριο',
     !vatOk && 'Μη έγκυρος ΦΠΑ',
@@ -175,7 +180,7 @@ export function FloorPlanOfferDialog({ open, onOpenChange, apiBase, rooms, recip
     if (errors.length || busy || pricesLoading) return;
     onSubmit({
       title: title.trim(), trdr: customer?.trdr ?? null, kind: effKind, validUntil: validUntil || null, vatRate: vatN,
-      terms: terms.trim() || null, markupPct: markupN, mode, includeWalls,
+      terms: terms.trim() || null, markupPct: markupN, mode, includeWalls, includeNetwork: includeNetwork && networkLines > 0,
     });
   };
 
@@ -270,6 +275,12 @@ export function FloorPlanOfferDialog({ open, onOpenChange, apiBase, rooms, recip
                 <label className="flex cursor-pointer items-start gap-2 text-[length:var(--fs-12)]">
                   <input type="checkbox" checked={includeWalls} onChange={(e) => setIncludeWalls(e.target.checked)} className="mt-0.5 size-4 cursor-pointer accent-[var(--primary)]" />
                   <span>Και οι τοίχοι ({nf2.format(totalWalls)} m²) με το υλικό του χώρου, σε δικές τους γραμμές</span>
+                </label>
+              )}
+              {networkLines > 0 && (
+                <label className="flex cursor-pointer items-start gap-2 text-[length:var(--fs-12)]">
+                  <input type="checkbox" checked={includeNetwork} onChange={(e) => setIncludeNetwork(e.target.checked)} className="mt-0.5 size-4 cursor-pointer accent-[var(--primary)]" />
+                  <span>Και τα ηλεκτρολογικά & δίκτυο της κάτοψης ({networkLines} γραμμές: συσκευές, μέτρα καλωδίων, εργασίες) — μπαίνουν χωρίς τιμή, τις συμπληρώνεις στην προσφορά</span>
                 </label>
               )}
               <p className="rounded-md border border-border bg-muted/40 px-3 py-2 text-[length:var(--fs-12)] text-muted-foreground">

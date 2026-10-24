@@ -19,7 +19,7 @@ import {
 } from 'react-icons/fi';
 import { BrickWall, DoorOpen, Eraser, RectangleHorizontal, Ruler, RulerDimensionLine, Spline } from 'lucide-react';
 import { eraseHit, type EraseHit } from '@/lib/floorplan/erase';
-import { angleTo, cameraWedge, CABLE_META, DEVICE_META, nearestDevice, newDevice, type PlanCable, type PlanDevice } from '@/lib/floorplan/network';
+import { angleTo, cameraWedge, CABLE_META, DEVICE_META, nearestDevice, networkLines, newDevice, type NetworkLine, type PlanCable, type PlanDevice } from '@/lib/floorplan/network';
 import { DEVICE_ICON, NetworkMenu, NetworkPanel, type NetPick } from './network-ui';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
@@ -215,7 +215,7 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
   /** projects.manage: υλικό/συνταγή ανά χώρο και «Δημιουργία προσφοράς». */
   canOffer?: boolean;
   /** Από τη φόρμα προσφοράς: αντί για νέα προσφορά, «Μεταφορά στην προσφορά» επιστρέφει τους χώρους. */
-  onApply?: (r: { floorPlanId: string; title: string; rooms: PlanRoom[]; pins: PlanPin[] }) => void;
+  onApply?: (r: { floorPlanId: string; title: string; rooms: PlanRoom[]; pins: PlanPin[]; network: NetworkLine[] }) => void;
   /** Χαρτογράφηση που ανοίγει κατευθείαν (η ήδη συνδεδεμένη με την προσφορά). */
   initialPlanId?: string | null;
 }) {
@@ -960,12 +960,14 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
     if (!onApply || !calib) return;
     const floorPlanId = await savePlan(true);
     if (!floorPlanId) return;
-    onApply({ floorPlanId, title: planTitle.trim() || `Κάτοψη ${projectLabel}`, rooms: planRooms(planDataNow()), pins: planPins(planDataNow()) });
-    toast.success(`Η κάτοψη μπήκε στην προσφορά · ${rooms.length} χώροι.`);
+    const net = networkLines(devices, cables, mPerPx);
+    onApply({ floorPlanId, title: planTitle.trim() || `Κάτοψη ${projectLabel}`, rooms: planRooms(planDataNow()), pins: planPins(planDataNow()), network: net.lines });
+    toast.success(`Η κάτοψη μπήκε στην προσφορά · ${rooms.length} χώροι${net.lines.length ? ` · ${net.lines.length} γραμμές ηλεκτρολογικών/δικτύου (συμπλήρωσε τιμές)` : ''}.`);
     onOpenChange(false);
   };
+  const netOffer = React.useMemo(() => networkLines(devices, cables, mPerPx), [devices, cables, mPerPx]);
   const createOffer = async (o: OfferSubmit) => {
-    if (!offerRooms.length) return;
+    if (!offerRooms.length && !(o.includeNetwork && netOffer.lines.length)) return;
     setOffering(true);
     try {
       // Η χαρτογράφηση αποθηκεύεται πάντα και συνδέεται με την προσφορά (κάτοψη στο PDF πελάτη/συνεργείων).
@@ -979,6 +981,7 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
             material: r.material ? (r.material.type === 'recipe' ? { type: 'recipe', recipeId: r.material.recipeId } : { type: 'item', mtrl: r.material.mtrl }) : null,
           })),
           markupPct: o.markupPct, mode: o.mode, wallLenM, includeWalls: o.includeWalls, floorPlanId,
+          network: o.includeNetwork ? netOffer.lines : [],
           title: o.title, trdr: o.trdr, kind: o.kind, validUntil: o.validUntil, vatRate: o.vatRate, terms: o.terms,
           source: plan ? `${plan.name}${plan.pages > 1 ? `, σελ. ${plan.page}` : ''}` : null,
         }),
@@ -1438,7 +1441,7 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
               {canOffer && !onApply && (
                 <Step n={4} title="Προσφορά" done={!!createdOffer} active={step === 3 && rooms.length > 0}>
                   <OfferStepBody
-                    withMaterial={withMaterial} total={rooms.length} ready={!!calib && rooms.length > 0}
+                    withMaterial={withMaterial} total={rooms.length} ready={!!calib && (rooms.length > 0 || netOffer.lines.length > 0)}
                     onOpen={() => setOfferOpen(true)} created={createdOffer}
                   />
                 </Step>
@@ -1446,7 +1449,7 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
               {canOffer && !onApply && (
                 <FloorPlanOfferDialog
                   open={offerOpen} onOpenChange={setOfferOpen} apiBase={apiBase} rooms={offerRooms} recipes={recipes}
-                  busy={offering || planSaving} onSubmit={(o) => void createOffer(o)}
+                  busy={offering || planSaving} onSubmit={(o) => void createOffer(o)} networkLines={netOffer.lines.length}
                 />
               )}
 

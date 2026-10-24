@@ -135,6 +135,50 @@ export default async function DossierPage({ params }: { params: Promise<{ id: st
             </Section>
           )}
 
+          {ds.network && (
+            <Section n={++n} title="Ηλεκτρολογικά & δίκτυο" hint="Κάθε σημείο με μάρκα, μοντέλο και στοιχεία δικτύου — για συντήρηση, επέκταση ή αντικατάσταση.">
+              <div className="space-y-8">
+                {ds.network.groups.map((g) => (
+                  <div key={g.title}>
+                    <h3 className="p-label text-(--s-ink-2)">{g.title}</h3>
+                    <ul className="mt-2 divide-y divide-(--s-line) border-y border-(--s-line)">
+                      {g.devices.map((x) => (
+                        <li key={x.id} className="break-inside-avoid py-3">
+                          <div className="grid gap-x-6 gap-y-1 sm:grid-cols-[minmax(0,1fr)_auto]">
+                            <p className="text-(length:--fs-16) text-(--s-ink)">
+                              <span className="font-semibold">{x.label || x.kind}</span>
+                              <span className="text-(--s-ink-2)"> · {x.kind}{x.brand || x.model ? ` · ${[x.brand, x.model].filter(Boolean).join(' ')}` : ''}</span>
+                            </p>
+                            {(x.ip || x.mac || x.serial || x.range) && (
+                              <p className="font-num text-(length:--fs-13) tabular-nums text-(--s-ink-2) sm:text-right">
+                                {[x.ip && `IP ${x.ip}`, x.mac && `MAC ${x.mac}`, x.serial && `S/N ${x.serial}`, x.range && `εμβέλεια ${qty(x.range)} m`].filter(Boolean).join(' · ')}
+                              </p>
+                            )}
+                          </div>
+                          {x.notes && <p className="mt-1 text-(length:--fs-14) text-(--s-ink-2)">{x.notes}</p>}
+                          {x.photos.length > 0 && (
+                            <ul className="mt-2 flex flex-wrap gap-2">
+                              {x.photos.map((ph, i) => <li key={ph}><a href={`/api/portal/note-files/${ph}`} target="_blank" rel="noopener noreferrer"><img src={`/api/portal/note-files/${ph}`} alt={`${x.label} — φωτογραφία ${i + 1}`} loading="lazy" className="size-24 object-cover" /></a></li>)}
+                            </ul>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+                {(ds.network.cables.length > 0 || ds.network.racks.length > 0 || ds.network.panels.length > 0) && (
+                  <dl className="grid gap-x-8 gap-y-2 text-(length:--fs-15) sm:grid-cols-2">
+                    {ds.network.cables.map((k) => <div key={k.label} className="flex justify-between gap-4 border-b border-(--s-line) pb-2"><dt className="text-(--s-ink-2)">{k.label}</dt><dd className="tabular-nums text-(--s-ink)">{k.runs} {k.runs === 1 ? 'διαδρομή' : 'διαδρομές'}</dd></div>)}
+                    {ds.network.powerM ? <div className="flex justify-between gap-4 border-b border-(--s-line) pb-2"><dt className="text-(--s-ink-2)">Καλώδιο ρεύματος (περίπου)</dt><dd className="tabular-nums text-(--s-ink)">{qty(ds.network.powerM)} m</dd></div> : null}
+                    {ds.network.networkM ? <div className="flex justify-between gap-4 border-b border-(--s-line) pb-2"><dt className="text-(--s-ink-2)">Καλώδιο δικτύου (περίπου)</dt><dd className="tabular-nums text-(--s-ink)">{qty(ds.network.networkM)} m</dd></div> : null}
+                    {ds.network.racks.map((r) => <div key={r.id} className="flex justify-between gap-4 border-b border-(--s-line) pb-2"><dt className="text-(--s-ink-2)">{r.label} — θύρες σε χρήση</dt><dd className="tabular-nums text-(--s-ink)">{r.used} / {r.ports}</dd></div>)}
+                    {ds.network.panels.map((r) => <div key={r.id} className="flex justify-between gap-4 border-b border-(--s-line) pb-2"><dt className="text-(--s-ink-2)">{r.label} — κυκλώματα</dt><dd className="tabular-nums text-(--s-ink)">{r.circuits} / {r.ports}</dd></div>)}
+                  </dl>
+                )}
+              </div>
+            </Section>
+          )}
+
           {ds.deliveries.length > 0 && (
             <Section n={++n} title="Παραδόσεις">
               <ul className="space-y-6">

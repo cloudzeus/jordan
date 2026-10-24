@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { MaterialChip, RoomMaterialEditor, type RoomMaterial } from '@/components/admin/floorplan/offer-panel';
 import type { FloorPlanOwner } from '@/components/admin/floorplan/floor-plan-dialog';
+import type { NetworkLine } from '@/lib/floorplan/network';
 import type { PlanPin, PlanRoom } from '@/lib/floorplan/saved';
 import type { OfferLineMode } from '@/lib/install-recipes-core';
 import type { RecipeView } from '@/lib/install-recipes';
@@ -40,7 +41,7 @@ export function RoomsSection({
   markupPct: number;
   mode: OfferLineMode;
   readOnly: boolean;
-  onApplyPlan: (r: { floorPlanId: string; title: string; rooms: PlanRoom[]; pins: PlanPin[] }) => void;
+  onApplyPlan: (r: { floorPlanId: string; title: string; rooms: PlanRoom[]; pins: PlanPin[]; network: NetworkLine[] }) => void;
   /** Σημειώσεις-πινέζες της κάτοψης· «→ Εργασία» τις βάζει στο χρονοδιάγραμμα. */
   pins?: PlanPin[];
   pinIsTask?: (id: string) => boolean;

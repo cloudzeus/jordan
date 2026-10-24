@@ -143,6 +143,18 @@ export async function customerNoteFile(trdr: number, fileId: string) {
     }),
     prisma.contractMilestone.findFirst({ where: { proofFileIds: { has: fileId }, partyId: null, contract: { trdr } }, select: { id: true } }),
   ]);
-  if (!n && !m) return null;
+  if (!n && !m && !(await deviceOfCustomer(trdr, fileId))) return null;
   return prisma.entityFile.findUnique({ where: { id: fileId } });
+}
+
+/** Φωτογραφία συσκευής (ηλεκτρολογικά/δίκτυο) στην κάτοψη αποδεκτής σύμβασης του πελάτη — για τον τεχνικό φάκελο. */
+async function deviceOfCustomer(trdr: number, fileId: string): Promise<boolean> {
+  const plans = await prisma.floorPlan.findMany({
+    where: { contracts: { some: { trdr, status: { in: ['ACCEPTED', 'ACTIVE', 'COMPLETED'] } } } },
+    select: { data: true },
+  });
+  return plans.some((p) => {
+    const devs = (p.data as { devices?: Array<{ photoFileIds?: unknown }> } | null)?.devices;
+    return Array.isArray(devs) && devs.some((d) => Array.isArray(d.photoFileIds) && d.photoFileIds.includes(fileId));
+  });
 }

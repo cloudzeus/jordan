@@ -132,18 +132,20 @@ export function PlanViewer(props: PlanViewerProps) {
       });
     }
   }, []);
-  const line = React.useCallback((pts: Pt[], z: number, color: string, width: number, opts: { closed?: boolean; dashed?: boolean; world?: boolean } = {}) => {
+  /** `dots`: διάστικτη γραμμή (τελείες) με βήμα σε px εικόνας — για καλώδια και όρια κάλυψης. */
+  const line = React.useCallback((pts: Pt[], z: number, color: string, width: number, opts: { closed?: boolean; dashed?: boolean; world?: boolean; dots?: number } = {}) => {
     const c = ctx.current!;
     const arr: number[] = [];
     const seq = opts.closed ? [...pts, pts[0]] : pts;
     for (const p of seq) { const v = toWorld(p, z); arr.push(v.x, v.y, v.z); }
     const g = new LineGeometry();
     g.setPositions(arr);
-    const m = new LineMaterial({ color: new THREE.Color(color).getHex(), linewidth: width, dashed: !!opts.dashed, dashSize: 8, gapSize: 6, worldUnits: !!opts.world, transparent: true, opacity: opts.world ? 0.75 : 1, depthTest: false });
+    const dotted = !!opts.dots;
+    const m = new LineMaterial({ color: new THREE.Color(color).getHex(), linewidth: width, dashed: !!opts.dashed || dotted, dashSize: dotted ? opts.dots! * 0.35 : 8, gapSize: dotted ? opts.dots! * 0.65 : 6, worldUnits: !!opts.world, transparent: true, opacity: opts.world ? 0.75 : 1, depthTest: false });
     m.resolution.set(host.current?.clientWidth ?? 1, host.current?.clientHeight ?? 1);
     c.lineMats.add(m);
     const l = new Line2(g, m);
-    if (opts.dashed) l.computeLineDistances();
+    if (opts.dashed || dotted) l.computeLineDistances();
     l.renderOrder = 10;
     return l;
   }, [toWorld]);
@@ -172,10 +174,11 @@ export function PlanViewer(props: PlanViewerProps) {
       c.layers.draft.add(line([a, { x: b.x, y: a.y }, b, { x: a.x, y: b.y }], Z.draft, color, 2.5, { closed: true, dashed: true }));
     } else if (t === 'opening' && seq.length >= 2) c.layers.draft.add(line(seq.slice(-2), Z.draft, color, 7));
     else if (seq.length >= 2 && t === 'wall') c.layers.draft.add(line(seq, Z.draft, color, Math.max(2, cbs.current.wallThicknessPx), { world: true }));
+    else if (seq.length >= 2 && t === 'cable') c.layers.draft.add(line(seq, Z.draft, color, 1.75, { dots: Math.max(w, h) * 0.0045 }));
     else if (seq.length >= 2) c.layers.draft.add(line(seq, Z.draft, color, 2.5, { dashed: t === 'polygon' }));
     if (t === 'polygon' && d.length >= 2 && c.hover) c.layers.draft.add(line([c.hover, d[0]], Z.draft, color, 1, { dashed: true }));
     c.layers.draft.add(dots(d, Z.draft + 0.1));
-  }, [clear, line, dots]);
+  }, [clear, line, dots, w, h]);
 
   // ── Σκηνή (μία φορά ανά εικόνα) ─────────────────────────────────────────────────────────
   React.useEffect(() => {
@@ -533,11 +536,13 @@ export function PlanViewer(props: PlanViewerProps) {
       fill.position.z = Z.net;
       c.layers.net.add(fill);
       const ring = shape ? d.coverage! : Array.from({ length: 65 }, (_, i) => ({ x: d.x + Math.cos((i / 64) * Math.PI * 2) * d.circlePx!, y: d.y + Math.sin((i / 64) * Math.PI * 2) * d.circlePx! }));
-      c.layers.net.add(line(ring, Z.net + 0.01, d.color, d.selected ? 2 : 1.2, { closed: !!shape, dashed: true }));
+      c.layers.net.add(line(ring, Z.net + 0.01, d.color, d.selected ? 1.5 : 1, { closed: !!shape, dots: Math.max(w, h) * 0.006 }));
     }
+    // Καλώδια: λεπτές διάστικτες γραμμές — δεν μοιάζουν με τοίχους/διαστάσεις. Ρεύμα: πυκνές τελείες· δίκτυο: αραιότερες.
+    const step = Math.max(w, h) * 0.0045;
     for (const k of netCables ?? []) {
-      if (k.selected) c.layers.net.add(line(k.pts, Z.net + 0.02, '#FFFFFF', 6));
-      c.layers.net.add(line(k.pts, Z.net + 0.03, k.color, 3, { dashed: k.dashed }));
+      if (k.selected) c.layers.net.add(line(k.pts, Z.net + 0.02, '#FFFFFF', 3.5, { dots: k.dashed ? step * 1.6 : step }));
+      c.layers.net.add(line(k.pts, Z.net + 0.03, k.color, 1.75, { dots: k.dashed ? step * 1.6 : step }));
     }
   }, [netDevices, netCables, image, w, h, clear, line]);
 

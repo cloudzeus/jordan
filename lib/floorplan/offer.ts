@@ -18,7 +18,12 @@ export const floorPlanOfferInput = z.object({
       z.object({ type: z.literal('recipe'), recipeId: z.string().min(1).max(64) }),
       z.object({ type: z.literal('item'), mtrl: z.number().int().positive() }),
     ]).nullable(),
-  })).min(1).max(200),
+  })).max(200),
+  /** Γραμμές ηλεκτρολογικών & δικτύου της κάτοψης (βλ. `networkLines`) — χωρίς τιμή. */
+  network: z.array(z.object({
+    key: z.string().min(1).max(64), kind: z.enum(['MATERIAL', 'SERVICE']), name: z.string().trim().min(1).max(300),
+    unit: z.string().max(20), qty: z.number().finite().min(0).max(1e6), notes: z.string().max(500),
+  })).max(500).default([]),
   markupPct: z.number().finite().min(0).max(1000).default(0),
   mode: z.enum(['detailed', 'bundled']).default('detailed'),
   source: z.string().trim().max(300).nullish().transform((v) => v || null),
@@ -88,7 +93,7 @@ export async function createFloorPlanOffer(owner: PlanOwner, input: FloorPlanOff
   }
   const { lines, kind: autoKind, missing } = floorPlanOffer({ rooms: input.rooms, recipes, items, markupPct: input.markupPct, mode: input.mode, includeWalls: input.includeWalls });
   if (missing.length) throw new ContractError(`Δεν βρέθηκε το υλικό/η συνταγή για: ${missing.join(', ')}`, 404);
-  if (!lines.length) throw new ContractError('Διαλέξτε υλικό ή συνταγή σε τουλάχιστον έναν χώρο', 400);
+  if (!lines.length && !input.network.length) throw new ContractError('Διαλέξτε υλικό ή συνταγή σε τουλάχιστον έναν χώρο', 400);
 
   const label = (r: FloorPlanRoom) => {
     if (!r.material) return null;
@@ -105,7 +110,11 @@ export async function createFloorPlanOffer(owner: PlanOwner, input: FloorPlanOff
     vatRate: input.vatRate,
     terms: input.terms,
     site: site ? { address: site.address, zip: site.zip, district: site.district, city: site.city, formatted: site.formatted, lat: site.lat, lng: site.lng, source: site.source, precision: site.precision } : null,
-    lines: lines.map((l) => ({ ...l, discount: 0, partyKey: null, crewFee: null })),
+    lines: [
+      ...lines.map((l) => ({ ...l, discount: 0, partyKey: null, crewFee: null })),
+      // Ηλεκτρολογικά & δίκτυο: ελεύθερες γραμμές με σταθερό κλειδί «net:…» (ξανα-εφαρμογή κάτοψης = ίδιες γραμμές).
+      ...input.network.map((n) => ({ kind: n.kind, mtrl: null, code: null, name: n.name, unit: n.unit, qty: n.qty, unitPrice: 0, discount: 0, notes: n.notes, partyKey: null, crewFee: null, roomId: n.key })),
+    ],
   });
   const id = await createContract(parsed, userId);
   // Από έργο: συνδέεται κατευθείαν. Από πελάτη: χωρίς έργο — δημιουργείται με την αποδοχή της προσφοράς.

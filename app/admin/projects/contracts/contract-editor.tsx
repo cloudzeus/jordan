@@ -3,6 +3,7 @@
 // Φόρμα «Νέο έργο» / προσφορά / σύμβαση. Αριστερά τα βήματα (πελάτης → κάτοψη & χώροι → υλικά →
 // περιγραφή → πληρωμές → συνεργεία), δεξιά μια σταθερή στήλη με πρόοδο, σύνολο, απόθεμα και αποθήκευση.
 // Οι χώροι της κάτοψης παράγουν δικές τους γραμμές (`roomId`) που ξαναϋπολογίζονται όταν αλλάξει υλικό.
+import { isNetworkKey, type NetworkLine } from '@/lib/floorplan/network';
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
@@ -253,8 +254,18 @@ export function ContractEditor({ initial, staff, readOnly = false, customer = nu
     void recalcRooms(rooms, ids);
     toast.success(`Το ίδιο υλικό σε ${ids.size} χώρ${ids.size === 1 ? 'ο' : 'ους'}`);
   };
-  const applyPlan = (r: { floorPlanId: string; title: string; rooms: PlanRoom[]; pins: PlanPin[] }) => {
-    up((p) => ({ floorPlanId: r.floorPlanId, floorPlanTitle: r.title, rooms: r.rooms, pins: r.pins, lines: p.lines.filter((l) => !l.roomId || r.rooms.some((x) => x.id === l.roomId)) }));
+  const applyPlan = (r: { floorPlanId: string; title: string; rooms: PlanRoom[]; pins: PlanPin[]; network: NetworkLine[] }) => {
+    up((p) => {
+      // Ηλεκτρολογικά & δίκτυο: οι γραμμές «net:…» αντικαθίστανται, αλλά κρατούν τιμή/έκπτωση/συνεργείο που είχε βάλει ο χρήστης.
+      const prev = new Map(p.lines.filter((l) => isNetworkKey(l.roomId)).map((l) => [l.roomId, l]));
+      const net: Line[] = r.network.map((n) => {
+        const o = prev.get(n.key);
+        return { uid: o?.uid ?? uid(), kind: n.kind, mtrl: o?.mtrl ?? null, code: o?.code ?? null, name: o?.name || n.name, unit: n.unit, qty: n.qty, unitPrice: o?.unitPrice ?? 0, discount: o?.discount ?? 0, notes: n.notes, partyKey: o?.partyKey ?? null, crewFee: o?.crewFee ?? null, roomId: n.key };
+      });
+      const kept = p.lines.filter((l) => !isNetworkKey(l.roomId) && (!l.roomId || r.rooms.some((x) => x.id === l.roomId)));
+      return { floorPlanId: r.floorPlanId, floorPlanTitle: r.title, rooms: r.rooms, pins: r.pins, lines: [...kept, ...net] };
+    });
+    if (r.network.some((n) => n.kind === 'MATERIAL')) toast.message('Οι γραμμές ηλεκτρολογικών/δικτύου μπήκαν χωρίς τιμή — συμπλήρωσε τιμές ή διάλεξε είδος από το μητρώο.');
     void recalcRooms(r.rooms, null);
   };
   const unlinkPlan = () => {
@@ -353,7 +364,8 @@ export function ContractEditor({ initial, staff, readOnly = false, customer = nu
   // ── Γραμμές ομαδοποιημένες ανά χώρο ──
   const groups = [
     ...s.rooms.map((r) => ({ key: r.id, room: r, lines: s.lines.filter((l) => l.roomId === r.id) })).filter((g) => g.lines.length),
-    { key: 'other', room: null as PlanRoom | null, lines: s.lines.filter((l) => !l.roomId || !roomName.has(l.roomId)) },
+    { key: 'net', room: null as PlanRoom | null, lines: s.lines.filter((l) => isNetworkKey(l.roomId)) },
+    { key: 'other', room: null as PlanRoom | null, lines: s.lines.filter((l) => !isNetworkKey(l.roomId) && (!l.roomId || !roomName.has(l.roomId))) },
   ].filter((g) => g.lines.length);
 
   const lineRow = (l: Line) => {
@@ -616,7 +628,7 @@ export function ContractEditor({ initial, staff, readOnly = false, customer = nu
                     <span className="flex min-w-0 items-center gap-2 text-(length:--fs-13) font-semibold">
                       <FiChevronDown className="size-3.5 shrink-0 text-muted-foreground transition-transform group-open:rotate-0 -rotate-90" aria-hidden />
                       {g.room ? <span className="size-2.5 shrink-0 rounded-sm" style={{ background: g.room.color }} aria-hidden /> : null}
-                      <span className="truncate">{g.room ? g.room.name : s.rooms.length ? 'Άλλα υλικά & εργασίες' : 'Γραμμές'}</span>
+                      <span className="truncate">{g.room ? g.room.name : g.key === 'net' ? 'Ηλεκτρολογικά & δίκτυο (από την κάτοψη)' : s.rooms.length ? 'Άλλα υλικά & εργασίες' : 'Γραμμές'}</span>
                       <span className="font-normal text-muted-foreground">· {g.lines.length}{g.room ? ` · ${m2(g.room.floorM2 + g.room.wallsM2)}` : ''}</span>
                     </span>
                     <span className="shrink-0 text-(length:--fs-13) font-semibold tabular-nums">{eur(round2(g.lines.reduce((a, l) => a + lineNet(l), 0)))}</span>
