@@ -108,9 +108,46 @@ function NumInput({ value, onValue, nullable = false, ...rest }: Omit<React.Comp
 }
 
 /** Ενότητα-βήμα: ήρεμη κάρτα με αριθμό (✓ όταν ολοκληρωθεί), τίτλο, μία γραμμή βοήθειας και ενέργειες. */
-function Section({ id, n, done, title, hint, actions, children, optional }: {
+function Section({ id, n, done, title, hint, actions, children, optional, collapsible, badge }: {
   id: string; n: number | null; done?: boolean; title: string; hint?: string; actions?: React.ReactNode; children: React.ReactNode; optional?: boolean;
+  /** Accordion: κλειστή ενότητα με κεφαλίδα (τίτλος + σήμα) που ανοίγει με κλικ. */
+  collapsible?: boolean; badge?: React.ReactNode;
 }) {
+  // Σύνδεσμος προς την ενότητα (#c-requests από τα εισερχόμενα, βήματα αριστερά): ανοίγει μόνη της.
+  const det = React.useRef<HTMLDetailsElement>(null);
+  React.useEffect(() => {
+    if (!collapsible) return;
+    const sync = () => { if (window.location.hash === `#${id}` && det.current) det.current.open = true; };
+    sync();
+    window.addEventListener('hashchange', sync);
+    return () => window.removeEventListener('hashchange', sync);
+  }, [collapsible, id]);
+  if (collapsible) return (
+    <section id={id} aria-labelledby={`${id}-h`} className="scroll-mt-20 rounded-xl border border-border bg-card shadow-xs">
+      <details ref={det} className="group">
+        <summary className="flex cursor-pointer list-none items-center gap-3 px-4 py-2.5 hover:bg-muted/40 [&::-webkit-details-marker]:hidden">
+          <FiChevronDown className="size-4 shrink-0 -rotate-90 text-muted-foreground transition-transform group-open:rotate-0" aria-hidden />
+          {n != null && (
+            <span className={cn('inline-flex size-6 shrink-0 items-center justify-center rounded-full text-(length:--fs-11) font-semibold tabular-nums',
+              done ? 'bg-emerald-600 text-white' : 'bg-muted text-muted-foreground')} aria-label={done ? 'Ολοκληρώθηκε' : `Βήμα ${n}`}>
+              {done ? <FiCheck className="size-3.5" aria-hidden /> : n}
+            </span>
+          )}
+          <span className="min-w-0 flex-1">
+            <span id={`${id}-h`} role="heading" aria-level={2} className="flex flex-wrap items-center gap-x-2 text-(length:--fs-14) font-semibold">
+              {title}{optional && <span className="text-(length:--fs-11) font-normal text-muted-foreground">προαιρετικό</span>}{badge}
+            </span>
+            {hint && <span className="block truncate text-(length:--fs-12) text-muted-foreground group-open:hidden">{hint}</span>}
+          </span>
+        </summary>
+        <div className="border-t border-border px-4 pb-3 pt-2.5">
+          {hint && <p className="mb-2 text-(length:--fs-12) text-muted-foreground">{hint}</p>}
+          {actions && <div className="mb-2 flex justify-end">{actions}</div>}
+          {children}
+        </div>
+      </details>
+    </section>
+  );
   return (
     <section id={id} aria-labelledby={`${id}-h`} className="scroll-mt-20 rounded-xl border border-border bg-card shadow-xs">
       <header className="flex flex-wrap items-start justify-between gap-x-3 gap-y-1.5 px-4 pb-2 pt-3">
@@ -491,7 +528,8 @@ export function ContractEditor({ initial, staff, readOnly = false, customer = nu
       <div className="min-w-0 space-y-3">
         {/* ── Αιτήματα πελάτη (portal) ── */}
         {initial?.id && customerRequests.length > 0 && (
-          <Section id="c-requests" n={null} title={openRequests.length ? `Αιτήματα πελάτη · ${openRequests.length} ανοιχτά` : 'Αιτήματα πελάτη'}
+          <Section id="c-requests" n={null} collapsible title="Αιτήματα πελάτη"
+            badge={openRequests.length > 0 && <span className="rounded bg-amber-100 px-1.5 text-(length:--fs-11) font-semibold text-amber-900">{openRequests.length} ανοιχτ{openRequests.length === 1 ? 'ό' : 'ά'}</span>}
             hint="Ερωτήσεις και αλλαγές που έστειλε ο πελάτης από το portal — απαντήστε ή αναπροσαρμόστε την προσφορά με AI">
             <RequestsPanel action={(open) => !ro && open.length > 0 && (
               <Button type="button" size="sm" onClick={() => setReviseOpen(true)} className="gap-1.5 bg-violet-700 text-white hover:bg-violet-800">
@@ -723,7 +761,8 @@ export function ContractEditor({ initial, staff, readOnly = false, customer = nu
         </Section>
 
         {/* ── Σημειώσεις & ειδικές οδηγίες (γενικές) ── */}
-        <Section id="c-notes" n={null} title="Σημειώσεις & ειδικές οδηγίες"
+        <Section id="c-notes" n={null} collapsible title="Σημειώσεις & ειδικές οδηγίες"
+          badge={notes.length > 0 && <span className="text-(length:--fs-12) font-normal text-muted-foreground">· {notes.length}{notes.some((n) => n.authorKind === 'CUSTOMER') ? ` (${notes.filter((n) => n.authorKind === 'CUSTOMER').length} από τον πελάτη)` : ''}</span>}
           hint={`Γενικές για το έργο — για συγκεκριμένο χώρο, πληρωμή ή εργασία πατήστε το εικονίδιο δίπλα του.${notes.length ? ` Σύνολο: ${notes.length} (${notes.filter((n) => n.authorKind === 'CUSTOMER').length} από τον πελάτη).` : ''}`}>
           <NoteThread target={{ type: 'CONTRACT', id: null, label: 'Γενικά' }} />
           {notes.some((n) => n.targetType !== 'CONTRACT') && (
@@ -753,7 +792,8 @@ export function ContractEditor({ initial, staff, readOnly = false, customer = nu
         </Section>
 
         {/* ── Χρονοδιάγραμμα (Gantt) ── */}
-        <Section id="c-plan" n={stepNo('c-plan')} done={stepDone('c-plan')} optional title="Χρονοδιάγραμμα εργασιών"
+        <Section id="c-plan" n={stepNo('c-plan')} done={stepDone('c-plan')} optional collapsible title="Χρονοδιάγραμμα εργασιών"
+          badge={s.tasks.length > 0 && <span className="text-(length:--fs-12) font-normal text-muted-foreground">· {s.tasks.length} εργασίες</span>}
           hint="Τι γίνεται και πότε — ήδη από την προσφορά. Με την ενεργοποίηση γίνονται εργασίες του έργου (Kanban & Gantt)">
           <ScheduleSection tasks={s.tasks} rooms={s.rooms} start={s.startDate} today={today} templates={templates} readOnly={ro} onChange={(tasks) => up({ tasks })}
             noteFor={(t) => noteBtn('TASK', savedTasks.has(t.key) ? t.key : null, `Εργασία: ${t.name || '—'}`)} />

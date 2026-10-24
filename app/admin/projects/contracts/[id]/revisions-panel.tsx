@@ -5,7 +5,7 @@
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
-import { FiCopy, FiEye, FiGitBranch, FiLoader, FiMoreVertical, FiRotateCcw } from 'react-icons/fi';
+import { FiChevronDown, FiCopy, FiEye, FiGitBranch, FiLoader, FiMoreVertical, FiRotateCcw } from 'react-icons/fi';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogBody, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -68,11 +68,20 @@ export function RevisionsPanel({ contractId, current, currentGross, revisions, c
   };
 
   return (
-    <section aria-labelledby="rev-h" className="rounded-xl border border-border bg-card p-4 shadow-xs">
+    <section aria-labelledby="rev-h" className="rounded-xl border border-border bg-card shadow-xs">
+      {/* Accordion: κλειστό — στην κεφαλίδα η τρέχουσα έκδοση και πόσες είναι παγωμένες. */}
+      <details className="group">
+        <summary className="flex cursor-pointer list-none items-center gap-3 px-4 py-2.5 hover:bg-muted/40 [&::-webkit-details-marker]:hidden">
+          <FiChevronDown className="size-4 shrink-0 -rotate-90 text-muted-foreground transition-transform group-open:rotate-0" aria-hidden />
+          <span id="rev-h" role="heading" aria-level={2} className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 text-(length:--fs-14) font-semibold">
+            <FiGitBranch className="size-4 text-muted-foreground" aria-hidden /> Εκδόσεις
+            <span className="text-(length:--fs-12) font-normal text-muted-foreground">· τρέχουσα έκδοση {current}{frozenCurrent ? ' (παγωμένη)' : ''} · {revisions.length} παγωμένες</span>
+          </span>
+        </summary>
+        <div className="border-t border-border px-4 pb-3 pt-2.5">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
-          <h2 id="rev-h" className="flex items-center gap-2 text-(length:--fs-15) font-semibold"><FiGitBranch className="size-4 text-muted-foreground" aria-hidden /> Εκδόσεις</h2>
-          <p className="mt-0.5 text-(length:--fs-12) text-muted-foreground">
+                    <p className="text-(length:--fs-12) text-muted-foreground">
             Τρέχουσα: <b className="text-foreground">έκδοση {current}</b>{frozenCurrent ? ' · παγωμένη — η επόμενη αποθήκευση ανοίγει νέα' : ' · σε επεξεργασία'}
           </p>
         </div>
@@ -131,6 +140,8 @@ export function RevisionsPanel({ contractId, current, currentGross, revisions, c
           })}
         </ol>
       )}
+        </div>
+      </details>
 
       {/* Νέα έκδοση: προαιρετική σημείωση για το τι αλλάζει */}
       <Dialog open={newOpen} onOpenChange={(o) => !busy && setNewOpen(o)}>

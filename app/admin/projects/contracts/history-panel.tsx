@@ -4,7 +4,7 @@
 // με φίλτρο (όλα / πελάτης / συμβάντα) και εξαγωγή CSV. Δεν σβήνεται τίποτα από εδώ.
 import * as React from 'react';
 import Link from 'next/link';
-import { FiClock, FiDownload, FiMessageCircle, FiFlag } from 'react-icons/fi';
+import { FiChevronDown, FiClock, FiDownload, FiMessageCircle, FiFlag } from 'react-icons/fi';
 import { historyCsv, type HistoryEntry } from '@/lib/contracts/history-core';
 import { cn } from '@/lib/utils';
 
@@ -27,12 +27,27 @@ export function HistoryPanel({ entries, title = 'Ιστορικό επικοιν
     setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   };
   return (
-    <section aria-labelledby="hist-h" className="rounded-xl border border-border bg-card px-4 py-3 shadow-xs">
-      <div className="flex flex-wrap items-start justify-between gap-2">
-        <div>
-          <h2 id="hist-h" className="flex items-center gap-2 text-(length:--fs-14) font-semibold"><FiClock className="size-4 text-muted-foreground" aria-hidden />{title}</h2>
-          <p className="mt-0.5 text-(length:--fs-12) text-muted-foreground">{entries.length} καταγραφές{open ? ` · ${open} ανοιχτά αιτήματα πελάτη` : ''} · δεν σβήνονται</p>
-        </div>
+    <section aria-labelledby="hist-h" className="rounded-xl border border-border bg-card shadow-xs">
+      {/* Accordion: κλειστό — στην κεφαλίδα πλήθος, ανοιχτά αιτήματα και η τελευταία καταγραφή. */}
+      <details className="group">
+        <summary className="flex cursor-pointer list-none items-center gap-3 px-4 py-2.5 hover:bg-muted/40 [&::-webkit-details-marker]:hidden">
+          <FiChevronDown className="size-4 shrink-0 -rotate-90 text-muted-foreground transition-transform group-open:rotate-0" aria-hidden />
+          <span className="min-w-0 flex-1">
+            <span id="hist-h" role="heading" aria-level={2} className="flex flex-wrap items-center gap-x-2 text-(length:--fs-14) font-semibold">
+              <FiClock className="size-4 text-muted-foreground" aria-hidden />{title}
+              <span className="text-(length:--fs-12) font-normal text-muted-foreground">· {entries.length} καταγραφές</span>
+              {open > 0 && <span className="rounded bg-amber-100 px-1.5 text-(length:--fs-11) font-semibold text-amber-900">{open} ανοιχτ{open === 1 ? 'ό αίτημα' : 'ά αιτήματα'}</span>}
+            </span>
+            {entries[0] && (
+              <span className="block truncate text-(length:--fs-12) text-muted-foreground group-open:hidden">
+                Τελευταία: <span className="text-foreground">{entries[0].title}</span> · {entries[0].who} · {when(entries[0].at)}
+              </span>
+            )}
+          </span>
+        </summary>
+        <div className="border-t border-border px-4 pb-3 pt-2.5">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-(length:--fs-12) text-muted-foreground">Δεν σβήνεται τίποτα από εδώ.</p>
         <div className="flex flex-wrap items-center gap-2">
           <div role="tablist" aria-label="Φίλτρο ιστορικού" className="inline-flex rounded-lg bg-muted p-0.5">
             {FILTERS.map(([v, l]) => (
@@ -77,6 +92,8 @@ export function HistoryPanel({ entries, title = 'Ιστορικό επικοιν
           {more ? 'Λιγότερα' : `Όλα (${list.length})`}
         </button>
       )}
+        </div>
+      </details>
     </section>
   );
 }
