@@ -32,7 +32,7 @@ export async function customerDossier(trdr: number, id: string) {
   const roomById = new Map(rooms.map((r) => [r.id, r.name]));
   const materials = c.lines.filter((l) => l.kind === 'MATERIAL' && l.qty > 0).map((l) => ({ code: l.code, name: l.name, qty: l.qty, unit: l.unit, room: l.roomId ? roomById.get(l.roomId) ?? null : null }));
   return {
-    id: c.id, ref: contractRef(c.number), title: c.title, status: c.status, summary: c.customerText || c.summary,
+    id: c.id, ref: contractRef(c.number), title: c.title, status: c.status, summary: c.customerText?.trim() || null, // ποτέ η εσωτερική περίληψη
     site: c.siteFormatted || [c.siteAddress, c.siteCity].filter(Boolean).join(', ') || null,
     project, startDate: d(c.startDate), endDate: d(c.endDate), acceptedAt: d(c.acceptedAt), completedAt: d(c.completedAt),
     rooms: rooms.map((r) => ({ name: r.name, floorM2: r.floorM2, wallsM2: r.wallsM2, material: r.material?.label ?? null })),

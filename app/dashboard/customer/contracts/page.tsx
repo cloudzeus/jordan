@@ -36,18 +36,18 @@ export default async function CustomerContractsPage() {
               <ul className="mt-12 grid gap-5 md:grid-cols-2" data-reveal data-stagger>
                 {pending.map((c) => (
                   <li key={c.id}>
-                    <Link href={`/dashboard/customer/contracts/${c.id}`} className="group relative flex h-full flex-col justify-between gap-6 border border-(--s-ink) bg-white p-6 transition-shadow hover:shadow-[0_18px_50px_-30px_rgba(28,50,65,0.45)]">
+                    <Link href={`/dashboard/customer/contracts/${c.id}`} className="group relative flex h-full flex-col justify-between gap-6 rounded-xl border border-(--s-line) border-l-4 border-l-(--s-accent) bg-white p-6 transition-[box-shadow,transform] hover:-translate-y-0.5 hover:shadow-[0_18px_50px_-30px_rgba(28,50,65,0.45)] motion-reduce:transition-none">
                       <span>
                         <span className="flex items-start justify-between gap-4">
-                          <span className="font-num text-(length:--fs-13) tabular-nums text-(--s-mute)">{c.ref}</span>
+                          <span className="text-(length:--fs-14) tabular-nums text-(--s-ink-2)">Προσφορά {c.ref}</span>
                           <Pill label="Περιμένει απάντηση" tone="warn" pulse />
                         </span>
-                        <span className="font-display mt-2 block text-(length:--fs-28) leading-tight">{c.title}</span>
+                        <span className="mt-2 block text-(length:--fs-22) font-semibold leading-snug text-(--s-ink)">{c.title}</span>
                         {c.validUntil && <span className="mt-2 block text-(length:--fs-13) text-(--s-ink-2)">Ισχύει έως {date(c.validUntil)}</span>}
                       </span>
                       <span className="flex items-end justify-between border-t border-(--s-line) pt-4">
                         <span className="text-(length:--fs-12) uppercase tracking-[0.14em] text-(--s-mute)">Σύνολο με ΦΠΑ</span>
-                        <span className="font-num text-(length:--fs-32) tabular-nums">{eur(c.total)}</span>
+                        <span className="p-amount text-(length:--fs-28) text-(--s-ink)">{eur(c.total)}</span>
                       </span>
                     </Link>
                   </li>
@@ -61,10 +61,10 @@ export default async function CustomerContractsPage() {
                     <Link href={`/dashboard/customer/contracts/${c.id}`} className="group grid gap-x-6 gap-y-1 py-5 sm:grid-cols-[1fr_auto_auto] sm:items-center">
                       <span className="min-w-0">
                         <span className="block text-(length:--fs-13) tabular-nums text-(--s-mute)">{c.ref} · {c.stageLabel}</span>
-                        <span className="font-site block text-(length:--fs-20) font-light leading-snug group-hover:underline group-hover:underline-offset-4">{c.title}</span>
+                        <span className="block text-(length:--fs-18) font-semibold leading-snug text-(--s-ink) group-hover:underline group-hover:underline-offset-4">{c.title}</span>
                         <span className="mt-1 block text-(length:--fs-13) text-(--s-ink-2)">{c.startDate ? `Έναρξη ${date(c.startDate)}` : 'Χωρίς ημερομηνία έναρξης'}{c.endDate ? ` · παράδοση ${date(c.endDate)}` : ''}</span>
                       </span>
-                      <span className="font-num text-(length:--fs-20) tabular-nums sm:text-right">{eur(c.total)}</span>
+                      <span className="p-amount text-(length:--fs-18) sm:text-right">{eur(c.total)}</span>
                       <Pill label={c.statusLabel} tone={contractTone(c.status)} />
                     </Link>
                   </li>

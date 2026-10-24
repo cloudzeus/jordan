@@ -10,6 +10,7 @@ import { Pill } from '@/components/site/b2b';
 import { PortalShell } from '../../../../portal-shell';
 import { date, PageTitle, qty } from '../../../_ui/bits';
 import { PrintButton } from './print-button';
+import { CustomerText } from '../../../_ui/customer-text';
 
 export const dynamic = 'force-dynamic';
 export const metadata: Metadata = { title: 'Τεχνικός φάκελος' };
@@ -19,7 +20,7 @@ function Section({ n, title, children, hint }: { n: number; title: string; hint?
     <section className="break-inside-avoid border-t border-(--s-ink) pt-6" aria-labelledby={`ds-${n}`}>
       <h2 id={`ds-${n}`} className="flex items-baseline gap-3">
         <span className="font-num text-(length:--fs-14) tabular-nums text-(--s-accent)">{String(n).padStart(2, '0')}</span>
-        <span className="font-site text-(length:--fs-24) font-light">{title}</span>
+        <span className="font-site text-(length:--fs-24) font-medium">{title}</span>
       </h2>
       {hint && <p className="mt-1 text-(length:--fs-14) text-(--s-ink-2)">{hint}</p>}
       <div className="mt-5">{children}</div>
@@ -70,7 +71,7 @@ export default async function DossierPage({ params }: { params: Promise<{ id: st
                 <div key={k}><dt className="text-(length:--fs-12) uppercase tracking-[0.14em] text-(--s-mute)">{k}</dt><dd className="mt-1 text-(--s-ink)">{v}</dd></div>
               ))}
             </dl>
-            {ds.summary && <p className="mt-6 max-w-3xl whitespace-pre-line text-(length:--fs-15) text-(--s-ink-2)">{ds.summary}</p>}
+            {ds.summary && <div className="mt-6"><CustomerText text={ds.summary} /></div>}
           </Section>
 
           {ds.rooms.length > 0 && (

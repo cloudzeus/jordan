@@ -18,6 +18,7 @@ import { AcceptOffer } from './accept-offer';
 import { AnnotateButton, CustomerNotes, type PortalNote, type PortalTarget } from './customer-notes';
 import { contractHistory } from '@/lib/contracts/history';
 import { PortalHistory } from '../../_ui/history';
+import { CustomerText } from '../../_ui/customer-text';
 import { listNotes } from '@/lib/contracts/notes';
 import { getFloorPlan } from '@/lib/floorplan/plans';
 import { planRooms } from '@/lib/floorplan/saved';
@@ -90,13 +91,15 @@ export default async function CustomerContractPage({ params }: { params: Promise
 
       <Container className="grid gap-14 py-14 md:py-20 lg:grid-cols-[minmax(0,1fr)_360px]">
         <div className="min-w-0 space-y-16">
-          {c.summary && <p className="max-w-2xl whitespace-pre-line text-(length:--fs-17) text-(--s-ink-2)">{c.summary}</p>}
+          {/* Μόνο το κείμενο για τον πελάτη — η «περίληψη» της φόρμας είναι εσωτερική. */}
+          {c.customerText && <CustomerText text={c.customerText} />}
 
           <section aria-labelledby="lines">
             <Label>Περιεχόμενο</Label>
-            <h2 id="lines" className="font-site mt-2 text-(length:--fs-24) font-light">Υλικά & εργασίες</h2>
+            <h2 id="lines" className="font-site mt-2 text-(length:--fs-24) font-medium">Υλικά & εργασίες</h2>
             <div className="mt-6 overflow-x-auto">
-              <table className="w-full min-w-[35rem] border-collapse text-(length:--fs-14)">
+              <table className="w-full min-w-[34rem] table-fixed border-collapse text-(length:--fs-15)">
+                <colgroup><col /><col className="w-[8rem]" /><col className="w-[6.5rem]" /><col className="w-[7.5rem]" /></colgroup>
                 <thead>
                   <tr className="border-b border-(--s-ink) text-left text-(length:--fs-12) uppercase tracking-[0.14em] text-(--s-mute)">
                     <th className="py-2 pr-4 font-normal">Περιγραφή</th>
@@ -131,7 +134,7 @@ export default async function CustomerContractPage({ params }: { params: Promise
           {c.milestones.length > 0 && (
             <section aria-labelledby="pay">
               <Label>Χρονοδιάγραμμα</Label>
-              <h2 id="pay" className="font-site mt-2 text-(length:--fs-24) font-light">Πληρωμές</h2>
+              <h2 id="pay" className="font-site mt-2 text-(length:--fs-24) font-medium">Πληρωμές</h2>
               <div className="mt-6"><MilestoneList items={c.milestones.map((m) => ({ ...m, paidAt: null }))} /></div>
             </section>
           )}
@@ -139,7 +142,7 @@ export default async function CustomerContractPage({ params }: { params: Promise
           {tasks.length > 0 && span && (
             <section aria-labelledby="plan">
               <Label>Χρονοδιάγραμμα</Label>
-              <h2 id="plan" className="font-site mt-2 text-(length:--fs-24) font-light">Πώς θα προχωρήσουμε</h2>
+              <h2 id="plan" className="font-site mt-2 text-(length:--fs-24) font-medium">Πώς θα προχωρήσουμε</h2>
               <p className="mt-2 text-(length:--fs-14) text-(--s-ink-2)">{date(span.from)} — {date(span.to)}{c.status === 'SENT' || c.status === 'DRAFT' ? ' · ενδεικτικό, οριστικοποιείται με την αποδοχή' : ''}</p>
               <ol className="mt-6 space-y-3">
                 {tasks.map((t) => {
@@ -159,7 +162,7 @@ export default async function CustomerContractPage({ params }: { params: Promise
 
           <section aria-labelledby="notes">
             <Label>Επικοινωνία</Label>
-            <h2 id="notes" className="font-site mt-2 text-(length:--fs-24) font-light">Ερωτήσεις, αλλαγές & σημειώσεις</h2>
+            <h2 id="notes" className="font-site mt-2 text-(length:--fs-24) font-medium">Ερωτήσεις, αλλαγές & σημειώσεις</h2>
             <div className="mt-6">
               <CustomerNotes id={c.id} notes={portalNotes} targets={targets} canRequestChanges={c.status === 'SENT' || c.status === 'DRAFT'}
                 disabledReason={user.viewAs ? 'Σε «Προβολή ως» δεν γράφονται σημειώσεις εκ μέρους του πελάτη.' : c.status === 'COMPLETED' || c.status === 'CANCELLED' ? 'Η σύμβαση έχει κλείσει — για νέα θέματα καλέστε μας.' : null} />
@@ -168,13 +171,13 @@ export default async function CustomerContractPage({ params }: { params: Promise
 
           <section aria-labelledby="hist">
             <Label>Ιστορικό</Label>
-            <h2 id="hist" className="font-site mt-2 text-(length:--fs-24) font-light">Τι έχει γίνει μέχρι τώρα</h2>
+            <h2 id="hist" className="font-site mt-2 text-(length:--fs-24) font-medium">Τι έχει γίνει μέχρι τώρα</h2>
             <div className="mt-6"><PortalHistory entries={history} /></div>
           </section>
 
           <section aria-labelledby="docs">
             <Label>Έγγραφα</Label>
-            <h2 id="docs" className="font-site mt-2 text-(length:--fs-24) font-light">PDF</h2>
+            <h2 id="docs" className="font-site mt-2 text-(length:--fs-24) font-medium">PDF</h2>
             <div className="mt-6"><DocList docs={c.documents} /></div>
           </section>
         </div>

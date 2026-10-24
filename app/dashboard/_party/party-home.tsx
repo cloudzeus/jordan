@@ -87,7 +87,7 @@ export async function PartyHome({ user, party }: { user: NonNullable<UserWithRol
           <div style={{ ['--d' as string]: '0.24s' }} className="s-rise mt-12 grid grid-cols-2 gap-x-8 gap-y-10 lg:grid-cols-4">
             <Figure label="Αναθέσεις σε εξέλιξη" value={<span data-count={running.length}>{running.length}</span>} icon={FiBriefcase} href="/dashboard/assignments" hint={`από ${assignments.length} συνολικά`} />
             <Figure label="Εργασίες σήμερα" value={<span data-count={nowTasks.length}>{nowTasks.length}</span>} icon={FiTool} hint={nowTasks[0] ? nowTasks[0].name : 'καμία για σήμερα'} />
-            <Figure label="Προς εξόφληση" value={eur(pay.due)} tone={pay.due > 0 ? '#7A5C43' : undefined} icon={FiCreditCard} href="/dashboard/payments" hint="παραδόθηκαν, περιμένουν πληρωμή" />
+            <Figure label="Προς εξόφληση" value={eur(pay.due)} tone={pay.due > 0 ? '#0F766E' : undefined} icon={FiCreditCard} href="/dashboard/payments" hint="παραδόθηκαν, περιμένουν πληρωμή" />
             {crew || !offers
               ? <Figure label="Επόμενη πληρωμή" value={next ? eur(next.amount) : '—'} icon={FiCalendar} href="/dashboard/payments" hint={next ? `${next.title} · ${dayShort(next.dueDate)}` : 'κανένα ορόσημο'} />
               : <Figure label="Ζωντανά container" value={<span data-count={open.length}>{open.length}</span>} tone={open.length ? '#B42318' : undefined} icon={FiBox} href="/dashboard/offers" hint={open.length ? 'η τιμή πέφτει όσο γεμίζουν' : 'κανένα ανοιχτό'} />}

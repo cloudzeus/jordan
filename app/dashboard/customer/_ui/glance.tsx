@@ -11,7 +11,7 @@ import { CopyIban } from './glance-tools';
 const eur = (n: number) => n.toLocaleString('el-GR', { style: 'currency', currency: 'EUR' });
 const dm = (d: string) => new Date(`${d}T00:00:00Z`).toLocaleDateString('el-GR', { day: 'numeric', month: 'short', timeZone: 'UTC' });
 const dayN = (d: string) => Date.parse(`${d}T00:00:00Z`) / 864e5;
-const INK = '#1C3241', ACCENT = '#7A5C43', GOOD = '#15803D', WARN = '#B45309', LINE = '#E4DED5';
+const INK = '#1C3241', ACCENT = '#0F766E', GOOD = '#15803D', WARN = '#B45309', LINE = '#E4DED5';
 
 function Ring({ pct, label }: { pct: number; label: string }) {
   const r = 52, c = 2 * Math.PI * r;
@@ -54,7 +54,7 @@ function PayBar({ g }: { g: CustomerGlance['pay'] }) {
   const pct = (n: number) => (g.total ? (n / g.total) * 100 : 0);
   const parts = [
     { k: 'Εξοφλήθηκαν', v: g.paid, color: INK, style: {} },
-    { k: 'Προς πληρωμή', v: g.due, color: ACCENT, style: { backgroundImage: `repeating-linear-gradient(135deg, ${ACCENT} 0 6px, #9A7A5F 6px 9px)` } },
+    { k: 'Προς πληρωμή', v: g.due, color: ACCENT, style: { backgroundImage: `repeating-linear-gradient(135deg, ${ACCENT} 0 6px, #3FA79B 6px 9px)` } },
     { k: 'Επόμενες', v: g.upcoming, color: LINE, style: {} },
   ];
   return (
@@ -75,7 +75,7 @@ function PayBar({ g }: { g: CustomerGlance['pay'] }) {
 }
 
 const ACTION = {
-  OFFER: { icon: FiFileText, tone: ACCENT, cta: 'Δείτε και απαντήστε' },
+  OFFER: { icon: FiFileText, tone: INK, cta: 'Δείτε και απαντήστε' },
   PAYMENT: { icon: FiCreditCard, tone: GOOD, cta: 'Στοιχεία πληρωμής' },
   REPLY: { icon: FiMessageCircle, tone: '#2563EB', cta: 'Διαβάστε την απάντηση' },
 };
@@ -131,7 +131,7 @@ export async function CustomerGlanceSection({ g }: { g: CustomerGlance }) {
               return (
                 <article key={p.prjc} className="rounded-xl border border-(--s-line) bg-white p-6" aria-labelledby={`gp-${p.prjc}`}>
                   <p className="text-(length:--fs-12) uppercase tracking-[0.14em] text-(--s-mute)">Έργο {p.code}</p>
-                  <h3 id={`gp-${p.prjc}`} className="font-site mt-1 text-(length:--fs-22) font-light leading-snug">{p.name}</h3>
+                  <h3 id={`gp-${p.prjc}`} className="mt-1 text-(length:--fs-20) font-semibold leading-snug">{p.name}</h3>
                   <div className="mt-5 flex flex-wrap items-center gap-6">
                     <Ring pct={p.pulse.progress} label={`Ολοκλήρωση ${p.pulse.progress}%`} />
                     <div className="min-w-0 flex-1 space-y-3">
@@ -151,7 +151,7 @@ export async function CustomerGlanceSection({ g }: { g: CustomerGlance }) {
           <div className="space-y-6">
             <article className="rounded-xl border border-(--s-line) bg-white p-6" aria-labelledby="gpay">
               <div className="flex items-baseline justify-between gap-3">
-                <h3 id="gpay" className="font-site text-(length:--fs-22) font-light">Πληρωμές</h3>
+                <h3 id="gpay" className="font-site text-(length:--fs-22) font-medium">Πληρωμές</h3>
                 {g.pay.total > 0 && <span className="text-(length:--fs-13) tabular-nums text-(--s-mute)">{g.pay.paidPct}% εξοφλημένο</span>}
               </div>
               {g.pay.total === 0 ? (

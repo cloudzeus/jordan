@@ -612,7 +612,8 @@ html.lenis, html.lenis body { height: auto; }
   /* Χρώματα φάσεων/κατάστασης — ίδια με τις φάσεις εργασιών (lib/project-tasks-core.ts). */
   --s-todo: #64748B; --s-progress: #2563EB; --s-review: #B45309; --s-done: #15803D; --s-danger: #B42318;
   --s-todo-bg: #64748B14; --s-progress-bg: #2563EB12; --s-review-bg: #B4530914; --s-done-bg: #15803D12; --s-danger-bg: #B4231810;
-  --s-accent-2: #A87F5B;
+  --s-accent: #0F766E;            /* έμφαση πύλης: πετρόλ (όχι το καφέ του website) */
+  --s-accent-2: #14968A;
 }
 /* Ρόλοι */
 .site.portal .p-label,
@@ -636,8 +637,8 @@ html.lenis, html.lenis body { height: auto; }
 .site.portal .p-btn:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
 .site.portal .p-btn-primary { color: #fff; background-image: linear-gradient(120deg, #1C3241 0%, #24445A 55%, #2E5A78 100%); box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.12); }
 .site.portal .p-btn-primary:hover:not(:disabled) { background-position: 100% 0; box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.18), 0 8px 24px -14px rgb(28 50 65 / 0.7); }
-.site.portal .p-btn-accent { color: #fff; background-image: linear-gradient(120deg, #6E5039 0%, #7A5C43 50%, #A87F5B 100%); box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.16); }
-.site.portal .p-btn-accent:hover:not(:disabled) { background-position: 100% 0; box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.2), 0 8px 24px -14px rgb(122 92 67 / 0.8); }
+.site.portal .p-btn-accent { color: #fff; background-image: linear-gradient(120deg, #0B5E58 0%, #0F766E 50%, #14968A 100%); box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.16); }
+.site.portal .p-btn-accent:hover:not(:disabled) { background-position: 100% 0; box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.2), 0 8px 24px -14px rgb(15 118 110 / 0.7); }
 .site.portal .p-btn-ghost { color: var(--s-ink); background: #fff; box-shadow: inset 0 0 0 1px var(--s-line); }
 .site.portal .p-btn-ghost:hover:not(:disabled) { box-shadow: inset 0 0 0 1px var(--s-ink); background: var(--s-paper); }
 /* Ετικέτα κατάστασης με χρώμα φάσης (πάντα με κείμενο/εικονίδιο — όχι μόνο χρώμα). */
@@ -648,3 +649,5 @@ html.lenis, html.lenis body { height: auto; }
 .site.portal .p-chip[data-tone="done"] { color: var(--s-done); background: var(--s-done-bg); }
 .site.portal .p-chip[data-tone="danger"] { color: var(--s-danger); background: var(--s-danger-bg); }
 @media (prefers-reduced-motion: reduce) { .site.portal .p-btn { transition: none; } }
+/* Πύλη: οι αριθμοί σε λίστες/πίνακες/κάρτες σε sans ημίβαρο (η serif μένει στους τίτλους και στους αριθμούς hero `font-display`). */
+.site.portal .font-num, .site.portal .font-num * { font-family: var(--font-site), system-ui, sans-serif !important; font-weight: 600; letter-spacing: -0.01em; font-variant-numeric: tabular-nums lining-nums; }

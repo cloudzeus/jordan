@@ -167,7 +167,7 @@ export function RfpWizard({ disabledReason }: { disabledReason?: string | null }
       <aside aria-labelledby="rfp-sum" className="space-y-4 lg:sticky lg:top-28 lg:self-start">
         <section className="border border-(--s-line) bg-white p-5">
           <div className="flex items-baseline justify-between gap-3">
-            <h2 id="rfp-sum" className="font-site text-(length:--fs-22) font-light">Το αίτημά σας</h2>
+            <h2 id="rfp-sum" className="font-site text-(length:--fs-22) font-medium">Το αίτημά σας</h2>
             <span className="text-(length:--fs-13) tabular-nums text-(--s-mute)">{done}/{CHECKS.length}</span>
           </div>
           <div className="mt-3 h-1.5 bg-(--s-paper)" role="progressbar" aria-valuemin={0} aria-valuemax={CHECKS.length} aria-valuenow={done} aria-label="Πληρότητα αιτήματος">

@@ -28,7 +28,7 @@ export const milestoneTone = (s: string): Tone => (s === 'PAID' ? 'good' : s ===
 export const statusTone = (s: string): Tone => (s === 'ACTIVE' ? 'active' : s === 'COMPLETED' ? 'good' : s === 'CANCELLED' ? 'bad' : 'neutral');
 
 /** Χρώματα φάσης εργασίας μέσα στην παλέτα του site (όχι τα έντονα του admin). */
-const PHASE_INK: Record<PhaseKey, string> = { TODO: '#A8A29E', IN_PROGRESS: '#1C3241', REVIEW: '#7A5C43', DONE: '#2F6B3A' };
+const PHASE_INK: Record<PhaseKey, string> = { TODO: '#A8A29E', IN_PROGRESS: '#1C3241', REVIEW: '#0F766E', DONE: '#2F6B3A' };
 
 /* ───────────── Πρόγραμμα 14 ημερών: χάρακας σχεδίου ───────────── */
 

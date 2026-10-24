@@ -53,14 +53,14 @@ export default async function CustomerOrdersPage({ searchParams }: { searchParam
 
         {requests.length > 0 && (
           <section className="mt-14" aria-labelledby="requests">
-            <h2 id="requests" className="font-site text-(length:--fs-24) font-light">Αιτήματα από το portal</h2>
+            <h2 id="requests" className="font-site text-(length:--fs-24) font-medium">Αιτήματα από το portal</h2>
             <p className="mt-1 text-(length:--fs-14) text-(--s-ink-2)">Ό,τι στείλατε από εδώ, μέχρι να καταχωριστεί ως παραγγελία.</p>
             <div className="mt-6"><RequestList requests={requests} /></div>
           </section>
         )}
 
         <section className="mt-14" aria-labelledby="docs">
-          <h2 id="docs" className="font-site text-(length:--fs-24) font-light">Παραστατικά</h2>
+          <h2 id="docs" className="font-site text-(length:--fs-24) font-medium">Παραστατικά</h2>
           <nav aria-label="Φίλτρο παραστατικών" className="mt-5 flex flex-wrap gap-2">
             {FILTERS.map((f) => (
               <Link key={f.key} href={f.key === 'all' ? '/dashboard/customer/orders' : `/dashboard/customer/orders?kind=${f.key}`}

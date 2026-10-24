@@ -67,16 +67,16 @@ export default async function CustomerProjectPage({ params }: { params: Promise<
         </div>
 
         <div className="mt-12 grid gap-8 sm:grid-cols-3">
-          <Stat label="Τιμολογημένα (με ΦΠΑ)" value={eur(totals.invoiced)} hint="τιμολόγια μείον πιστωτικά" />
-          <Stat label="Πληρωμές σας" value={eur(totals.paid)} />
-          <Stat label="Ανοιχτές παραγγελίες" value={String(totals.openOrders)} hint={requests ? `+ ${requests} αιτήματα από το portal` : undefined} />
+          <Stat label="Έχουν τιμολογηθεί" value={eur(totals.invoiced)} quiet={!docs.length} hint={docs.length ? 'με ΦΠΑ, μείον πιστωτικά' : 'Τα τιμολόγια του έργου θα εμφανίζονται εδώ'} />
+          <Stat label="Έχετε πληρώσει" value={eur(totals.paid)} quiet={!docs.length} hint={docs.length ? 'σύνολο πληρωμών σας στο έργο' : 'Οι πληρωμές σας θα καταγράφονται εδώ'} />
+          <Stat label="Παραγγελίες σε εξέλιξη" value={String(totals.openOrders)} quiet={!totals.openOrders} hint={requests ? `και ${requests} αιτήματα από την πύλη` : 'Καμία παραγγελία υλικών σε αναμονή'} />
         </div>
 
         {work && <ProjectTasksSection tasks={work.tasks} progress={work.progress} today={zonedParts(new Date()).date} />}
 
         <section className="mt-16" aria-labelledby="docs">
           <div className="flex flex-wrap items-end justify-between gap-4">
-            <h2 id="docs" className="font-site text-(length:--fs-24) font-light">Παραγγελίες, δελτία & τιμολόγια</h2>
+            <h2 id="docs" className="font-site text-(length:--fs-24) font-medium">Παραγγελίες, δελτία & τιμολόγια</h2>
             <Link href={`/dashboard/customer/orders/new?project=${p.prjc}`} className={btn.ghost}>Νέα παραγγελία για το έργο</Link>
           </div>
           <div className="mt-6">{sales.length ? <DocTable docs={sales} /> : <Empty title="Δεν υπάρχουν ακόμη παραστατικά" />}</div>
@@ -84,14 +84,14 @@ export default async function CustomerProjectPage({ params }: { params: Promise<
 
         {payments.length > 0 && (
           <section className="mt-16" aria-labelledby="payments">
-            <h2 id="payments" className="font-site text-(length:--fs-24) font-light">Πληρωμές</h2>
+            <h2 id="payments" className="font-site text-(length:--fs-24) font-medium">Πληρωμές</h2>
             <div className="mt-6"><DocTable docs={payments} link={false} /></div>
           </section>
         )}
 
         {dossiers.length > 0 && (
           <section className="mt-16" aria-labelledby="dossiers">
-            <h2 id="dossiers" className="font-site text-(length:--fs-24) font-light">Τεχνικοί φάκελοι</h2>
+            <h2 id="dossiers" className="font-site text-(length:--fs-24) font-medium">Τεχνικοί φάκελοι</h2>
             <p className="mt-2 text-(length:--fs-14) text-(--s-ink-2)">Υλικά, επιφάνειες, παραδόσεις και οδηγίες φροντίδας για κάθε σύμβαση του έργου.</p>
             <ul className="mt-6 grid gap-3 md:grid-cols-2">
               {dossiers.map((d) => (
@@ -108,7 +108,7 @@ export default async function CustomerProjectPage({ params }: { params: Promise<
 
         {history.length > 0 && (
           <section className="mt-16" aria-labelledby="hist">
-            <h2 id="hist" className="font-site text-(length:--fs-24) font-light">Ιστορικό επικοινωνίας</h2>
+            <h2 id="hist" className="font-site text-(length:--fs-24) font-medium">Ιστορικό επικοινωνίας</h2>
             <p className="mt-2 text-(length:--fs-14) text-(--s-ink-2)">Ερωτήσεις, αλλαγές, απαντήσεις και εκδόσεις προσφορών του έργου.</p>
             <div className="mt-6"><PortalHistory entries={history} showRef /></div>
           </section>

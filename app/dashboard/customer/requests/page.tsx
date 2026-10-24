@@ -39,7 +39,7 @@ export default async function CustomerRequestsPage() {
           </div>
         </div>
         <section aria-labelledby="rq-list">
-          <h2 id="rq-list" className="font-site text-(length:--fs-24) font-light">Τα αιτήματά σας</h2>
+          <h2 id="rq-list" className="font-site text-(length:--fs-24) font-medium">Τα αιτήματά σας</h2>
           {rows.length === 0 ? (
             <p className="mt-4 text-(length:--fs-15) text-(--s-ink-2)">Δεν έχετε στείλει αίτημα ακόμη.</p>
           ) : (
@@ -51,7 +51,7 @@ export default async function CustomerRequestsPage() {
                     <span className="flex flex-wrap items-start justify-between gap-3">
                       <span className="min-w-0">
                         <span className="block text-(length:--fs-13) tabular-nums text-(--s-mute)">{r.ref} · {when(r.at)}</span>
-                        <span className="font-site mt-0.5 block text-(length:--fs-20) font-light leading-snug">{r.title}</span>
+                        <span className="mt-0.5 block text-(length:--fs-18) font-semibold leading-snug text-(--s-ink)">{r.title}</span>
                       </span>
                       <Pill label={s.label} tone={s.tone} pulse={r.state === 'PREPARING'} />
                     </span>

@@ -22,7 +22,8 @@ const VISIBLE = ['SENT', 'ACCEPTED', 'ACTIVE', 'COMPLETED'] as const;
 const dateOnly = (d: Date | null | undefined) => (d ? d.toISOString().slice(0, 10) : null);
 
 export type CustomerContract = {
-  id: string; ref: string; title: string; summary: string; stage: string; stageLabel: string; status: string; statusLabel: string;
+  /** `summary` είναι ΕΣΩΤΕΡΙΚΗ περίληψη — στον πελάτη δείχνουμε μόνο το `customerText`. */
+  id: string; ref: string; title: string; summary: string; customerText: string | null; stage: string; stageLabel: string; status: string; statusLabel: string;
   prjc: number | null; site: string | null; startDate: string | null; endDate: string | null; validUntil: string | null;
   vatRate: number; net: number; vat: number; total: number;
   lines: { id: string; kind: string; name: string; code: string | null; qty: number; unit: string | null; unitPrice: number; discount: number; net: number; notes: string | null }[];
@@ -45,7 +46,7 @@ async function load(trdr: number, id?: string): Promise<CustomerContract[]> {
   return rows.map((c) => {
     const t = totals(c.lines, c.vatRate);
     return {
-      id: c.id, ref: contractRef(c.number), title: c.title, summary: c.summary,
+      id: c.id, ref: contractRef(c.number), title: c.title, summary: c.summary, customerText: c.customerText?.trim() || null,
       stage: c.stage, stageLabel: STAGE_LABEL[c.stage] ?? c.stage, status: c.status, statusLabel: STATUS_LABEL[c.status as ContractStatus] ?? c.status,
       prjc: c.prjc, site: c.siteFormatted || [c.siteAddress, c.siteCity].filter(Boolean).join(', ') || null,
       startDate: dateOnly(c.startDate), endDate: dateOnly(c.endDate), validUntil: dateOnly(c.validUntil),

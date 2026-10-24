@@ -77,7 +77,7 @@ export function OrderForm({ initial, projects, initialProject }: { initial: Cart
   return (
     <form onSubmit={submit} className="grid gap-14 lg:grid-cols-[1fr_380px] lg:gap-16">
       <div className="min-w-0">
-        <h2 className="font-site text-(length:--fs-24) font-light">Υλικά</h2>
+        <h2 className="font-site text-(length:--fs-24) font-medium">Υλικά</h2>
         <div className="relative mt-5">
           <label htmlFor="catalog-q" className="sr-only">Αναζήτηση στον κατάλογο</label>
           <input id="catalog-q" type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Αναζήτηση — όνομα ή κωδικός υλικού" className={cn(inputCls, 'pr-12 [&::-webkit-search-cancel-button]:hidden')} autoComplete="off" />
@@ -131,7 +131,7 @@ export function OrderForm({ initial, projects, initialProject }: { initial: Cart
       </div>
 
       <aside className="space-y-6 lg:sticky lg:top-24 lg:self-start">
-        <h2 className="font-site text-(length:--fs-24) font-light">Στοιχεία</h2>
+        <h2 className="font-site text-(length:--fs-24) font-medium">Στοιχεία</h2>
         {projects.length > 0 && (
           <Field label="Έργο" htmlFor="prjc">
             <select id="prjc" name="prjc" defaultValue={initialProject ?? ''} className={inputCls}>

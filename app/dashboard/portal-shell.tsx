@@ -35,10 +35,10 @@ export function portalNav(user: NonNullable<UserWithRole>): NavItem[] {
     return [
       home,
       { key: 'projects', href: '/dashboard/customer/projects', label: 'Έργα', hint: 'Πρόοδος, εργασίες και τεχνικοί φάκελοι', icon: FiLayers, tone: '#2563EB' },
-      { key: 'contracts', href: '/dashboard/customer/contracts', label: 'Προσφορές', hint: 'Προσφορές και συμβάσεις — ερωτήσεις και αποδοχή', icon: FiFileText, tone: '#7A5C43' },
+      { key: 'contracts', href: '/dashboard/customer/contracts', label: 'Προσφορές', hint: 'Προσφορές και συμβάσεις — ερωτήσεις και αποδοχή', icon: FiFileText, tone: '#0F766E' },
       { key: 'payments', href: '/dashboard/customer/payments', label: 'Πληρωμές', hint: 'Δόσεις: τι πληρώθηκε και τι ακολουθεί', icon: FiCreditCard, tone: '#15803D' },
       { key: 'requests', href: '/dashboard/customer/requests', label: 'Ζητήστε προσφορά', hint: 'Περιγράψτε τι θέλετε — σας βοηθά ο βοηθός μας', icon: FiMessageSquare, tone: '#B45309' },
-      { key: 'orders', href: '/dashboard/customer/orders', label: 'Παραγγελίες', hint: 'Παραγγελίες υλικών, δελτία και τιμολόγια', icon: FiPackage, tone: '#0F766E' },
+      { key: 'orders', href: '/dashboard/customer/orders', label: 'Παραγγελίες', hint: 'Παραγγελίες υλικών, δελτία και τιμολόγια', icon: FiPackage, tone: '#3A5A78' },
       offers,
     ];
   }
@@ -128,15 +128,16 @@ export async function PortalShell({ user, org, active = 'offers', children }: { 
         </div>
         {/* Πλοήγηση: εικονίδιο + χρώμα ενότητας, μία γραμμή, μετρητής εκκρεμοτήτων. */}
         <nav aria-label="Περιοχή πελάτη" className="hidden border-t border-(--s-line) lg:block">
-          <ul className="mx-auto flex w-full max-w-[90rem] items-stretch gap-1 overflow-x-auto px-8 [scrollbar-width:none] lg:px-10">
+          <ul className="mx-auto flex w-full max-w-[90rem] items-stretch gap-0.5 overflow-x-auto px-6 [scrollbar-width:none] xl:gap-1 xl:px-10">
             {nav.map((n) => {
               const on = n.key === active;
               return (
-                <li key={n.key} className="shrink-0">
+                // Κάτω από xl οι «Δυναμικές προσφορές» φεύγουν από τη γραμμή (υπάρχουν στην αρχική και στο μενού κινητού).
+                <li key={n.key} className={n.key === 'offers' && nav.length > 5 && !on ? 'hidden shrink-0 xl:block' : 'shrink-0'}>
                   <Link href={n.href} aria-current={on ? 'page' : undefined} title={n.hint}
-                    className={cn('group relative flex h-14 items-center gap-2.5 rounded-t-lg px-3.5 text-(length:--fs-15) transition-colors', on ? 'font-semibold text-(--s-ink)' : 'font-medium text-(--s-ink-2) hover:bg-(--s-paper) hover:text-(--s-ink)')}
+                    className={cn('group relative flex h-14 items-center gap-2 rounded-t-lg px-2.5 text-(length:--fs-14) transition-colors xl:gap-2.5 xl:px-3.5 xl:text-(length:--fs-15)', on ? 'font-semibold text-(--s-ink)' : 'font-medium text-(--s-ink-2) hover:bg-(--s-paper) hover:text-(--s-ink)')}
                     style={on ? { background: `${n.tone}0F` } : undefined}>
-                    <span className="grid size-8 place-items-center rounded-full transition-colors" style={{ background: on ? n.tone : `${n.tone}14`, color: on ? '#fff' : n.tone }}><n.icon className="size-4" aria-hidden /></span>
+                    <span className="grid size-7 place-items-center rounded-full transition-colors xl:size-8" style={{ background: on ? n.tone : `${n.tone}14`, color: on ? '#fff' : n.tone }}><n.icon className="size-4" aria-hidden /></span>
                     {n.label}
                     {badges[n.key] ? <span className="grid min-w-5 place-items-center rounded-full px-1.5 text-(length:--fs-12) font-semibold text-white" style={{ background: n.tone }} aria-label={`${badges[n.key]} εκκρεμότητες`}>{badges[n.key]}</span> : null}
                     <span aria-hidden className={cn('absolute inset-x-2 -bottom-px h-0.5 rounded-full transition-transform duration-300', on ? 'scale-x-100' : 'scale-x-0 group-hover:scale-x-100')} style={{ background: n.tone }} />

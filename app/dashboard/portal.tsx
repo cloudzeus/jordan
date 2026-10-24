@@ -99,7 +99,7 @@ export async function Portal({ user }: { user: NonNullable<UserWithRole> }) {
               <>
                 <Figure label="Έργα σε εξέλιξη" value={<span data-count={activeProjects.length}>{activeProjects.length}</span>} icon={FiGrid} href="/dashboard/customer/projects" hint={`από ${projects.length} συνολικά`} />
                 <Figure label="Παραγγελίες σε εξέλιξη" value={docs ? <span data-count={pendingOrders}>{pendingOrders}</span> : '—'} icon={FiClipboard} href="/dashboard/customer/orders?kind=order" hint={docs ? 'περιμένουν αποστολή' : 'το σύστημα δεν απάντησε'} />
-                <Figure label="Προσφορές για εσάς" value={<span data-count={toAnswer.length}>{toAnswer.length}</span>} tone={toAnswer.length ? '#7A5C43' : undefined} icon={FiFileText} href="/dashboard/customer/contracts" hint={toAnswer.length ? 'περιμένουν την απάντησή σας' : `${waiting ? `${waiting} αιτήματα σε αναμονή` : 'καμία εκκρεμότητα'}`} />
+                <Figure label="Προσφορές για εσάς" value={<span data-count={toAnswer.length}>{toAnswer.length}</span>} tone={toAnswer.length ? '#0F766E' : undefined} icon={FiFileText} href="/dashboard/customer/contracts" hint={toAnswer.length ? 'περιμένουν την απάντησή σας' : `${waiting ? `${waiting} αιτήματα σε αναμονή` : 'καμία εκκρεμότητα'}`} />
               </>
             ) : (
               <Figure label="Δικές σας παλέτες" value={<span data-count={Math.round(data.offers.reduce((a, o) => a + o.mine, 0))}>{Math.round(data.offers.reduce((a, o) => a + o.mine, 0))}</span>} icon={FiLayers} href="/dashboard/offers" hint="σε όλα τα container" />

@@ -26,7 +26,7 @@ function Row({ p }: { p: CustomerPayment }) {
           <span className="block text-(length:--fs-13) tabular-nums text-(--s-mute)">
             {p.status === 'PAID' && p.paidAt ? `Εξοφλήθηκε ${date(p.paidAt.slice(0, 10))}` : p.dueDate ? `Έως ${date(p.dueDate)}` : 'Χωρίς ημερομηνία'}
           </span>
-          <span className="font-site block text-(length:--fs-20) font-light leading-snug">{p.title}</span>
+          <span className="block text-(length:--fs-18) font-semibold leading-snug text-(--s-ink)">{p.title}</span>
           <Link href={`/dashboard/customer/contracts/${p.contract.id}`} className="s-link mt-0.5 inline-block text-(length:--fs-13) text-(--s-ink-2)">{p.contract.ref} · {p.contract.title}</Link>
           {p.status === 'DONE' && p.deliveryNote && <span className="mt-2 block border-l-2 border-(--s-accent) pl-3 text-(length:--fs-14) text-(--s-ink-2)">{p.deliveryNote}</span>}
         </span>
@@ -65,19 +65,19 @@ export default async function CustomerPaymentsPage() {
             </div>
             {due.length > 0 && (
               <section className="mt-16" aria-labelledby="pay-due">
-                <h2 id="pay-due" className="font-site text-(length:--fs-24) font-light">Προς πληρωμή</h2>
+                <h2 id="pay-due" className="font-site text-(length:--fs-24) font-medium">Προς πληρωμή</h2>
                 <ul className="mt-4 border-t border-(--s-line)">{due.map((p) => <Row key={p.id} p={p} />)}</ul>
               </section>
             )}
             {next.length > 0 && (
               <section className="mt-16" aria-labelledby="pay-next">
-                <h2 id="pay-next" className="font-site text-(length:--fs-24) font-light">Επόμενες</h2>
+                <h2 id="pay-next" className="font-site text-(length:--fs-24) font-medium">Επόμενες</h2>
                 <ul className="mt-4 border-t border-(--s-line)">{next.map((p) => <Row key={p.id} p={p} />)}</ul>
               </section>
             )}
             {paid.length > 0 && (
               <section className="mt-16" aria-labelledby="pay-paid">
-                <h2 id="pay-paid" className="font-site text-(length:--fs-24) font-light">Εξοφλημένες</h2>
+                <h2 id="pay-paid" className="font-site text-(length:--fs-24) font-medium">Εξοφλημένες</h2>
                 <ul className="mt-4 border-t border-(--s-line)">{paid.map((p) => <Row key={p.id} p={p} />)}</ul>
               </section>
             )}
