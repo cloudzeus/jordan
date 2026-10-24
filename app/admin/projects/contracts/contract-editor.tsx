@@ -9,7 +9,7 @@ import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import {
   FiArrowDown, FiArrowUp, FiCheck, FiChevronDown, FiEdit3, FiFileText, FiLayers, FiLoader, FiMapPin, FiMessageSquare, FiMoreVertical,
-  FiPackage, FiPlus, FiSave, FiSquare, FiTool, FiTrash2, FiUsers, FiX, FiZap,
+  FiAlertTriangle, FiPackage, FiPlus, FiSave, FiSquare, FiTool, FiTrash2, FiUsers, FiX, FiZap,
 } from 'react-icons/fi';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -385,9 +385,13 @@ export function ContractEditor({ initial, staff, readOnly = false, customer = nu
   const ro = readOnly;
   const owner: FloorPlanOwner | null = initial?.prjc ? { prjc: initial.prjc } : s.trdr ? { trdr: s.trdr } : null;
 
+  // Τοποθεσία: σημείο στον χάρτη, ή ό,τι έγραψε ο πελάτης / του συνδεδεμένου έργου. Χωρίς αυτήν η προσφορά δεν στέλνεται.
+  const siteFallback = initial?.siteLabel ?? null;
+  const hasSite = !!s.site || !!siteFallback;
+
   // ── Πρόοδος (δεξιά στήλη) ──
   const steps = [
-    { id: 'c-basics', label: 'Έργο & πελάτης', done: !!s.title.trim() && !!(s.trdr || s.customerName) },
+    { id: 'c-basics', label: 'Έργο & πελάτης', done: !!s.title.trim() && !!(s.trdr || s.customerName) && hasSite },
     { id: 'c-rooms', label: 'Κάτοψη & χώροι', done: s.rooms.length > 0 && s.rooms.every((r) => r.material), optional: true },
     { id: 'c-lines', label: 'Υλικά & εργασίες', done: s.lines.length > 0 },
     { id: 'c-text', label: 'Περιγραφή για τον πελάτη', done: !!(s.customerText?.trim() || s.summary.trim()) },
@@ -582,14 +586,22 @@ export function ContractEditor({ initial, staff, readOnly = false, customer = nu
               <Input id="c-phone" type="tel" value={s.customerPhone ?? ''} onChange={(e) => up({ customerPhone: e.target.value || null })} className={field} disabled={ro} autoComplete="tel" />
             </div>
             <div className="md:col-span-2">
-              <span className={lbl}>Τοποθεσία εργοταξίου</span>
-              <div className="mt-1.5 flex min-h-9 flex-wrap items-center justify-between gap-2 rounded-md border border-border px-3 py-1.5">
+              <span className={lbl}>Τοποθεσία εργοταξίου <span aria-hidden className="text-destructive">*</span></span>
+              <div className={cn('mt-1.5 flex min-h-9 flex-wrap items-center justify-between gap-2 rounded-md border px-3 py-1.5', hasSite ? 'border-border' : 'border-amber-400 bg-amber-50')}>
                 <span className="flex min-w-0 items-center gap-2 text-(length:--fs-13)">
-                  <FiMapPin className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
-                  {s.site ? <span className="truncate">{siteLine(s.site)}</span> : <span className="text-muted-foreground">Δεν έχει οριστεί</span>}
+                  <FiMapPin className={cn('size-3.5 shrink-0', hasSite ? 'text-muted-foreground' : 'text-amber-700')} aria-hidden />
+                  {s.site ? <span className="truncate">{siteLine(s.site)}</span>
+                    : siteFallback ? <span className="min-w-0 truncate">{siteFallback} <span className="text-(length:--fs-11) text-muted-foreground">· χωρίς σημείο στον χάρτη</span></span>
+                    : <span className="font-medium text-amber-900">Δεν έχει οριστεί</span>}
                 </span>
                 {!ro && <Button type="button" variant="ghost" size="sm" onClick={() => setSiteOpen(true)}>{s.site ? 'Αλλαγή' : 'Ορισμός στον χάρτη'}</Button>}
               </div>
+              {!hasSite && (
+                <p role="alert" className="mt-1.5 flex items-start gap-1.5 text-(length:--fs-12) text-amber-900">
+                  <FiAlertTriangle className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+                  Χωρίς τοποθεσία η προσφορά δεν στέλνεται στον πελάτη — το προσχέδιο αποθηκεύεται κανονικά. Αρκεί πόλη ή περιοχή· επηρεάζει μεταφορικά, επίβλεψη, έξοδα και συνεργείο.
+                </p>
+              )}
             </div>
             <div className="grid grid-cols-2 gap-x-3 gap-y-2.5 md:col-span-2 md:grid-cols-4">
               <div className="space-y-1"><Label className={lbl} htmlFor="c-start">Έναρξη</Label><Input id="c-start" type="date" value={s.startDate ?? ''} onChange={(e) => up({ startDate: e.target.value || null })} className={field} disabled={ro} /></div>

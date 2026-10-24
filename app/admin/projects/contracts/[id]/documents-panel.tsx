@@ -133,8 +133,9 @@ function SendDialog({ doc, onClose, contract: c }: { doc: Doc | null; onClose: (
       setTo(own ?? ''); setMessage('');
     }
   }
+  const noSite = !!doc && doc.audience === 'CUSTOMER' && doc.stage === 'OFFER' && !c.siteLabel;
   const go = async () => {
-    if (!doc) return;
+    if (!doc || noSite) return;
     setBusy(true);
     const r = await sendDocumentAction(c.id, doc.id, { to, message });
     setBusy(false);
@@ -150,6 +151,11 @@ function SendDialog({ doc, onClose, contract: c }: { doc: Doc | null; onClose: (
           <DialogDescription>{doc ? `${docTitle(doc.stage, doc.audience)} · έκδοση ${doc.version} — το PDF πηγαίνει ως συνημμένο.` : ''}</DialogDescription>
         </DialogHeader>
         <DialogBody className="space-y-3">
+          {noSite && (
+            <p role="alert" className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-(length:--fs-12) text-amber-900">
+              Η προσφορά δεν έχει τοποθεσία έργου. Ορίστε την στα <a href="#c-basics" onClick={onClose} className="font-medium underline">Βασικά στοιχεία</a> (αρκεί πόλη ή περιοχή) και στείλτε μετά.
+            </p>
+          )}
           {recipients.length > 0 && (
             <div className="flex flex-wrap gap-1.5">
               {recipients.map((r) => (
@@ -168,7 +174,7 @@ function SendDialog({ doc, onClose, contract: c }: { doc: Doc | null; onClose: (
         </DialogBody>
         <DialogFooter>
           <Button variant="ghost" onClick={onClose} disabled={busy}>Άκυρο</Button>
-          <Button onClick={go} disabled={busy || !/^\S+@\S+\.\S+$/.test(to)} className="gap-1.5">{busy ? <FiLoader className="size-4 animate-spin" /> : <FiSend className="size-4" />}Αποστολή</Button>
+          <Button onClick={go} disabled={busy || noSite || !/^\S+@\S+\.\S+$/.test(to)} className="gap-1.5">{busy ? <FiLoader className="size-4 animate-spin" /> : <FiSend className="size-4" />}Αποστολή</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

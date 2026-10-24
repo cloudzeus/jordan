@@ -9,7 +9,7 @@ import { z, ZodError } from 'zod';
 import { logAudit } from '@/lib/audit';
 import { actor, done, doneEmpty, fail, parse, type ActionResult } from '@/lib/server-actions';
 import { contractInput, DocParseError, type ContractAction } from '@/lib/contracts/core';
-import { ContractError, deleteContract, createContract, deliverMilestone, getContract, itemDefaults, linkProject, setMilestoneStatus, transition, updateContract, type ContractView } from '@/lib/contracts/service';
+import { assertOfferSiteFor, ContractError, deleteContract, createContract, deliverMilestone, getContract, itemDefaults, linkProject, setMilestoneStatus, transition, updateContract, type ContractView } from '@/lib/contracts/service';
 import { duplicateContract, freezeRevision, getRevision, listRevisions, restoreRevision, type RevisionDetail, type RevisionRow } from '@/lib/contracts/revisions';
 import { EntityFileError } from '@/lib/entity-files/core';
 import { addNote, deleteNote, linkNoteTask, listNotes, noteInput, updateNote, type NoteView } from '@/lib/contracts/notes';
@@ -81,7 +81,7 @@ export async function contractTransitionAction(id: string, action: ContractActio
   if (!(ACTIONS as readonly string[]).includes(action)) return fail('Άγνωστη ενέργεια');
   try {
     // Ό,τι στέλνεται στον πελάτη μένει ως παγωμένη έκδοση.
-    if (action === 'send') await freezeRevision(id, 'SENT', a.user.id);
+    if (action === 'send') { await assertOfferSiteFor(id); await freezeRevision(id, 'SENT', a.user.id); }
     await transition(id, action, a.user.id);
     await logAudit({ userId: a.user.id, userEmail: a.user.email, action: `contract.${action}`, resource: 'contract', resourceId: id }).catch(() => null);
     refresh(id);

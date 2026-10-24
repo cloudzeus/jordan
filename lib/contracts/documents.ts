@@ -14,7 +14,7 @@ import {
   KIND_LABEL, contractRef, crewTotal, dayEl, docTitle, eur, lineNet, pdfFileName, siteText, totals,
   type ContractDoc, type ContractKind, type PromptGuide,
 } from './core';
-import { ContractError } from './service';
+import { assertOfferSite, ContractError } from './service';
 import { freezeRevision } from './revisions';
 import { instructionsFor } from './notes';
 import { floorPlanForDocument } from '@/lib/floorplan/plans';
@@ -142,6 +142,7 @@ export async function sendDocument(contractId: string, docId: string, opts: { to
   const d = await prisma.contractDocument.findFirst({ where: { id: docId, contractId }, include: { contract: true, party: true } });
   if (!d) throw new ContractError('Το έγγραφο δεν βρέθηκε', 404);
   if (!d.fileId) throw new ContractError('Το έγγραφο δεν έχει PDF', 409);
+  if (d.audience === 'CUSTOMER' && d.stage === 'OFFER') await assertOfferSite(d.contract);
   const file = await prisma.entityFile.findUnique({ where: { id: d.fileId }, select: { storageKey: true } });
   if (!file) throw new ContractError('Το PDF δεν βρέθηκε στα αρχεία', 404);
   const [pdf, brand] = await Promise.all([bunnyDownload(file.storageKey), emailBrand()]);

@@ -8,11 +8,12 @@ import { planData, planPins, planRooms, withRoomMaterials } from '@/lib/floorpla
 import { uploadEntityFile } from '@/lib/entity-files/service';
 import { prisma } from '@/lib/db';
 import { createTask, deleteTask, updateTask, TaskError } from '@/lib/project-tasks';
-import { saveProjectSite } from '@/lib/project-site';
+import { getProjectSite, saveProjectSite } from '@/lib/project-site';
+import { siteLine as projectSiteLine } from '@/lib/project-site-core';
 import { syncProjectBudget } from './budget-sync';
 import { logContractEvent } from './history';
 import {
-  canTransition, contractRef, stageAfter, totals, transitionTo, type ContractAction, type ContractInput,
+  canTransition, contractRef, OFFER_SITE_REQUIRED, siteText, stageAfter, totals, transitionTo, type ContractAction, type ContractInput,
 } from './core';
 
 export class ContractError extends Error {
@@ -36,12 +37,13 @@ export async function getContract(id: string) {
     },
   });
   if (!c) return null;
-  const [trader, project, users, files, plan] = await Promise.all([
+  const [trader, project, users, files, plan, projectSite] = await Promise.all([
     c.trdr ? prisma.softoneTrader.findUnique({ where: { trdr: c.trdr }, select: { code: true, name: true, email: true, phone: true, afm: true } }) : null,
     c.prjc ? prisma.softoneProject.findUnique({ where: { prjc: c.prjc }, select: { code: true, name: true } }) : null,
     c.members.length ? prisma.user.findMany({ where: { id: { in: c.members.map((m) => m.userId) } }, select: { id: true, name: true, email: true } }) : [],
     prisma.entityFile.findMany({ where: { id: { in: c.documents.map((x) => x.fileId).filter((x): x is string => !!x) } }, select: { id: true, size: true } }),
     c.floorPlanId ? getFloorPlan(c.floorPlanId).catch(() => null) : null,
+    c.prjc ? getProjectSite(c.prjc).catch(() => null) : null,
   ]);
   const fileSize = new Map(files.map((f) => [f.id, f.size]));
   const t = totals(c.lines, c.vatRate);
@@ -57,6 +59,8 @@ export async function getContract(id: string) {
       address: c.siteAddress, zip: c.siteZip, district: c.siteDistrict, city: c.siteCity, formatted: c.siteFormatted,
       lat: c.siteLat, lng: c.siteLng, source: (c.siteSource ?? 'geocode') as 'geocode' | 'marker' | 'manual', precision: (c.sitePrecision ?? null) as 'exact' | 'street' | 'area' | null,
     } : null,
+    /** Η τοποθεσία ως κείμενο: του χάρτη, ό,τι έγραψε ο πελάτης (π.χ. «Θάσος») ή του συνδεδεμένου έργου. */
+    siteLabel: siteText(c) ?? (projectSite ? projectSiteLine(projectSite) : null),
     startDate: ds(c.startDate), endDate: ds(c.endDate), validUntil: ds(c.validUntil), vatRate: c.vatRate, terms: c.terms,
     acceptedAt: c.acceptedAt?.toISOString() ?? null, activatedAt: c.activatedAt?.toISOString() ?? null, completedAt: c.completedAt?.toISOString() ?? null,
     createdAt: c.createdAt.toISOString(), updatedAt: c.updatedAt.toISOString(),
@@ -122,12 +126,14 @@ export async function contractsOfProject(prjc: number) {
 }
 
 // ── Αποθήκευση ─────────────────────────────────────────────────────────────────────────────────
-function headerData(input: ContractInput) {
+function headerData(input: ContractInput, keepSiteText = false) {
   const s = input.site;
+  // Χωρίς σημείο στον χάρτη, η διεύθυνση/πόλη που έγραψε ο πελάτης (πύλη) ΔΕΝ σβήνεται στην αποθήκευση.
+  const text = s || !keepSiteText ? { siteAddress: s?.address ?? null, siteZip: s?.zip ?? null, siteDistrict: s?.district ?? null, siteCity: s?.city ?? null } : {};
   return {
     title: input.title, summary: input.summary, kind: input.kind, trdr: input.trdr,
     customerName: input.customerName, customerEmail: input.customerEmail, customerPhone: input.customerPhone,
-    siteAddress: s?.address ?? null, siteZip: s?.zip ?? null, siteDistrict: s?.district ?? null, siteCity: s?.city ?? null,
+    ...text,
     siteFormatted: s?.formatted ?? null, siteLat: s?.lat ?? null, siteLng: s?.lng ?? null, siteSource: s?.source ?? null, sitePrecision: s?.precision ?? null,
     startDate: d(input.startDate), endDate: d(input.endDate), validUntil: d(input.validUntil), vatRate: input.vatRate, terms: input.terms,
     customerText: input.customerText,
@@ -166,7 +172,7 @@ export async function updateContract(id: string, raw: ContractInput, userId: str
   const input = await snapshotCustomer(raw);
   // Η τρέχουσα έκδοση έχει παγώσει (στάλθηκε / έγινε PDF / «Νέα έκδοση») ⇒ οι αλλαγές πάνε σε νέα έκδοση.
   const frozen = await prisma.contractRevision.findUnique({ where: { contractId_revision: { contractId: id, revision: cur.revision } }, select: { id: true } });
-  const saved = await prisma.contract.update({ where: { id }, data: { ...headerData(input), ...(frozen ? { revision: cur.revision + 1 } : {}) }, select: { floorPlanId: true } });
+  const saved = await prisma.contract.update({ where: { id }, data: { ...headerData(input, true), ...(frozen ? { revision: cur.revision + 1 } : {}) }, select: { floorPlanId: true } });
   await saveChildren(id, input);
   await saveRoomMaterials(saved.floorPlanId, input);
   if (cur.prjc && input.site) await saveProjectSite(cur.prjc, input.site, userId).catch((e) => console.error('[contracts] site', e));
@@ -265,11 +271,25 @@ export async function deleteContract(id: string) {
   await prisma.contract.delete({ where: { id } });
 }
 
+// ── Τοποθεσία πριν την αποστολή ─────────────────────────────────────────────────────────────────
+/** Ρίχνει σφάλμα αν η προσφορά δεν έχει τοποθεσία (δική της ή του συνδεδεμένου έργου). */
+export async function assertOfferSite(c: { prjc: number | null; siteFormatted: string | null; siteAddress: string | null; siteZip: string | null; siteCity: string | null }) {
+  if (siteText(c)) return;
+  if (c.prjc && (await getProjectSite(c.prjc).catch(() => null))) return;
+  throw new ContractError(OFFER_SITE_REQUIRED, 409);
+}
+export async function assertOfferSiteFor(id: string) {
+  const c = await prisma.contract.findUnique({ where: { id }, select: { prjc: true, siteFormatted: true, siteAddress: true, siteZip: true, siteCity: true } });
+  if (!c) throw new ContractError('Η σύμβαση δεν βρέθηκε', 404);
+  await assertOfferSite(c);
+}
+
 // ── Μεταβάσεις ─────────────────────────────────────────────────────────────────────────────────
 export async function transition(id: string, action: ContractAction, userId: string, by?: { kind: 'STAFF' | 'CUSTOMER'; name: string | null }) {
   const c = await prisma.contract.findUnique({ where: { id }, include: { milestones: true, lines: { select: { qty: true, unitPrice: true, discount: true } } } });
   if (!c) throw new ContractError('Η σύμβαση δεν βρέθηκε', 404);
   if (!canTransition(c.status, action)) throw new ContractError('Η ενέργεια δεν επιτρέπεται σε αυτή την κατάσταση', 409);
+  if (action === 'send') await assertOfferSite(c);
   if (action === 'activate') {
     if (!c.prjc) throw new ContractError('Συνδέστε πρώτα τη σύμβαση με έργο SoftOne (υπάρχον ή νέο) — εκεί γράφονται οι εργασίες και τα αρχεία', 409);
     if (!c.milestones.length) throw new ContractError('Ορίστε τουλάχιστον ένα milestone πριν από την ενεργοποίηση', 409);

@@ -319,6 +319,9 @@ export function buildPrompt(p: PromptInput): { system: string; user: string } {
 }
 
 /** Περιγραφή τοποθεσίας σε μία γραμμή. */
+/** Η θέση ορίζει μεταφορικά, επίβλεψη, έξοδα και συνεργείο: η προσφορά δεν στέλνεται στον πελάτη χωρίς αυτήν. */
+export const OFFER_SITE_REQUIRED = 'Ορίστε πρώτα την τοποθεσία του έργου (τουλάχιστον πόλη ή περιοχή) — χωρίς αυτήν η προσφορά δεν στέλνεται στον πελάτη. Το προσχέδιο αποθηκεύεται κανονικά.';
+
 export function siteText(c: { siteFormatted?: string | null; siteAddress?: string | null; siteZip?: string | null; siteCity?: string | null }): string | null {
   return c.siteFormatted || [c.siteAddress, [c.siteZip, c.siteCity].filter(Boolean).join(' ')].filter(Boolean).join(', ') || null;
 }
