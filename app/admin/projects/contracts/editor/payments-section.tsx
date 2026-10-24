@@ -3,7 +3,7 @@
 // Πρόγραμμα πληρωμών (milestones) της φόρμας: μία κάρτα ανά «ποιος πληρώνει ποιον», μπάρα κάλυψης του
 // συνόλου, ποσοστό δίπλα σε κάθε ποσό, έτοιμα προγράμματα και «συμπλήρωση υπολοίπου» με ένα κλικ.
 import * as React from 'react';
-import { FiCalendar, FiCheckCircle, FiFileText, FiMoreVertical, FiPlus, FiTrash2, FiUser, FiUsers } from 'react-icons/fi';
+import { FiCalendar, FiCheckCircle, FiMoreVertical, FiPlus, FiTrash2, FiUser, FiUsers } from 'react-icons/fi';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
@@ -47,7 +47,6 @@ function Group({ label, icon, total, ms, presets, readOnly, onAdd, onPlan, onSet
   label: string; icon: React.ReactNode; total: number; ms: EditorMilestone[]; presets: PlanPreset[]; readOnly: boolean;
   onAdd: () => void; onPlan: (p: PlanPreset) => void; onSet: (uid: string, patch: Partial<EditorMilestone>) => void; onRemove: (uid: string) => void;
 }) {
-  const [openDeliv, setOpenDeliv] = React.useState<Set<string>>(new Set());
   const cov = milestoneCoverage(ms.map((m) => m.amount), total);
   const ratio = total > 0 ? Math.min(1, cov.sum / total) : 0;
   const over = cov.diff < -0.009;
@@ -107,7 +106,6 @@ function Group({ label, icon, total, ms, presets, readOnly, onAdd, onPlan, onSet
       ) : (
         <ol className="space-y-2 px-3 pb-3 pt-2">
           {ms.map((m, i) => {
-            const showDeliv = openDeliv.has(m.uid) || !!m.deliverables;
             return (
               <li key={m.uid} className="rounded-md bg-muted/30 p-2">
                 <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 sm:grid-cols-[auto_minmax(0,1fr)_9.5rem_8.5rem_3rem_auto]">
@@ -128,19 +126,17 @@ function Group({ label, icon, total, ms, presets, readOnly, onAdd, onPlan, onSet
                           <FiMoreVertical className="size-4" aria-hidden />
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="min-w-48">
-                          <DropdownMenuItem className={ITEM} onSelect={() => setOpenDeliv((s) => new Set(s).add(m.uid))}><FiFileText className="size-3.5" />Παραδοτέα…</DropdownMenuItem>
-                          <DropdownMenuSeparator />
                           <DropdownMenuItem variant="destructive" className={ITEM} onSelect={() => onRemove(m.uid)}><FiTrash2 className="size-3.5" />Αφαίρεση</DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </span>
                   ) : <span />}
                 </div>
-                {showDeliv && (
-                  <Input value={m.deliverables ?? ''} onChange={(e) => onSet(m.uid, { deliverables: e.target.value || null })} disabled={readOnly}
-                    placeholder="Παραδοτέα (π.χ. πρωτόκολλο παραλαβής, φωτογραφίες)" aria-label={`Παραδοτέα πληρωμής ${i + 1}`}
-                    className="mt-2 h-9 text-(length:--fs-12) sm:ml-8 sm:w-[calc(100%-2rem)]" />
-                )}
+                {/* Τι παραδίδεται σε αυτό το στάδιο — με αυτό ελέγχεται η παράδοση (περιγραφή + φωτογραφίες). */}
+                <textarea value={m.deliverables ?? ''} onChange={(e) => onSet(m.uid, { deliverables: e.target.value || null })} disabled={readOnly} rows={2}
+                  placeholder="Τι παραδίδεται: π.χ. Πέτρινο δάπεδο σε καθιστικό & τραπεζαρία, αρμολογημένο και καθαρό · πρωτόκολλο παραλαβής με φωτογραφίες"
+                  aria-label={`Παραδοτέα πληρωμής ${i + 1}`}
+                  className="mt-2 w-full resize-y rounded-md border border-input bg-background px-3 py-1.5 text-(length:--fs-12) leading-relaxed outline-hidden focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-70 sm:ml-8 sm:w-[calc(100%-2rem)]" />
               </li>
             );
           })}

@@ -72,7 +72,7 @@ export function DocumentsPanel({ contract: c, canManage }: { contract: ContractV
               <div className="min-w-0 flex-1 basis-[calc(100%-3rem)] sm:basis-auto">
                 <p className="truncate text-(length:--fs-13) font-medium">{t.title} · {t.who}</p>
                 <p className="truncate text-(length:--fs-11) text-muted-foreground">
-                  {last ? <>Έκδοση {last.version} · {when(last.createdAt)}{sent.length ? <> · <FiMail className="inline size-3" /> {sent[sent.length - 1].to}</> : ' · δεν έχει σταλεί'}</> : 'Δεν έχει συνταχθεί'}
+                  {last ? <>PDF v{last.version}{last.revision ? ` · έκδ. προσφοράς ${last.revision}` : ''} · {when(last.createdAt)}{sent.length ? <> · <FiMail className="inline size-3" /> {sent[sent.length - 1].to}</> : ' · δεν έχει σταλεί'}</> : 'Δεν έχει συνταχθεί'}
                   {' · '}{eur(t.amount)}
                 </p>
               </div>
@@ -82,7 +82,7 @@ export function DocumentsPanel({ contract: c, canManage }: { contract: ContractV
               {canManage && (
                 <Button size="sm" variant={last ? 'secondary' : 'default'} disabled={!!busy || !t.ok} onClick={() => generate(t.partyId, t.key)} className="gap-1.5" title={!t.ok ? 'Δεν υπάρχουν γραμμές για αυτό το έγγραφο' : undefined}>
                   {busy === t.key ? <FiLoader className="size-3.5 animate-spin" /> : last ? <FiRefreshCw className="size-3.5" /> : <FiZap className="size-3.5" />}
-                  {last ? 'Νέα έκδοση' : 'Σύνταξη με AI'}
+                  {last ? 'Νέο PDF' : 'Σύνταξη με AI'}
                 </Button>
               )}
               {last && (
@@ -99,7 +99,7 @@ export function DocumentsPanel({ contract: c, canManage }: { contract: ContractV
                         <DropdownMenuSeparator />
                         <DropdownMenuLabel className="text-(length:--fs-11) text-muted-foreground">Προηγούμενες εκδόσεις</DropdownMenuLabel>
                         {docs.slice(1, 8).map((d) => (
-                          <DropdownMenuItem key={d.id} className={ITEM} onSelect={() => d.fileId && window.open(pdfUrl(d), '_blank')}><FiClock className="size-3.5" />Έκδοση {d.version} · {when(d.createdAt)}</DropdownMenuItem>
+                          <DropdownMenuItem key={d.id} className={ITEM} onSelect={() => d.fileId && window.open(pdfUrl(d), '_blank')}><FiClock className="size-3.5" />PDF v{d.version}{d.revision ? ` · έκδ. ${d.revision}` : ''} · {when(d.createdAt)}</DropdownMenuItem>
                         ))}
                       </>
                     )}

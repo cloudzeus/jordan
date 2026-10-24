@@ -9,7 +9,10 @@ import { z, ZodError } from 'zod';
 import { logAudit } from '@/lib/audit';
 import { actor, done, doneEmpty, fail, parse, type ActionResult } from '@/lib/server-actions';
 import { contractInput, DocParseError, type ContractAction } from '@/lib/contracts/core';
-import { ContractError, deleteContract, createContract, getContract, itemDefaults, linkProject, setMilestoneStatus, transition, updateContract, type ContractView } from '@/lib/contracts/service';
+import { ContractError, deleteContract, createContract, deliverMilestone, getContract, itemDefaults, linkProject, setMilestoneStatus, transition, updateContract, type ContractView } from '@/lib/contracts/service';
+import { duplicateContract, freezeRevision, getRevision, listRevisions, restoreRevision, type RevisionDetail, type RevisionRow } from '@/lib/contracts/revisions';
+import { EntityFileError } from '@/lib/entity-files/core';
+import { prisma } from '@/lib/db';
 import { copyDocsToProject, sendDocument } from '@/lib/contracts/documents';
 import { composeCustomerText } from '@/lib/contracts/ai';
 import { stockSummary, type StockSummary } from '@/lib/item-stock';
@@ -73,6 +76,8 @@ export async function contractTransitionAction(id: string, action: ContractActio
   if ('error' in a) return a.error;
   if (!(ACTIONS as readonly string[]).includes(action)) return fail('Άγνωστη ενέργεια');
   try {
+    // Ό,τι στέλνεται στον πελάτη μένει ως παγωμένη έκδοση.
+    if (action === 'send') await freezeRevision(id, 'SENT', a.user.id);
     await transition(id, action, a.user.id);
     await logAudit({ userId: a.user.id, userEmail: a.user.email, action: `contract.${action}`, resource: 'contract', resourceId: id }).catch(() => null);
     refresh(id);
@@ -159,6 +164,79 @@ export async function setMilestoneAction(id: string, mid: string, status: 'PENDI
     await logAudit({ userId: a.user.id, userEmail: a.user.email, action: 'contract.milestone', resource: 'contract', resourceId: id, metadata: { milestone: mid, status } }).catch(() => null);
     refresh(id);
     return doneEmpty();
+  } catch (e) {
+    return caught(e);
+  }
+}
+
+/** Απόδειξη παράδοσης milestone: FormData με `note` και φωτογραφίες `photos` (πολλαπλές). */
+export async function deliverMilestoneAction(id: string, mid: string, form: FormData): Promise<ActionResult<{ files: number }>> {
+  const a = await actor('projects.manage');
+  if ('error' in a) return a.error;
+  const note = String(form.get('note') ?? '').slice(0, 4000);
+  const files = form.getAll('photos').filter((f): f is File => f instanceof File && f.size > 0);
+  try {
+    const out = await deliverMilestone(id, mid, { note, files, user: { id: a.user.id, name: a.user.name ?? null, email: a.user.email } });
+    await logAudit({ userId: a.user.id, userEmail: a.user.email, action: 'contract.milestone.deliver', resource: 'contract', resourceId: id, metadata: { milestone: mid, photos: out.files } }).catch(() => null);
+    refresh(id);
+    return done(out);
+  } catch (e) {
+    if (e instanceof EntityFileError) return fail(e.message);
+    return caught(e);
+  }
+}
+
+/* ───────────── Εκδόσεις προσφοράς ───────────── */
+
+export async function listRevisionsAction(id: string): Promise<ActionResult<RevisionRow[]>> {
+  const a = await actor('projects.read');
+  if ('error' in a) return a.error;
+  try { return done(await listRevisions(id)); } catch (e) { return caught(e); }
+}
+
+export async function getRevisionAction(id: string, revision: number): Promise<ActionResult<RevisionDetail>> {
+  const a = await actor('projects.read');
+  if ('error' in a) return a.error;
+  try { return done(await getRevision(id, revision)); } catch (e) { return caught(e); }
+}
+
+/** «Νέα έκδοση»: η τρέχουσα μορφή παγώνει (με σημείωση)· η επόμενη αποθήκευση γίνεται στην επόμενη έκδοση. */
+export async function freezeRevisionAction(id: string, note: string | null): Promise<ActionResult<{ revision: number }>> {
+  const a = await actor('projects.manage');
+  if ('error' in a) return a.error;
+  try {
+    const revision = await freezeRevision(id, 'MANUAL', a.user.id, note?.trim().slice(0, 300) || null);
+    await prisma.contract.update({ where: { id }, data: { revision: revision + 1 } });
+    await logAudit({ userId: a.user.id, userEmail: a.user.email, action: 'contract.revision', resource: 'contract', resourceId: id, metadata: { frozen: revision } }).catch(() => null);
+    refresh(id);
+    return done({ revision: revision + 1 });
+  } catch (e) {
+    return caught(e);
+  }
+}
+
+export async function restoreRevisionAction(id: string, revision: number): Promise<ActionResult> {
+  const a = await actor('projects.manage');
+  if ('error' in a) return a.error;
+  try {
+    await restoreRevision(id, revision, a.user.id);
+    await logAudit({ userId: a.user.id, userEmail: a.user.email, action: 'contract.revision.restore', resource: 'contract', resourceId: id, metadata: { revision } }).catch(() => null);
+    refresh(id);
+    return doneEmpty();
+  } catch (e) {
+    return caught(e);
+  }
+}
+
+/** Νέα, ανεξάρτητη προσφορά από την τρέχουσα μορφή (`revision` = null) ή από παλιά έκδοση. */
+export async function duplicateContractAction(id: string, revision: number | null): Promise<ActionResult<{ id: string }>> {
+  const a = await actor('projects.manage');
+  if ('error' in a) return a.error;
+  try {
+    const cid = await duplicateContract(id, revision, a.user.id);
+    await logAudit({ userId: a.user.id, userEmail: a.user.email, action: 'contract.create', resource: 'contract', resourceId: cid, metadata: { copiedFrom: id, revision } }).catch(() => null);
+    refresh(cid);
+    return done({ id: cid });
   } catch (e) {
     return caught(e);
   }

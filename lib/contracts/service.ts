@@ -4,6 +4,7 @@
 import 'server-only';
 import { attachFloorPlanToProject, getFloorPlan } from '@/lib/floorplan/plans';
 import { planData, planRooms, withRoomMaterials } from '@/lib/floorplan/saved';
+import { uploadEntityFile } from '@/lib/entity-files/service';
 import { prisma } from '@/lib/db';
 import { createTask, deleteTask, updateTask, TaskError } from '@/lib/project-tasks';
 import { saveProjectSite } from '@/lib/project-site';
@@ -42,7 +43,7 @@ export async function getContract(id: string) {
   const t = totals(c.lines, c.vatRate);
   return {
     id: c.id, number: c.number, ref: contractRef(c.number), title: c.title, summary: c.summary, kind: c.kind, stage: c.stage, status: c.status,
-    floorPlanId: c.floorPlanId,
+    floorPlanId: c.floorPlanId, revision: c.revision,
     floorPlan: plan ? { id: plan.id, title: plan.title, source: plan.source, hasImage: !!plan.annotatedFileId, rooms: planRooms(plan.data) } : null,
     customerText: c.customerText,
     trdr: c.trdr, customer: trader ? { code: trader.code, name: trader.name, email: trader.email, phone: trader.phone, afm: trader.afm } : null,
@@ -68,9 +69,10 @@ export async function getContract(id: string) {
     milestones: c.milestones.map((m) => ({
       id: m.id, partyKey: m.partyId, title: m.title, deliverables: m.deliverables, dueDate: ds(m.dueDate), amount: m.amount,
       status: m.status as 'PENDING' | 'DONE' | 'PAID', taskId: m.taskId,
+      doneAt: m.doneAt?.toISOString() ?? null, paidAt: m.paidAt?.toISOString() ?? null, deliveryNote: m.deliveryNote, proofFileIds: m.proofFileIds,
     })),
     documents: c.documents.map((x) => ({
-      id: x.id, audience: x.audience as 'CUSTOMER' | 'PARTY', partyId: x.partyId, stage: x.stage, version: x.version, model: x.model,
+      id: x.id, audience: x.audience as 'CUSTOMER' | 'PARTY', partyId: x.partyId, stage: x.stage, version: x.version, revision: x.revision, model: x.model,
       fileId: x.fileId, fileName: x.fileName, size: x.fileId ? fileSize.get(x.fileId) ?? null : null,
       sends: (Array.isArray(x.sends) ? x.sends : []) as { to: string; at: string; by: string; result: string }[],
       createdAt: x.createdAt.toISOString(),
@@ -149,11 +151,13 @@ export async function createContract(raw: ContractInput, userId: string): Promis
 }
 
 export async function updateContract(id: string, raw: ContractInput, userId: string): Promise<void> {
-  const cur = await prisma.contract.findUnique({ where: { id }, select: { status: true, prjc: true } });
+  const cur = await prisma.contract.findUnique({ where: { id }, select: { status: true, prjc: true, revision: true } });
   if (!cur) throw new ContractError('Η σύμβαση δεν βρέθηκε', 404);
   if (cur.status === 'COMPLETED' || cur.status === 'CANCELLED') throw new ContractError('Η σύμβαση είναι κλειστή — ανοίξτε τη ξανά για αλλαγές', 409);
   const input = await snapshotCustomer(raw);
-  const saved = await prisma.contract.update({ where: { id }, data: headerData(input), select: { floorPlanId: true } });
+  // Η τρέχουσα έκδοση έχει παγώσει (στάλθηκε / έγινε PDF / «Νέα έκδοση») ⇒ οι αλλαγές πάνε σε νέα έκδοση.
+  const frozen = await prisma.contractRevision.findUnique({ where: { contractId_revision: { contractId: id, revision: cur.revision } }, select: { id: true } });
+  const saved = await prisma.contract.update({ where: { id }, data: { ...headerData(input), ...(frozen ? { revision: cur.revision + 1 } : {}) }, select: { floorPlanId: true } });
   await saveChildren(id, input);
   await saveRoomMaterials(saved.floorPlanId, input);
   if (cur.prjc && input.site) await saveProjectSite(cur.prjc, input.site, userId).catch((e) => console.error('[contracts] site', e));
@@ -264,6 +268,42 @@ export async function setMilestoneStatus(id: string, milestoneId: string, status
   }
 }
 
+const MAX_PROOFS = 12;
+
+/**
+ * Απόδειξη παράδοσης milestone: περιγραφή του τι παραδόθηκε + φωτογραφίες (στα αρχεία του έργου, ή του
+ * πελάτη αν δεν υπάρχει ακόμη έργο, φάκελος «Παραδόσεις»). Το milestone γίνεται «Παραδόθηκε» (αν δεν
+ * είναι ήδη εξοφλημένο) και η εργασία του έργου 100%.
+ */
+export async function deliverMilestone(id: string, milestoneId: string, o: { note: string; files: File[]; user: { id: string; name: string | null; email: string } }) {
+  const m = await prisma.contractMilestone.findFirst({
+    where: { id: milestoneId, contractId: id },
+    include: { contract: { select: { prjc: true, trdr: true, number: true, status: true } } },
+  });
+  if (!m) throw new ContractError('Το milestone δεν βρέθηκε', 404);
+  if (!['ACCEPTED', 'ACTIVE', 'COMPLETED'].includes(m.contract.status)) throw new ContractError('Παράδοση καταγράφεται μετά την αποδοχή της προσφοράς', 409);
+  const note = o.note.trim();
+  if (!note) throw new ContractError('Γράψτε τι παραδόθηκε');
+  if (m.proofFileIds.length + o.files.length > MAX_PROOFS) throw new ContractError(`Έως ${MAX_PROOFS} φωτογραφίες ανά παράδοση`);
+  const owner = m.contract.prjc ? { type: 'PROJECT' as const, id: m.contract.prjc } : m.contract.trdr ? { type: 'TRADER' as const, id: m.contract.trdr } : null;
+  if (o.files.length && !owner) throw new ContractError('Δεν υπάρχει έργο ή πελάτης SoftOne για να μπουν οι φωτογραφίες', 409);
+  const ids: string[] = [];
+  for (const f of o.files) {
+    if (!f.type.startsWith('image/')) throw new ContractError(`Το «${f.name}» δεν είναι φωτογραφία`, 415);
+    const file = await uploadEntityFile({
+      ...owner!, buffer: Buffer.from(await f.arrayBuffer()), name: f.name, subfolder: 'Παραδόσεις',
+      notes: `${contractRef(m.contract.number)} · ${m.title}`, user: o.user,
+    });
+    ids.push(file.id);
+  }
+  await setMilestoneStatus(id, m.id, m.status === 'PAID' ? 'PAID' : 'DONE');
+  await prisma.contractMilestone.update({
+    where: { id: m.id },
+    data: { deliveryNote: note, deliveredById: o.user.id, proofFileIds: [...m.proofFileIds, ...ids] },
+  });
+  return { files: ids.length };
+}
+
 // ── Milestones → εργασίες έργου (ημερολόγιο + .ics στους επιλεγμένους υπαλλήλους) ─────────────────
 const taskName = (ref: string, title: string, party: string | null) => `${party ? `${party} · ` : ''}${title} (${ref})`;
 
@@ -367,6 +407,8 @@ export async function linkProject(id: string, prjc: number, userId: string) {
   ]);
   if (!c) throw new ContractError('Η σύμβαση δεν βρέθηκε', 404);
   if (!p) throw new ContractError('Το έργο δεν βρέθηκε στον καθρέφτη του SoftOne', 404);
+  // Μέχρι την αποδοχή είμαστε σε σχεδιασμό: κανένα έργο SoftOne.
+  if (c.stage === 'OFFER') throw new ContractError('Η προσφορά δεν έχει γίνει ακόμη αποδεκτή — το έργο SoftOne συνδέεται μετά την αποδοχή', 409);
   if (c.status === 'ACTIVE' && c.prjc && c.prjc !== prjc) throw new ContractError('Η σύμβαση είναι σε εξέλιξη σε άλλο έργο', 409);
   await prisma.contract.update({ where: { id }, data: { prjc } });
   // Προσφορά πελάτη από χαρτογράφηση: η κάτοψη αποκτά πλέον και έργο (εμφανίζεται και εκεί).

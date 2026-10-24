@@ -3715,6 +3715,8 @@ model Contract {
   terms         String? // ειδικοί όροι που θέλει ο χρήστης να μπουν στη σύμβαση
   /// Ευανάγνωστη περιγραφή του έργου για τον πελάτη (AI από περίληψη + χώρους + γραμμές, διορθώσιμη)
   customerText  String?
+  /// Τρέχουσα έκδοση (σε επεξεργασία). Οι «παγωμένες» εκδόσεις ζουν στο ContractRevision.
+  revision      Int       @default(1)
   acceptedAt    DateTime?
   activatedAt   DateTime?
   completedAt   DateTime?
@@ -3731,11 +3733,32 @@ model Contract {
   floorPlanId String?
   floorPlan   FloorPlan? @relation(fields: [floorPlanId], references: [id], onDelete: SetNull)
   rfps        Rfp[]
+  revisions   ContractRevision[]
 
   @@index([prjc])
   @@index([trdr])
   @@index([status])
   @@index([floorPlanId])
+}
+
+/// Παγωμένη έκδοση προσφοράς/σύμβασης: ολόκληρη η φόρμα (σχήμα contractInput) τη στιγμή που στάλθηκε,
+/// συντάχθηκε PDF ή ζητήθηκε «Νέα έκδοση». Η επόμενη αποθήκευση γίνεται σε νέα (revision + 1).
+model ContractRevision {
+  id          String   @id @default(cuid())
+  contractId  String
+  contract    Contract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  revision    Int
+  /// MANUAL · SENT · DOCUMENT · RESTORE
+  reason      String   @default("MANUAL")
+  note        String?
+  snapshot    Json
+  net         Float    @default(0)
+  gross       Float    @default(0)
+  lineCount   Int      @default(0)
+  createdById String?
+  createdAt   DateTime @default(now())
+
+  @@unique([contractId, revision])
 }
 
 // Χαρτογράφηση κάτοψης έργου (εργαλείο «Διαστασιολόγηση κάτοψης») — ΔΙΚΑ ΜΑΣ δεδομένα. `data` = όλη η
@@ -3842,6 +3865,10 @@ model ContractMilestone {
   taskId       String? // ProjectTask που δημιουργήθηκε
   doneAt       DateTime?
   paidAt       DateTime?
+  /// Απόδειξη παράδοσης: τι παραδόθηκε (περιγραφή) και φωτογραφίες (EntityFile, φάκελος «Παραδόσεις»).
+  deliveryNote  String?
+  deliveredById String?
+  proofFileIds  String[]      @default([])
   sortOrder    Int            @default(0)
 
   @@index([contractId, sortOrder])
@@ -3940,6 +3967,8 @@ model ContractDocument {
   party       ContractParty? @relation(fields: [partyId], references: [id], onDelete: Cascade)
   stage       String // OFFER · CONTRACT (το στάδιο τη στιγμή της σύνταξης)
   version     Int            @default(1)
+  /// Η έκδοση της προσφοράς (Contract.revision) από την οποία συντάχθηκε.
+  revision    Int?
   content     Json
   model       String?
   fileId      String? // EntityFile (PDF)

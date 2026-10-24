@@ -15,6 +15,7 @@ import {
   type ContractDoc, type ContractKind, type PromptGuide,
 } from './core';
 import { ContractError } from './service';
+import { freezeRevision } from './revisions';
 import { floorPlanForDocument } from '@/lib/floorplan/plans';
 
 const SUBFOLDER = 'Συμβάσεις';
@@ -100,7 +101,7 @@ export async function generateDocument(contractId: string, partyId: string | nul
   const ref = contractRef(c.number);
   const addr = (a?: { address: string | null; zip: string | null; city: string | null } | null) => (a ? [a.address, [a.zip, a.city].filter(Boolean).join(' ')].filter(Boolean).join(', ') || null : null);
   const pdfData: ContractPdfData = {
-    ref, docKind: party ? 'PARTY' : c.stage === 'CONTRACT' ? 'CONTRACT' : 'OFFER', version,
+    ref: c.revision > 1 ? `${ref} · έκδ. ${c.revision}` : ref, docKind: party ? 'PARTY' : c.stage === 'CONTRACT' ? 'CONTRACT' : 'OFFER', version,
     projectTitle: c.title, kindLabel: KIND_LABEL[c.kind as ContractKind] ?? c.kind, issuedOn: new Date(),
     validUntil: c.validUntil?.toISOString().slice(0, 10), startDate: c.startDate?.toISOString().slice(0, 10), endDate: c.endDate?.toISOString().slice(0, 10), site,
     company: brand,
@@ -122,12 +123,16 @@ export async function generateDocument(contractId: string, partyId: string | nul
     type: c.prjc ? 'PROJECT' : 'TRADER', id: (c.prjc ?? c.trdr)!, buffer: pdf, name: fileName, subfolder: SUBFOLDER,
     notes: `${docTitle(c.stage, audience)} ${ref} · έκδοση ${version}${party ? ` · ${party.name}` : ''}`, user,
   });
-  return prisma.contractDocument.create({
+  const created = await prisma.contractDocument.create({
     data: {
-      contractId: c.id, audience, partyId: party?.id ?? null, stage: c.stage, version, content: doc as unknown as object, model,
+      contractId: c.id, audience, partyId: party?.id ?? null, stage: c.stage, version, revision: c.revision, content: doc as unknown as object, model,
       fileId: file.id, fileName, createdById: user.id,
     },
   });
+  // Το PDF αντιστοιχεί πάντα σε παγωμένη έκδοση: οι επόμενες αλλαγές της φόρμας πάνε σε νέα.
+  await freezeRevision(c.id, 'DOCUMENT', user.id, `${docTitle(c.stage, audience)} v${version}${party ? ` · ${party.name}` : ''}`)
+    .catch((e) => console.error('[contracts] freeze revision', e));
+  return created;
 }
 
 // ── Αποστολή ──────────────────────────────────────────────────────────────────────────────────

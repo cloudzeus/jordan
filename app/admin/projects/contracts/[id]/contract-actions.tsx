@@ -4,7 +4,7 @@ import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import {
-  FiAlertTriangle, FiCheck, FiCheckCircle, FiDatabase, FiLink, FiLoader, FiMoreVertical, FiPlay, FiRotateCcw, FiSearch, FiTrash2, FiXCircle,
+  FiAlertTriangle, FiCheck, FiCheckCircle, FiCopy, FiDatabase, FiLink, FiLoader, FiMoreVertical, FiPlay, FiRotateCcw, FiSearch, FiTrash2, FiXCircle,
 } from 'react-icons/fi';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -17,7 +17,7 @@ import {
 import { confirmAction } from '@/components/ui/confirm-dialog';
 import { canTransition, type ContractAction } from '@/lib/contracts/core';
 import type { ContractView } from '@/lib/contracts/service';
-import { contractTransitionAction, createPrjcAction, deleteContractAction, linkProjectAction, previewPrjcAction } from '../actions';
+import { contractTransitionAction, createPrjcAction, deleteContractAction, duplicateContractAction, linkProjectAction, previewPrjcAction } from '../actions';
 
 const ITEM = 'cursor-pointer gap-2 text-(length:--fs-12)';
 
@@ -49,6 +49,14 @@ export function ContractActions({ contract: c }: { contract: ContractView }) {
       setCreate(true);
     } else toast.success(a.action === 'activate' ? 'Ενεργοποιήθηκε — οι εργασίες μπήκαν στο έργο και στο ημερολόγιο' : 'Ενημερώθηκε');
   };
+  const duplicate = async () => {
+    setBusy(true);
+    const r = await duplicateContractAction(c.id, null);
+    setBusy(false);
+    if (!r.ok) { toast.error(r.message); return; }
+    toast.success('Δημιουργήθηκε νέα πρόχειρη προσφορά');
+    router.push(`/admin/projects/contracts/${r.data.id}`);
+  };
   const remove = async () => {
     if (!(await confirmAction(`Διαγραφή της ${c.ref} «${c.title}»;\nΤα PDF μένουν στα αρχεία.`))) return;
     const r = await deleteContractAction(c.id);
@@ -70,9 +78,16 @@ export function ContractActions({ contract: c }: { contract: ContractView }) {
             <DropdownMenuItem key={a.action} className={ITEM} variant={a.action === 'cancel' ? 'destructive' : 'default'} onSelect={() => void run(a)}>{a.icon}{a.label}</DropdownMenuItem>
           ))}
           <DropdownMenuSeparator />
-          <DropdownMenuLabel className="text-(length:--fs-11) text-muted-foreground">Έργο SoftOne</DropdownMenuLabel>
-          <DropdownMenuItem className={ITEM} onSelect={() => setLink(true)} disabled={c.status === 'ACTIVE'}><FiLink className="size-3.5" />{c.prjc ? 'Αλλαγή συνδεδεμένου έργου' : 'Σύνδεση με υπάρχον έργο'}</DropdownMenuItem>
-          {!c.prjc && <DropdownMenuItem className={ITEM} onSelect={() => setCreate(true)} disabled={!c.trdr}><FiDatabase className="size-3.5" />Δημιουργία έργου στο SoftOne…</DropdownMenuItem>}
+          <DropdownMenuItem className={ITEM} onSelect={() => void duplicate()} disabled={busy}><FiCopy className="size-3.5" />Νέα προσφορά (αντίγραφο)</DropdownMenuItem>
+          {/* Μέχρι την αποδοχή είμαστε σε σχεδιασμό: καμία κίνηση προς το SoftOne. */}
+          {c.stage !== 'OFFER' && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuLabel className="text-(length:--fs-11) text-muted-foreground">Έργο SoftOne</DropdownMenuLabel>
+              <DropdownMenuItem className={ITEM} onSelect={() => setLink(true)} disabled={c.status === 'ACTIVE'}><FiLink className="size-3.5" />{c.prjc ? 'Αλλαγή συνδεδεμένου έργου' : 'Σύνδεση με υπάρχον έργο'}</DropdownMenuItem>
+              {!c.prjc && <DropdownMenuItem className={ITEM} onSelect={() => setCreate(true)} disabled={!c.trdr}><FiDatabase className="size-3.5" />Δημιουργία έργου στο SoftOne…</DropdownMenuItem>}
+            </>
+          )}
           {c.status !== 'ACTIVE' && (
             <>
               <DropdownMenuSeparator />

@@ -492,7 +492,12 @@ export function ContractEditor({ initial, staff, readOnly = false, customer = nu
             rooms={s.rooms} costOf={(id) => roomNet(s.lines, id)} recipes={recipes} recipesError={recipesError}
             markupPct={markupPct} mode={lineMode} readOnly={ro}
             onApplyPlan={applyPlan} onMaterial={setRoomMaterial} onApplyToEmpty={applyToEmpty}
-            onMarkup={setMarkupPct} onMode={setLineMode} onRecalc={() => void recalcRooms(s.rooms, null)} onUnlink={unlinkPlan}
+            onMarkup={setMarkupPct} onMode={setLineMode} onUnlink={unlinkPlan}
+            onRecalc={() => {
+              // Από την αρχή: φρέσκιες συνταγές και τιμές ειδών (αλλαγές στις συνταγές περνούν στην προσφορά).
+              recipesP.current = null; items.current.clear();
+              void recalcRooms(s.rooms, null).then(() => toast.success('Οι γραμμές των χώρων ξαναϋπολογίστηκαν με τις τρέχουσες συνταγές και τιμές'));
+            }}
           />
         </Section>
 

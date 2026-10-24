@@ -14,13 +14,15 @@ import { FloorPlanPanel } from './floor-plan-panel';
 import { RfpPanel } from './rfp-panel';
 import { contractRfps } from '@/lib/rfp/service';
 import { rfpDefaults } from '@/lib/rfp/core';
+import { listRevisions } from '@/lib/contracts/revisions';
+import { RevisionsPanel } from './revisions-panel';
 
 export const dynamic = 'force-dynamic';
 
 export default async function ContractPage({ params }: { params: Promise<{ id: string }> }) {
   await requirePermission('projects.read');
   const { id } = await params;
-  const [c, staff, canManage, rfps] = await Promise.all([getContract(id), staffOptions(), hasPermission('projects.manage'), contractRfps(id)]);
+  const [c, staff, canManage, rfps, revisions] = await Promise.all([getContract(id), staffOptions(), hasPermission('projects.manage'), contractRfps(id), listRevisions(id)]);
   if (!c) notFound();
   const closed = c.status === 'COMPLETED' || c.status === 'CANCELLED';
   return (
@@ -29,7 +31,7 @@ export default async function ContractPage({ params }: { params: Promise<{ id: s
       <PageHeader
         icon={<FiFileText />}
         title={c.title}
-        description={`${c.ref} · ${KIND_LABEL[c.kind as ContractKind] ?? c.kind} · ${c.customer?.name ?? c.customerName ?? '—'}`}
+        description={`${c.ref} · έκδ. ${c.revision} · ${KIND_LABEL[c.kind as ContractKind] ?? c.kind} · ${c.customer?.name ?? c.customerName ?? '—'}`}
         helpAnchor="contracts"
         actions={canManage ? <ContractActions contract={c} /> : null}
       />
@@ -37,14 +39,17 @@ export default async function ContractPage({ params }: { params: Promise<{ id: s
         <StatusBadge stage={c.stage} status={c.status as ContractStatus} />
         {c.project
           ? <Link href={`/admin/projects/${c.prjc}`} className="rounded bg-muted px-1.5 py-0.5 font-medium hover:underline">Έργο SoftOne {c.project.code}</Link>
-          : <span className="rounded bg-orange-50 px-1.5 py-0.5 text-orange-900 ring-1 ring-orange-200">Χωρίς έργο SoftOne — συνδέστε ή δημιουργήστε το από το μενού ⋮</span>}
+          : c.stage === 'OFFER'
+            ? <span className="rounded bg-sky-50 px-1.5 py-0.5 text-sky-900 ring-1 ring-sky-200">Σχεδιασμός — τίποτα προς το SoftOne μέχρι την αποδοχή</span>
+            : <span className="rounded bg-orange-50 px-1.5 py-0.5 text-orange-900 ring-1 ring-orange-200">Χωρίς έργο SoftOne — συνδέστε ή δημιουργήστε το από το μενού ⋮</span>}
       </div>
       <div className="space-y-4">
         {canManage && <CreateProjectBanner contract={c} />}
         <DocumentsPanel contract={c} canManage={canManage} />
         {c.floorPlanId && <FloorPlanPanel floorPlanId={c.floorPlanId} />}
         {c.kind !== 'PRODUCT' && <RfpPanel contractId={c.id} title={rfpDefaults(c).title} summary={rfpDefaults(c).scope} rfps={rfps} canManage={canManage && c.status !== 'COMPLETED' && c.status !== 'CANCELLED'} />}
-        {c.status === 'ACTIVE' || c.status === 'COMPLETED' ? <MilestonesProgress contract={c} canManage={canManage && c.status === 'ACTIVE'} /> : null}
+        {['ACCEPTED', 'ACTIVE', 'COMPLETED'].includes(c.status) ? <MilestonesProgress contract={c} canManage={canManage && c.status !== 'COMPLETED'} /> : null}
+        <RevisionsPanel contractId={c.id} current={c.revision} currentGross={c.totals.gross} revisions={revisions} canManage={canManage && !closed} canRestore={c.stage === 'OFFER' && ['DRAFT', 'SENT'].includes(c.status)} />
         <ContractEditor initial={c} staff={staff} readOnly={!canManage || closed} />
       </div>
     </div>
