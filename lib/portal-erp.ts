@@ -20,6 +20,9 @@ const DOC_FIELDS = ['FINDOC', 'FINCODE', 'TRNDATE', 'SERIES', 'SOSOURCE', 'PRJC'
 const LINE_FIELDS = ['MTRLINES', 'FINDOC', 'MTRL', 'MTRUNIT', 'QTY1', 'QTY1COV', 'QTY1CANC', 'PRICE', 'DISC1PRC', 'LINEVAL', 'COMMENTS1'];
 
 const isId = (n: number) => Number.isInteger(n) && n > 0;
+// Demo εγγραφές: αρνητικά TRDR/PRJC μόνο στη βάση μας — φαίνονται στην πύλη, χωρίς καμία κλήση στο SoftOne.
+const isDemo = (n: number) => Number.isInteger(n) && n < 0;
+const isRecord = (n: number) => isId(n) || isDemo(n);
 
 async function seriesNamer() {
   const rows = await prisma.softoneDocSeries.findMany({ where: { sosource: { in: [1351, 1413] } }, select: { sosource: true, code: true, name: true } });
@@ -70,7 +73,7 @@ export async function customerSalesDoc(trdr: number, findoc: number) {
 
 /** Τα έργα του πελάτη (καθρέφτης PRJC), χωρίς κανένα οικονομικό στοιχείο κόστους. */
 export async function customerProjects(trdr: number) {
-  if (!isId(trdr)) return [];
+  if (!isRecord(trdr)) return [];
   const rows = await prisma.softoneProject.findMany({ where: { trdr }, orderBy: [{ isActive: 'desc' }, { fromDate: 'desc' }, { code: 'desc' }] });
   return rows.map((p) => {
     const state = projectState(p);
@@ -85,11 +88,11 @@ export async function customerProjects(trdr: number) {
 
 /** Ένα έργο ΤΟΥ πελάτη με τα παραστατικά του (πωλήσεις προς τον πελάτη + πληρωμές του). */
 export async function customerProject(trdr: number, prjc: number) {
-  if (!isId(trdr) || !isId(prjc)) return null;
+  if (!isRecord(trdr) || !isRecord(prjc)) return null;
   const p = await prisma.softoneProject.findFirst({ where: { prjc, trdr } });
   if (!p) return null;
   const [rows, name, requests] = await Promise.all([
-    softoneGetTable('FINDOC', DOC_FIELDS, `PRJC=${prjc} AND ((SOSOURCE=1351 AND TRDR=${trdr}) OR SOSOURCE=1413)`),
+    isDemo(prjc) ? Promise.resolve([]) : softoneGetTable('FINDOC', DOC_FIELDS, `PRJC=${prjc} AND ((SOSOURCE=1351 AND TRDR=${trdr}) OR SOSOURCE=1413)`),
     seriesNamer(),
     prisma.orderRequest.count({ where: { trdr, prjc } }),
   ]);

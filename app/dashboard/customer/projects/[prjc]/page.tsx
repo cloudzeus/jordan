@@ -15,6 +15,7 @@ import { ProjectTasksSection } from './project-tasks-section';
 import { contractHistory } from '@/lib/contracts/history';
 import { siteCompany } from '@/lib/site-company';
 import { PortalHistory } from '../../_ui/history';
+import { FiFolder } from 'react-icons/fi';
 
 export const dynamic = 'force-dynamic';
 export const metadata: Metadata = { title: 'Έργο' };
@@ -51,6 +52,7 @@ export default async function CustomerProjectPage({ params }: { params: Promise<
   const [work, company] = await Promise.all([customerProjectTasks(user.customerTrdr, prjc), siteCompany()]);
   // Ιστορικό επικοινωνίας όλων των προσφορών/συμβάσεων του έργου — μόνο του δικού του πελάτη.
   const history = await contractHistory({ prjc, trdr: user.customerTrdr }, 'CUSTOMER', { companyName: company.name, limit: 200 });
+  const dossiers = await prisma.contract.findMany({ where: { prjc, trdr: user.customerTrdr, status: { in: ['ACCEPTED', 'ACTIVE', 'COMPLETED'] } }, orderBy: { createdAt: 'asc' }, select: { id: true, number: true, title: true, status: true } });
   const sales = docs.filter((d) => d.kind !== 'payment');
   const payments = docs.filter((d) => d.kind === 'payment');
   return (
@@ -84,6 +86,23 @@ export default async function CustomerProjectPage({ params }: { params: Promise<
           <section className="mt-16" aria-labelledby="payments">
             <h2 id="payments" className="font-site text-(length:--fs-24) font-light">Πληρωμές</h2>
             <div className="mt-6"><DocTable docs={payments} link={false} /></div>
+          </section>
+        )}
+
+        {dossiers.length > 0 && (
+          <section className="mt-16" aria-labelledby="dossiers">
+            <h2 id="dossiers" className="font-site text-(length:--fs-24) font-light">Τεχνικοί φάκελοι</h2>
+            <p className="mt-2 text-(length:--fs-14) text-(--s-ink-2)">Υλικά, επιφάνειες, παραδόσεις και οδηγίες φροντίδας για κάθε σύμβαση του έργου.</p>
+            <ul className="mt-6 grid gap-3 md:grid-cols-2">
+              {dossiers.map((d) => (
+                <li key={d.id}>
+                  <Link href={`/dashboard/customer/contracts/${d.id}/dossier`} className="group flex h-full items-start gap-3 border border-(--s-line) bg-white p-5 transition-[border-color,box-shadow] hover:border-(--s-ink) hover:shadow-[0_18px_50px_-30px_rgba(28,50,65,0.45)]">
+                    <FiFolder className="mt-0.5 size-5 shrink-0 text-(--s-accent)" aria-hidden />
+                    <span className="min-w-0"><span className="block text-(length:--fs-13) tabular-nums text-(--s-mute)">{`ΣΥΜ-${String(d.number).padStart(6, '0')}`} · {d.status === 'COMPLETED' ? 'ολοκληρωμένο' : 'σε εξέλιξη'}</span><span className="block text-(length:--fs-16) text-(--s-ink)">{d.title}</span></span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
           </section>
         )}
 

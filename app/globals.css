@@ -588,3 +588,12 @@ html.lenis, html.lenis body { height: auto; }
 /* «Λύσε» → το τμήμα της σελίδας που διορθώνει το πρόβλημα, επισημαίνεται για λίγο (focusSection). */
 .doc-flash { outline: 3px solid rgb(14 116 191 / 0.55); outline-offset: 4px; border-radius: 0.75rem; transition: outline-color 1.2s ease-out; }
 @media (prefers-reduced-motion: reduce) { .doc-flash { transition: none; } }
+
+/* Τεχνικός φάκελος: στην εκτύπωση μόνο το έγγραφο (εκτός @layer ώστε να υπερισχύει). */
+@media print {
+  body:has([data-dossier]) header,
+  body:has([data-dossier]) nav,
+  body:has([data-dossier]) footer,
+  body:has([data-dossier]) [data-print-hide] { display: none !important; }
+  body:has([data-dossier]) { background: #fff !important; }
+}

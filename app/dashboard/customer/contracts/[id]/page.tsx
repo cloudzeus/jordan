@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { FiMapPin, FiPhone } from 'react-icons/fi';
+import { FiFolder, FiMapPin, FiPhone } from 'react-icons/fi';
 import { requireCustomer } from '@/lib/rbac';
 import { customerContract } from '@/lib/portal-customer';
 import { siteCompany } from '@/lib/site-company';
@@ -194,6 +194,12 @@ export default async function CustomerContractPage({ params }: { params: Promise
             {c.site && <p className="mt-5 flex items-start gap-2 border-t border-(--s-line) pt-4 text-(length:--fs-14) text-(--s-ink-2)"><FiMapPin className="mt-0.5 size-4 shrink-0 text-(--s-accent)" aria-hidden />{c.site}</p>}
           </Panel>
           {c.status === 'SENT' && <AcceptOffer id={c.id} total={eur(c.total)} validUntil={c.validUntil ? date(c.validUntil) : null} disabledReason={acceptBlock} />}
+          {['ACCEPTED', 'ACTIVE', 'COMPLETED'].includes(c.status) && (
+            <Link href={`/dashboard/customer/contracts/${c.id}/dossier`} className="group flex items-start gap-3 border border-(--s-ink) bg-white px-5 py-4 transition-shadow hover:shadow-[0_18px_50px_-30px_rgba(28,50,65,0.45)]">
+              <FiFolder className="mt-0.5 size-5 shrink-0 text-(--s-accent)" aria-hidden />
+              <span><span className="block text-(length:--fs-16) text-(--s-ink)">Τεχνικός φάκελος</span><span className="block text-(length:--fs-13) text-(--s-ink-2)">{c.status === 'COMPLETED' ? 'Υλικά, επιφάνειες, παραδόσεις και φροντίδα — για εσάς και κάθε επόμενο τεχνίτη' : 'Συμπληρώνεται όσο προχωρά το έργο'}</span></span>
+            </Link>
+          )}
           {c.status !== 'SENT' && c.acceptedAt && (
             <p className="border-l-2 border-[#2F6B3A] bg-(--s-paper) px-5 py-4 text-(length:--fs-14) text-(--s-ink-2)">
               Αποδεχτήκατε την προσφορά στις {new Date(c.acceptedAt).toLocaleString('el-GR', { timeZone: 'Europe/Athens', dateStyle: 'long', timeStyle: 'short' })}.

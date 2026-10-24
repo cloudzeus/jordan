@@ -16,6 +16,7 @@ const INK = '#1C3241', ACCENT = '#7A5C43', GOOD = '#15803D', WARN = '#B45309', L
 function Ring({ pct, label }: { pct: number; label: string }) {
   const r = 52, c = 2 * Math.PI * r;
   return (
+    // Τα μεγέθη κειμένου είναι μονάδες του viewBox: κλιμακώνονται μαζί με το svg (size-32 = 8rem), άρα σε rem.
     <svg viewBox="0 0 128 128" className="size-32 shrink-0" role="img" aria-label={label}>
       <circle cx="64" cy="64" r={r} fill="none" stroke={LINE} strokeWidth="10" />
       <circle cx="64" cy="64" r={r} fill="none" stroke={INK} strokeWidth="10" strokeLinecap="round" strokeDasharray={`${(pct / 100) * c} ${c}`} transform="rotate(-90 64 64)" />

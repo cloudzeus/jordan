@@ -131,12 +131,18 @@ export async function instructionsFor(contractId: string, viewer: NoteViewer): P
   return rows.map((n) => `${n.targetLabel ? `[${n.targetLabel}] ` : ''}${n.body}`);
 }
 
-/** Φωτογραφία σημείωσης για τον πελάτη: μόνο από σημείωση που βλέπει, σε προσφορά δική του. */
+/**
+ * Φωτογραφία για τον πελάτη: από σημείωση που βλέπει ή από απόδειξη παράδοσης δικής του δόσης (όχι
+ * συνεργείου), πάντα σε προσφορά/σύμβαση δική του.
+ */
 export async function customerNoteFile(trdr: number, fileId: string) {
-  const n = await prisma.contractNote.findFirst({
-    where: { photoFileIds: { has: fileId }, contract: { trdr }, OR: [{ shareWith: { has: 'CUSTOMER' } }, { authorKind: 'CUSTOMER' }] },
-    select: { id: true },
-  });
-  if (!n) return null;
+  const [n, m] = await Promise.all([
+    prisma.contractNote.findFirst({
+      where: { photoFileIds: { has: fileId }, contract: { trdr }, OR: [{ shareWith: { has: 'CUSTOMER' } }, { authorKind: 'CUSTOMER' }] },
+      select: { id: true },
+    }),
+    prisma.contractMilestone.findFirst({ where: { proofFileIds: { has: fileId }, partyId: null, contract: { trdr } }, select: { id: true } }),
+  ]);
+  if (!n && !m) return null;
   return prisma.entityFile.findUnique({ where: { id: fileId } });
 }

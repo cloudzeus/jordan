@@ -152,21 +152,32 @@ async function seed() {
   // ── 3. Ολοκληρωμένη μικρή σύμβαση (εξοφλημένη) ──
   const done = await prisma.contract.create({
     data: {
-      ...customer, title: `${TAG} Αυτοψία & δείγματα χρωμάτων`, kind: 'PRODUCT', stage: 'CONTRACT', status: 'COMPLETED', prjc: PRJC, revision: 1,
-      summary: 'Αυτοψία στον χώρο και δείγματα τσιμεντοκονίας σε 3 αποχρώσεις.', startDate: day(-35), endDate: day(-31), vatRate: 24,
+      ...customer, title: `${TAG} Μπάνιο επισκεπτών — τσιμεντοκονία & πέτρα`, kind: 'PRODUCT_INSTALL', stage: 'CONTRACT', status: 'COMPLETED', prjc: PRJC, revision: 1,
+      summary: 'Τσιμεντοκονία σε δάπεδο και τοίχους του μπάνιου επισκεπτών, πάγκος νιπτήρα από τραβερτίνο, με στεγάνωση.', siteAddress: 'Λεωφ. Κηφισίας 100', siteCity: 'Κηφισιά',
+      customerText: 'Ανακαινίσαμε το μπάνιο επισκεπτών με τσιμεντοκονία σε ανοιχτό γκρι, πάγκο νιπτήρα από τραβερτίνο και πλήρη στεγάνωση.', startDate: day(-48), endDate: day(-31), vatRate: 24,
       acceptedAt: at(-36), activatedAt: at(-35), completedAt: at(-31),
-      lines: { create: [{ kind: 'SERVICE', code: 'DEMO-AY', name: 'Αυτοψία & επιμέτρηση', unit: 'τεμ.', qty: 1, unitPrice: 80, sortOrder: 0 }, { kind: 'MATERIAL', code: 'DEMO-DG', name: 'Δείγματα τσιμεντοκονίας 30×30', unit: 'τεμ.', qty: 3, unitPrice: 15, sortOrder: 1 }] },
-      milestones: { create: [{ title: 'Εξόφληση', amount: 155, dueDate: day(-31), status: 'PAID', doneAt: at(-31), paidAt: at(-31) }] },
+      lines: { create: [
+        { kind: 'MATERIAL', code: 'DEMO-TK', name: 'Τσιμεντοκονία μικροτσιμέντου — RAL 7035 ανοιχτό γκρι', unit: 'm²', qty: 14.5, unitPrice: 42, sortOrder: 0 },
+        { kind: 'MATERIAL', code: 'DEMO-ST', name: 'Στεγανωτικό σύστημα μπάνιου (2 στρώσεις + ταινία γωνιών)', unit: 'm²', qty: 14.5, unitPrice: 9.5, sortOrder: 1 },
+        { kind: 'MATERIAL', code: 'DEMO-TR', name: 'Πάγκος νιπτήρα — τραβερτίνο Classic 3cm, γυαλιστερό', unit: 'm', qty: 1.2, unitPrice: 280, sortOrder: 2 },
+        { kind: 'SERVICE', code: 'DEMO-ER', name: 'Εφαρμογή τσιμεντοκονίας', unit: 'm²', qty: 14.5, unitPrice: 38, sortOrder: 3 },
+        { kind: 'SERVICE', code: 'DEMO-TP', name: 'Τοποθέτηση πάγκου νιπτήρα', unit: 'τεμ.', qty: 1, unitPrice: 180, sortOrder: 4 },
+      ] },
+      milestones: { create: [
+        { title: 'Προκαταβολή', amount: 900, dueDate: day(-48), status: 'PAID', doneAt: at(-48), paidAt: at(-48), sortOrder: 0 },
+        { title: 'Παράδοση μπάνιου', amount: Math.round(((14.5 * 42 + 14.5 * 9.5 + 1.2 * 280 + 14.5 * 38 + 180) * 1.24 - 900) * 100) / 100, dueDate: day(-31), status: 'PAID', doneAt: at(-31), paidAt: at(-30), sortOrder: 1,
+          deliveryNote: 'Παραδόθηκε καθαρό. Τσιμεντοκονία 2 στρώσεις + 2 στρώσεις βερνίκι πολυουρεθάνης. Η ντουζιέρα χρησιμοποιείται από τις 7 ημέρες μετά.' },
+      ] },
     },
     select: { id: true },
   });
   await prisma.contractEvent.createMany({ data: [
-    { contractId: done.id, type: 'ACCEPTED', actorKind: 'CUSTOMER', actorName: user.name ?? EMAIL, summary: 'Αποδοχή της έκδοσης 1 από τον πελάτη · 155,00 €', customer: true, revision: 1, createdAt: at(-36) },
+    { contractId: done.id, type: 'ACCEPTED', actorKind: 'CUSTOMER', actorName: user.name ?? EMAIL, summary: 'Αποδοχή της έκδοσης 1 από τον πελάτη', customer: true, revision: 1, createdAt: at(-36) },
     { contractId: done.id, type: 'COMPLETED', actorKind: 'STAFF', actorName: staffName, summary: 'Ολοκληρώθηκε', customer: true, createdAt: at(-31) },
   ] });
 
   log(`✓ ενεργή σύμβαση ΣΥΜ-${String(active.number).padStart(6, '0')} στο έργο DEMO-2026-01 · ${tasks.length} εργασίες · 3 πληρωμές (1 εξοφλημένη)`);
-  log('✓ ολοκληρωμένη σύμβαση «Αυτοψία & δείγματα»');
+  log('✓ ολοκληρωμένη σύμβαση «Μπάνιο επισκεπτών» (για τον τεχνικό φάκελο)');
   log(`✓ ${EMAIL} → Πελάτης «${CUSTOMER}»`);
 }
 
