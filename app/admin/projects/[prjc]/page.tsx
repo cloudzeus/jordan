@@ -16,6 +16,8 @@ import { listTasks, listTemplates, partyOptions } from '@/lib/project-tasks';
 import { zonedParts } from '@/lib/appointments-core';
 import { TasksWorkspace } from './tasks/tasks-workspace';
 import { ProjectTabs } from './project-tabs';
+import { contractHistory } from '@/lib/contracts/history';
+import { HistoryPanel } from '../contracts/history-panel';
 import { PHASES, phaseCounts } from '@/lib/project-tasks-core';
 
 export const dynamic = 'force-dynamic';
@@ -61,6 +63,8 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
   // Εργασίες: μόνο βάση εφαρμογής (όχι SoftOne) — το Kanban της καρτέλας «Εργασίες».
   const [work, options, templates, query] = await Promise.all([listTasks(p.prjc), partyOptions(p.prjc), listTemplates(), searchParams]);
   const counts = phaseCounts(work.tasks);
+  // Ιστορικό επικοινωνίας όλων των προσφορών/συμβάσεων του έργου.
+  const history = await contractHistory({ prjc: p.prjc }, 'STAFF');
 
   return (
     <div className="w-full max-w-5xl">
@@ -137,6 +141,8 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
           <CardContent className="px-3 sm:px-6"><EntityFilesPanel scope="projects" id={p.prjc} /></CardContent>
         </Card>
       )}
+
+      {history.length > 0 && <div className="mt-4"><HistoryPanel entries={history} fileName={`${p.code}`} showRef title="Ιστορικό επικοινωνίας με τον πελάτη" /></div>}
 
       <Card className="mt-4">
         <CardHeader className="px-3 sm:px-6"><CardTitle className="text-(length:--fs-14)">Κινήσεις στο SoftOne</CardTitle></CardHeader>

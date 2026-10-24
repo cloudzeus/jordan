@@ -95,7 +95,7 @@ export async function customerAcceptContract(trdr: number, id: string, by: { id:
   const today = zonedParts(new Date()).date;
   if (c.validUntil && c.validUntil.toISOString().slice(0, 10) < today) throw new AcceptError('Η ισχύς της προσφοράς έληξε — επικοινωνήστε μαζί μας για ανανέωση.');
   try {
-    await transition(id, 'accept', by.id);
+    await transition(id, 'accept', by.id, { kind: 'CUSTOMER', name: by.name || by.email });
   } catch (e) {
     if (e instanceof ContractError) throw new AcceptError(e.message);
     throw e;

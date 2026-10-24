@@ -3739,6 +3739,7 @@ model Contract {
   revisions   ContractRevision[]
   tasks       ContractTask[]
   notes       ContractNote[]
+  events      ContractEvent[]
 
   @@index([prjc])
   @@index([trdr])
@@ -3780,8 +3781,12 @@ model ContractNote {
   targetType   String    @default("CONTRACT")
   targetId     String?
   targetLabel  String?
-  /// NOTE · INSTRUCTION (η ειδική οδηγία μπαίνει και στα έγγραφα όσων τη βλέπουν)
+  /// NOTE · INSTRUCTION (μπαίνει στα έγγραφα) · QUESTION (ερώτηση πελάτη) · CHANGE (αίτημα αλλαγής πελάτη)
   kind         String    @default("NOTE")
+  /// Απάντηση σε άλλη σημείωση (νήμα συζήτησης)
+  replyToId    String?
+  /// Η έκδοση της προσφοράς πάνω στην οποία γράφτηκε
+  revision     Int?
   body         String
   shareWith    String[]  @default([])
   photoFileIds String[]  @default([])
@@ -3793,6 +3798,29 @@ model ContractNote {
   authorName   String?
   resolvedAt   DateTime?
   createdAt    DateTime  @default(now())
+
+  @@index([contractId, createdAt])
+  @@index([replyToId])
+}
+
+/// Ιστορικό προσφοράς/σύμβασης: συμβάντα που δεν είναι μηνύματα (αποστολή έκδοσης, αποδοχή, αναπροσαρμογή,
+/// ενεργοποίηση…). Μαζί με τις σημειώσεις (ContractNote) σχηματίζουν το ιστορικό επικοινωνίας. Δεν σβήνεται.
+model ContractEvent {
+  id         String   @id @default(cuid())
+  contractId String
+  contract   Contract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  /// SENT · ACCEPTED · REVISED · AI_REVISED · RESTORED · ACTIVATED · COMPLETED · CANCELLED · RESOLVED · REOPENED
+  type       String
+  /// STAFF · CUSTOMER · SYSTEM
+  actorKind  String
+  actorId    String?
+  actorName  String?
+  summary    String
+  /// Ορατό στον πελάτη (π.χ. «στάλθηκε η έκδοση 3») — τα εσωτερικά όχι
+  customer   Boolean  @default(false)
+  revision   Int?
+  refId      String?
+  createdAt  DateTime @default(now())
 
   @@index([contractId, createdAt])
 }

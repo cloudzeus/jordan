@@ -21,6 +21,8 @@ import { RevisionsPanel } from './revisions-panel';
 import { listNotes } from '@/lib/contracts/notes';
 import { budgetSyncState } from '@/lib/contracts/budget-sync';
 import { BudgetPanel } from './budget-panel';
+import { contractHistory } from '@/lib/contracts/history';
+import { HistoryPanel } from '../history-panel';
 
 export const dynamic = 'force-dynamic';
 
@@ -28,6 +30,7 @@ export default async function ContractPage({ params }: { params: Promise<{ id: s
   await requirePermission('projects.read');
   const { id } = await params;
   const [c, staff, canManage, rfps, revisions, templates, notes, budget] = await Promise.all([getContract(id), staffOptions(), hasPermission('projects.manage'), contractRfps(id), listRevisions(id), listTemplates(), listNotes(id, { kind: 'STAFF' }), budgetSyncState(id)]);
+  const history = c ? await contractHistory({ contractId: c.id }, 'STAFF') : [];
   if (!c) notFound();
   const closed = c.status === 'COMPLETED' || c.status === 'CANCELLED';
   return (
@@ -55,6 +58,7 @@ export default async function ContractPage({ params }: { params: Promise<{ id: s
         {c.kind !== 'PRODUCT' && <RfpPanel contractId={c.id} title={rfpDefaults(c).title} summary={rfpDefaults(c).scope} rfps={rfps} canManage={canManage && c.status !== 'COMPLETED' && c.status !== 'CANCELLED'} />}
         {['ACCEPTED', 'ACTIVE', 'COMPLETED'].includes(c.status) ? <MilestonesProgress contract={c} canManage={canManage && c.status !== 'COMPLETED'} /> : null}
         {c.prjc && c.stage !== 'OFFER' && (c.status === 'ACTIVE' || c.status === 'COMPLETED' || budget.lines > 0) ? <BudgetPanel contractId={c.id} prjc={c.prjc} state={budget} canManage={canManage && !closed} /> : null}
+        <HistoryPanel entries={history} fileName={c.ref} />
         <RevisionsPanel contractId={c.id} current={c.revision} currentGross={c.totals.gross} revisions={revisions} canManage={canManage && !closed} canRestore={c.stage === 'OFFER' && ['DRAFT', 'SENT'].includes(c.status)} />
         <ContractEditor templates={templates} notes={notes} today={zonedParts(new Date()).date} initial={c} staff={staff} readOnly={!canManage || closed} />
       </div>

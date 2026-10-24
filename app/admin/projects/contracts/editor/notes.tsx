@@ -6,7 +6,7 @@
 import * as React from 'react';
 import { toast } from 'sonner';
 import {
-  FiAlertTriangle, FiCalendar, FiCamera, FiCheckCircle, FiLoader, FiMessageSquare, FiMoreVertical, FiRotateCcw, FiSend, FiShare2, FiTrash2, FiX,
+  FiAlertTriangle, FiCalendar, FiCamera, FiCheckCircle, FiCornerDownRight, FiEdit3, FiHelpCircle, FiLoader, FiMessageSquare, FiMoreVertical, FiRotateCcw, FiSend, FiShare2, FiTrash2, FiX,
 } from 'react-icons/fi';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -17,7 +17,7 @@ import type { NoteView } from '@/lib/contracts/notes';
 import { cn } from '@/lib/utils';
 import { addNoteAction, deleteNoteAction, linkNoteTaskAction, updateNoteAction } from '../actions';
 
-export type NoteTarget = { type: 'CONTRACT' | 'ROOM' | 'MILESTONE' | 'TASK'; id: string | null; label: string };
+export type NoteTarget = { type: 'CONTRACT' | 'ROOM' | 'MILESTONE' | 'TASK' | 'LINE'; id: string | null; label: string };
 type Ctx = {
   contractId: string | null;
   notes: NoteView[];
@@ -45,7 +45,55 @@ function ShareChips({ share, parties }: { share: string[]; parties: Ctx['parties
   );
 }
 
+/** Απάντηση μέσα στο νήμα· σε σημείωση που βλέπει ο πελάτης πηγαίνει και σε αυτόν (μένει στο ιστορικό). */
+function ReplyBox({ n, ctx, onDone }: { n: NoteView; ctx: Ctx; onDone: () => void }) {
+  const [body, setBody] = React.useState('');
+  const [resolve, setResolve] = React.useState(n.kind === 'QUESTION');
+  const [busy, setBusy] = React.useState(false);
+  const toCustomer = n.authorKind === 'CUSTOMER' || n.shareWith.includes('CUSTOMER');
+  const request = n.authorKind === 'CUSTOMER' && (n.kind === 'QUESTION' || n.kind === 'CHANGE');
+  const send = async () => {
+    setBusy(true);
+    const fd = new FormData();
+    fd.set('data', JSON.stringify({ targetType: 'CONTRACT', body, replyToId: n.id }));
+    const r = await addNoteAction(ctx.contractId!, fd);
+    if (r.ok && request && resolve) await updateNoteAction(ctx.contractId!, n.id, { resolved: true });
+    setBusy(false);
+    if (!r.ok) { toast.error(r.message); return; }
+    toast.success(toCustomer ? 'Η απάντηση στάλθηκε στον πελάτη' : 'Η απάντηση καταχωρίστηκε');
+    onDone();
+  };
+  return (
+    <div className="mt-2 space-y-1.5">
+      <textarea value={body} onChange={(e) => setBody(e.target.value)} rows={2} maxLength={4000} aria-label="Απάντηση" autoFocus
+        placeholder={toCustomer ? 'Απάντηση προς τον πελάτη…' : 'Απάντηση…'} className="w-full resize-y rounded-md border border-input bg-background px-2.5 py-1.5 text-(length:--fs-13) outline-hidden focus-visible:ring-2 focus-visible:ring-ring" />
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        {request ? (
+          <label className="inline-flex min-h-8 cursor-pointer items-center gap-1.5 text-(length:--fs-12) text-muted-foreground">
+            <input type="checkbox" checked={resolve} onChange={(e) => setResolve(e.target.checked)} className="size-3.5" /> Ολοκλήρωση αιτήματος
+          </label>
+        ) : <span />}
+        <span className="flex gap-1.5">
+          <Button type="button" size="sm" variant="ghost" onClick={onDone}>Άκυρο</Button>
+          <Button type="button" size="sm" onClick={() => void send()} disabled={busy || !body.trim()} className="gap-1.5">
+            {busy ? <FiLoader className="size-3.5 animate-spin" aria-hidden /> : <FiSend className="size-3.5" aria-hidden />}{toCustomer ? 'Αποστολή' : 'Απάντηση'}
+          </Button>
+        </span>
+      </div>
+    </div>
+  );
+}
+
+const KIND_BADGE = {
+  QUESTION: { l: 'Ερώτηση', cls: 'bg-sky-100 text-sky-900', icon: FiHelpCircle },
+  CHANGE: { l: 'Αίτημα αλλαγής', cls: 'bg-violet-100 text-violet-900', icon: FiEdit3 },
+} as const;
+
 function NoteItem({ n, ctx }: { n: NoteView; ctx: Ctx }) {
+  const [replying, setReplying] = React.useState(false);
+  const replies = ctx.notes.filter((r) => r.replyToId === n.id);
+  const badge = n.kind === 'QUESTION' || n.kind === 'CHANGE' ? KIND_BADGE[n.kind] : null;
+  const permanent = n.authorKind === 'CUSTOMER' || n.shareWith.includes('CUSTOMER') || replies.length > 0;
   const [busy, setBusy] = React.useState(false);
   const run = async (f: () => Promise<{ ok: boolean; message?: string }>) => {
     setBusy(true);
@@ -63,6 +111,8 @@ function NoteItem({ n, ctx }: { n: NoteView; ctx: Ctx }) {
           <span className="font-semibold text-foreground">{n.authorKind === 'CUSTOMER' ? `Πελάτης · ${n.authorName ?? ''}` : n.authorName ?? 'Εμείς'}</span>
           <span>{when(n.createdAt)}</span>
           {n.kind === 'INSTRUCTION' && <span className="inline-flex items-center gap-1 rounded bg-orange-100 px-1.5 font-medium text-orange-900"><FiAlertTriangle className="size-3" aria-hidden />Ειδική οδηγία</span>}
+          {badge && <span className={cn('inline-flex items-center gap-1 rounded px-1.5 font-medium', badge.cls)}><badge.icon className="size-3" aria-hidden />{badge.l}</span>}
+          {n.revision != null && <span>έκδ. {n.revision}</span>}
           {n.resolved && <span className="inline-flex items-center gap-1 text-emerald-800"><FiCheckCircle className="size-3" aria-hidden />Επιλύθηκε</span>}
           {isTask && <span className="inline-flex items-center gap-1 text-primary"><FiCalendar className="size-3" aria-hidden />Εργασία</span>}
         </p>
@@ -91,7 +141,7 @@ function NoteItem({ n, ctx }: { n: NoteView; ctx: Ctx }) {
               <DropdownMenuItem className={ITEM} onSelect={() => void run(() => updateNoteAction(id, n.id, { resolved: !n.resolved }))}>
                 {n.resolved ? <FiRotateCcw className="size-3.5" /> : <FiCheckCircle className="size-3.5" />}{n.resolved ? 'Άνοιγμα ξανά' : 'Επιλύθηκε'}
               </DropdownMenuItem>
-              <DropdownMenuItem variant="destructive" className={ITEM} onSelect={() => void run(() => deleteNoteAction(id, n.id))}><FiTrash2 className="size-3.5" />Διαγραφή</DropdownMenuItem>
+              {!permanent && <DropdownMenuItem variant="destructive" className={ITEM} onSelect={() => void run(() => deleteNoteAction(id, n.id))}><FiTrash2 className="size-3.5" />Διαγραφή</DropdownMenuItem>}
             </DropdownMenuContent>
           </DropdownMenu>
         )}
@@ -105,6 +155,22 @@ function NoteItem({ n, ctx }: { n: NoteView; ctx: Ctx }) {
         </ul>
       )}
       <div className="mt-1.5"><ShareChips share={n.shareWith} parties={ctx.parties} /></div>
+      {replies.length > 0 && (
+        <ul className="mt-2 space-y-1.5 border-t border-border/70 pt-2">
+          {replies.map((r) => (
+            <li key={r.id} className="flex gap-1.5">
+              <FiCornerDownRight className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" aria-hidden />
+              <div className="min-w-0">
+                <p className="text-(length:--fs-11) text-muted-foreground"><span className="font-semibold text-foreground">{r.authorKind === 'CUSTOMER' ? `Πελάτης · ${r.authorName ?? ''}` : r.authorName ?? 'Εμείς'}</span> · {when(r.createdAt)}</p>
+                <p className="whitespace-pre-wrap text-(length:--fs-13)">{r.body}</p>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+      {!ctx.readOnly && (replying
+        ? <ReplyBox n={n} ctx={ctx} onDone={() => setReplying(false)} />
+        : <button type="button" onClick={() => setReplying(true)} className="mt-1.5 inline-flex min-h-8 cursor-pointer items-center gap-1 text-(length:--fs-12) font-medium text-primary hover:underline"><FiCornerDownRight className="size-3.5" aria-hidden />Απάντηση</button>)}
     </li>
   );
 }
@@ -176,7 +242,7 @@ export function NoteThread({ target }: { target: NoteTarget }) {
   const ctx = React.useContext(NotesCtx);
   if (!ctx) return null;
   if (!ctx.contractId) return <p className="text-(length:--fs-12) text-muted-foreground">Οι σημειώσεις γράφονται αφού δημιουργηθεί η προσφορά (πατήστε «Δημιουργία»).</p>;
-  const list = ctx.notes.filter((n) => matches(n, target));
+  const list = ctx.notes.filter((n) => matches(n, target) && !n.replyToId);
   return (
     <div className="space-y-2">
       {list.length === 0 ? <p className="text-(length:--fs-12) text-muted-foreground">Καμία σημείωση ακόμη.</p> : <ul className="space-y-1.5">{list.map((n) => <NoteItem key={n.id} n={n} ctx={ctx} />)}</ul>}
@@ -189,7 +255,7 @@ export function NoteThread({ target }: { target: NoteTarget }) {
 export function NoteButton({ target, className }: { target: NoteTarget; className?: string }) {
   const ctx = React.useContext(NotesCtx);
   if (!ctx) return null;
-  const list = ctx.notes.filter((n) => matches(n, target) && !n.resolved);
+  const list = ctx.notes.filter((n) => matches(n, target) && !n.resolved && !n.replyToId);
   const hot = list.some((n) => n.authorKind === 'CUSTOMER' || n.kind === 'INSTRUCTION');
   return (
     <Popover>
@@ -209,3 +275,37 @@ export function NoteButton({ target, className }: { target: NoteTarget; classNam
 }
 
 export const useNotes = () => React.useContext(NotesCtx);
+
+/**
+ * «Αιτήματα πελάτη»: ερωτήσεις και αιτήματα αλλαγής από το portal, σε οποιοδήποτε σημείο της προσφοράς
+ * (και σε γραμμές, που δεν έχουν δικό τους κουμπί). Ανοιχτά πρώτα· «Όλα» για το ιστορικό.
+ */
+export function RequestsPanel({ action }: { action?: (open: NoteView[]) => React.ReactNode }) {
+  const ctx = React.useContext(NotesCtx);
+  const [all, setAll] = React.useState(false);
+  if (!ctx) return null;
+  const reqs = ctx.notes.filter((n) => n.authorKind === 'CUSTOMER' && !n.replyToId && (n.kind === 'QUESTION' || n.kind === 'CHANGE'));
+  const open = reqs.filter((n) => !n.resolved);
+  const list = (all ? reqs : open).slice().reverse();
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div role="tablist" aria-label="Φίλτρο αιτημάτων" className="inline-flex rounded-lg bg-muted p-0.5">
+          {([[false, `Ανοιχτά · ${open.length}`], [true, `Όλα · ${reqs.length}`]] as const).map(([v, l]) => (
+            <button key={String(v)} type="button" role="tab" aria-selected={all === v} onClick={() => setAll(v)}
+              className={cn('min-h-8 cursor-pointer rounded-md px-3 text-(length:--fs-12) font-medium', all === v ? 'bg-background shadow-xs' : 'text-muted-foreground hover:text-foreground')}>{l}</button>
+          ))}
+        </div>
+        {action?.(open)}
+      </div>
+      {list.length === 0
+        ? <p className="flex items-center gap-1.5 text-(length:--fs-13) text-muted-foreground"><FiCheckCircle className="size-4 text-emerald-700" aria-hidden />Όλα τα αιτήματα έχουν απαντηθεί.</p>
+        : <ul className="space-y-2">{list.map((n) => (
+          <li key={n.id}>
+            {n.targetLabel && <p className="mb-1 text-(length:--fs-11) font-medium text-muted-foreground">{n.targetLabel}</p>}
+            <ul><NoteItem n={n} ctx={ctx} /></ul>
+          </li>
+        ))}</ul>}
+    </div>
+  );
+}

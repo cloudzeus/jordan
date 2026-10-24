@@ -12,6 +12,9 @@ import { projectTone } from '../../_ui/tones';
 import { customerProjectTasks } from '@/lib/project-tasks';
 import { zonedParts } from '@/lib/appointments-core';
 import { ProjectTasksSection } from './project-tasks-section';
+import { contractHistory } from '@/lib/contracts/history';
+import { siteCompany } from '@/lib/site-company';
+import { PortalHistory } from '../../_ui/history';
 
 export const dynamic = 'force-dynamic';
 export const metadata: Metadata = { title: 'Έργο' };
@@ -45,7 +48,9 @@ export default async function CustomerProjectPage({ params }: { params: Promise<
     );
   }
   const { project: p, docs, totals, requests } = data.d!;
-  const work = await customerProjectTasks(user.customerTrdr, prjc);
+  const [work, company] = await Promise.all([customerProjectTasks(user.customerTrdr, prjc), siteCompany()]);
+  // Ιστορικό επικοινωνίας όλων των προσφορών/συμβάσεων του έργου — μόνο του δικού του πελάτη.
+  const history = await contractHistory({ prjc, trdr: user.customerTrdr }, 'CUSTOMER', { companyName: company.name, limit: 200 });
   const sales = docs.filter((d) => d.kind !== 'payment');
   const payments = docs.filter((d) => d.kind === 'payment');
   return (
@@ -79,6 +84,14 @@ export default async function CustomerProjectPage({ params }: { params: Promise<
           <section className="mt-16" aria-labelledby="payments">
             <h2 id="payments" className="font-site text-(length:--fs-24) font-light">Πληρωμές</h2>
             <div className="mt-6"><DocTable docs={payments} link={false} /></div>
+          </section>
+        )}
+
+        {history.length > 0 && (
+          <section className="mt-16" aria-labelledby="hist">
+            <h2 id="hist" className="font-site text-(length:--fs-24) font-light">Ιστορικό επικοινωνίας</h2>
+            <p className="mt-2 text-(length:--fs-14) text-(--s-ink-2)">Ερωτήσεις, αλλαγές, απαντήσεις και εκδόσεις προσφορών του έργου.</p>
+            <div className="mt-6"><PortalHistory entries={history} showRef /></div>
           </section>
         )}
       </Container>

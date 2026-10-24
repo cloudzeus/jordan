@@ -15,7 +15,9 @@ import { contractTone } from '../../_ui/tones';
 import { DocList, MilestoneList } from '../../../_party/ui';
 import { zonedParts } from '@/lib/appointments-core';
 import { AcceptOffer } from './accept-offer';
-import { CustomerNotes, type PortalNote, type PortalTarget } from './customer-notes';
+import { AnnotateButton, CustomerNotes, type PortalNote, type PortalTarget } from './customer-notes';
+import { contractHistory } from '@/lib/contracts/history';
+import { PortalHistory } from '../../_ui/history';
 import { listNotes } from '@/lib/contracts/notes';
 import { getFloorPlan } from '@/lib/floorplan/plans';
 import { planRooms } from '@/lib/floorplan/saved';
@@ -38,9 +40,10 @@ export default async function CustomerContractPage({ params }: { params: Promise
   ]);
   if (!c) notFound();
   // Χρονοδιάγραμμα (ορατές εργασίες), χώροι της κάτοψης και σημειώσεις που μοιραζόμαστε με τον πελάτη.
-  const [extra, notes] = await Promise.all([
+  const [extra, notes, history] = await Promise.all([
     prisma.contract.findUnique({ where: { id: c.id }, select: { floorPlanId: true, startDate: true, tasks: { orderBy: { sortOrder: 'asc' } } } }),
     listNotes(c.id, { kind: 'CUSTOMER' }),
+    contractHistory({ contractId: c.id }, 'CUSTOMER', { companyName: company.name, limit: 200 }),
   ]);
   const plan = extra?.floorPlanId ? await getFloorPlan(extra.floorPlanId).catch(() => null) : null;
   const rooms = plan ? planRooms(plan.data) : [];
@@ -53,6 +56,7 @@ export default async function CustomerContractPage({ params }: { params: Promise
   const targets: PortalTarget[] = [
     { value: 'CONTRACT', label: 'Γενικά για το έργο' },
     ...rooms.map((r) => ({ value: `ROOM:${r.id}`, label: `Χώρος: ${r.name}` })),
+    ...c.lines.map((l) => ({ value: `LINE:${l.id}`, label: `Γραμμή: ${l.name}` })),
     ...c.milestones.filter((m) => m.id).map((m) => ({ value: `MILESTONE:${m.id}`, label: `Πληρωμή: ${m.title}` })),
     ...tasks.map((t) => ({ value: `TASK:${t.id}`, label: `Εργασία: ${t.name}` })),
   ];
@@ -60,7 +64,9 @@ export default async function CustomerContractPage({ params }: { params: Promise
     id: n.id, body: n.body, author: n.authorKind === 'CUSTOMER' ? (n.authorName ?? 'Εσείς') : (n.authorName ?? company.name), mine: n.authorKind === 'CUSTOMER',
     when: new Date(n.createdAt).toLocaleString('el-GR', { timeZone: 'Europe/Athens', dateStyle: 'medium', timeStyle: 'short' }),
     target: n.targetType === 'CONTRACT' ? null : n.targetLabel, instruction: n.kind === 'INSTRUCTION', photos: n.photoFileIds,
+    kind: n.kind, replyToId: n.replyToId, resolved: n.resolved, revision: n.revision,
   }));
+  const canTalk = !user.viewAs && c.status !== 'COMPLETED' && c.status !== 'CANCELLED';
   const paid = c.milestones.filter((m) => m.status === 'PAID').reduce((t, m) => t + m.amount, 0);
   const expired = !!c.validUntil && c.validUntil < zonedParts(new Date()).date;
   const acceptBlock = user.viewAs
@@ -105,6 +111,7 @@ export default async function CustomerContractPage({ params }: { params: Promise
                       <td className="py-3 pr-4">
                         {l.name}
                         <span className="mt-0.5 block text-(length:--fs-12) text-(--s-mute)">{l.kind === 'SERVICE' ? 'Εργασία' : 'Υλικό'}{l.code ? ` · ${l.code}` : ''}{l.discount ? ` · έκπτωση ${qty(l.discount)}%` : ''}</span>
+                        {canTalk && <AnnotateButton value={`LINE:${l.id}`} label={`Γραμμή: ${l.name}`} name={l.name} />}
                       </td>
                       <td className="py-3 pr-4 text-right tabular-nums">{qty(l.qty)}{l.unit ? ` ${l.unit}` : ''}</td>
                       <td className="py-3 pr-4 text-right tabular-nums">{eur(l.unitPrice)}</td>
@@ -141,7 +148,7 @@ export default async function CustomerContractPage({ params }: { params: Promise
                   const width = Math.max(2, ((dayN(t.end) - dayN(t.start) + 1) / total) * 100);
                   return (
                     <li key={t.id}>
-                      <p className="flex flex-wrap justify-between gap-2 text-(length:--fs-14)"><span className="text-(--s-ink)">{t.name}</span><span className="tabular-nums text-(--s-mute)">{date(t.start)} – {date(t.end)}</span></p>
+                      <p className="flex flex-wrap items-center justify-between gap-2 text-(length:--fs-14)"><span className="text-(--s-ink)">{t.name}</span><span className="flex items-center gap-3"><span className="tabular-nums text-(--s-mute)">{date(t.start)} – {date(t.end)}</span>{canTalk && <AnnotateButton value={`TASK:${t.id}`} label={`Εργασία: ${t.name}`} name={t.name} />}</span></p>
                       <div className="mt-1.5 h-2 bg-(--s-paper)" aria-hidden><div className="h-full bg-(--s-ink)" style={{ marginLeft: `${left}%`, width: `${width}%` }} /></div>
                     </li>
                   );
@@ -152,11 +159,17 @@ export default async function CustomerContractPage({ params }: { params: Promise
 
           <section aria-labelledby="notes">
             <Label>Επικοινωνία</Label>
-            <h2 id="notes" className="font-site mt-2 text-(length:--fs-24) font-light">Σημειώσεις & ειδικές οδηγίες</h2>
+            <h2 id="notes" className="font-site mt-2 text-(length:--fs-24) font-light">Ερωτήσεις, αλλαγές & σημειώσεις</h2>
             <div className="mt-6">
-              <CustomerNotes id={c.id} notes={portalNotes} targets={targets}
+              <CustomerNotes id={c.id} notes={portalNotes} targets={targets} canRequestChanges={c.status === 'SENT' || c.status === 'DRAFT'}
                 disabledReason={user.viewAs ? 'Σε «Προβολή ως» δεν γράφονται σημειώσεις εκ μέρους του πελάτη.' : c.status === 'COMPLETED' || c.status === 'CANCELLED' ? 'Η σύμβαση έχει κλείσει — για νέα θέματα καλέστε μας.' : null} />
             </div>
+          </section>
+
+          <section aria-labelledby="hist">
+            <Label>Ιστορικό</Label>
+            <h2 id="hist" className="font-site mt-2 text-(length:--fs-24) font-light">Τι έχει γίνει μέχρι τώρα</h2>
+            <div className="mt-6"><PortalHistory entries={history} /></div>
           </section>
 
           <section aria-labelledby="docs">
@@ -188,6 +201,7 @@ export default async function CustomerContractPage({ params }: { params: Promise
           )}
           <div className="border-l-2 border-(--s-ink) bg-(--s-paper) px-5 py-4 text-(length:--fs-14) text-(--s-ink-2)">
             <p className="text-(--s-ink)">Ερώτηση ή αλλαγή;</p>
+            <a href="#notes" className="mt-2 inline-flex min-h-11 items-center text-(--s-ink)"><span className="s-link">Γράψτε μας εδώ</span></a>
             <a href={`tel:${company.phones[0].replace(/\s/g, '')}`} className="mt-2 inline-flex min-h-11 items-center gap-2 tabular-nums text-(--s-ink)"><FiPhone className="size-4 text-(--s-accent)" aria-hidden /><span className="s-link">{company.phones[0]}</span></a>
           </div>
         </aside>

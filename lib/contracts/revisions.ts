@@ -1,6 +1,7 @@
 // lib/contracts/revisions.ts — SERVER. Εκδόσεις προσφοράς/σύμβασης: «πάγωμα» της τρέχουσας μορφής
 // (στιγμιότυπο σε σχήμα contractInput), ιστορικό, επαναφορά παλιάς έκδοσης και νέα προσφορά από έκδοση.
 // Κανόνας: μια παγωμένη έκδοση δεν αλλάζει ποτέ — η επόμενη αποθήκευση της φόρμας γίνεται στην revision + 1.
+import { logContractEvent } from './history';
 import 'server-only';
 import { prisma } from '@/lib/db';
 import { contractInput, totals, type ContractInput } from './core';
@@ -65,6 +66,7 @@ export async function restoreRevision(id: string, revision: number, userId: stri
   // Η τρέχουσα μορφή κρατιέται στο ιστορικό πριν αντικατασταθεί.
   await freezeRevision(id, 'MANUAL', userId, `Πριν από την επαναφορά της έκδ. ${revision}`);
   await updateContract(id, target.input, userId);
+  await logContractEvent(id, { type: 'RESTORED', actor: { kind: 'STAFF', id: userId }, summary: `Επαναφορά της έκδοσης ${revision}`, revision });
 }
 
 /** Νέα, ανεξάρτητη προσφορά (πρόχειρη) από την τρέχουσα μορφή ή από μια παλιά έκδοση. */

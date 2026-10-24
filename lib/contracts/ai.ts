@@ -8,6 +8,7 @@ import { acrossProviders, resolveVisionEndpoints } from '@/lib/ai/vision-config'
 import { isGoogleAiStudio, providerHeaders, providerModel } from '@/lib/ai/vision-provider';
 import { buildPrompt, needsInstallation, parseContractDoc, DocParseError, type ContractDoc, type PromptInput } from './core';
 import { buildCustomerTextPrompt, parseCustomerText, type CustomerTextInput } from './customer-text-core';
+import { buildRevisePrompt, parseRevision, ReviseParseError, type ReviseInput, type Revision } from './revise-core';
 
 export const DEFAULT_CONTRACT_MODEL = 'gemini-2.5-pro';
 
@@ -68,4 +69,20 @@ export async function composeCustomerText(p: CustomerTextInput, ctx: { userId: s
     try { return parseCustomerText(text); } catch (e) { last = e; }
   }
   throw last instanceof Error ? last : new Error('Αποτυχία σύνταξης κειμένου');
+}
+
+/** Αναπροσαρμογή προσφοράς από τα αιτήματα του πελάτη (πρόταση· τίποτα δεν αποθηκεύεται εδώ). */
+export async function reviseOffer(p: ReviseInput, ctx: { userId: string | null; contractId: string }): Promise<Revision> {
+  const { system, user } = buildRevisePrompt(p);
+  const keys = new Set(p.lines.map((l) => l.key));
+  const ids = new Set(p.requests.map((r) => r.id));
+  let last: unknown = null;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const { text } = await complete(system, attempt ? `${user}\n\nΠΡΟΣΟΧΗ: η προηγούμενη απάντηση δεν ήταν έγκυρη. Δώσε ΜΟΝΟ το JSON της μορφής που ζητήθηκε.` : user, { ...ctx, operation: 'contracts.revise' });
+    try { return parseRevision(text, keys, ids); } catch (e) {
+      if (!(e instanceof ReviseParseError)) throw e;
+      last = e;
+    }
+  }
+  throw last instanceof Error ? last : new Error('Αποτυχία αναπροσαρμογής');
 }

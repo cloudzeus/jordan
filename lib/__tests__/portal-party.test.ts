@@ -136,6 +136,6 @@ describe('αποδοχή προσφοράς από τον πελάτη', () => {
   it('έγκυρη προσφορά → ίδια μετάβαση με το admin (accept) από τον χρήστη της πύλης', async () => {
     prisma.contract.findFirst.mockResolvedValue(offer({ validUntil: new Date('2099-01-01') }));
     await customerAcceptContract(42, 'k1', by);
-    expect(transition).toHaveBeenCalledWith('k1', 'accept', 'u1');
+    expect(transition).toHaveBeenCalledWith('k1', 'accept', 'u1', expect.objectContaining({ kind: 'CUSTOMER' }));
   });
 });

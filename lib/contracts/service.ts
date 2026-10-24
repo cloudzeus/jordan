@@ -10,6 +10,7 @@ import { prisma } from '@/lib/db';
 import { createTask, deleteTask, updateTask, TaskError } from '@/lib/project-tasks';
 import { saveProjectSite } from '@/lib/project-site';
 import { syncProjectBudget } from './budget-sync';
+import { logContractEvent } from './history';
 import {
   canTransition, contractRef, stageAfter, totals, transitionTo, type ContractAction, type ContractInput,
 } from './core';
@@ -265,8 +266,8 @@ export async function deleteContract(id: string) {
 }
 
 // ── Μεταβάσεις ─────────────────────────────────────────────────────────────────────────────────
-export async function transition(id: string, action: ContractAction, userId: string) {
-  const c = await prisma.contract.findUnique({ where: { id }, include: { milestones: true } });
+export async function transition(id: string, action: ContractAction, userId: string, by?: { kind: 'STAFF' | 'CUSTOMER'; name: string | null }) {
+  const c = await prisma.contract.findUnique({ where: { id }, include: { milestones: true, lines: { select: { qty: true, unitPrice: true, discount: true } } } });
   if (!c) throw new ContractError('Η σύμβαση δεν βρέθηκε', 404);
   if (!canTransition(c.status, action)) throw new ContractError('Η ενέργεια δεν επιτρέπεται σε αυτή την κατάσταση', 409);
   if (action === 'activate') {
@@ -285,6 +286,16 @@ export async function transition(id: string, action: ContractAction, userId: str
       ...(action === 'reopen' ? { completedAt: null } : {}),
     },
   });
+  // Ιστορικό: κάθε αλλαγή κατάστασης, με το ποιος την έκανε· όσες αφορούν τον πελάτη τις βλέπει κι εκείνος.
+  const name = by?.name ?? (await prisma.user.findUnique({ where: { id: userId }, select: { name: true, email: true } }).then((u) => u?.name || u?.email || null).catch(() => null));
+  const gross = totals(c.lines, c.vatRate).gross.toLocaleString('el-GR', { style: 'currency', currency: 'EUR' });
+  const SUMMARY: Record<ContractAction, string> = {
+    send: `Στάλθηκε η έκδοση ${c.revision} της προσφοράς · σύνολο ${gross}`,
+    accept: by?.kind === 'CUSTOMER' ? `Αποδοχή της έκδοσης ${c.revision} από τον πελάτη · ${gross}` : `Καταγράφηκε αποδοχή της έκδοσης ${c.revision} · ${gross}`,
+    activate: 'Ξεκίνησε το έργο', complete: 'Ολοκληρώθηκε', cancel: 'Ακυρώθηκε', reopen: 'Άνοιξε ξανά',
+  };
+  const TYPE: Record<ContractAction, string> = { send: 'SENT', accept: 'ACCEPTED', activate: 'ACTIVATED', complete: 'COMPLETED', cancel: 'CANCELLED', reopen: 'REOPENED' };
+  await logContractEvent(id, { type: TYPE[action], actor: { kind: by?.kind ?? 'STAFF', id: userId, name }, summary: SUMMARY[action], customer: action !== 'reopen', revision: c.revision });
   if (action === 'activate') {
     await syncMilestoneTasks(id, userId);
     await syncPlanTasks(id, userId);

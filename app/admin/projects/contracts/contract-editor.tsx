@@ -40,7 +40,9 @@ import { PaymentsSection, type EditorMilestone, type PlanPreset } from './editor
 import { StockBadge, StockCard, useStock } from './editor/stock';
 import { BomSection } from './editor/bom';
 import { ScheduleSection, type EditorTask, type TemplateOption } from './editor/schedule-section';
-import { NoteButton, NotesProvider, NoteThread } from './editor/notes';
+import { NoteButton, NotesProvider, NoteThread, RequestsPanel } from './editor/notes';
+import { AiReviseDialog } from './editor/ai-revise';
+import { applyRevision } from '@/lib/contracts/revise-core';
 import type { NoteView } from '@/lib/contracts/notes';
 
 // ── Τύποι κατάστασης φόρμας (ίδιο σχήμα με το contractInput του server) ─────────────────────────
@@ -195,6 +197,7 @@ export function ContractEditor({ initial, staff, readOnly = false, customer = nu
   const feeOf = (key: string) => crewTotal(s.lines.map((l) => ({ ...l, partyId: l.partyKey })), key);
   const customerMs = milestoneCoverage(s.milestones.filter((m) => !m.partyKey).map((m) => m.amount), t.gross);
   const stock = useStock(s.lines);
+  const [reviseOpen, setReviseOpen] = React.useState(false);
   const bomLines = React.useMemo(() => s.lines.map((l) => ({ ...l, partyId: l.partyKey ?? null })), [s.lines]);
 
   // ── Συνταγές & τιμές ειδών για τις γραμμές των χώρων (φορτώνονται μία φορά, όταν χρειαστούν) ──
@@ -442,6 +445,9 @@ export function ContractEditor({ initial, staff, readOnly = false, customer = nu
     },
   };
   const noteBtn = (type: 'ROOM' | 'MILESTONE' | 'TASK', id: string | null, label: string) => (id ? <NoteButton target={{ type, id, label }} /> : null);
+  // Αιτήματα πελάτη από το portal (ερωτήσεις / αλλαγές) → αναπροσαρμογή με AI.
+  const customerRequests = notes.filter((n) => n.authorKind === 'CUSTOMER' && !n.replyToId && (n.kind === 'QUESTION' || n.kind === 'CHANGE'));
+  const openRequests = customerRequests.filter((n) => !n.resolved);
 
   const totalsCard = (
     <section aria-labelledby="c-total-h" className="rounded-xl border border-border bg-card p-4 shadow-xs">
@@ -467,6 +473,25 @@ export function ContractEditor({ initial, staff, readOnly = false, customer = nu
     <NotesProvider value={notesCtx}>
     <div className="items-start gap-5 lg:grid lg:grid-cols-[minmax(0,1fr)_17.5rem]">
       <div className="min-w-0 space-y-4">
+        {/* ── Αιτήματα πελάτη (portal) ── */}
+        {initial?.id && customerRequests.length > 0 && (
+          <Section id="c-requests" n={null} title={openRequests.length ? `Αιτήματα πελάτη · ${openRequests.length} ανοιχτά` : 'Αιτήματα πελάτη'}
+            hint="Ερωτήσεις και αλλαγές που έστειλε ο πελάτης από το portal — απαντήστε ή αναπροσαρμόστε την προσφορά με AI">
+            <RequestsPanel action={(open) => !ro && open.length > 0 && (
+              <Button type="button" size="sm" onClick={() => setReviseOpen(true)} className="gap-1.5 bg-violet-700 text-white hover:bg-violet-800">
+                <FiZap className="size-3.5" aria-hidden />Αναπροσαρμογή με AI
+              </Button>
+            )} />
+            <AiReviseDialog key={reviseOpen ? 'open' : 'closed'} open={reviseOpen} onOpenChange={setReviseOpen} contractId={initial.id} requests={openRequests}
+              ctx={() => ({
+                title: s.title, kindLabel: KIND_LABEL[s.kind], customerName: s.customerName, summary: s.summary, customerText: s.customerText ?? null,
+                rooms: s.rooms.map((r) => ({ id: r.id, name: r.name, floorM2: r.floorM2, wallsM2: r.wallsM2 })),
+                lines: s.lines, milestones: s.milestones.filter((m) => !m.partyKey && m.title.trim()).map((m) => m.title), vatRate: s.vatRate,
+              })}
+              onApply={(changes) => up((p) => ({ lines: applyRevision(p.lines, changes, p.rooms, (l) => ({ ...l, uid: uid() })) }))} />
+          </Section>
+        )}
+
         {/* ── 1. Έργο & πελάτης ── */}
         <Section id="c-basics" n={stepNo('c-basics')} done={stepDone('c-basics')} title="Έργο & πελάτης" hint="Για ποιον είναι, τι είδους δουλειά, πού και πότε">
           <div className="grid gap-4 md:grid-cols-2">

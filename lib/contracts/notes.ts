@@ -7,8 +7,11 @@ import { z } from 'zod';
 import { prisma } from '@/lib/db';
 import { uploadEntityFile } from '@/lib/entity-files/service';
 import { ContractError } from './service';
+import { logContractEvent } from './history';
 
-export const NOTE_TARGETS = ['CONTRACT', 'ROOM', 'MILESTONE', 'TASK'] as const;
+export const NOTE_TARGETS = ['CONTRACT', 'ROOM', 'MILESTONE', 'TASK', 'LINE'] as const;
+export const NOTE_KINDS = ['NOTE', 'INSTRUCTION', 'QUESTION', 'CHANGE'] as const;
+export type NoteKind = (typeof NOTE_KINDS)[number];
 export type NoteTarget = (typeof NOTE_TARGETS)[number];
 export type NoteViewer = { kind: 'STAFF' } | { kind: 'CUSTOMER' } | { kind: 'PARTY'; partyId: string };
 type Author = { kind: 'STAFF' | 'CUSTOMER'; id: string; name: string | null; email: string };
@@ -18,7 +21,8 @@ export const noteInput = z.object({
   targetType: z.enum(NOTE_TARGETS).default('CONTRACT'),
   targetId: z.string().max(64).nullish().transform((v) => v || null),
   targetLabel: z.string().trim().max(200).nullish().transform((v) => v || null),
-  kind: z.enum(['NOTE', 'INSTRUCTION']).default('NOTE'),
+  kind: z.enum(NOTE_KINDS).default('NOTE'),
+  replyToId: z.string().max(64).nullish().transform((v) => v || null),
   body: z.string().trim().min(1, 'Γράψτε τη σημείωση').max(4000),
   shareWith: z.array(z.string().regex(/^(CUSTOMER|PARTY:[\w-]{1,64})$/)).max(30).default([]),
 });
@@ -33,7 +37,8 @@ const visibleTo = (v: NoteViewer) => (v.kind === 'STAFF'
 export async function listNotes(contractId: string, viewer: NoteViewer) {
   const rows = await prisma.contractNote.findMany({ where: { contractId, ...visibleTo(viewer) }, orderBy: { createdAt: 'asc' } });
   return rows.map((n) => ({
-    id: n.id, targetType: n.targetType as NoteTarget, targetId: n.targetId, targetLabel: n.targetLabel, kind: n.kind as 'NOTE' | 'INSTRUCTION',
+    id: n.id, targetType: n.targetType as NoteTarget, targetId: n.targetId, targetLabel: n.targetLabel, kind: n.kind as NoteKind,
+    replyToId: n.replyToId, revision: n.revision,
     body: n.body, shareWith: n.shareWith, photoFileIds: n.photoFileIds, taskId: n.taskId,
     authorKind: n.authorKind as 'STAFF' | 'CUSTOMER', authorName: n.authorName, resolved: !!n.resolvedAt, createdAt: n.createdAt.toISOString(),
   }));
@@ -42,8 +47,13 @@ export type NoteView = Awaited<ReturnType<typeof listNotes>>[number];
 
 /** Νέα σημείωση με (προαιρετικά) φωτογραφίες στα αρχεία του έργου ή του πελάτη, φάκελος «Σημειώσεις». */
 export async function addNote(contractId: string, input: NoteInput, photos: File[], author: Author) {
-  const c = await prisma.contract.findUnique({ where: { id: contractId }, select: { prjc: true, trdr: true, status: true } });
+  const c = await prisma.contract.findUnique({ where: { id: contractId }, select: { prjc: true, trdr: true, status: true, revision: true } });
   if (!c) throw new ContractError('Η προσφορά δεν βρέθηκε', 404);
+  // Απάντηση: ίδια προσφορά, ίδιο σημείο· ο πελάτης απαντά μόνο σε ό,τι βλέπει.
+  const parent = input.replyToId
+    ? await prisma.contractNote.findFirst({ where: { id: input.replyToId, contractId, ...(author.kind === 'CUSTOMER' ? visibleTo({ kind: 'CUSTOMER' }) : {}) } })
+    : null;
+  if (input.replyToId && !parent) throw new ContractError('Η συζήτηση δεν βρέθηκε', 404);
   if (photos.length > MAX_PHOTOS) throw new ContractError(`Έως ${MAX_PHOTOS} φωτογραφίες ανά σημείωση`);
   const owner = c.prjc ? { type: 'PROJECT' as const, id: c.prjc } : c.trdr ? { type: 'TRADER' as const, id: c.trdr } : null;
   if (photos.length && !owner) throw new ContractError('Επιλέξτε πρώτα πελάτη — οι φωτογραφίες αποθηκεύονται στον φάκελό του', 409);
@@ -53,20 +63,29 @@ export async function addNote(contractId: string, input: NoteInput, photos: File
     const file = await uploadEntityFile({ ...owner!, buffer: Buffer.from(await f.arrayBuffer()), name: f.name, subfolder: 'Σημειώσεις', notes: input.body.slice(0, 200), user: author });
     ids.push(file.id);
   }
-  // Ο πελάτης γράφει πάντα «προς εμάς» — η σημείωσή του δεν κοινοποιείται σε συνεργεία.
-  const shareWith = author.kind === 'CUSTOMER' ? ['CUSTOMER'] : [...new Set(input.shareWith)];
+  // Ο πελάτης γράφει πάντα «προς εμάς» — η σημείωσή του δεν κοινοποιείται σε συνεργεία. Η απάντησή μας σε
+  // κάτι που βλέπει ο πελάτης πάει και σε αυτόν.
+  const toCustomer = !!parent && (parent.authorKind === 'CUSTOMER' || parent.shareWith.includes('CUSTOMER'));
+  const shareWith = author.kind === 'CUSTOMER' ? ['CUSTOMER'] : [...new Set([...input.shareWith, ...(toCustomer ? ['CUSTOMER'] : [])])];
+  // Ο πελάτης: σημείωση / ερώτηση / αίτημα αλλαγής. Εμείς: σημείωση / ειδική οδηγία. Οι απαντήσεις είναι σημειώσεις.
+  const kind: NoteKind = parent ? 'NOTE' : author.kind === 'CUSTOMER'
+    ? (input.kind === 'QUESTION' || input.kind === 'CHANGE' ? input.kind : 'NOTE')
+    : (input.kind === 'INSTRUCTION' ? 'INSTRUCTION' : 'NOTE');
+  const target = parent
+    ? { targetType: parent.targetType, targetId: parent.targetId, targetLabel: parent.targetLabel }
+    : { targetType: input.targetType, targetId: input.targetType === 'CONTRACT' ? null : input.targetId, targetLabel: input.targetLabel };
   return prisma.contractNote.create({
     data: {
-      contractId, targetType: input.targetType, targetId: input.targetType === 'CONTRACT' ? null : input.targetId, targetLabel: input.targetLabel,
-      kind: author.kind === 'CUSTOMER' ? 'NOTE' : input.kind, body: input.body, shareWith, photoFileIds: ids,
+      contractId, ...target, replyToId: parent?.id ?? null, revision: c.revision,
+      kind, body: input.body, shareWith, photoFileIds: ids,
       authorKind: author.kind, authorId: author.id, authorName: author.name || author.email,
     },
     select: { id: true },
   });
 }
 
-export async function updateNote(contractId: string, noteId: string, patch: { shareWith?: string[]; resolved?: boolean; kind?: 'NOTE' | 'INSTRUCTION' }) {
-  const n = await prisma.contractNote.findFirst({ where: { id: noteId, contractId }, select: { id: true } });
+export async function updateNote(contractId: string, noteId: string, patch: { shareWith?: string[]; resolved?: boolean; kind?: 'NOTE' | 'INSTRUCTION' }, actor?: { id: string; name: string | null }) {
+  const n = await prisma.contractNote.findFirst({ where: { id: noteId, contractId }, select: { id: true, authorKind: true, kind: true, body: true, resolvedAt: true } });
   if (!n) throw new ContractError('Η σημείωση δεν βρέθηκε', 404);
   await prisma.contractNote.update({
     where: { id: noteId },
@@ -76,10 +95,24 @@ export async function updateNote(contractId: string, noteId: string, patch: { sh
       ...(patch.resolved !== undefined ? { resolvedAt: patch.resolved ? new Date() : null } : {}),
     },
   });
+  // Κλείσιμο/άνοιγμα αιτήματος του πελάτη: μένει στο ιστορικό και το βλέπει και εκείνος.
+  if (patch.resolved !== undefined && n.authorKind === 'CUSTOMER' && patch.resolved !== !!n.resolvedAt) {
+    await logContractEvent(contractId, {
+      type: patch.resolved ? 'RESOLVED' : 'REOPENED', actor: { kind: 'STAFF', id: actor?.id, name: actor?.name }, customer: true, refId: noteId,
+      summary: `${patch.resolved ? 'Ολοκληρώθηκε' : 'Άνοιξε ξανά'}: «${n.body.slice(0, 120)}${n.body.length > 120 ? '…' : ''}»`,
+    });
+  }
 }
 
+/** Διαγραφή μόνο εσωτερικής σημείωσης χωρίς απαντήσεις: ό,τι έγραψε ή είδε ο πελάτης μένει στο ιστορικό. */
 export async function deleteNote(contractId: string, noteId: string) {
-  await prisma.contractNote.deleteMany({ where: { id: noteId, contractId } });
+  const n = await prisma.contractNote.findFirst({ where: { id: noteId, contractId }, select: { authorKind: true, shareWith: true } });
+  if (!n) return;
+  if (n.authorKind === 'CUSTOMER' || n.shareWith.includes('CUSTOMER')) {
+    throw new ContractError('Ό,τι έγραψε ή είδε ο πελάτης μένει στο ιστορικό — σημειώστε το ως «Επιλύθηκε» αντί για διαγραφή', 409);
+  }
+  if (await prisma.contractNote.count({ where: { replyToId: noteId } })) throw new ContractError('Η σημείωση έχει απαντήσεις — δεν διαγράφεται', 409);
+  await prisma.contractNote.delete({ where: { id: noteId } });
 }
 
 /**

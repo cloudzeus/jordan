@@ -15,7 +15,9 @@ import { EntityFileError } from '@/lib/entity-files/core';
 import { addNote, deleteNote, linkNoteTask, listNotes, noteInput, updateNote, type NoteView } from '@/lib/contracts/notes';
 import { prisma } from '@/lib/db';
 import { copyDocsToProject, sendDocument } from '@/lib/contracts/documents';
-import { composeCustomerText } from '@/lib/contracts/ai';
+import { composeCustomerText, reviseOffer } from '@/lib/contracts/ai';
+import type { ReviseLine, Revision } from '@/lib/contracts/revise-core';
+import { logContractEvent } from '@/lib/contracts/history';
 import { stockSummary, type StockSummary } from '@/lib/item-stock';
 import { syncProjectBudget, type BudgetSyncResult } from '@/lib/contracts/budget-sync';
 import { createPrjc, prjcPlan } from '@/lib/contracts/softone';
@@ -203,6 +205,74 @@ export async function syncBudgetAction(id: string): Promise<ActionResult<BudgetS
   }
 }
 
+/* ───────────── Αιτήματα πελάτη → αναπροσαρμογή με AI ───────────── */
+
+const reviseInput = z.object({
+  title: z.string().max(200).default(''), kindLabel: z.string().max(100).default(''), customerName: z.string().max(200).nullish().transform((v) => v ?? null),
+  summary: z.string().max(20_000).default(''), customerText: z.string().max(20_000).nullish().transform((v) => v ?? null),
+  rooms: z.array(z.object({ name: z.string().max(120), floorM2: z.number().finite(), wallsM2: z.number().finite() })).max(300).default([]),
+  lines: z.array(z.object({
+    key: z.string().regex(/^L\d{1,4}$/), kind: z.enum(['MATERIAL', 'SERVICE']), name: z.string().max(300), code: z.string().max(64).nullable(), unit: z.string().max(32).nullable(),
+    qty: z.number().finite(), unitPrice: z.number().finite(), discount: z.number().finite(), room: z.string().max(120).nullable(),
+  })).max(500),
+  milestones: z.array(z.string().max(200)).max(100).default([]),
+  requestIds: z.array(z.string().max(64)).min(1, 'Διαλέξτε τουλάχιστον ένα αίτημα').max(50),
+  instruction: z.string().max(2000).nullish().transform((v) => v?.trim() || null),
+});
+
+/** Πρόταση αναπροσαρμογής από τα αιτήματα του πελάτη, πάνω στην τρέχουσα (και μη αποθηκευμένη) μορφή της φόρμας. */
+export async function reviseOfferAction(id: string, raw: unknown): Promise<ActionResult<Revision>> {
+  const a = await actor('projects.manage');
+  if ('error' in a) return a.error;
+  const v = parse(reviseInput, raw);
+  if ('error' in v) return v.error;
+  const { requestIds, instruction, ...p } = v.data;
+  try {
+    const notes = await prisma.contractNote.findMany({ where: { contractId: id, OR: [{ id: { in: requestIds } }, { replyToId: { in: requestIds } }] }, orderBy: { createdAt: 'asc' } });
+    const requests = notes.filter((n) => requestIds.includes(n.id) && n.authorKind === 'CUSTOMER').map((n) => ({
+      id: n.id, kind: (n.kind === 'QUESTION' || n.kind === 'CHANGE' ? n.kind : 'NOTE') as 'QUESTION' | 'CHANGE' | 'NOTE', body: n.body, target: n.targetLabel,
+      thread: notes.filter((r) => r.replyToId === n.id).map((r) => `${r.authorKind === 'CUSTOMER' ? 'Πελάτης' : 'Εμείς'}: ${r.body}`),
+    }));
+    if (!requests.length) return fail('Δεν βρέθηκαν αιτήματα του πελάτη σε αυτή την προσφορά.');
+    const out = await reviseOffer({ ...p, lines: p.lines as ReviseLine[], requests, instruction }, { userId: a.user.id, contractId: id });
+    return done(out);
+  } catch (e) {
+    return caught(e);
+  }
+}
+
+/**
+ * Μετά την εφαρμογή της αναπροσαρμογής: στέλνει τις απαντήσεις (μένουν στο ιστορικό, τις βλέπει ο πελάτης),
+ * κλείνει όσα αιτήματα ζητήθηκε και καταγράφει το συμβάν.
+ */
+export async function answerRequestsAction(id: string, raw: unknown): Promise<ActionResult<{ replies: number }>> {
+  const a = await actor('projects.manage');
+  if ('error' in a) return a.error;
+  const v = parse(z.object({
+    replies: z.array(z.object({ request: z.string().max(64), text: z.string().trim().min(1).max(3000), resolve: z.boolean().default(false) })).max(50),
+    summary: z.string().max(2000).nullish(), changes: z.number().int().min(0).max(500).default(0),
+  }), raw);
+  if ('error' in v) return v.error;
+  const me = { kind: 'STAFF' as const, id: a.user.id, name: a.user.name ?? null, email: a.user.email };
+  try {
+    for (const r of v.data.replies) {
+      await addNote(id, { targetType: 'CONTRACT', targetId: null, targetLabel: null, kind: 'NOTE', body: r.text, shareWith: [], replyToId: r.request }, [], me);
+      if (r.resolve) await updateNote(id, r.request, { resolved: true }, { id: a.user.id, name: a.user.name ?? a.user.email });
+    }
+    if (v.data.changes > 0) {
+      await logContractEvent(id, {
+        type: 'AI_REVISED', actor: { kind: 'STAFF', id: a.user.id, name: a.user.name ?? a.user.email }, refId: null,
+        summary: `${v.data.changes} αλλαγ${v.data.changes === 1 ? 'ή' : 'ές'} από αιτήματα του πελάτη${v.data.summary ? ` — ${v.data.summary}` : ''}`,
+      });
+    }
+    refresh(id);
+    revalidatePath(`/dashboard/customer/contracts/${id}`);
+    return done({ replies: v.data.replies.length });
+  } catch (e) {
+    return caught(e);
+  }
+}
+
 /* ───────────── Σημειώσεις / ειδικές οδηγίες ───────────── */
 
 export async function listNotesAction(id: string): Promise<ActionResult<NoteView[]>> {
@@ -231,7 +301,7 @@ export async function addNoteAction(id: string, form: FormData): Promise<ActionR
 export async function updateNoteAction(id: string, noteId: string, patch: { shareWith?: string[]; resolved?: boolean; kind?: 'NOTE' | 'INSTRUCTION' }): Promise<ActionResult> {
   const a = await actor('projects.manage');
   if ('error' in a) return a.error;
-  try { await updateNote(id, noteId, patch); refresh(id); return doneEmpty(); } catch (e) { return caught(e); }
+  try { await updateNote(id, noteId, patch, { id: a.user.id, name: a.user.name ?? a.user.email }); refresh(id); return doneEmpty(); } catch (e) { return caught(e); }
 }
 
 export async function deleteNoteAction(id: string, noteId: string): Promise<ActionResult> {
