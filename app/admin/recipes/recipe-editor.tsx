@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
-import { FiCopy, FiLoader, FiPlus, FiSave, FiTrash2 } from 'react-icons/fi';
+import { FiAlertTriangle, FiCopy, FiLoader, FiPlus, FiSave, FiTrash2 } from 'react-icons/fi';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -328,7 +328,12 @@ export function RecipeEditor({ initial, templates = [], readOnly = false }: { in
               ) : (
                 <RegistrySearch id="recipe-labor-item" kind="service" onPick={(p) => setLaborItem({ mtrl: p.id, code: p.code, name: p.name })} label="" />
               )}
-              {!readOnly && <p className="mt-1 text-(length:--fs-11) text-muted-foreground">Προαιρετικό: όταν η συνταγή μπαίνει σε έργο, τα εργατικά γράφονται ως αυτή η υπηρεσία (m² × εργατικά/m²).</p>}
+              {!laborItem && (laborN ?? 0) > 0 ? (
+                <p role="status" className="mt-1.5 flex items-start gap-1.5 rounded-md bg-amber-50 px-2 py-1.5 text-(length:--fs-12) text-amber-900 ring-1 ring-inset ring-amber-200">
+                  <FiAlertTriangle className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+                  <span>Λείπει η υπηρεσία εργατικών: στις προσφορές τα εργατικά μπαίνουν ως ελεύθερη γραμμή και <b>δεν περνούν στον προϋπολογισμό του έργου</b> με την ενεργοποίηση. Διαλέξτε π.χ. «Τοποθέτηση υλικών».</span>
+                </p>
+              ) : !readOnly && <p className="mt-1 text-(length:--fs-11) text-muted-foreground">Όταν η συνταγή μπαίνει σε προσφορά ή έργο, τα εργατικά γράφονται ως αυτή η υπηρεσία (m² × εργατικά/m²).</p>}
             </div>
           </div>
         </section>
