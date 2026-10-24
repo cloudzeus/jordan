@@ -17,7 +17,8 @@ import {
   FiUploadCloud, FiLoader, FiCheck, FiMove, FiMousePointer, FiEdit3, FiScissors, FiMaximize, FiSquare, FiGrid, FiRotateCcw,
   FiEye, FiEyeOff, FiTrash2, FiCopy, FiDownload, FiSave, FiRefreshCw, FiHelpCircle, FiChevronLeft, FiChevronRight, FiFileText, FiCamera, FiMapPin,
 } from 'react-icons/fi';
-import { BrickWall, DoorOpen, RectangleHorizontal, Ruler, RulerDimensionLine, Spline } from 'lucide-react';
+import { BrickWall, DoorOpen, Eraser, RectangleHorizontal, Ruler, RulerDimensionLine, Spline } from 'lucide-react';
+import { eraseHit, type EraseHit } from '@/lib/floorplan/erase';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -29,7 +30,7 @@ import {
   type Mask, type Pt, type WallResult,
 } from '@/lib/floorplan/core';
 import { blankPlan, loadPlan, type LoadedPlan } from './load-plan';
-import { OPENING_COLOR, PlanViewer, WALL_DRAW, type EditPhase, type ViewerOpening, type ViewerRoom, type ViewerTool } from './plan-viewer';
+import { LINE_TOOLS, OPENING_COLOR, PlanViewer, WALL_DRAW, type EditPhase, type ViewerOpening, type ViewerRoom, type ViewerTool } from './plan-viewer';
 import { Plan3d, type Plan3dHandle } from './plan-3d';
 import { annotatedPng, download, fmtM, fmtM2, roomsCsv, roomsText, type ExportRoom } from './export';
 import { MaterialChip, OfferStepBody, RoomMaterialEditor, type RoomMaterial } from './offer-panel';
@@ -74,6 +75,11 @@ const TOOLS: Array<{ key: ViewerTool; label: string; hint: string; help: string;
     help: 'Μετακινεί το σχέδιο χωρίς να αλλάζει τίποτα. Ροδέλα ή δύο δάχτυλα για zoom — λειτουργούν και με κάθε άλλο εργαλείο.',
   },
   {
+    key: 'erase', label: 'Γόμα', kbd: 'X', icon: <Eraser className="size-4" />, group: 'Πλοήγηση',
+    hint: 'Κλικ πάνω σε τοίχο, διαχωριστικό, διάσταση, άνοιγμα, σημείωση ή χώρο για να σβηστεί · ⌘/Ctrl+Z επαναφορά.',
+    help: 'Σβήνει με ένα κλικ ό,τι σχεδίασες: τοίχο, διαχωριστικό, διάσταση, πόρτα/παράθυρο, σημείωση ή ολόκληρο χώρο. Πρώτα σβήνει το πιο «λεπτό» στοιχείο κάτω από τον δείκτη (π.χ. τη διάσταση πριν από τον χώρο). Επαναφορά με ⌘/Ctrl+Z. Οι τοίχοι της αυτόματης ανίχνευσης δεν σβήνονται — κρύψ’ τους ή κλείσε κενά με Διαχωριστικό.',
+  },
+  {
     key: 'room', label: 'Χώρος με κλικ', kbd: 'R', icon: <FiMousePointer />, group: 'Χώροι',
     hint: 'Κάνε κλικ μέσα σε έναν χώρο — το περίγραμμα βγαίνει αυτόματα από τους τοίχους.',
     help: 'Ο γρηγορότερος τρόπος: κλικ στο δάπεδο ενός δωματίου και το περίγραμμα «γεμίζει» ως τους τοίχους. Αν «διαρρέει» από πόρτα, κλείσ’ την με Διαχωριστικό.',
@@ -85,8 +91,8 @@ const TOOLS: Array<{ key: ViewerTool; label: string; hint: string; help: string;
   },
   {
     key: 'polygon', label: 'Πολύγωνο', kbd: 'P', icon: <FiEdit3 />, group: 'Χώροι',
-    hint: 'Κλικ στις γωνίες· διπλό κλικ, Enter ή κλικ στο πρώτο σημείο κλείνει. Shift = ορθές γωνίες.',
-    help: 'Χώρος με ελεύθερο σχήμα (Γ, σπασμένες γωνίες): κλικ σε κάθε γωνία και κλείσιμο με διπλό κλικ. Shift = μόνο οριζόντια/κάθετα.',
+    hint: 'Κλικ στις γωνίες· διπλό κλικ, Enter ή κλικ στο πρώτο σημείο κλείνει. 90° (F8) ή Shift = ορθές γωνίες.',
+    help: 'Χώρος με ελεύθερο σχήμα (Γ, σπασμένες γωνίες): κλικ σε κάθε γωνία και κλείσιμο με διπλό κλικ. Με το «90°» (F8) ενεργό κάθε κλικ πηγαίνει μόνο οριζόντια/κάθετα· το Shift κάνει το αντίθετο.',
   },
   {
     key: 'edit', label: 'Επεξεργασία χώρου', kbd: 'E', icon: <Spline className="size-4" />, group: 'Χώροι',
@@ -95,7 +101,7 @@ const TOOLS: Array<{ key: ViewerTool; label: string; hint: string; help: string;
   },
   {
     key: 'wall', label: 'Τοίχος', kbd: 'W', icon: <BrickWall className="size-4" />, group: 'Τοίχοι & ανοίγματα',
-    hint: 'Κλικ σε κάθε γωνία του τοίχου· διπλό κλικ ή Enter τελειώνει. Shift = οριζόντια/κάθετα· κουμπώνει στα άκρα άλλων τοίχων.',
+    hint: 'Κλικ σε κάθε γωνία του τοίχου· διπλό κλικ ή Enter τελειώνει. 90° (F8) ή Shift = οριζόντια/κάθετα· κουμπώνει στα άκρα άλλων τοίχων.',
     help: 'Σχεδιάζει τοίχο με το πάχος που ορίζεις (βήμα 1). Χρήσιμο όταν η αυτόματη ανίχνευση χάνει τοίχους ή όταν δουλεύεις σε κενό κάναβο.',
   },
   {
@@ -115,7 +121,7 @@ const TOOLS: Array<{ key: ViewerTool; label: string; hint: string; help: string;
   },
   {
     key: 'measure', label: 'Διάσταση (από–έως)', kbd: 'M', icon: <RulerDimensionLine className="size-4" />, group: 'Μετρήσεις',
-    hint: 'Δύο κλικ: από–έως. Η διάσταση μένει πάνω στο σχέδιο με το μήκος της. Shift = οριζόντια/κάθετα.',
+    hint: 'Δύο κλικ: από–έως. Η διάσταση μένει πάνω στο σχέδιο με το μήκος της. 90° (F8) ή Shift = οριζόντια/κάθετα.',
     help: 'Τοποθετεί μόνιμη διάσταση πάνω στο σχέδιο (μήκος τοίχου, πλάτος πάγκου, άνοιγμα): κλικ στην αρχή, κλικ στο τέλος. Αποθηκεύεται με την κάτοψη και σβήνεται από τη λίστα «Διαστάσεις». Δεν αλλάζει την κλίμακα.',
   },
   {
@@ -230,6 +236,14 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
   /** Πολύγωνο: οι πλευρές του γίνονται και τοίχοι (καθαρό εμβαδό μέσα από τον τοίχο). */
   const [polyWalls, setPolyWalls] = React.useState(false);
   const [tool, setTool] = React.useState<ViewerTool>('calibrate');
+  /** «90°»: στα εργαλεία γραμμών κάθε κλικ πηγαίνει οριζόντια/κάθετα (το Shift το αναστέλλει). Θυμάται την επιλογή. */
+  // Το κουμπί εμφανίζεται μόνο με ανοιχτή κάτοψη (μετά από ενέργεια του χρήστη) — άρα χωρίς θέμα hydration.
+  const [ortho, setOrtho] = React.useState(() => { try { return typeof window !== 'undefined' && localStorage.getItem('fp-ortho') === '1'; } catch { return false; } });
+  const toggleOrtho = () => setOrtho((o) => {
+    try { localStorage.setItem('fp-ortho', o ? '0' : '1'); } catch { /* χωρίς αποθήκευση */ }
+    toast.message(o ? 'Ελεύθερες γωνίες' : '90°: οι γραμμές πηγαίνουν μόνο οριζόντια/κάθετα (Shift = ελεύθερα)');
+    return !o;
+  });
   const [draft, setDraft] = React.useState<Pt[]>([]);
   const [dividers, setDividers] = React.useState<Array<[Pt, Pt]>>([]);
   const [calib, setCalib] = React.useState<Calib | null>(null);
@@ -602,6 +616,7 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
       toast.success(`${OPENING_PRESETS[openingKind].label} ${nf.format(wM)} m στον χώρο «${r.name}»${wasOn ? '' : ' · ενεργοποιήθηκε «πλακάκι και στους τοίχους»'}.`);
       return;
     }
+    if (tool === 'erase') { erase(p); return; }
     if (!blocked) return;
     if (tool === 'room') {
       const hit = [...rooms].reverse().find((r) => pointInPolygon(p, r.polygon));
@@ -661,6 +676,34 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
 
   const changeTool = (t: ViewerTool) => { setTool(t); setDraft([]); };
 
+  // ── Γόμα ────────────────────────────────────────────────────────────────────────────
+  // Κάθε σβήσιμο κρατά στιγμιότυπο για επαναφορά (⌘/Ctrl+Z ή «Αναίρεση» στο μήνυμα).
+  type Snap = { drawnWalls: DrawnWall[]; dividers: Array<[Pt, Pt]>; dims: typeof dims; pins: typeof pins; rooms: Room[] };
+  const eraseHist = React.useRef<Snap[]>([]);
+  const ERASED: Record<EraseHit['kind'], string> = { pin: 'Η σημείωση', dim: 'Η διάσταση', opening: 'Το άνοιγμα', divider: 'Το διαχωριστικό', wall: 'Ο τοίχος', room: 'Ο χώρος' };
+  const undoErase = () => {
+    const s = eraseHist.current.pop();
+    if (!s) return false;
+    setDrawnWalls(s.drawnWalls); setDividers(s.dividers); setDims(s.dims); setPins(s.pins); setRooms(s.rooms);
+    return true;
+  };
+  const erase = (p: Pt) => {
+    const hit = eraseHit(p, {
+      pins, dims, dividers, walls: drawnWalls,
+      rooms: rooms.map((r) => ({ id: r.id, polygon: r.polygon, openings: r.walls?.openings })),
+    }, maxDim * 0.008);
+    if (!hit) { toast.message('Δεν υπάρχει κάτι για σβήσιμο εδώ — κάνε κλικ πάνω σε γραμμή, σημείωση ή χώρο.'); return; }
+    eraseHist.current = [...eraseHist.current.slice(-49), { drawnWalls, dividers, dims, pins, rooms }];
+    if (hit.kind === 'pin') { setPins((ps) => ps.filter((x) => x.id !== hit.id)); if (pinSel === hit.id) setPinSel(null); }
+    else if (hit.kind === 'dim') setDims((ds) => ds.filter((x) => x.id !== hit.id));
+    else if (hit.kind === 'divider') setDividers((ds) => ds.filter((_, i) => i !== hit.index));
+    else if (hit.kind === 'wall') setDrawnWalls((ws) => ws.filter((_, i) => i !== hit.index));
+    else if (hit.kind === 'opening') setRooms((rs) => rs.map((x) => (x.id === hit.roomId && x.walls ? { ...x, walls: { ...x.walls, openings: x.walls.openings.filter((o) => o.id !== hit.id) } } : x)));
+    else { setRooms((rs) => rs.filter((x) => x.id !== hit.id)); if (selected === hit.id) setSelected(null); }
+    const name = hit.kind === 'room' ? rooms.find((x) => x.id === hit.id)?.name : null;
+    toast.success(`${ERASED[hit.kind]}${name ? ` «${name}»` : ''} σβήστηκε.`, { action: { label: 'Αναίρεση', onClick: () => { undoErase(); } } });
+  };
+
   // ── Επεξεργασία περιγράμματος (εργαλείο «Επεξεργασία») ─────────────────────────────────
   // Κάθε αλλαγή κάνει τον χώρο «χειροκίνητο» (εμβαδό από το πολύγωνο) και βγάζει το «κατά προσέγγιση».
   const history = React.useRef<Array<{ id: string; polygon: Pt[] }>>([]);
@@ -702,7 +745,12 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
       if (e.key === 'Escape' && draft.length) { e.preventDefault(); e.stopPropagation(); setDraft([]); return; }
       if (e.key === 'Enter') { finish(); return; }
       if (e.key === 'Backspace' && draft.length) { e.preventDefault(); setDraft((d) => d.slice(0, -1)); return; }
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z') { if (undoEdit()) e.preventDefault(); return; }
+      if (e.key === 'F8') { e.preventDefault(); toggleOrtho(); return; }
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z') {
+        const done = tool === 'erase' || !history.current.length ? undoErase() || undoEdit() : undoEdit() || undoErase();
+        if (done) e.preventDefault();
+        return;
+      }
       if (tool === 'edit' && selected && e.key.startsWith('Arrow')) {
         e.preventDefault();
         // 1 px ανάλυσης· Shift ×10. Με κλίμακα: 1 cm / 10 cm.
@@ -1376,7 +1424,7 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
                   pins={pins.map((p, i) => ({ id: p.id, x: p.x, y: p.y, n: i + 1, selected: p.id === pinSel, hasPhoto: p.photoFileIds.length > 0 }))}
                   calibration={calibLine ?? (calib && !blankScale ? [calib.a, calib.b] : null)}
                   draft={draft} tool={tool} formatLength={fmtLen}
-                  onPick={onPick} onFinish={finish} onEdit={onEdit} fitKey={fitKey}
+                  onPick={onPick} onFinish={finish} onEdit={onEdit} fitKey={fitKey} ortho={ortho}
                 />
               )}
 
@@ -1399,6 +1447,22 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
                       ))}
                     </React.Fragment>
                   ))}
+                  <span className="mx-1.5 my-0.5 h-px bg-slate-700" aria-hidden />
+                  <Tooltip delayDuration={250}>
+                    <TooltipTrigger asChild>
+                      <button
+                        type="button" onClick={toggleOrtho} aria-pressed={ortho} aria-label="Ορθές γωνίες 90° (F8)"
+                        className="inline-flex size-9 cursor-pointer items-center justify-center rounded-lg font-mono text-(length:--fs-11) font-bold transition-colors hover:bg-slate-800 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-cyan-300"
+                        style={ortho ? { background: '#F59E0B', color: '#0B1220' } : { color: '#CBD5E1', boxShadow: 'inset 0 0 0 1px #334155' }}
+                      >
+                        90°
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="right" sideOffset={8} className="block max-w-72 px-3 py-2 text-left">
+                      <span className="flex items-center justify-between gap-3 text-(length:--fs-12) font-semibold">Ορθές γωνίες {ortho ? '· ενεργές' : ''}<kbd className="rounded border px-1 font-mono text-(length:--fs-10)">F8</kbd></span>
+                      <span className="mt-1 block text-(length:--fs-12) opacity-90">Όσο είναι ενεργό, κάθε κλικ σε Τοίχο, Πολύγωνο, Διάσταση, Διαχωριστικό και Κλίμακα πηγαίνει μόνο οριζόντια ή κάθετα από το προηγούμενο σημείο. Κράτα Shift για ελεύθερη γωνία σε ένα κλικ.</span>
+                    </TooltipContent>
+                  </Tooltip>
                 </div>
               )}
 
@@ -1479,6 +1543,7 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
                   {(analyzing || loading) && <FiLoader className="size-3.5 shrink-0 animate-spin text-cyan-300" aria-hidden />}
                   <span className="shrink-0 font-semibold text-cyan-300">{activeTool.label}</span>
                   <span className="truncate">{tool === 'room' && !calib ? 'Όρισε πρώτα την κλίμακα (βήμα 2) για εμβαδά σε m².' : activeTool.hint}</span>
+                  {ortho && LINE_TOOLS.has(tool) && <span className="shrink-0 rounded bg-amber-400 px-1.5 font-mono text-(length:--fs-10) font-bold text-slate-900">90°</span>}
                   {draft.length > 0 && <kbd className="hidden shrink-0 rounded border border-slate-600 px-1 font-mono text-(length:--fs-10) text-slate-400 sm:inline">Esc</kbd>}
                 </div>
               </div>

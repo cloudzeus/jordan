@@ -16,7 +16,9 @@ import { LineMaterial } from 'three/examples/jsm/lines/LineMaterial.js';
 import type { Pt } from '@/lib/floorplan/core';
 
 export type ViewerRoom = { id: string; color: string; polygon: Pt[]; label: string; sub: string; anchor: Pt };
-export type ViewerTool = 'room' | 'rect' | 'polygon' | 'wall' | 'divider' | 'opening' | 'calibrate' | 'measure' | 'pin' | 'pan' | 'edit';
+export type ViewerTool = 'room' | 'rect' | 'polygon' | 'wall' | 'divider' | 'opening' | 'calibrate' | 'measure' | 'pin' | 'pan' | 'edit' | 'erase';
+/** Εργαλεία που σχεδιάζουν γραμμές — σε αυτά ισχύει το «Ορθογώνια» (μόνο οριζόντια/κάθετα). */
+export const LINE_TOOLS: ReadonlySet<ViewerTool> = new Set(['wall', 'polygon', 'measure', 'divider', 'calibrate']);
 /** Άνοιγμα (πόρτα/παράθυρο) πάνω σε τοίχο χώρου, όπως σχεδιάστηκε. */
 export type ViewerOpening = { id: string; kind: 'door' | 'window' | 'other'; a: Pt; b: Pt; selected?: boolean };
 export const OPENING_COLOR = { door: '#F59E0B', window: '#38BDF8', other: '#A78BFA' } as const;
@@ -50,6 +52,8 @@ export type PlanViewerProps = {
   /** Μήκος σε px → κείμενο (π.χ. «3,42 m») για τη ζωντανή ένδειξη στο σχέδιο. */
   formatLength: (px: number) => string;
   onPick: (p: Pt) => void;
+  /** «Ορθογώνια»: στα εργαλεία γραμμών κάθε κλικ κουμπώνει οριζόντια/κάθετα· το Shift το αναστέλλει προσωρινά. */
+  ortho?: boolean;
   onFinish: () => void;
   /** Αλλαγή περιγράμματος με το εργαλείο «edit». */
   onEdit?: (id: string, polygon: Pt[], phase: EditPhase) => void;
@@ -249,7 +253,9 @@ export function PlanViewer(props: PlanViewerProps) {
     // Shift ⇒ οριζόντια/κάθετα από το τελευταίο σημείο (ορθές γωνίες σε τοίχους).
     const constrain = (p: Pt, shift: boolean): Pt => {
       const last = cbs.current.draft[cbs.current.draft.length - 1];
-      if (!shift || !last) return p;
+      // Με «Ορθογώνια» ενεργό το Shift κάνει το αντίθετο (ελεύθερη γωνία) — όπως το F8 στο CAD.
+      const lock = cbs.current.ortho && LINE_TOOLS.has(cbs.current.tool) ? !shift : shift;
+      if (!lock || !last) return p;
       return Math.abs(p.x - last.x) > Math.abs(p.y - last.y) ? { x: p.x, y: last.y } : { x: last.x, y: p.y };
     };
     // ── Επεξεργασία περιγράμματος ────────────────────────────────────────────────────────
@@ -524,7 +530,7 @@ export function PlanViewer(props: PlanViewerProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fitKey]);
 
-  const cursor = tool === 'pan' ? 'grab' : tool === 'room' ? 'cell' : tool === 'edit' ? 'default' : 'crosshair';
+  const cursor = tool === 'pan' ? 'grab' : tool === 'room' ? 'cell' : tool === 'edit' ? 'default' : tool === 'erase' ? 'pointer' : 'crosshair';
   return (
     <div className="relative h-full w-full overflow-hidden" style={{ background: BG }}>
       <div ref={host} className="absolute inset-0" style={{ cursor }} />
