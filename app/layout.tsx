@@ -23,7 +23,8 @@ const manrope = Manrope({
 const siteSans = Commissioner({
   variable: '--font-site',
   subsets: ['latin', 'greek'],
-  weight: ['300', '400', '500'],
+  // 600: ετικέτες και κουμπιά της πύλης πελατών (ρόλοι .p-label / .p-btn).
+  weight: ['300', '400', '500', '600'],
   display: 'swap',
 });
 const siteSerif = Noto_Serif_Display({

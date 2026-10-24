@@ -126,7 +126,7 @@ export default async function AssignmentPage({ params }: { params: Promise<{ id:
             <CropMarks className="text-(--s-line)" size={12} />
             <Label icon={FiMapPin}>Εργοτάξιο</Label>
             <p className="font-site mt-3 text-(length:--fs-18) font-light leading-snug">{a.site.line ?? 'Η διεύθυνση θα οριστεί'}</p>
-            {href && <a href={href} target="_blank" rel="noreferrer" className="mt-4 inline-flex min-h-11 w-full items-center justify-center gap-2 bg-(--s-ink) text-(length:--fs-14) font-medium text-white transition-colors hover:bg-[#2C4556]"><FiMapPin className="size-4" aria-hidden />Οδηγίες στον χάρτη</a>}
+            {href && <a href={href} target="_blank" rel="noreferrer" className="p-btn p-btn-primary mt-4 w-full"><FiMapPin className="size-4" aria-hidden />Οδηγίες στον χάρτη</a>}
             <dl className="mt-6 space-y-3 border-t border-(--s-line) pt-4 text-(length:--fs-14)">
               <div className="flex justify-between gap-4"><dt className="text-(--s-mute)">Έναρξη</dt><dd className="text-right">{dayLong(a.startDate)}</dd></div>
               <div className="flex justify-between gap-4"><dt className="text-(--s-mute)">Λήξη</dt><dd className="text-right">{dayLong(a.endDate)}</dd></div>

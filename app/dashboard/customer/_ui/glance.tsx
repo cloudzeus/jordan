@@ -20,7 +20,7 @@ function Ring({ pct, label }: { pct: number; label: string }) {
     <svg viewBox="0 0 128 128" className="size-32 shrink-0" role="img" aria-label={label}>
       <circle cx="64" cy="64" r={r} fill="none" stroke={LINE} strokeWidth="10" />
       <circle cx="64" cy="64" r={r} fill="none" stroke={INK} strokeWidth="10" strokeLinecap="round" strokeDasharray={`${(pct / 100) * c} ${c}`} transform="rotate(-90 64 64)" />
-      <text x="64" y="62" textAnchor="middle" className="font-num" fontSize="28" fill={INK}>{pct}%</text>
+      <text x="64" y="62" textAnchor="middle" className="p-amount" fontSize="28" fill={INK}>{pct}%</text>
       <text x="64" y="82" textAnchor="middle" fontSize="11" fill="#6B7378">ολοκλήρωση</text>
     </svg>
   );
@@ -66,7 +66,7 @@ function PayBar({ g }: { g: CustomerGlance['pay'] }) {
         {parts.map((p) => (
           <div key={p.k}>
             <dt className="flex items-center gap-1.5 text-(--s-mute)"><span aria-hidden className="inline-block size-2.5" style={{ background: p.color, ...p.style }} />{p.k}</dt>
-            <dd className="font-num mt-0.5 text-(length:--fs-16) tabular-nums text-(--s-ink)">{eur(p.v)}</dd>
+            <dd className="p-amount mt-0.5 text-(length:--fs-16) tabular-nums text-(--s-ink)">{eur(p.v)}</dd>
           </div>
         ))}
       </dl>
@@ -74,7 +74,11 @@ function PayBar({ g }: { g: CustomerGlance['pay'] }) {
   );
 }
 
-const ACTION_ICON = { OFFER: FiFileText, PAYMENT: FiCreditCard, REPLY: FiMessageCircle };
+const ACTION = {
+  OFFER: { icon: FiFileText, tone: ACCENT, cta: 'Δείτε και απαντήστε' },
+  PAYMENT: { icon: FiCreditCard, tone: GOOD, cta: 'Στοιχεία πληρωμής' },
+  REPLY: { icon: FiMessageCircle, tone: '#2563EB', cta: 'Διαβάστε την απάντηση' },
+};
 
 export async function CustomerGlanceSection({ g }: { g: CustomerGlance }) {
   const company = await siteCompany();
@@ -88,25 +92,26 @@ export async function CustomerGlanceSection({ g }: { g: CustomerGlance }) {
         {/* ── Τι χρειάζεται από εσάς ── */}
         <div className="mt-8">
           {g.actions.length === 0 ? (
-            <p className="flex items-center gap-3 border-l-2 px-5 py-4 text-(length:--fs-15) text-(--s-ink-2)" style={{ borderColor: GOOD, background: '#15803D0d' }}>
+            <p className="flex items-center gap-3 rounded-xl border-l-4 px-5 py-4 text-(length:--fs-16) text-(--s-ink)" style={{ borderColor: GOOD, background: '#15803D0d' }}>
               <FiCheckCircle className="size-5 shrink-0" style={{ color: GOOD }} aria-hidden />
               Δεν χρειάζεται κάτι από εσάς αυτή τη στιγμή.{g.preparing ? ` Ετοιμάζουμε ${g.preparing === 1 ? 'την προσφορά που ζητήσατε' : `${g.preparing} προσφορές που ζητήσατε`}.` : ''}
             </p>
           ) : (
             <>
-              <h3 className="text-(length:--fs-14) font-medium text-(--s-ink)">Χρειάζεται η απάντησή σας ({g.actions.length})</h3>
+              <h3 className="flex items-center gap-2 text-(length:--fs-18) font-semibold text-(--s-ink)">Χρειάζεται η απάντησή σας <span className="grid min-w-6 place-items-center rounded-full bg-(--s-accent) px-1.5 text-(length:--fs-13) font-semibold text-white">{g.actions.length}</span></h3>
               <ul className="mt-3 grid gap-3 md:grid-cols-2">
                 {g.actions.map((a, i) => {
-                  const Icon = ACTION_ICON[a.kind];
+                  const k = ACTION[a.kind];
                   return (
                     <li key={`${a.kind}-${i}`}>
-                      <Link href={a.href} className={`group flex h-full items-start gap-4 border p-4 transition-[border-color,box-shadow] hover:shadow-[0_18px_50px_-30px_rgba(28,50,65,0.45)] ${i === 0 ? 'border-(--s-ink)' : 'border-(--s-line) hover:border-(--s-ink)'}`}>
-                        <span className="inline-flex size-10 shrink-0 items-center justify-center" style={{ background: `${a.kind === 'PAYMENT' ? ACCENT : INK}14`, color: a.kind === 'PAYMENT' ? ACCENT : INK }}><Icon className="size-5" aria-hidden /></span>
+                      <Link href={a.href} className="group flex h-full items-start gap-4 rounded-xl border border-(--s-line) border-l-4 bg-white p-4 transition-[border-color,box-shadow,transform] hover:-translate-y-0.5 hover:shadow-[0_18px_50px_-30px_rgba(28,50,65,0.45)] motion-reduce:transition-none" style={{ borderLeftColor: k.tone }}>
+                        <span className="grid size-11 shrink-0 place-items-center rounded-full" style={{ background: `${k.tone}16`, color: k.tone }}><k.icon className="size-5" aria-hidden /></span>
                         <span className="min-w-0 flex-1">
-                          <span className="block text-(length:--fs-15) text-(--s-ink)">{a.title}</span>
-                          <span className="mt-0.5 block text-(length:--fs-13) text-(--s-ink-2)">{a.detail}</span>
+                          <span className="block text-(length:--fs-16) font-semibold leading-snug text-(--s-ink)">{a.title}</span>
+                          <span className="mt-1 block text-(length:--fs-14) text-(--s-ink-2)">{a.detail}</span>
+                          <span className="mt-2 inline-flex items-center gap-1 text-(length:--fs-14) font-semibold" style={{ color: k.tone }}>{k.cta}<FiArrowRight className="size-4 transition-transform group-hover:translate-x-0.5 motion-reduce:transition-none" aria-hidden /></span>
                         </span>
-                        <FiArrowRight className="mt-1 size-4 shrink-0 text-(--s-mute) transition-transform group-hover:translate-x-0.5 motion-reduce:transition-none" aria-hidden />
+                        {i === 0 && <span className="p-chip" data-tone="review">Πρώτο</span>}
                       </Link>
                     </li>
                   );
@@ -124,7 +129,7 @@ export async function CustomerGlanceSection({ g }: { g: CustomerGlance }) {
             ) : g.projects.map((p) => {
               const s = STATE[p.pulse.state];
               return (
-                <article key={p.prjc} className="border border-(--s-line) p-6" aria-labelledby={`gp-${p.prjc}`}>
+                <article key={p.prjc} className="rounded-xl border border-(--s-line) bg-white p-6" aria-labelledby={`gp-${p.prjc}`}>
                   <p className="text-(length:--fs-12) uppercase tracking-[0.14em] text-(--s-mute)">Έργο {p.code}</p>
                   <h3 id={`gp-${p.prjc}`} className="font-site mt-1 text-(length:--fs-22) font-light leading-snug">{p.name}</h3>
                   <div className="mt-5 flex flex-wrap items-center gap-6">
@@ -144,7 +149,7 @@ export async function CustomerGlanceSection({ g }: { g: CustomerGlance }) {
 
           {/* ── Πληρωμές & εργαλεία ── */}
           <div className="space-y-6">
-            <article className="border border-(--s-line) p-6" aria-labelledby="gpay">
+            <article className="rounded-xl border border-(--s-line) bg-white p-6" aria-labelledby="gpay">
               <div className="flex items-baseline justify-between gap-3">
                 <h3 id="gpay" className="font-site text-(length:--fs-22) font-light">Πληρωμές</h3>
                 {g.pay.total > 0 && <span className="text-(length:--fs-13) tabular-nums text-(--s-mute)">{g.pay.paidPct}% εξοφλημένο</span>}
@@ -157,7 +162,7 @@ export async function CustomerGlanceSection({ g }: { g: CustomerGlance }) {
                   {g.nextPayment && (
                     <p className="mt-5 border-l-2 border-(--s-accent) bg-(--s-paper) px-4 py-3 text-(length:--fs-14) text-(--s-ink-2)">
                       <span className="block text-(--s-ink)">{g.nextPayment.status === 'DONE' ? 'Προς πληρωμή τώρα' : 'Επόμενη δόση'}: {g.nextPayment.title}</span>
-                      <span className="font-num tabular-nums">{eur(g.nextPayment.amount)}</span>{g.nextPayment.dueDate ? ` · έως ${dm(g.nextPayment.dueDate)}` : ''}
+                      <span className="p-amount tabular-nums">{eur(g.nextPayment.amount)}</span>{g.nextPayment.dueDate ? ` · έως ${dm(g.nextPayment.dueDate)}` : ''}
                     </p>
                   )}
                   {g.bank.length > 0 && (
@@ -179,9 +184,9 @@ export async function CustomerGlanceSection({ g }: { g: CustomerGlance }) {
                 { href: `mailto:${company.salesEmail}`, icon: FiMail, label: 'Γράψτε μας', hint: company.salesEmail },
               ].map((u) => (
                 <a key={u.label} href={u.href} {...('download' in u && u.download ? { download: 'atelier-erga.ics' } : {})}
-                  className="group flex min-h-16 items-start gap-3 border border-(--s-line) p-3.5 transition-colors hover:border-(--s-ink)">
+                  className="group flex min-h-16 items-start gap-3 rounded-xl border border-(--s-line) bg-white p-3.5 transition-[border-color,transform] hover:-translate-y-0.5 hover:border-(--s-ink) motion-reduce:transition-none">
                   <u.icon className="mt-0.5 size-5 shrink-0 text-(--s-accent)" aria-hidden />
-                  <span className="min-w-0"><span className="block text-(length:--fs-14) text-(--s-ink)">{u.label}</span><span className="block truncate text-(length:--fs-12) text-(--s-mute)">{u.hint}</span></span>
+                  <span className="min-w-0"><span className="block text-(length:--fs-15) font-semibold text-(--s-ink)">{u.label}</span><span className="block truncate text-(length:--fs-13) text-(--s-ink-2)">{u.hint}</span></span>
                 </a>
               ))}
             </nav>

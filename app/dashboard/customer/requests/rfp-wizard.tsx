@@ -93,7 +93,7 @@ export function RfpWizard({ disabledReason }: { disabledReason?: string | null }
 
   if (sent) return (
     <div className="border border-(--s-ink) bg-white p-6 md:p-8" role="status">
-      <p className="flex items-center gap-2 text-(length:--fs-18) text-[#15803D]"><FiCheckCircle className="size-5" aria-hidden />Λάβαμε το αίτημά σας <span className="font-num tabular-nums text-(--s-ink)">{sent}</span></p>
+      <p className="flex items-center gap-2 text-(length:--fs-18) text-[#15803D]"><FiCheckCircle className="size-5" aria-hidden />Λάβαμε το αίτημά σας <span className="p-amount tabular-nums text-(--s-ink)">{sent}</span></p>
       <p className="mt-2 text-(length:--fs-15) text-(--s-ink-2)">Σας στείλαμε και επιβεβαίωση με email. Τι ακολουθεί:</p>
       <ol className="mt-6 space-y-4">
         {[
@@ -103,7 +103,7 @@ export function RfpWizard({ disabledReason }: { disabledReason?: string | null }
           ['Αποδοχή και ξεκινάμε', 'Με την αποδοχή γίνεται έργο και βλέπετε την πρόοδο μέρα με τη μέρα.'],
         ].map(([t, d], i) => (
           <li key={t} className="flex gap-4">
-            <span className={`font-num inline-flex size-8 shrink-0 items-center justify-center text-(length:--fs-14) ${i === 0 ? 'bg-(--s-ink) text-white' : 'border border-(--s-line) text-(--s-ink)'}`}>{i + 1}</span>
+            <span className={`p-amount inline-flex size-8 shrink-0 items-center justify-center text-(length:--fs-14) ${i === 0 ? 'bg-(--s-ink) text-white' : 'border border-(--s-line) text-(--s-ink)'}`}>{i + 1}</span>
             <span><span className="block text-(length:--fs-16) text-(--s-ink)">{t}</span><span className="block text-(length:--fs-14) text-(--s-ink-2)">{d}</span></span>
           </li>
         ))}
@@ -157,7 +157,7 @@ export function RfpWizard({ disabledReason }: { disabledReason?: string | null }
             onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void ask(input); } }}
             className="max-h-40 min-h-11 flex-1 resize-none border border-(--s-line) bg-white px-3 py-2.5 text-(length:--fs-15) outline-hidden focus-visible:border-(--s-ink)" />
           <button type="submit" disabled={thinking || !input.trim()} aria-label="Αποστολή μηνύματος"
-            className="inline-flex size-11 shrink-0 cursor-pointer items-center justify-center bg-(--s-ink) text-white transition-colors hover:bg-[#2C4556] disabled:cursor-not-allowed disabled:opacity-40">
+            className="p-btn p-btn-primary size-11 shrink-0 !px-0 !min-h-11">
             <FiSend className="size-4" aria-hidden />
           </button>
         </form>
@@ -214,7 +214,7 @@ export function RfpWizard({ disabledReason }: { disabledReason?: string | null }
           <p className="border-l-2 border-(--s-accent) bg-(--s-paper) px-4 py-3 text-(length:--fs-13) text-(--s-ink-2)">{disabledReason}</p>
         ) : (
           <button type="button" onClick={() => void send()} disabled={!canSend || sending}
-            className="inline-flex min-h-12 w-full cursor-pointer items-center justify-center gap-2 bg-(--s-ink) px-6 text-(length:--fs-15) font-medium text-white transition-colors hover:bg-[#2C4556] disabled:cursor-not-allowed disabled:opacity-40">
+            className="p-btn p-btn-primary w-full">
             {sending ? <FiLoader className="size-4 animate-spin motion-reduce:animate-none" aria-hidden /> : <FiSend className="size-4" aria-hidden />}
             {sending ? 'Αποστολή…' : ready ? 'Αποστολή αιτήματος' : 'Αποστολή όπως είναι'}
           </button>

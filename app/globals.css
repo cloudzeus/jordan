@@ -597,3 +597,54 @@ html.lenis, html.lenis body { height: auto; }
   body:has([data-dossier]) [data-print-hide] { display: none !important; }
   body:has([data-dossier]) { background: #fff !important; }
 }
+
+/* ============================================================
+   Πύλη πελατών/συνεργατών (.site.portal) — σύστημα ρόλων τυπογραφίας & χρώματος.
+   Ίδια γλώσσα με το website (χαρτί, μελάνι, serif τίτλοι) αλλά για ΧΡΗΣΗ: ευανάγνωστες ετικέτες
+   σε κανονική γραφή (όχι αραιά κεφαλαία), ένα sans για ό,τι διαβάζεται, χρώμα με νόημα (φάσεις).
+   Εκτός @layer: υπερισχύει των utilities του Tailwind.
+   ============================================================ */
+.site.portal {
+  /* Το «HARD font lock» διαβάζει την --font-inter: μέσα στην πύλη δείχνει στη Commissioner (ίδια με τους τίτλους). */
+  --font-inter: var(--font-site);
+  font-family: var(--font-site), system-ui, sans-serif;
+  --s-mute: #5B646A;               /* πιο σκούρο από το website: μικρό κείμενο ≥ 5.5:1 */
+  /* Χρώματα φάσεων/κατάστασης — ίδια με τις φάσεις εργασιών (lib/project-tasks-core.ts). */
+  --s-todo: #64748B; --s-progress: #2563EB; --s-review: #B45309; --s-done: #15803D; --s-danger: #B42318;
+  --s-todo-bg: #64748B14; --s-progress-bg: #2563EB12; --s-review-bg: #B4530914; --s-done-bg: #15803D12; --s-danger-bg: #B4231810;
+  --s-accent-2: #A87F5B;
+}
+/* Ρόλοι */
+.site.portal .p-label,
+.site.portal [class*="uppercase"][class*="tracking-[0.1"],
+.site.portal [class*="uppercase"][class*="tracking-[0.2"] {
+  font-family: var(--font-site), system-ui, sans-serif; font-size: var(--fs-13); font-weight: 600;
+  letter-spacing: 0.005em; text-transform: none; line-height: 1.4;
+}
+.site.portal .p-meta { font-size: var(--fs-14); color: var(--s-ink-2); line-height: 1.5; }
+.site.portal .p-amount { font-family: var(--font-site), system-ui, sans-serif; font-weight: 600; letter-spacing: -0.01em; font-variant-numeric: tabular-nums lining-nums; }
+.site.portal p, .site.portal li, .site.portal dd, .site.portal td { text-wrap: pretty; }
+/* Κουμπιά: κύριο (μελάνι), έμφασης (ζεστό χρώμα της πέτρας), δευτερεύον (περίγραμμα). Ήπιο gradient + φωτεινή άκρη. */
+.site.portal .p-btn:not(.hidden), .site.portal .p-chip:not(.hidden) { display: inline-flex; } /* εκτός layer: ΠΟΤΕ πάνω από το «hidden» */
+.site.portal .p-btn {
+  align-items: center; justify-content: center; gap: 0.5rem; min-height: 3rem; padding: 0 1.25rem;
+  border-radius: 0.5rem; font-family: var(--font-site), system-ui, sans-serif; font-size: var(--fs-15); font-weight: 600; letter-spacing: 0.005em;
+  cursor: pointer; transition: background-position 300ms var(--s-ease), box-shadow 200ms var(--s-ease), transform 150ms var(--s-ease), opacity 200ms;
+  background-size: 160% 100%; background-position: 0% 0;
+}
+.site.portal .p-btn:active { transform: translateY(1px); }
+.site.portal .p-btn:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
+.site.portal .p-btn-primary { color: #fff; background-image: linear-gradient(120deg, #1C3241 0%, #24445A 55%, #2E5A78 100%); box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.12); }
+.site.portal .p-btn-primary:hover:not(:disabled) { background-position: 100% 0; box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.18), 0 8px 24px -14px rgb(28 50 65 / 0.7); }
+.site.portal .p-btn-accent { color: #fff; background-image: linear-gradient(120deg, #6E5039 0%, #7A5C43 50%, #A87F5B 100%); box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.16); }
+.site.portal .p-btn-accent:hover:not(:disabled) { background-position: 100% 0; box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.2), 0 8px 24px -14px rgb(122 92 67 / 0.8); }
+.site.portal .p-btn-ghost { color: var(--s-ink); background: #fff; box-shadow: inset 0 0 0 1px var(--s-line); }
+.site.portal .p-btn-ghost:hover:not(:disabled) { box-shadow: inset 0 0 0 1px var(--s-ink); background: var(--s-paper); }
+/* Ετικέτα κατάστασης με χρώμα φάσης (πάντα με κείμενο/εικονίδιο — όχι μόνο χρώμα). */
+.site.portal .p-chip { align-items: center; gap: 0.375rem; border-radius: 999px; padding: 0.25rem 0.625rem; font-size: var(--fs-13); font-weight: 600; line-height: 1.2; }
+.site.portal .p-chip[data-tone="todo"] { color: var(--s-todo); background: var(--s-todo-bg); }
+.site.portal .p-chip[data-tone="progress"] { color: var(--s-progress); background: var(--s-progress-bg); }
+.site.portal .p-chip[data-tone="review"] { color: var(--s-review); background: var(--s-review-bg); }
+.site.portal .p-chip[data-tone="done"] { color: var(--s-done); background: var(--s-done-bg); }
+.site.portal .p-chip[data-tone="danger"] { color: var(--s-danger); background: var(--s-danger-bg); }
+@media (prefers-reduced-motion: reduce) { .site.portal .p-btn { transition: none; } }

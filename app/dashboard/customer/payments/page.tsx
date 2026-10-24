@@ -30,7 +30,7 @@ function Row({ p }: { p: CustomerPayment }) {
           <Link href={`/dashboard/customer/contracts/${p.contract.id}`} className="s-link mt-0.5 inline-block text-(length:--fs-13) text-(--s-ink-2)">{p.contract.ref} · {p.contract.title}</Link>
           {p.status === 'DONE' && p.deliveryNote && <span className="mt-2 block border-l-2 border-(--s-accent) pl-3 text-(length:--fs-14) text-(--s-ink-2)">{p.deliveryNote}</span>}
         </span>
-        <span className="font-num text-(length:--fs-24) tabular-nums sm:text-right">{eur(p.amount)}</span>
+        <span className="p-amount text-(length:--fs-24) tabular-nums sm:text-right">{eur(p.amount)}</span>
         <Pill label={s.label} tone={s.tone} pulse={p.status === 'DONE'} />
       </div>
     </li>

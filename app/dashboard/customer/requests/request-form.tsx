@@ -88,7 +88,7 @@ export function RequestForm({ disabledReason }: { disabledReason?: string | null
           <FiCamera className="size-4 text-(--s-accent)" aria-hidden /><span className="s-link">Φωτογραφίες ή κάτοψη</span>
           <input type="file" accept="image/*" multiple className="sr-only" onChange={(e) => { const l = e.target.files; if (l) setFiles((x) => [...x, ...[...l]].slice(0, 8)); e.target.value = ''; }} />
         </label>
-        <button type="submit" disabled={pending || title.trim().length < 3 || description.trim().length < 10} className="inline-flex min-h-12 cursor-pointer items-center justify-center gap-2 bg-(--s-ink) px-6 text-(length:--fs-15) font-medium text-white transition-colors hover:bg-[#2C4556] disabled:cursor-not-allowed disabled:opacity-40">
+        <button type="submit" disabled={pending || title.trim().length < 3 || description.trim().length < 10} className="p-btn p-btn-primary">
           {pending ? <FiLoader className="size-4 animate-spin motion-reduce:animate-none" aria-hidden /> : <FiSend className="size-4" aria-hidden />}
           {pending ? 'Αποστολή…' : 'Αποστολή αιτήματος'}
         </button>

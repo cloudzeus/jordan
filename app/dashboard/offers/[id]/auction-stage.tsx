@@ -203,7 +203,7 @@ export function AuctionStage(p: AuctionProps) {
               <div className="mt-6">
                 {canBook ? (
                   <>
-                    <button type="button" onClick={() => openBooking(Math.max(p.minOrder, 1))} className="inline-flex min-h-12 w-full cursor-pointer items-center justify-center gap-2 bg-(--s-ink) px-6 text-(length:--fs-15) font-medium text-white transition-colors hover:bg-[#2C4556]">
+                    <button type="button" onClick={() => openBooking(Math.max(p.minOrder, 1))} className="p-btn p-btn-primary w-full">
                       Κλείστε παλέτες <FiArrowRight className="size-4" aria-hidden />
                     </button>
                     <p className="mt-2 text-center text-(length:--fs-12) text-(--s-mute)">ή πατήστε απευθείας σε ελεύθερη θέση στο container · από {pal(p.minOrder)}</p>

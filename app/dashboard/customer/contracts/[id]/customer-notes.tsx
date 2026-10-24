@@ -70,7 +70,7 @@ function Reply({ id, parent, onDone }: { id: string; parent: string; onDone: () 
       {error && <p role="alert" className="text-(length:--fs-13) text-[#B42318]">{error}</p>}
       <div className="flex justify-end gap-3">
         <button type="button" onClick={onDone} className="min-h-11 cursor-pointer px-3 text-(length:--fs-14) text-(--s-mute) hover:text-(--s-ink)">Άκυρο</button>
-        <button type="button" onClick={send} disabled={pending || !body.trim()} className="inline-flex min-h-11 cursor-pointer items-center gap-2 bg-(--s-ink) px-5 text-(length:--fs-14) text-white hover:bg-[#2C4556] disabled:cursor-not-allowed disabled:opacity-40">
+        <button type="button" onClick={send} disabled={pending || !body.trim()} className="p-btn p-btn-primary">
           {pending ? <FiLoader className="size-4 animate-spin motion-reduce:animate-none" aria-hidden /> : <FiSend className="size-4" aria-hidden />} Απάντηση
         </button>
       </div>
@@ -221,7 +221,7 @@ export function CustomerNotes({ id, notes, targets, disabledReason, canRequestCh
               <FiCamera className="size-4 text-(--s-accent)" aria-hidden /><span className="s-link">Φωτογραφία</span>
               <input type="file" accept="image/*" capture="environment" multiple className="sr-only" onChange={(e) => { const l = e.target.files; if (l) setFiles((x) => [...x, ...[...l]].slice(0, 8)); e.target.value = ''; }} />
             </label>
-            <button type="button" onClick={submit} disabled={pending || !body.trim()} className="inline-flex min-h-12 cursor-pointer items-center justify-center gap-2 bg-(--s-ink) px-6 text-(length:--fs-15) font-medium text-white transition-colors hover:bg-[#2C4556] disabled:cursor-not-allowed disabled:opacity-40">
+            <button type="button" onClick={submit} disabled={pending || !body.trim()} className="p-btn p-btn-primary">
               {pending ? <FiLoader className="size-4 animate-spin motion-reduce:animate-none" aria-hidden /> : <FiSend className="size-4" aria-hidden />}
               {pending ? 'Αποστολή…' : 'Αποστολή'}
             </button>

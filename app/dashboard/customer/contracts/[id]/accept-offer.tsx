@@ -29,7 +29,7 @@ export function AcceptOffer({ id, total, validUntil, disabledReason }: { id: str
       <p className="font-site text-(length:--fs-20) font-light leading-snug">Θέλετε να προχωρήσουμε;</p>
       <p className="mt-1 text-(length:--fs-14) text-(--s-ink-2)">Με την αποδοχή η προσφορά γίνεται σύμβαση και προγραμματίζουμε την εκτέλεση.{validUntil ? ` Ισχύει έως ${validUntil}.` : ''}</p>
       {!open ? (
-        <button type="button" onClick={() => setOpen(true)} className="mt-4 inline-flex min-h-12 w-full cursor-pointer items-center justify-center gap-2 bg-(--s-ink) text-(length:--fs-15) font-medium text-white transition-colors hover:bg-[#2C4556]">
+        <button type="button" onClick={() => setOpen(true)} className="p-btn p-btn-primary mt-4 w-full">
           <FiCheck className="size-4" aria-hidden />Αποδοχή προσφοράς
         </button>
       ) : (
@@ -42,7 +42,7 @@ export function AcceptOffer({ id, total, validUntil, disabledReason }: { id: str
           {error && <p role="alert" className="border-l-2 border-[#B42318] bg-[#B42318]/5 px-3 py-2 text-(length:--fs-13) text-[#B42318]">{error}</p>}
           <div className="flex gap-3">
             <button type="button" onClick={() => { setOpen(false); setAgreed(false); setError(null); }} disabled={pending} className="inline-flex min-h-12 flex-1 cursor-pointer items-center justify-center border border-(--s-line) text-(length:--fs-14) text-(--s-ink-2) hover:border-(--s-ink) hover:text-(--s-ink)">Άκυρο</button>
-            <button type="button" onClick={submit} disabled={!agreed || pending} className="inline-flex min-h-12 flex-2 cursor-pointer items-center justify-center gap-2 bg-(--s-ink) text-(length:--fs-15) font-medium text-white transition-colors hover:bg-[#2C4556] disabled:cursor-not-allowed disabled:opacity-40">
+            <button type="button" onClick={submit} disabled={!agreed || pending} className="p-btn p-btn-primary flex-2">
               {pending ? <FiLoader className="size-4 animate-spin motion-reduce:animate-none" aria-hidden /> : <FiCheck className="size-4" aria-hidden />}
               {pending ? 'Αποδοχή…' : 'Επιβεβαίωση αποδοχής'}
             </button>
