@@ -8,6 +8,8 @@
 // Συντεταγμένες: εικόνα (x δεξιά, y κάτω) ↔ κόσμος (x − w/2, h/2 − y, z).
 import * as React from 'react';
 import * as THREE from 'three';
+import { cn } from '@/lib/utils';
+import { layoutLabels, markerScale, type LabelInput } from '@/lib/floorplan/labels';
 import gsap from 'gsap';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { Line2 } from 'three/examples/jsm/lines/Line2.js';
@@ -67,6 +69,8 @@ export type PlanViewerProps = {
 
 const Z = { plan: 0, walls: 0.2, rooms: 0.4, outline: 0.6, net: 0.7, divider: 0.8, draft: 1 };
 const BG = '#0B1220';
+/** «Φωτοστέφανο» γύρω από το κείμενο: διαβάζεται πάνω σε κάθε σχέδιο χωρίς να το σκεπάζει. */
+const HALO = '0 0 2px #0B1220, 0 0 3px #0B1220, 0 0 5px rgba(11,18,32,0.9)';
 /** Χρώμα τοίχων που σχεδιάζει ο χρήστης (και στη μάσκα, βλ. floor-plan-dialog). */
 export const WALL_DRAW = '#FB923C';
 
@@ -108,6 +112,9 @@ export function PlanViewer(props: PlanViewerProps) {
   const cbs = React.useRef(props);
   // «Latest ref»: ενημέρωση μετά το commit (layout effect, πριν από τα passive effects που το διαβάζουν).
   React.useLayoutEffect(() => { cbs.current = props; });
+  /** Αλλάζει όταν αλλάζουν οι ετικέτες → ξαναμετριούνται τα μεγέθη τους (η γραμματοσειρά δεν εξαρτάται από το zoom). */
+  const labelVer = React.useRef(0);
+  React.useLayoutEffect(() => { labelVer.current += 1; }, [rooms, dimensions, selectedId, pins, netDevices]);
 
   type Ctx = {
     renderer: THREE.WebGLRenderer; scene: THREE.Scene; camera: THREE.OrthographicCamera; controls: OrbitControls;
@@ -397,6 +404,34 @@ export function PlanViewer(props: PlanViewerProps) {
     // ── Βρόχος: ετικέτες ακολουθούν την κάμερα ──────────────────────────────────────────
     let raf = 0;
     const v = new THREE.Vector3();
+    // Ετικέτες σαν σε χάρτη: λεπτομέρεια ανάλογα με το πόσο χωρά κάθε χώρος στην οθόνη, χωρίς επικαλύψεις.
+    // Ξαναϋπολογίζονται μόνο όταν αλλάζει το zoom ή οι ετικέτες (η μετακίνηση δεν αλλάζει τις σχετικές θέσεις).
+    let lastZoom = -1, lastVer = -1, scaleK = 1;
+    const relayout = (nodes: HTMLElement[], at: (n: HTMLElement) => { x: number; y: number }) => {
+      const z = camera.zoom;
+      const text = nodes.filter((n) => n.dataset.kind === 'room' || n.dataset.kind === 'dim');
+      if (lastVer !== labelVer.current) {
+        for (const n of text) n.dataset.mode = 'full';
+        for (const n of text) {
+          n.dataset.fw = String(n.offsetWidth); n.dataset.fh = String(n.offsetHeight);
+          const sub = n.querySelector<HTMLElement>('.lbl-sub');
+          if (sub) { n.dataset.aw = String(sub.offsetWidth + 6); n.dataset.ah = String(sub.offsetHeight + 2); }
+        }
+        lastVer = labelVer.current;
+      }
+      const items: LabelInput[] = text.map((n) => {
+        const p = at(n), d = n.dataset;
+        return {
+          id: d.lid!, kind: d.kind as 'room' | 'dim', cx: p.x, cy: p.y,
+          fitW: Number(d.bw) * z, fitH: Number(d.bh ?? 0) * z, prio: Number(d.prio ?? 0), pinned: d.pinned === '1',
+          full: { w: Number(d.fw), h: Number(d.fh) }, area: d.aw ? { w: Number(d.aw), h: Number(d.ah) } : undefined,
+        };
+      });
+      const modes = layoutLabels(items);
+      for (const n of text) n.dataset.mode = modes.get(n.dataset.lid!) ?? 'hidden';
+      scaleK = markerScale(z);
+      lastZoom = z;
+    };
     const loop = () => {
       raf = requestAnimationFrame(loop);
       controls.update();
@@ -404,10 +439,16 @@ export function PlanViewer(props: PlanViewerProps) {
       const cw = el.clientWidth, ch = el.clientHeight;
       const lab = labelsEl.current;
       if (lab) {
-        for (const node of Array.from(lab.children) as HTMLElement[]) {
-          const x = Number(node.dataset.x), y = Number(node.dataset.y);
-          v.set(x - w / 2, h / 2 - y, Z.outline).project(camera);
-          node.style.transform = `translate(${((v.x + 1) / 2) * cw}px, ${((1 - v.y) / 2) * ch}px) translate(-50%, -50%)`;
+        const nodes = Array.from(lab.children) as HTMLElement[];
+        const pos = new Map<HTMLElement, { x: number; y: number }>();
+        for (const node of nodes) {
+          v.set(Number(node.dataset.x) - w / 2, h / 2 - Number(node.dataset.y), Z.outline).project(camera);
+          pos.set(node, { x: ((v.x + 1) / 2) * cw, y: ((1 - v.y) / 2) * ch });
+        }
+        if (camera.zoom !== lastZoom || lastVer !== labelVer.current) relayout(nodes, (n) => pos.get(n)!);
+        for (const node of nodes) {
+          const p = pos.get(node)!;
+          node.style.transform = `translate(${p.x}px, ${p.y}px) translate(-50%, -50%)${node.dataset.kind === 'marker' ? ` scale(${scaleK})` : ''}`;
         }
       }
       const tip = tipEl.current;
@@ -567,21 +608,25 @@ export function PlanViewer(props: PlanViewerProps) {
     <div className="relative h-full w-full overflow-hidden" style={{ background: BG }}>
       <div ref={host} className="absolute inset-0" style={{ cursor }} />
       <div ref={labelsEl} className="pointer-events-none absolute inset-0" aria-hidden>
-        {rooms.map((r) => (
-          <div
-            key={r.id}
-            data-x={r.anchor.x}
-            data-y={r.anchor.y}
-            className="absolute left-0 top-0 whitespace-nowrap rounded border px-1.5 py-0.5 text-center shadow-md backdrop-blur-xs"
-            style={{ borderColor: r.color, background: 'rgba(11,18,32,0.78)', color: '#F8FAFC', outline: r.id === selectedId ? '2px solid #fff' : undefined }}
-          >
-            <div className="text-(length:--fs-10) font-medium leading-tight opacity-80">{r.label}</div>
-            <div className="font-mono text-(length:--fs-11) font-semibold leading-tight tabular-nums">{r.sub}</div>
-          </div>
-        ))}
+        {rooms.map((r) => {
+          const xs = r.polygon.map((p) => p.x), ys = r.polygon.map((p) => p.y);
+          const bw = Math.max(...xs) - Math.min(...xs), bh = Math.max(...ys) - Math.min(...ys);
+          const sel = r.id === selectedId;
+          return (
+            <div
+              key={r.id} data-lid={r.id} data-kind="room" data-x={r.anchor.x} data-y={r.anchor.y}
+              data-bw={bw} data-bh={bh} data-prio={bw * bh} data-pinned={sel ? '1' : '0'}
+              className={cn('absolute left-0 top-0 whitespace-nowrap px-1 text-center leading-tight data-[mode=area]:[&_.lbl-name]:hidden data-[mode=hidden]:invisible', sel && 'rounded-sm ring-1 ring-white')}
+              style={{ color: '#F8FAFC', textShadow: HALO, background: sel ? 'rgba(11,18,32,0.72)' : undefined }}
+            >
+              <div className="lbl-name mx-auto w-fit text-(length:--fs-10) font-semibold tracking-wide">{r.label}</div>
+              <div className="lbl-sub mx-auto w-fit font-mono text-(length:--fs-10) font-medium tabular-nums opacity-90">{r.sub}</div>
+            </div>
+          );
+        })}
         {(pins ?? []).map((p) => (
           <div
-            key={p.id} data-x={p.x} data-y={p.y}
+            key={p.id} data-x={p.x} data-y={p.y} data-kind="marker"
             className="absolute left-0 top-0 inline-flex size-5 items-center justify-center rounded-full border-2 font-mono text-(length:--fs-10) font-bold shadow-lg"
             style={{ background: p.selected ? '#F43F5E' : '#E11D48', borderColor: p.selected ? '#FFFFFF' : '#FECDD3', color: '#FFFFFF' }}
             title={p.hasPhoto ? 'Σημείωση με φωτογραφία' : 'Σημείωση'}
@@ -591,7 +636,7 @@ export function PlanViewer(props: PlanViewerProps) {
         ))}
         {(netDevices ?? []).map((d) => (
           <div
-            key={d.id} data-x={d.x} data-y={d.y} title={d.label}
+            key={d.id} data-x={d.x} data-y={d.y} data-kind="marker" title={d.label}
             className="absolute left-0 top-0 inline-flex size-5 items-center justify-center rounded-full border shadow-md [&_svg]:size-3"
             style={{ background: d.color, borderColor: 'rgba(11,18,32,0.55)', color: '#0B1220', outline: d.selected ? '2px solid #fff' : undefined, outlineOffset: 1 }}
           >
@@ -600,8 +645,8 @@ export function PlanViewer(props: PlanViewerProps) {
         ))}
         {(dimensions ?? []).map((d) => (
           <div
-            key={d.id} data-x={(d.a.x + d.b.x) / 2} data-y={(d.a.y + d.b.y) / 2}
-            className="absolute left-0 top-0 whitespace-nowrap rounded px-1 py-px font-mono text-(length:--fs-10) font-semibold tabular-nums shadow-sm"
+            key={d.id} data-lid={`dim-${d.id}`} data-kind="dim" data-x={(d.a.x + d.b.x) / 2} data-y={(d.a.y + d.b.y) / 2} data-bw={Math.hypot(d.b.x - d.a.x, d.b.y - d.a.y)} data-prio={-1}
+            className="absolute left-0 top-0 whitespace-nowrap rounded px-1 py-px font-mono text-(length:--fs-10) font-semibold tabular-nums shadow-sm data-[mode=hidden]:invisible"
             style={{ background: DIM_COLOR, color: '#0B1220' }}
           >
             {formatLength(Math.hypot(d.b.x - d.a.x, d.b.y - d.a.y))}
