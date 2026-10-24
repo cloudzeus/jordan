@@ -23,12 +23,14 @@ import { budgetSyncState } from '@/lib/contracts/budget-sync';
 import { BudgetPanel } from './budget-panel';
 import { contractHistory } from '@/lib/contracts/history';
 import { HistoryPanel } from '../history-panel';
+import { markRequestOpened } from '@/lib/contracts/inbox';
 
 export const dynamic = 'force-dynamic';
 
 export default async function ContractPage({ params }: { params: Promise<{ id: string }> }) {
-  await requirePermission('projects.read');
+  const me = await requirePermission('projects.read');
   const { id } = await params;
+  await markRequestOpened(id, { id: me.id, name: me.name }).catch(() => {});
   const [c, staff, canManage, rfps, revisions, templates, notes, budget] = await Promise.all([getContract(id), staffOptions(), hasPermission('projects.manage'), contractRfps(id), listRevisions(id), listTemplates(), listNotes(id, { kind: 'STAFF' }), budgetSyncState(id)]);
   const history = c ? await contractHistory({ contractId: c.id }, 'STAFF') : [];
   if (!c) notFound();

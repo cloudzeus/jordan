@@ -27,6 +27,8 @@ type NavItem = {
 type NavGroup = { label: string; items: NavItem[] };
 
 export interface Badges {
+  /** Νέα αιτήματα προσφοράς από την πύλη + ερωτήσεις πελατών χωρίς απάντηση. */
+  contractInbox?: number;
   pendingUsers?: number;
   /** Εκκρεμείς εκδότες χωρίς συναλλασσόμενο — από /api/admin/ocr/queues/counts. */
   newTraders?: number;
@@ -60,7 +62,7 @@ const NAV_GROUPS: NavGroup[] = [
     label: 'Operations',
     items: [
       { href: '/admin/projects', label: 'Έργα', icon: FiBriefcase, permissions: ['projects.read'] },
-      { href: '/admin/projects/contracts', label: 'Συμβάσεις & Προσφορές', icon: FiFileText, permissions: ['projects.read'] },
+      { href: '/admin/projects/contracts', label: 'Συμβάσεις & Προσφορές', icon: FiFileText, permissions: ['projects.read'], badgeKey: 'contractInbox' },
       { href: '/admin/tasks', label: 'Εργασίες & Gantt', icon: FiCheckSquare, permissions: ['projects.read'] },
       { href: '/admin/recipes', label: 'Συνταγές τοποθέτησης', icon: FiLayers, permissions: ['recipes.read'] },
       { href: '/admin/dynamic-offers', label: 'Δυναμικές προσφορές', icon: FiTrendingDown, permissions: ['dynamic_offers.read'] },

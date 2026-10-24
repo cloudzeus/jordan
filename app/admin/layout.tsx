@@ -4,6 +4,7 @@ import { DEFAULT_LOCALE, isValidLocale, type LocaleCode } from '@/i18n/locales';
 import { SoftoneConnectionBar } from '@/components/admin/softone-connection-bar';
 import { countPendingOrderRequests } from '@/lib/order-requests';
 import { countPendingAppointments } from '@/lib/appointments';
+import { countContractInbox } from '@/lib/contracts/inbox';
 import { AirJordanLauncher } from '@/components/assistant/air-jordan-launcher';
 import { assistantAllowed } from '@/lib/assistant/access-rules';
 import { textAssistAllowed } from '@/lib/text-assist/core';
@@ -21,9 +22,11 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   const canAssistantMemory = assistantAllowed(user.role.key, user.permissionKeys, 'assistant.memory');
   // Υπαγόρευση + AI μορφοποίηση σε κάθε πεδίο κειμένου: μόνο ADMIN / SUPER_ADMIN.
   const canTextAssist = textAssistAllowed(user.role.key);
-  const [orderRequests, appointments] = await Promise.all([
+  const canSeeContracts = user.role.key === 'SUPER_ADMIN' || user.permissionKeys.has('projects.read');
+  const [orderRequests, appointments, contractInbox] = await Promise.all([
     canSeeRequests ? countPendingOrderRequests().catch(() => 0) : 0,
     canSeeAppointments ? countPendingAppointments().catch(() => 0) : 0,
+    canSeeContracts ? countContractInbox().catch(() => 0) : 0,
   ]);
 
   return (
@@ -34,7 +37,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         roleKey={user.role.key ?? null}
         locale={locale}
         permissionKeys={permissionKeys}
-        badges={{ orderRequests, appointments }}
+        badges={{ orderRequests, appointments, contractInbox }}
       />
       <div className="flex min-w-0 flex-1 flex-col pb-[calc(4rem+env(safe-area-inset-bottom))] lg:pb-0">
         {/* Η κατάσταση της σύνδεσης με το ERP αφορά ΚΑΘΕ σελίδα, όχι μόνο την ουρά: η πτώση
@@ -45,7 +48,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           {children}
         </main>
       </div>
-      <AdminBottomNav user={{ name: user.name, email: user.email }} roleName={user.role.name} roleKey={user.role.key ?? null} permissionKeys={permissionKeys} badges={{ orderRequests, appointments }} />
+      <AdminBottomNav user={{ name: user.name, email: user.email }} roleName={user.role.name} roleKey={user.role.key ?? null} permissionKeys={permissionKeys} badges={{ orderRequests, appointments, contractInbox }} />
       {canAssistant && <AirJordanLauncher canMemory={canAssistantMemory} />}
       {canTextAssist && <TextAssistLayer />}
     </div>

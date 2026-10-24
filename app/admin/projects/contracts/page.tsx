@@ -4,13 +4,15 @@ import { hasPermission, requirePermission } from '@/lib/rbac';
 import { listContracts } from '@/lib/contracts/service';
 import { PageHeader } from '@/components/admin/page-header';
 import { ContractsList } from './contracts-list';
+import { ContractInbox } from './contract-inbox';
+import { contractInbox } from '@/lib/contracts/inbox';
 
 export const dynamic = 'force-dynamic';
 
 // Συμβάσεις & Προσφορές έργων (Operations → Έργα). Δικά μας δεδομένα — όχι SoftOne.
 export default async function ContractsPage() {
   await requirePermission('projects.read');
-  const [rows, canManage] = await Promise.all([listContracts(), hasPermission('projects.manage')]);
+  const [rows, canManage, inbox] = await Promise.all([listContracts(), hasPermission('projects.manage'), contractInbox().catch(() => [])]);
   const open = rows.filter((r) => !['COMPLETED', 'CANCELLED'].includes(r.status)).length;
   return (
     <div className="w-full">
@@ -25,6 +27,7 @@ export default async function ContractsPage() {
           </Link>
         ) : null}
       />
+      <ContractInbox items={inbox} />
       <ContractsList rows={rows} canManage={canManage} />
     </div>
   );
