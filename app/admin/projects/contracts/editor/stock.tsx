@@ -10,6 +10,10 @@ import { stockNeeds, type NeedLine, type StockInfo, type StockNeed } from '@/lib
 import { stockAction } from '../actions';
 
 const q = (n: number) => n.toLocaleString('el-GR', { maximumFractionDigits: 2 });
+const LIMIT = 6;
+/** Σύντομες μονάδες για τη λίστα (οι ονομασίες του SoftOne είναι μακριές). */
+const UNIT: Record<string, string> = { 'τετραγωνικά μέτρα': 'm²', 'τετραγωνικό μέτρο': 'm²', 'κιλά': 'kg', 'κιλό': 'kg', 'τεμάχια': 'τεμ.', 'τεμάχιο': 'τεμ.', 'μέτρα': 'm', 'μέτρο': 'm', 'λίτρα': 'lt', 'λίτρο': 'lt', 'κιβώτια': 'κιβ.', 'σακιά': 'σακ.' };
+const unit = (u: string | null | undefined) => (u ? UNIT[u.trim().toLowerCase()] ?? u : '');
 
 /** Απόθεμα για τα είδη των γραμμών· ξαναζητείται μόνο όταν αλλάξει το σύνολο των ειδών. */
 export function useStock(lines: NeedLine[]): { needs: StockNeed[]; byMtrl: Map<number, StockNeed>; stock: Record<number, StockInfo>; loading: boolean } {
@@ -66,12 +70,13 @@ export function StockCard({ needs, loading }: { needs: StockNeed[]; loading: boo
   const toOrder = needs.filter((n) => n.status === 'short' || n.status === 'none');
   const unknown = needs.filter((n) => n.status === 'unknown').length;
   const ok = needs.filter((n) => n.status === 'ok').length;
+  const [all, setAll] = React.useState(false);
   const copy = () => {
     const text = toOrder.map((n) => `${n.code ? `${n.code} · ` : ''}${n.name} — ${q(n.short)} ${n.unit ?? ''}`).join('\n');
     navigator.clipboard.writeText(text).then(() => toast.success('Η λίστα παραγγελίας αντιγράφηκε'), () => toast.error('Δεν επετράπη η αντιγραφή'));
   };
   return (
-    <section aria-labelledby="stock-h" className="rounded-xl border border-border bg-card p-4 shadow-xs">
+    <section aria-labelledby="stock-h" className="rounded-xl border border-border bg-card p-3 shadow-xs">
       <h2 id="stock-h" className="flex items-center gap-2 text-(length:--fs-13) font-semibold"><FiPackage className="size-4 text-muted-foreground" aria-hidden /> Απόθεμα & παραγγελία</h2>
       {!needs.length ? (
         <p className="mt-1.5 text-(length:--fs-12) text-muted-foreground">Θα δείτε εδώ αν επαρκεί το απόθεμα μόλις προσθέσετε υλικά από το μητρώο.</p>
@@ -83,25 +88,41 @@ export function StockCard({ needs, loading }: { needs: StockNeed[]; loading: boo
               : <>Όλα τα υλικά επαρκούν{unknown ? ` · ${unknown} για έλεγχο` : ''}.</>}
           </p>
           {toOrder.length > 0 && (
-            <ul className="mt-2 space-y-1.5">
-              {toOrder.map((n) => (
-                <li key={n.mtrl} className="rounded-lg bg-amber-50/60 px-2.5 py-1.5 text-(length:--fs-12)">
-                  <span className="block truncate font-medium" title={n.name}>{n.name}</span>
-                  <span className="flex justify-between gap-2 text-muted-foreground">
-                    <span>απόθ. {q(n.have)} {n.stockUnit ?? ''}</span>
-                    <span className="font-semibold tabular-nums text-amber-900">+{q(n.short)} {n.unit ?? ''}</span>
-                  </span>
-                </li>
-              ))}
-            </ul>
+            // Πυκνός πίνακας: μία γραμμή ανά είδος· σύντομες μονάδες· τα πρώτα 6, τα υπόλοιπα με «όλα».
+            <table className="mt-2 w-full table-fixed text-(length:--fs-12)">
+              <thead>
+                <tr className="border-b border-border text-left text-(length:--fs-11) text-muted-foreground">
+                  <th scope="col" className="py-1 pr-2 font-medium">Είδος</th>
+                  <th scope="col" className="w-16 py-1 pr-2 text-right font-medium">Απόθ.</th>
+                  <th scope="col" className="w-24 py-1 text-right font-medium">Παραγγελία</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border/60">
+                {(all ? toOrder : toOrder.slice(0, LIMIT)).map((n) => (
+                  <tr key={n.mtrl}>
+                    <td className="truncate py-1 pr-2" title={n.name}>
+                      <span aria-hidden className={`mr-1.5 inline-block size-1.5 rounded-full align-middle ${n.status === 'none' ? 'bg-rose-500' : 'bg-amber-500'}`} />
+                      {n.name}
+                    </td>
+                    <td className="py-1 pr-2 text-right tabular-nums text-muted-foreground" title={`Απόθεμα ${q(n.have)} ${n.stockUnit ?? ''}`}>{q(n.have)}</td>
+                    <td className="py-1 text-right font-semibold tabular-nums text-amber-900">+{q(n.short)} <span className="font-normal text-muted-foreground">{unit(n.unit)}</span></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+          {toOrder.length > LIMIT && (
+            <button type="button" onClick={() => setAll((x) => !x)} className="mt-1 min-h-7 cursor-pointer text-(length:--fs-11) font-medium text-muted-foreground hover:text-foreground">
+              {all ? 'Λιγότερα' : `Όλα (${toOrder.length})`}
+            </button>
           )}
           {toOrder.length > 0 && (
-            <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1">
+            <div className="mt-1 flex flex-wrap gap-x-3">
               <button type="button" onClick={copy} className="inline-flex min-h-8 cursor-pointer items-center gap-1.5 text-(length:--fs-12) font-medium text-primary hover:underline"><FiCopy className="size-3.5" aria-hidden /> Αντιγραφή λίστας</button>
               <Link href="/admin/order-requests" className="inline-flex min-h-8 items-center text-(length:--fs-12) font-medium text-primary hover:underline">Αιτήματα παραγγελίας →</Link>
             </div>
           )}
-          <p className="mt-2 text-(length:--fs-11) text-muted-foreground">Σύνολο αποθηκών από τον τελευταίο συγχρονισμό SoftOne.</p>
+          <p className="mt-1 text-(length:--fs-11) text-muted-foreground">Όλες οι αποθήκες · τελευταίος συγχρονισμός SoftOne.</p>
         </>
       )}
     </section>

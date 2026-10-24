@@ -3,7 +3,7 @@
 // Πρόγραμμα πληρωμών (milestones) της φόρμας: μία κάρτα ανά «ποιος πληρώνει ποιον», μπάρα κάλυψης του
 // συνόλου, ποσοστό δίπλα σε κάθε ποσό, έτοιμα προγράμματα και «συμπλήρωση υπολοίπου» με ένα κλικ.
 import * as React from 'react';
-import { FiCalendar, FiCheckCircle, FiMoreVertical, FiPlus, FiTrash2, FiUser, FiUsers } from 'react-icons/fi';
+import { FiCalendar, FiCheckCircle, FiFileText, FiMoreVertical, FiPlus, FiTrash2, FiUser, FiUsers } from 'react-icons/fi';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
@@ -37,7 +37,7 @@ function Amount({ value, onValue, label, disabled }: { value: number; onValue: (
       <Input inputMode="decimal" value={text} aria-label={label} disabled={disabled}
         onChange={(e) => { setText(e.target.value); const n = Number(e.target.value.replace(',', '.')); onValue(Number.isFinite(n) && n >= 0 ? n : 0); }}
         onBlur={() => setText(show(value))}
-        className="h-9 pr-6 text-right text-(length:--fs-12) tabular-nums" />
+        className="h-8 pr-6 text-right text-(length:--fs-12) tabular-nums" />
       <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-(length:--fs-12) text-muted-foreground">€</span>
     </span>
   );
@@ -48,6 +48,9 @@ function Group({ label, icon, total, ms, presets, readOnly, onAdd, onPlan, onSet
   noteFor?: (m: EditorMilestone) => React.ReactNode;
   onAdd: () => void; onPlan: (p: PlanPreset) => void; onSet: (uid: string, patch: Partial<EditorMilestone>) => void; onRemove: (uid: string) => void;
 }) {
+  // Παραδοτέα: κλειστά ως προεπισκόπηση μίας γραμμής· ανοίγουν για επεξεργασία.
+  const [openDeliv, setOpenDeliv] = React.useState<Set<string>>(() => new Set());
+  const toggleDeliv = (uid: string) => setOpenDeliv((o) => { const n = new Set(o); if (n.has(uid)) n.delete(uid); else n.add(uid); return n; });
   const cov = milestoneCoverage(ms.map((m) => m.amount), total);
   const ratio = total > 0 ? Math.min(1, cov.sum / total) : 0;
   const over = cov.diff < -0.009;
@@ -105,40 +108,52 @@ function Group({ label, icon, total, ms, presets, readOnly, onAdd, onPlan, onSet
           {!readOnly && presets[0] && total > 0 && <button type="button" onClick={() => onPlan(presets[0])} className="min-h-8 cursor-pointer font-medium text-primary hover:underline">Πρόγραμμα {presets[0].label}</button>}
         </div>
       ) : (
-        <ol className="space-y-2 px-3 pb-3 pt-2">
+        <ol className="divide-y divide-border/70 px-3 pb-1 pt-1">
           {ms.map((m, i) => {
+            const open = openDeliv.has(m.uid);
             return (
-              <li key={m.uid} className="rounded-md bg-muted/30 p-2">
-                <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2">
-                  <span className="inline-flex size-6 items-center justify-center rounded-full bg-background text-(length:--fs-11) font-semibold tabular-nums ring-1 ring-border">{i + 1}</span>
+              <li key={m.uid} className="py-1">
+                {/* Μία γραμμή: # · τίτλος · ημερομηνία · ποσό · % · παραδοτέα · ⋮ — σε στενό πλάτος τυλίγεται. */}
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
+                  <span className="inline-flex size-5 shrink-0 items-center justify-center rounded-full bg-muted text-(length:--fs-11) font-semibold tabular-nums">{i + 1}</span>
                   <Input value={m.title} onChange={(e) => onSet(m.uid, { title: e.target.value })} placeholder="π.χ. Παράδοση υλικών" disabled={readOnly}
-                    className="h-9 text-(length:--fs-12)" aria-label={`Τίτλος πληρωμής ${i + 1}`} />
-                  {/* Ημερομηνία · ποσό · % σε μία σειρά κάτω από τον τίτλο (ο τίτλος παίρνει όλο το πλάτος). */}
-                  <div className="col-span-2 col-start-2 grid max-w-md grid-cols-[minmax(0,1fr)_minmax(0,1fr)_2.5rem] items-center gap-2">
-                    <Input type="date" value={m.dueDate ?? ''} onChange={(e) => onSet(m.uid, { dueDate: e.target.value || null })} disabled={readOnly}
-                      className="h-9 text-(length:--fs-12)" aria-label={`Προθεσμία πληρωμής ${i + 1}`} />
-                    <Amount value={m.amount} onValue={(n) => onSet(m.uid, { amount: n })} label={`Ποσό πληρωμής ${i + 1}`} disabled={readOnly} />
-                    <span className="text-right text-(length:--fs-12) tabular-nums text-muted-foreground">{pct(m.amount, total)}</span>
-                  </div>
-                  {!readOnly ? (
-                    <span className="col-start-3 row-start-1 flex">
-                      {noteFor?.(m)}
+                    className="h-8 min-w-40 flex-1 px-2 text-(length:--fs-12) border-transparent bg-transparent shadow-none hover:border-input focus-visible:border-input disabled:opacity-100" aria-label={`Τίτλος πληρωμής ${i + 1}`} />
+                  <Input type="date" value={m.dueDate ?? ''} onChange={(e) => onSet(m.uid, { dueDate: e.target.value || null })} disabled={readOnly}
+                    className="h-8 w-36 shrink-0 text-(length:--fs-12)" aria-label={`Προθεσμία πληρωμής ${i + 1}`} />
+                  <span className="w-28 shrink-0"><Amount value={m.amount} onValue={(n) => onSet(m.uid, { amount: n })} label={`Ποσό πληρωμής ${i + 1}`} disabled={readOnly} /></span>
+                  <span className="w-9 shrink-0 text-right text-(length:--fs-11) tabular-nums text-muted-foreground">{pct(m.amount, total)}</span>
+                  <span className="flex shrink-0 items-center">
+                    <button type="button" onClick={() => toggleDeliv(m.uid)} aria-expanded={open} aria-label={`Παραδοτέα πληρωμής ${i + 1}`}
+                      title={m.deliverables ? 'Παραδοτέα — επεξεργασία' : 'Πρόσθεσε τι παραδίδεται σε αυτό το στάδιο'}
+                      className={cn('relative inline-flex size-8 cursor-pointer items-center justify-center rounded-md hover:bg-muted focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring', open || m.deliverables ? 'text-foreground' : 'text-muted-foreground')}>
+                      <FiFileText className="size-4" aria-hidden />
+                      {m.deliverables && !open && <span aria-hidden className="absolute right-1.5 top-1.5 size-1.5 rounded-full bg-primary" />}
+                    </button>
+                    {!readOnly && noteFor?.(m)}
+                    {!readOnly && (
                       <DropdownMenu>
-                        <DropdownMenuTrigger className="inline-flex size-9 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring" aria-label={`Ενέργειες πληρωμής ${i + 1}`}>
+                        <DropdownMenuTrigger className="inline-flex size-8 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring" aria-label={`Ενέργειες πληρωμής ${i + 1}`}>
                           <FiMoreVertical className="size-4" aria-hidden />
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="min-w-48">
                           <DropdownMenuItem variant="destructive" className={ITEM} onSelect={() => onRemove(m.uid)}><FiTrash2 className="size-3.5" />Αφαίρεση</DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
-                    </span>
-                  ) : <span />}
+                    )}
+                  </span>
                 </div>
-                {/* Τι παραδίδεται σε αυτό το στάδιο — με αυτό ελέγχεται η παράδοση (περιγραφή + φωτογραφίες). */}
-                <textarea value={m.deliverables ?? ''} onChange={(e) => onSet(m.uid, { deliverables: e.target.value || null })} disabled={readOnly} rows={2}
-                  placeholder="Τι παραδίδεται: π.χ. Πέτρινο δάπεδο σε καθιστικό & τραπεζαρία, αρμολογημένο και καθαρό · πρωτόκολλο παραλαβής με φωτογραφίες"
-                  aria-label={`Παραδοτέα πληρωμής ${i + 1}`}
-                  className="mt-2 w-full resize-y rounded-md border border-input bg-background px-3 py-1.5 text-(length:--fs-12) leading-relaxed outline-hidden focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-70 ml-8 w-[calc(100%-2rem)]" />
+                {/* Τι παραδίδεται σε αυτό το στάδιο — με αυτό ελέγχεται η παράδοση. Κλειστό: μία γραμμή προεπισκόπηση. */}
+                {open ? (
+                  <textarea autoFocus={!readOnly} value={m.deliverables ?? ''} onChange={(e) => onSet(m.uid, { deliverables: e.target.value || null })} disabled={readOnly} rows={2}
+                    placeholder="Τι παραδίδεται: π.χ. Πέτρινο δάπεδο σε καθιστικό & τραπεζαρία, αρμολογημένο και καθαρό · πρωτόκολλο παραλαβής με φωτογραφίες"
+                    aria-label={`Παραδοτέα πληρωμής ${i + 1}`}
+                    className="mt-1.5 ml-8 w-[calc(100%-2rem)] resize-y rounded-md border border-input bg-background px-2.5 py-1.5 text-(length:--fs-12) leading-relaxed outline-hidden focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-70" />
+                ) : m.deliverables ? (
+                  <button type="button" onClick={() => toggleDeliv(m.uid)} title={m.deliverables}
+                    className="mt-0.5 ml-8 block w-[calc(100%-2rem)] cursor-pointer truncate text-left text-(length:--fs-11) text-muted-foreground hover:text-foreground">
+                    {m.deliverables}
+                  </button>
+                ) : null}
               </li>
             );
           })}

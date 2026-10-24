@@ -116,29 +116,29 @@ export function ScheduleSection({ tasks, rooms, start, today, templates, readOnl
               const r = sched.rows.get(t.key)!;
               const open = editing === t.key;
               return (
-                <li key={t.key} className={cn('px-3 py-2', open && 'bg-muted/30')}>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="inline-flex size-6 shrink-0 items-center justify-center rounded-full bg-muted text-(length:--fs-11) font-semibold tabular-nums">{i + 1}</span>
+                <li key={t.key} className={cn('px-2 py-0.5', open && 'bg-muted/30 py-1.5')}>
+                  <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1">
+                    <span className="inline-flex size-5 shrink-0 items-center justify-center rounded-full bg-muted text-(length:--fs-11) font-semibold tabular-nums">{i + 1}</span>
                     <Input value={t.name} onChange={(e) => set(t.key, { name: e.target.value })} disabled={readOnly} placeholder="π.χ. Προετοιμασία υποστρώματος" aria-label={`Όνομα εργασίας ${i + 1}`}
-                      className="h-9 min-w-40 flex-1 text-(length:--fs-12)" />
-                    <span className="flex items-center gap-1">
+                      className="h-8 min-w-40 flex-1 px-2 text-(length:--fs-12) border-transparent bg-transparent shadow-none hover:border-input focus-visible:border-input disabled:opacity-100" />
+                    <span className="flex items-center">
                       <Input inputMode="decimal" value={String(t.durationValue).replace('.', ',')} disabled={readOnly} aria-label="Διάρκεια"
                         onChange={(e) => { const n = Number(e.target.value.replace(',', '.')); if (n > 0) set(t.key, { durationValue: n }); }}
-                        className="h-9 w-14 text-right text-(length:--fs-12) tabular-nums" />
+                        className="h-8 w-11 px-1.5 text-right text-(length:--fs-12) tabular-nums border-transparent bg-transparent shadow-none hover:border-input focus-visible:border-input disabled:opacity-100" />
                       <select value={t.durationUnit} disabled={readOnly} onChange={(e) => set(t.key, { durationUnit: e.target.value as EditorTask['durationUnit'] })} aria-label="Μονάδα διάρκειας"
-                        className="h-9 cursor-pointer rounded-md border border-input bg-transparent px-1.5 text-(length:--fs-12)">
-                        <option value="DAYS">ημέρες</option><option value="HOURS">ώρες</option>
+                        className="h-8 cursor-pointer rounded-md border border-transparent bg-transparent px-1 text-(length:--fs-12) text-muted-foreground hover:border-input focus-visible:border-input">
+                        <option value="DAYS">ημ.</option><option value="HOURS">ώρ.</option>
                       </select>
                     </span>
-                    <span className="w-32 shrink-0 text-(length:--fs-11) tabular-nums text-muted-foreground" title={r.auto ? 'Υπολογίζεται από τις εξαρτήσεις / την έναρξη' : 'Σταθερή ημερομηνία'}>
+                    <span className="shrink-0 whitespace-nowrap text-(length:--fs-11) tabular-nums text-muted-foreground" title={r.auto ? 'Υπολογίζεται από τις εξαρτήσεις / την έναρξη' : 'Σταθερή ημερομηνία'}>
                       {dayEl(r.start)} → {dayEl(r.end)}{r.conflict && <span className="block font-medium text-rose-800">πριν τελειώσουν τα προηγούμενα</span>}
                     </span>
                     {t.photoFileIds.length > 0 && <span className="inline-flex items-center gap-1 text-(length:--fs-11) text-muted-foreground" title="Φωτογραφίες"><FiCamera className="size-3.5" aria-hidden />{t.photoFileIds.length}</span>}
                     {noteFor?.(t)}
-                    <span title={t.customerVisible ? 'Ορατή στον πελάτη' : 'Μόνο για εμάς'} className="text-muted-foreground">{t.customerVisible ? <FiEye className="size-3.5" aria-label="Ορατή στον πελάτη" /> : <FiEyeOff className="size-3.5" aria-label="Μόνο για εμάς" />}</span>
+                    <span title={t.customerVisible ? 'Ορατή στον πελάτη' : 'Μόνο για εμάς'} className="inline-flex size-6 items-center justify-center text-muted-foreground">{t.customerVisible ? <FiEye className="size-3.5" aria-label="Ορατή στον πελάτη" /> : <FiEyeOff className="size-3.5" aria-label="Μόνο για εμάς" />}</span>
                     {!readOnly && (
                       <DropdownMenu>
-                        <DropdownMenuTrigger className="inline-flex size-9 shrink-0 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring" aria-label={`Ενέργειες εργασίας ${i + 1}`}>
+                        <DropdownMenuTrigger className="inline-flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring" aria-label={`Ενέργειες εργασίας ${i + 1}`}>
                           <FiMoreVertical className="size-4" aria-hidden />
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="min-w-56">
