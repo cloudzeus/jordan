@@ -15,6 +15,11 @@ import { contractTone } from '../../_ui/tones';
 import { DocList, MilestoneList } from '../../../_party/ui';
 import { zonedParts } from '@/lib/appointments-core';
 import { AcceptOffer } from './accept-offer';
+import { CustomerNotes, type PortalNote, type PortalTarget } from './customer-notes';
+import { listNotes } from '@/lib/contracts/notes';
+import { getFloorPlan } from '@/lib/floorplan/plans';
+import { planRooms } from '@/lib/floorplan/saved';
+import { schedule } from '@/lib/project-tasks-core';
 
 export const dynamic = 'force-dynamic';
 export const metadata: Metadata = { title: 'Προσφορά / σύμβαση' };
@@ -32,6 +37,30 @@ export default async function CustomerContractPage({ params }: { params: Promise
     siteCompany(),
   ]);
   if (!c) notFound();
+  // Χρονοδιάγραμμα (ορατές εργασίες), χώροι της κάτοψης και σημειώσεις που μοιραζόμαστε με τον πελάτη.
+  const [extra, notes] = await Promise.all([
+    prisma.contract.findUnique({ where: { id: c.id }, select: { floorPlanId: true, startDate: true, tasks: { orderBy: { sortOrder: 'asc' } } } }),
+    listNotes(c.id, { kind: 'CUSTOMER' }),
+  ]);
+  const plan = extra?.floorPlanId ? await getFloorPlan(extra.floorPlanId).catch(() => null) : null;
+  const rooms = plan ? planRooms(plan.data) : [];
+  const allTasks = extra?.tasks ?? [];
+  const startD = extra?.startDate?.toISOString().slice(0, 10) ?? zonedParts(new Date()).date;
+  const sched = schedule(allTasks.map((t) => ({ id: t.id, startDate: t.startDate?.toISOString().slice(0, 10) ?? null, durationValue: t.durationValue, durationUnit: t.durationUnit, dependsOn: t.dependsOn })), startD);
+  const tasks = allTasks.filter((t) => t.customerVisible).map((t) => ({ id: t.id, name: t.name, ...sched.rows.get(t.id)! }));
+  const span = tasks.length ? { from: tasks.reduce((a, t) => (t.start < a ? t.start : a), tasks[0].start), to: tasks.reduce((a, t) => (t.end > a ? t.end : a), tasks[0].end) } : null;
+  const dayN = (d: string) => Date.parse(`${d}T00:00:00Z`) / 864e5;
+  const targets: PortalTarget[] = [
+    { value: 'CONTRACT', label: 'Γενικά για το έργο' },
+    ...rooms.map((r) => ({ value: `ROOM:${r.id}`, label: `Χώρος: ${r.name}` })),
+    ...c.milestones.filter((m) => m.id).map((m) => ({ value: `MILESTONE:${m.id}`, label: `Πληρωμή: ${m.title}` })),
+    ...tasks.map((t) => ({ value: `TASK:${t.id}`, label: `Εργασία: ${t.name}` })),
+  ];
+  const portalNotes: PortalNote[] = notes.map((n) => ({
+    id: n.id, body: n.body, author: n.authorKind === 'CUSTOMER' ? (n.authorName ?? 'Εσείς') : (n.authorName ?? company.name), mine: n.authorKind === 'CUSTOMER',
+    when: new Date(n.createdAt).toLocaleString('el-GR', { timeZone: 'Europe/Athens', dateStyle: 'medium', timeStyle: 'short' }),
+    target: n.targetType === 'CONTRACT' ? null : n.targetLabel, instruction: n.kind === 'INSTRUCTION', photos: n.photoFileIds,
+  }));
   const paid = c.milestones.filter((m) => m.status === 'PAID').reduce((t, m) => t + m.amount, 0);
   const expired = !!c.validUntil && c.validUntil < zonedParts(new Date()).date;
   const acceptBlock = user.viewAs
@@ -99,6 +128,36 @@ export default async function CustomerContractPage({ params }: { params: Promise
               <div className="mt-6"><MilestoneList items={c.milestones.map((m) => ({ ...m, paidAt: null }))} /></div>
             </section>
           )}
+
+          {tasks.length > 0 && span && (
+            <section aria-labelledby="plan">
+              <Label>Χρονοδιάγραμμα</Label>
+              <h2 id="plan" className="font-site mt-2 text-(length:--fs-24) font-light">Πώς θα προχωρήσουμε</h2>
+              <p className="mt-2 text-(length:--fs-14) text-(--s-ink-2)">{date(span.from)} — {date(span.to)}{c.status === 'SENT' || c.status === 'DRAFT' ? ' · ενδεικτικό, οριστικοποιείται με την αποδοχή' : ''}</p>
+              <ol className="mt-6 space-y-3">
+                {tasks.map((t) => {
+                  const total = Math.max(1, dayN(span.to) - dayN(span.from) + 1);
+                  const left = ((dayN(t.start) - dayN(span.from)) / total) * 100;
+                  const width = Math.max(2, ((dayN(t.end) - dayN(t.start) + 1) / total) * 100);
+                  return (
+                    <li key={t.id}>
+                      <p className="flex flex-wrap justify-between gap-2 text-(length:--fs-14)"><span className="text-(--s-ink)">{t.name}</span><span className="tabular-nums text-(--s-mute)">{date(t.start)} – {date(t.end)}</span></p>
+                      <div className="mt-1.5 h-2 bg-(--s-paper)" aria-hidden><div className="h-full bg-(--s-ink)" style={{ marginLeft: `${left}%`, width: `${width}%` }} /></div>
+                    </li>
+                  );
+                })}
+              </ol>
+            </section>
+          )}
+
+          <section aria-labelledby="notes">
+            <Label>Επικοινωνία</Label>
+            <h2 id="notes" className="font-site mt-2 text-(length:--fs-24) font-light">Σημειώσεις & ειδικές οδηγίες</h2>
+            <div className="mt-6">
+              <CustomerNotes id={c.id} notes={portalNotes} targets={targets}
+                disabledReason={user.viewAs ? 'Σε «Προβολή ως» δεν γράφονται σημειώσεις εκ μέρους του πελάτη.' : c.status === 'COMPLETED' || c.status === 'CANCELLED' ? 'Η σύμβαση έχει κλείσει — για νέα θέματα καλέστε μας.' : null} />
+            </div>
+          </section>
 
           <section aria-labelledby="docs">
             <Label>Έγγραφα</Label>

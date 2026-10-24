@@ -16,6 +16,7 @@ import {
 } from './core';
 import { ContractError } from './service';
 import { freezeRevision } from './revisions';
+import { instructionsFor } from './notes';
 import { floorPlanForDocument } from '@/lib/floorplan/plans';
 
 const SUBFOLDER = 'Συμβάσεις';
@@ -93,6 +94,7 @@ export async function generateDocument(contractId: string, partyId: string | nul
     lines: lines.map((l) => ({ kind: l.kind, name: l.name, code: l.code, qty: l.qty, unit: l.unit, notes: l.notes })),
     milestones: milestones.map((m) => ({ title: m.title, deliverables: m.deliverables, dueDate: m.dueDate?.toISOString().slice(0, 10) ?? null, amount: m.amount })),
     total: party ? fee : t.gross, terms: c.terms, customerText: party ? null : c.customerText,
+    instructions: await instructionsFor(c.id, party ? { kind: 'PARTY', partyId: party.id } : { kind: 'CUSTOMER' }),
     guides: guides.map(toPromptGuide),
   }, { userId: user.id, contractId: c.id });
 

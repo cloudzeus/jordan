@@ -43,8 +43,9 @@ function Amount({ value, onValue, label, disabled }: { value: number; onValue: (
   );
 }
 
-function Group({ label, icon, total, ms, presets, readOnly, onAdd, onPlan, onSet, onRemove }: {
+function Group({ label, icon, total, ms, presets, readOnly, onAdd, onPlan, onSet, onRemove, noteFor }: {
   label: string; icon: React.ReactNode; total: number; ms: EditorMilestone[]; presets: PlanPreset[]; readOnly: boolean;
+  noteFor?: (m: EditorMilestone) => React.ReactNode;
   onAdd: () => void; onPlan: (p: PlanPreset) => void; onSet: (uid: string, patch: Partial<EditorMilestone>) => void; onRemove: (uid: string) => void;
 }) {
   const cov = milestoneCoverage(ms.map((m) => m.amount), total);
@@ -108,19 +109,20 @@ function Group({ label, icon, total, ms, presets, readOnly, onAdd, onPlan, onSet
           {ms.map((m, i) => {
             return (
               <li key={m.uid} className="rounded-md bg-muted/30 p-2">
-                <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 sm:grid-cols-[auto_minmax(0,1fr)_9.5rem_8.5rem_3rem_auto]">
+                <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2">
                   <span className="inline-flex size-6 items-center justify-center rounded-full bg-background text-(length:--fs-11) font-semibold tabular-nums ring-1 ring-border">{i + 1}</span>
                   <Input value={m.title} onChange={(e) => onSet(m.uid, { title: e.target.value })} placeholder="π.χ. Παράδοση υλικών" disabled={readOnly}
                     className="h-9 text-(length:--fs-12)" aria-label={`Τίτλος πληρωμής ${i + 1}`} />
-                  {/* Κινητό: ημερομηνία · ποσό · % σε μία σειρά κάτω από τον τίτλο· από sm και πάνω στο ίδιο grid. */}
-                  <div className="col-span-2 col-start-2 grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_2.5rem] items-center gap-2 sm:contents">
+                  {/* Ημερομηνία · ποσό · % σε μία σειρά κάτω από τον τίτλο (ο τίτλος παίρνει όλο το πλάτος). */}
+                  <div className="col-span-2 col-start-2 grid max-w-md grid-cols-[minmax(0,1fr)_minmax(0,1fr)_2.5rem] items-center gap-2">
                     <Input type="date" value={m.dueDate ?? ''} onChange={(e) => onSet(m.uid, { dueDate: e.target.value || null })} disabled={readOnly}
                       className="h-9 text-(length:--fs-12)" aria-label={`Προθεσμία πληρωμής ${i + 1}`} />
                     <Amount value={m.amount} onValue={(n) => onSet(m.uid, { amount: n })} label={`Ποσό πληρωμής ${i + 1}`} disabled={readOnly} />
                     <span className="text-right text-(length:--fs-12) tabular-nums text-muted-foreground">{pct(m.amount, total)}</span>
                   </div>
                   {!readOnly ? (
-                    <span className="col-start-3 row-start-1 sm:col-start-auto sm:row-start-auto">
+                    <span className="col-start-3 row-start-1 flex">
+                      {noteFor?.(m)}
                       <DropdownMenu>
                         <DropdownMenuTrigger className="inline-flex size-9 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring" aria-label={`Ενέργειες πληρωμής ${i + 1}`}>
                           <FiMoreVertical className="size-4" aria-hidden />
@@ -136,7 +138,7 @@ function Group({ label, icon, total, ms, presets, readOnly, onAdd, onPlan, onSet
                 <textarea value={m.deliverables ?? ''} onChange={(e) => onSet(m.uid, { deliverables: e.target.value || null })} disabled={readOnly} rows={2}
                   placeholder="Τι παραδίδεται: π.χ. Πέτρινο δάπεδο σε καθιστικό & τραπεζαρία, αρμολογημένο και καθαρό · πρωτόκολλο παραλαβής με φωτογραφίες"
                   aria-label={`Παραδοτέα πληρωμής ${i + 1}`}
-                  className="mt-2 w-full resize-y rounded-md border border-input bg-background px-3 py-1.5 text-(length:--fs-12) leading-relaxed outline-hidden focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-70 sm:ml-8 sm:w-[calc(100%-2rem)]" />
+                  className="mt-2 w-full resize-y rounded-md border border-input bg-background px-3 py-1.5 text-(length:--fs-12) leading-relaxed outline-hidden focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-70 ml-8 w-[calc(100%-2rem)]" />
               </li>
             );
           })}
@@ -153,7 +155,7 @@ function Group({ label, icon, total, ms, presets, readOnly, onAdd, onPlan, onSet
   );
 }
 
-export function PaymentsSection({ milestones, parties, customerTotal, feeOf, readOnly, onAdd, onPlan, onSet, onRemove }: {
+export function PaymentsSection({ milestones, parties, customerTotal, feeOf, readOnly, onAdd, onPlan, onSet, onRemove, noteFor }: {
   milestones: EditorMilestone[];
   parties: { key: string; name: string }[];
   customerTotal: number;
@@ -163,19 +165,20 @@ export function PaymentsSection({ milestones, parties, customerTotal, feeOf, rea
   onPlan: (partyKey: string | null, total: number, preset: PlanPreset) => void;
   onSet: (uid: string, patch: Partial<EditorMilestone>) => void;
   onRemove: (uid: string) => void;
+  noteFor?: (m: EditorMilestone) => React.ReactNode;
 }) {
   return (
     <div className="space-y-3">
       <Group
         label="Ο πελάτης πληρώνει εμάς" icon={<FiUser />} total={customerTotal} presets={CUSTOMER_PRESETS} readOnly={readOnly}
         ms={milestones.filter((m) => !m.partyKey)}
-        onAdd={() => onAdd(null)} onPlan={(p) => onPlan(null, customerTotal, p)} onSet={onSet} onRemove={onRemove}
+        onAdd={() => onAdd(null)} onPlan={(p) => onPlan(null, customerTotal, p)} onSet={onSet} onRemove={onRemove} noteFor={noteFor}
       />
       {parties.map((p) => (
         <Group
           key={p.key} label={`Εμείς πληρώνουμε: ${p.name}`} icon={<FiUsers />} total={feeOf(p.key)} presets={CREW_PRESETS} readOnly={readOnly}
           ms={milestones.filter((m) => m.partyKey === p.key)}
-          onAdd={() => onAdd(p.key)} onPlan={(pr) => onPlan(p.key, feeOf(p.key), pr)} onSet={onSet} onRemove={onRemove}
+          onAdd={() => onAdd(p.key)} onPlan={(pr) => onPlan(p.key, feeOf(p.key), pr)} onSet={onSet} onRemove={onRemove} noteFor={noteFor}
         />
       ))}
     </div>

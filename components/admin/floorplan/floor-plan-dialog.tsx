@@ -15,7 +15,7 @@ import { useDropzone } from 'react-dropzone';
 import { toast } from 'sonner';
 import {
   FiUploadCloud, FiLoader, FiCheck, FiMove, FiMousePointer, FiEdit3, FiScissors, FiMaximize, FiSquare, FiGrid, FiRotateCcw,
-  FiEye, FiEyeOff, FiTrash2, FiCopy, FiDownload, FiSave, FiRefreshCw, FiHelpCircle, FiChevronLeft, FiChevronRight, FiFileText, FiCamera,
+  FiEye, FiEyeOff, FiTrash2, FiCopy, FiDownload, FiSave, FiRefreshCw, FiHelpCircle, FiChevronLeft, FiChevronRight, FiFileText, FiCamera, FiMapPin,
 } from 'react-icons/fi';
 import { BrickWall, DoorOpen, RectangleHorizontal, Ruler, RulerDimensionLine, Spline } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -35,7 +35,7 @@ import { annotatedPng, download, fmtM, fmtM2, roomsCsv, roomsText, type ExportRo
 import { MaterialChip, OfferStepBody, RoomMaterialEditor, type RoomMaterial } from './offer-panel';
 import { FloorPlanOfferDialog, type OfferRoom, type OfferSubmit } from './offer-dialog';
 import type { RecipeView } from '@/lib/install-recipes';
-import { planData, planRooms, scalePlanData, type PlanData, type PlanRoom } from '@/lib/floorplan/saved';
+import { planData, planPins, planRooms, scalePlanData, type PlanData, type PlanPin, type PlanRoom } from '@/lib/floorplan/saved';
 import { aiResponse, chooseScale, fallbackPolygon, pickCandidate, roomsInPx } from '@/lib/floorplan/ai-core';
 import { Sparkles } from 'lucide-react';
 import type { FloorPlanListRow } from '@/lib/floorplan/plans';
@@ -62,7 +62,7 @@ const DRAWN_RGB = [251, 146, 60]; // = WALL_DRAW
 const nf = new Intl.NumberFormat('el-GR', { maximumFractionDigits: 1 });
 const uid = () => Math.random().toString(36).slice(2, 10);
 
-type ToolGroup = 'Πλοήγηση' | 'Χώροι' | 'Τοίχοι & ανοίγματα' | 'Μετρήσεις';
+type ToolGroup = 'Πλοήγηση' | 'Χώροι' | 'Τοίχοι & ανοίγματα' | 'Μετρήσεις' | 'Σημειώσεις';
 /**
  * Εργαλεία: `hint` = μία γραμμή στη μπάρα κάτω από το σχέδιο όσο είναι ενεργό· `help` = τι κάνει και
  * πότε το χρησιμοποιώ (tooltip και «Οδηγός εργαλείων»).
@@ -118,8 +118,13 @@ const TOOLS: Array<{ key: ViewerTool; label: string; hint: string; help: string;
     hint: 'Δύο κλικ: από–έως. Η διάσταση μένει πάνω στο σχέδιο με το μήκος της. Shift = οριζόντια/κάθετα.',
     help: 'Τοποθετεί μόνιμη διάσταση πάνω στο σχέδιο (μήκος τοίχου, πλάτος πάγκου, άνοιγμα): κλικ στην αρχή, κλικ στο τέλος. Αποθηκεύεται με την κάτοψη και σβήνεται από τη λίστα «Διαστάσεις». Δεν αλλάζει την κλίμακα.',
   },
+  {
+    key: 'pin', label: 'Σημείωση στο σχέδιο', kbd: 'N', icon: <FiMapPin />, group: 'Σημειώσεις',
+    hint: 'Κλικ στο σημείο του σχεδίου· γράψε τη σημείωση αριστερά και πρόσθεσε φωτογραφία.',
+    help: 'Καρφιτσώνει σημείωση σε σημείο του σχεδίου (π.χ. «σπασμένο πλακάκι», «σωλήνας εδώ») με φωτογραφία. Στην προσφορά κάθε σημείωση γίνεται εργασία με ένα κλικ, μαζί με τη φωτογραφία της.',
+  },
 ];
-const TOOL_GROUPS: ToolGroup[] = ['Πλοήγηση', 'Χώροι', 'Τοίχοι & ανοίγματα', 'Μετρήσεις'];
+const TOOL_GROUPS: ToolGroup[] = ['Πλοήγηση', 'Χώροι', 'Τοίχοι & ανοίγματα', 'Μετρήσεις', 'Σημειώσεις'];
 
 /** Κουμπί εργαλείου με αναλυτικό tooltip: όνομα, συντόμευση και τι κάνει. */
 function ToolTip({ tool, side = 'right', children }: { tool: (typeof TOOLS)[number]; side?: 'right' | 'top' | 'bottom'; children: React.ReactNode }) {
@@ -202,7 +207,7 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
   /** projects.manage: υλικό/συνταγή ανά χώρο και «Δημιουργία προσφοράς». */
   canOffer?: boolean;
   /** Από τη φόρμα προσφοράς: αντί για νέα προσφορά, «Μεταφορά στην προσφορά» επιστρέφει τους χώρους. */
-  onApply?: (r: { floorPlanId: string; title: string; rooms: PlanRoom[] }) => void;
+  onApply?: (r: { floorPlanId: string; title: string; rooms: PlanRoom[]; pins: PlanPin[] }) => void;
   /** Χαρτογράφηση που ανοίγει κατευθείαν (η ήδη συνδεδεμένη με την προσφορά). */
   initialPlanId?: string | null;
 }) {
@@ -233,6 +238,10 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
   const [doorCm, setDoorCm] = React.useState(100);
   /** Διαστάσεις «από–έως» πάνω στο σχέδιο. */
   const [dims, setDims] = React.useState<Array<{ id: string; a: Pt; b: Pt }>>([]);
+  /** Σημειώσεις-πινέζες στο σχέδιο (κείμενο + φωτογραφίες) — στην προσφορά γίνονται εργασίες. */
+  const [pins, setPins] = React.useState<Array<{ id: string; x: number; y: number; text: string; photoFileIds: string[] }>>([]);
+  const [pinSel, setPinSel] = React.useState<string | null>(null);
+  const [pinUploading, setPinUploading] = React.useState(false);
   /** Ρυθμίσεις του εργαλείου «Άνοιγμα»: είδος, ύψος και ποδιά (m). */
   const [openingKind, setOpeningKind] = React.useState<OpeningKind>('door');
   const [openingH, setOpeningH] = React.useState(OPENING_PRESETS.door.h);
@@ -269,7 +278,7 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
   // ── Φόρτωση ──────────────────────────────────────────────────────────────────────────
   const reset = () => {
     setWalls(null); setThr(null); setThick(null); setDraft([]); setDividers([]); setCalib(null); setCalibLine(null);
-    setMeters(''); setRooms([]); setSelected(null); setTool('calibrate'); seq.current = 0; setDims([]); setView3d(false);
+    setMeters(''); setRooms([]); setSelected(null); setTool('calibrate'); seq.current = 0; setDims([]); setPins([]); setPinSel(null); setView3d(false);
     setDrawnWalls([]); setAutoWalls(true);
     setSavedId(null); setPlanTitle(''); setCreatedOffer(null); imageSavedFor.current = null;
   };
@@ -326,7 +335,7 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
       reset();
       setFile(null); setPlan(p);
       setAutoWalls(d.autoWalls); setThr(d.thr); setThick(d.thick); setWallCm(d.wallCm); setDoorCm(d.doorCm);
-      setDividers(d.dividers); setDrawnWalls(d.drawnWalls); setCalib(d.calib); setDims(d.dims);
+      setDividers(d.dividers); setDrawnWalls(d.drawnWalls); setCalib(d.calib); setDims(d.dims); setPins(d.pins);
       setRooms(d.rooms.map((r) => ({ ...r, walls: r.walls, material: r.material })));
       seq.current = d.rooms.length;
       setSavedId(id); setPlanTitle(body.plan.title); imageSavedFor.current = p;
@@ -563,6 +572,13 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
       setDraft([]);
       return;
     }
+    if (tool === 'pin') {
+      const id = typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : `${Date.now()}-${uid()}-${uid()}`;
+      setPins((ps) => [...ps, { id, x: p.x, y: p.y, text: '', photoFileIds: [] }]);
+      setPinSel(id);
+      setTimeout(() => document.getElementById(`pin-text-${id}`)?.focus(), 40);
+      return;
+    }
     if (tool === 'measure') {
       if (!draft.length) { setDraft([p]); return; }
       if (Math.hypot(p.x - draft[0].x, p.y - draft[0].y) < 3) return;
@@ -743,7 +759,7 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
   // ── Αποθήκευση χαρτογράφησης ─────────────────────────────────────────────────────────
   const planDataNow = (): PlanData => ({
     v: 1, w, h, pxPerM: plan?.pxPerM ?? null, page: plan?.page ?? 1, calib, autoWalls, thr, thick, wallCm, doorCm,
-    dividers, drawnWalls, dims, render3dFileId: null,
+    dividers, drawnWalls, dims, pins, render3dFileId: null,
     rooms: rooms.map((r) => ({ id: r.id, name: r.name, color: r.color, polygon: r.polygon, areaPx: r.areaPx, perimeterPx: r.perimeterPx, manual: r.manual, walls: r.walls, material: r.material })),
   });
   const canvasPng = (c: HTMLCanvasElement) => new Promise<Blob>((res, rej) => c.toBlob((b) => (b ? res(b) : rej(new Error('PNG export failed'))), 'image/png'));
@@ -782,6 +798,25 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
     }
   };
 
+  /** Φωτογραφία σημείωσης: ανεβαίνει στα αρχεία του έργου/πελάτη (φάκελος «Σημειώσεις») και δένεται με την πινέζα. */
+  const uploadPinPhoto = async (pinId: string, f: File) => {
+    setPinUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append('file', f);
+      fd.append('subfolder', 'Σημειώσεις');
+      fd.append('notes', `Σημείωση κάτοψης · ${projectLabel}`);
+      const r = await fetch(filesUrl, { method: 'POST', body: fd });
+      const d = await r.json().catch(() => null);
+      if (!r.ok) throw new Error(d?.message ?? 'Η φωτογραφία δεν ανέβηκε.');
+      setPins((ps) => ps.map((x) => (x.id === pinId ? { ...x, photoFileIds: [...x.photoFileIds, d.file.id].slice(0, 8) } : x)));
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Η φωτογραφία δεν ανέβηκε.');
+    } finally {
+      setPinUploading(false);
+    }
+  };
+
   /** Αποθήκευση της χαρτογράφησης μαζί με την τρέχουσα εικόνα 3D. */
   const save3d = async () => {
     const id = await savePlan(true);
@@ -803,7 +838,7 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
     if (!onApply || !calib) return;
     const floorPlanId = await savePlan(true);
     if (!floorPlanId) return;
-    onApply({ floorPlanId, title: planTitle.trim() || `Κάτοψη ${projectLabel}`, rooms: planRooms(planDataNow()) });
+    onApply({ floorPlanId, title: planTitle.trim() || `Κάτοψη ${projectLabel}`, rooms: planRooms(planDataNow()), pins: planPins(planDataNow()) });
     toast.success(`Η κάτοψη μπήκε στην προσφορά · ${rooms.length} χώροι.`);
     onOpenChange(false);
   };
@@ -1087,6 +1122,45 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
                     </div>
                   </div>
                 )}
+                {(pins.length > 0 || tool === 'pin') && (
+                  <div className="rounded-lg border border-border bg-background p-2">
+                    <p className="mb-1 text-(length:--fs-11) font-semibold uppercase tracking-wider text-muted-foreground">Σημειώσεις στο σχέδιο ({pins.length})</p>
+                    {pins.length === 0 && <p className="text-(length:--fs-12) text-muted-foreground">Κάνε κλικ σε ένα σημείο του σχεδίου για νέα σημείωση.</p>}
+                    <ul className="space-y-1.5">
+                      {pins.map((p, i) => {
+                        const open = pinSel === p.id;
+                        return (
+                          <li key={p.id} className={cn('rounded-md p-1.5', open && 'bg-muted/60')}>
+                            <div className="flex items-center gap-2">
+                              <button type="button" onClick={() => setPinSel(open ? null : p.id)} className="inline-flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-full bg-rose-600 font-mono text-[11px] font-bold text-white" aria-label={`Σημείωση ${i + 1}`}>{i + 1}</button>
+                              <button type="button" onClick={() => setPinSel(open ? null : p.id)} className="min-w-0 flex-1 cursor-pointer truncate text-left text-(length:--fs-12)">{p.text || <span className="text-muted-foreground">Χωρίς κείμενο</span>}</button>
+                              {p.photoFileIds.length > 0 && <span className="inline-flex items-center gap-0.5 text-(length:--fs-11) text-muted-foreground"><FiCamera className="size-3" aria-hidden />{p.photoFileIds.length}</span>}
+                              <button type="button" aria-label={`Διαγραφή σημείωσης ${i + 1}`} onClick={() => { setPins((ps) => ps.filter((x) => x.id !== p.id)); if (open) setPinSel(null); }} className="inline-flex size-6 cursor-pointer items-center justify-center rounded text-muted-foreground hover:bg-destructive/10 hover:text-destructive"><FiTrash2 className="size-3.5" aria-hidden /></button>
+                            </div>
+                            {open && (
+                              <div className="mt-1.5 space-y-1.5 pl-8">
+                                <textarea id={`pin-text-${p.id}`} value={p.text} rows={2} maxLength={2000} aria-label={`Κείμενο σημείωσης ${i + 1}`}
+                                  onChange={(e) => setPins((ps) => ps.map((x) => (x.id === p.id ? { ...x, text: e.target.value } : x)))}
+                                  placeholder="π.χ. Σπασμένο πλακάκι κάτω από το παράθυρο — αλλαγή πριν την τοποθέτηση"
+                                  className="w-full resize-y rounded-md border border-input bg-background px-2 py-1 text-(length:--fs-12) outline-hidden focus-visible:ring-2 focus-visible:ring-ring" />
+                                <label className="inline-flex min-h-8 cursor-pointer items-center gap-1.5 rounded-md px-2 text-(length:--fs-12) text-muted-foreground hover:bg-muted hover:text-foreground focus-within:ring-2 focus-within:ring-ring">
+                                  {pinUploading ? <FiLoader className="size-3.5 animate-spin" aria-hidden /> : <FiCamera className="size-3.5" aria-hidden />} Φωτογραφία
+                                  <input type="file" accept="image/*" capture="environment" className="sr-only" disabled={pinUploading} onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) void uploadPinPhoto(p.id, f); }} />
+                                </label>
+                                {p.photoFileIds.length > 0 && (
+                                  <ul className="flex flex-wrap gap-1">
+                                    {p.photoFileIds.map((fid, j) => <li key={fid}><img src={`/api/admin/entity-files/file/${fid}`} alt={`Φωτογραφία ${j + 1} της σημείωσης ${i + 1}`} className="size-12 rounded object-cover ring-1 ring-border" /></li>)}
+                                  </ul>
+                                )}
+                              </div>
+                            )}
+                          </li>
+                        );
+                      })}
+                    </ul>
+                    <p className="mt-1 text-(length:--fs-10) text-muted-foreground">Αποθηκεύονται με τη χαρτογράφηση. Στην προσφορά: «→ Εργασία».</p>
+                  </div>
+                )}
                 {dims.length > 0 && (
                   <div className="rounded-lg border border-border bg-background p-2">
                     <div className="mb-1 flex items-center justify-between">
@@ -1299,6 +1373,7 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
                   wallsOverlay={overlay} showWalls={showWalls} wallThicknessPx={wallPx}
                   rooms={viewerRooms} selectedId={selected} dividers={dividers}
                   openings={viewerOpenings} openingKind={openingKind} dimensions={dims}
+                  pins={pins.map((p, i) => ({ id: p.id, x: p.x, y: p.y, n: i + 1, selected: p.id === pinSel, hasPhoto: p.photoFileIds.length > 0 }))}
                   calibration={calibLine ?? (calib && !blankScale ? [calib.a, calib.b] : null)}
                   draft={draft} tool={tool} formatLength={fmtLen}
                   onPick={onPick} onFinish={finish} onEdit={onEdit} fitKey={fitKey}

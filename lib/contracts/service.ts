@@ -3,7 +3,8 @@
 // δημιουργία PRJC ζει στο lib/contracts/softone.ts και θέλει ρητή επιβεβαίωση.
 import 'server-only';
 import { attachFloorPlanToProject, getFloorPlan } from '@/lib/floorplan/plans';
-import { planData, planRooms, withRoomMaterials } from '@/lib/floorplan/saved';
+import { schedule } from '@/lib/project-tasks-core';
+import { planData, planPins, planRooms, withRoomMaterials } from '@/lib/floorplan/saved';
 import { uploadEntityFile } from '@/lib/entity-files/service';
 import { prisma } from '@/lib/db';
 import { createTask, deleteTask, updateTask, TaskError } from '@/lib/project-tasks';
@@ -29,6 +30,7 @@ export async function getContract(id: string) {
       members: true,
       milestones: { orderBy: { sortOrder: 'asc' } },
       documents: { orderBy: { createdAt: 'desc' } },
+      tasks: { orderBy: { sortOrder: 'asc' } },
     },
   });
   if (!c) return null;
@@ -44,7 +46,7 @@ export async function getContract(id: string) {
   return {
     id: c.id, number: c.number, ref: contractRef(c.number), title: c.title, summary: c.summary, kind: c.kind, stage: c.stage, status: c.status,
     floorPlanId: c.floorPlanId, revision: c.revision,
-    floorPlan: plan ? { id: plan.id, title: plan.title, source: plan.source, hasImage: !!plan.annotatedFileId, rooms: planRooms(plan.data) } : null,
+    floorPlan: plan ? { id: plan.id, title: plan.title, source: plan.source, hasImage: !!plan.annotatedFileId, rooms: planRooms(plan.data), pins: planPins(plan.data) } : null,
     customerText: c.customerText,
     trdr: c.trdr, customer: trader ? { code: trader.code, name: trader.name, email: trader.email, phone: trader.phone, afm: trader.afm } : null,
     customerName: c.customerName, customerEmail: c.customerEmail, customerPhone: c.customerPhone,
@@ -70,6 +72,11 @@ export async function getContract(id: string) {
       id: m.id, partyKey: m.partyId, title: m.title, deliverables: m.deliverables, dueDate: ds(m.dueDate), amount: m.amount,
       status: m.status as 'PENDING' | 'DONE' | 'PAID', taskId: m.taskId,
       doneAt: m.doneAt?.toISOString() ?? null, paidAt: m.paidAt?.toISOString() ?? null, deliveryNote: m.deliveryNote, proofFileIds: m.proofFileIds,
+    })),
+    tasks: c.tasks.map((t) => ({
+      key: t.id, name: t.name, description: t.description, durationValue: t.durationValue, durationUnit: t.durationUnit as 'DAYS' | 'HOURS',
+      startDate: ds(t.startDate), dependsOn: t.dependsOn, roomId: t.roomId, customerVisible: t.customerVisible, photoFileIds: t.photoFileIds,
+      projectTaskId: t.projectTaskId,
     })),
     documents: c.documents.map((x) => ({
       id: x.id, audience: x.audience as 'CUSTOMER' | 'PARTY', partyId: x.partyId, stage: x.stage, version: x.version, revision: x.revision, model: x.model,
@@ -161,7 +168,7 @@ export async function updateContract(id: string, raw: ContractInput, userId: str
   await saveChildren(id, input);
   await saveRoomMaterials(saved.floorPlanId, input);
   if (cur.prjc && input.site) await saveProjectSite(cur.prjc, input.site, userId).catch((e) => console.error('[contracts] site', e));
-  if (cur.status === 'ACTIVE') await syncMilestoneTasks(id, userId);
+  if (cur.status === 'ACTIVE') { await syncMilestoneTasks(id, userId); await syncPlanTasks(id, userId); }
 }
 
 /** Συνεργεία/milestones κρατούν id (σε αυτά δείχνουν έγγραφα και tasks)· γραμμές & μέλη ξαναγράφονται. */
@@ -217,6 +224,35 @@ async function saveChildren(id: string, input: ContractInput) {
     if (members.length) await tx.contractMember.createMany({ data: members.map((userId) => ({ contractId: id, userId })) });
     await tx.contract.update({ where: { id }, data: { updatedAt: new Date() } });
   });
+  if (input.tasks) await savePlanTasks(id, input.tasks);
+}
+
+/**
+ * Χρονοδιάγραμμα: οι εργασίες κρατούν id (σε αυτά δείχνουν σημειώσεις και εργασίες έργου). Πρώτα
+ * εγγραφές, μετά οι εξαρτήσεις με τα πραγματικά id (οι νέες έχουν προσωρινά keys στη φόρμα).
+ */
+async function savePlanTasks(id: string, tasks: NonNullable<ContractInput['tasks']>) {
+  const existing = await prisma.contractTask.findMany({ where: { contractId: id }, select: { id: true } });
+  const ids = new Set(existing.map((t) => t.id));
+  const keyToId = new Map<string, string>();
+  for (const [i, t] of tasks.entries()) {
+    const data = {
+      name: t.name, description: t.description, durationValue: t.durationValue, durationUnit: t.durationUnit, startDate: d(t.startDate),
+      roomId: t.roomId, customerVisible: t.customerVisible, photoFileIds: t.photoFileIds, sortOrder: i,
+    };
+    if (ids.has(t.key)) { await prisma.contractTask.update({ where: { id: t.key }, data }); keyToId.set(t.key, t.key); }
+    else {
+      // Νέα εργασία: κρατά το key της φόρμας ως id (uuid) — ώστε σημειώσεις που δείχνουν σε αυτή να μένουν σωστές.
+      const free = /^[\w-]{16,64}$/.test(t.key) && !(await prisma.contractTask.findUnique({ where: { id: t.key }, select: { id: true } }));
+      keyToId.set(t.key, (await prisma.contractTask.create({ data: { ...data, contractId: id, ...(free ? { id: t.key } : {}) } })).id);
+    }
+  }
+  const keep = new Set(keyToId.values());
+  await prisma.contractTask.deleteMany({ where: { contractId: id, id: { notIn: [...keep] } } });
+  for (const t of tasks) {
+    const deps = [...new Set(t.dependsOn.map((k) => keyToId.get(k)).filter((x): x is string => !!x && x !== keyToId.get(t.key)))];
+    await prisma.contractTask.update({ where: { id: keyToId.get(t.key)! }, data: { dependsOn: deps } });
+  }
 }
 
 export async function deleteContract(id: string) {
@@ -248,7 +284,7 @@ export async function transition(id: string, action: ContractAction, userId: str
       ...(action === 'reopen' ? { completedAt: null } : {}),
     },
   });
-  if (action === 'activate') await syncMilestoneTasks(id, userId);
+  if (action === 'activate') { await syncMilestoneTasks(id, userId); await syncPlanTasks(id, userId); }
   if (action === 'cancel') await dropMilestoneTasks(id, c.milestones.map((m) => m.taskId).filter((x): x is string => !!x));
 }
 
@@ -339,6 +375,35 @@ export async function syncMilestoneTasks(id: string, userId: string) {
     }
     const t = await createTask(c.prjc, input, userId);
     await prisma.contractMilestone.update({ where: { id: m.id }, data: { taskId: t.id } });
+  }
+}
+
+/**
+ * Χρονοδιάγραμμα της προσφοράς → εργασίες του έργου (μία φορά ανά εργασία): οι ημερομηνίες βγαίνουν από
+ * το Gantt (έναρξη σύμβασης + εξαρτήσεις), οι εξαρτήσεις μεταφέρονται, οι φωτογραφίες συνδέονται.
+ */
+export async function syncPlanTasks(id: string, userId: string) {
+  const c = await prisma.contract.findUnique({ where: { id }, include: { tasks: { orderBy: { sortOrder: 'asc' } } } });
+  if (!c?.prjc || !c.tasks.length) return;
+  const start = ds(c.startDate) ?? new Date().toISOString().slice(0, 10);
+  const sched = schedule(c.tasks.map((t) => ({ id: t.id, startDate: ds(t.startDate), durationValue: t.durationValue, durationUnit: t.durationUnit, dependsOn: t.dependsOn })), start);
+  const projectId = new Map(c.tasks.filter((t) => t.projectTaskId).map((t) => [t.id, t.projectTaskId!]));
+  const ref = contractRef(c.number);
+  for (const tid of sched.order) {
+    const t = c.tasks.find((x) => x.id === tid)!;
+    if (t.projectTaskId) continue;
+    const deps = t.dependsOn.map((d) => projectId.get(d)).filter((x): x is string => !!x);
+    const row = sched.rows.get(t.id)!;
+    const created = await createTask(c.prjc, {
+      name: t.name.slice(0, 200), description: [t.description, `Σύμβαση ${ref} · ${c.title}`].filter(Boolean).join('\n'),
+      // Με εξαρτήσεις χωρίς δική της ημερομηνία ακολουθεί τα προαπαιτούμενα (αν καθυστερήσουν, μετακινείται).
+      startDate: t.startDate || !deps.length ? row.start : null,
+      durationValue: t.durationValue, durationUnit: t.durationUnit === 'HOURS' ? 'HOURS' : 'DAYS', progress: 0,
+      customerVisible: t.customerVisible, inCalendar: false, dependsOn: deps, parties: [],
+    }, userId);
+    projectId.set(t.id, created.id);
+    await prisma.contractTask.update({ where: { id: t.id }, data: { projectTaskId: created.id } });
+    if (t.photoFileIds.length) await prisma.projectTaskFile.createMany({ data: t.photoFileIds.map((fileId) => ({ taskId: created.id, fileId })), skipDuplicates: true });
   }
 }
 

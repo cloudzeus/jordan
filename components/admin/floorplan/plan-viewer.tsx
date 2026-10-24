@@ -16,7 +16,7 @@ import { LineMaterial } from 'three/examples/jsm/lines/LineMaterial.js';
 import type { Pt } from '@/lib/floorplan/core';
 
 export type ViewerRoom = { id: string; color: string; polygon: Pt[]; label: string; sub: string; anchor: Pt };
-export type ViewerTool = 'room' | 'rect' | 'polygon' | 'wall' | 'divider' | 'opening' | 'calibrate' | 'measure' | 'pan' | 'edit';
+export type ViewerTool = 'room' | 'rect' | 'polygon' | 'wall' | 'divider' | 'opening' | 'calibrate' | 'measure' | 'pin' | 'pan' | 'edit';
 /** Άνοιγμα (πόρτα/παράθυρο) πάνω σε τοίχο χώρου, όπως σχεδιάστηκε. */
 export type ViewerOpening = { id: string; kind: 'door' | 'window' | 'other'; a: Pt; b: Pt; selected?: boolean };
 export const OPENING_COLOR = { door: '#F59E0B', window: '#38BDF8', other: '#A78BFA' } as const;
@@ -39,6 +39,8 @@ export type PlanViewerProps = {
   calibration: [Pt, Pt] | null;
   /** Ανοίγματα που σχεδιάστηκαν πάνω στους τοίχους των χώρων. */
   openings?: ViewerOpening[];
+  /** Σημειώσεις-πινέζες πάνω στο σχέδιο (αριθμημένες). */
+  pins?: Array<{ id: string; x: number; y: number; n: number; selected: boolean; hasPhoto: boolean }>;
   /** Διαστάσεις «από–έως» (μόνιμες, με ετικέτα μήκους). */
   dimensions?: Array<{ id: string; a: Pt; b: Pt }>;
   /** Είδος ανοίγματος που σχεδιάζεται τώρα (χρώμα του «λάστιχου»). */
@@ -90,7 +92,7 @@ function inside(p: Pt, pts: Pt[]) {
 }
 
 export function PlanViewer(props: PlanViewerProps) {
-  const { image, w, h, wallsOverlay, showWalls, rooms, selectedId, dividers, calibration, openings, dimensions, draft, tool, fitKey, formatLength } = props;
+  const { image, w, h, wallsOverlay, showWalls, rooms, selectedId, dividers, calibration, openings, dimensions, pins, draft, tool, fitKey, formatLength } = props;
   const host = React.useRef<HTMLDivElement | null>(null);
   const labelsEl = React.useRef<HTMLDivElement | null>(null);
   const tipEl = React.useRef<HTMLDivElement | null>(null);
@@ -537,6 +539,16 @@ export function PlanViewer(props: PlanViewerProps) {
           >
             <div className="text-[11px] font-medium leading-tight opacity-80">{r.label}</div>
             <div className="font-mono text-[13px] font-semibold leading-tight tabular-nums">{r.sub}</div>
+          </div>
+        ))}
+        {(pins ?? []).map((p) => (
+          <div
+            key={p.id} data-x={p.x} data-y={p.y}
+            className="absolute left-0 top-0 inline-flex size-7 items-center justify-center rounded-full border-2 font-mono text-[12px] font-bold shadow-lg"
+            style={{ background: p.selected ? '#F43F5E' : '#E11D48', borderColor: p.selected ? '#FFFFFF' : '#FECDD3', color: '#FFFFFF' }}
+            title={p.hasPhoto ? 'Σημείωση με φωτογραφία' : 'Σημείωση'}
+          >
+            {p.n}
           </div>
         ))}
         {(dimensions ?? []).map((d) => (

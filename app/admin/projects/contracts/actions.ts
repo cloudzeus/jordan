@@ -12,6 +12,7 @@ import { contractInput, DocParseError, type ContractAction } from '@/lib/contrac
 import { ContractError, deleteContract, createContract, deliverMilestone, getContract, itemDefaults, linkProject, setMilestoneStatus, transition, updateContract, type ContractView } from '@/lib/contracts/service';
 import { duplicateContract, freezeRevision, getRevision, listRevisions, restoreRevision, type RevisionDetail, type RevisionRow } from '@/lib/contracts/revisions';
 import { EntityFileError } from '@/lib/entity-files/core';
+import { addNote, deleteNote, linkNoteTask, listNotes, noteInput, updateNote, type NoteView } from '@/lib/contracts/notes';
 import { prisma } from '@/lib/db';
 import { copyDocsToProject, sendDocument } from '@/lib/contracts/documents';
 import { composeCustomerText } from '@/lib/contracts/ai';
@@ -184,6 +185,49 @@ export async function deliverMilestoneAction(id: string, mid: string, form: Form
     if (e instanceof EntityFileError) return fail(e.message);
     return caught(e);
   }
+}
+
+/* ───────────── Σημειώσεις / ειδικές οδηγίες ───────────── */
+
+export async function listNotesAction(id: string): Promise<ActionResult<NoteView[]>> {
+  const a = await actor('projects.read');
+  if ('error' in a) return a.error;
+  try { return done(await listNotes(id, { kind: 'STAFF' })); } catch (e) { return caught(e); }
+}
+
+/** FormData: `data` (JSON του noteInput) + φωτογραφίες `photos`. */
+export async function addNoteAction(id: string, form: FormData): Promise<ActionResult<{ id: string }>> {
+  const a = await actor('projects.manage');
+  if ('error' in a) return a.error;
+  const v = parse(noteInput, JSON.parse(String(form.get('data') ?? '{}')));
+  if ('error' in v) return v.error;
+  const photos = form.getAll('photos').filter((f): f is File => f instanceof File && f.size > 0);
+  try {
+    const n = await addNote(id, v.data, photos, { kind: 'STAFF', id: a.user.id, name: a.user.name ?? null, email: a.user.email });
+    refresh(id);
+    return done({ id: n.id });
+  } catch (e) {
+    if (e instanceof EntityFileError) return fail(e.message);
+    return caught(e);
+  }
+}
+
+export async function updateNoteAction(id: string, noteId: string, patch: { shareWith?: string[]; resolved?: boolean; kind?: 'NOTE' | 'INSTRUCTION' }): Promise<ActionResult> {
+  const a = await actor('projects.manage');
+  if ('error' in a) return a.error;
+  try { await updateNote(id, noteId, patch); refresh(id); return doneEmpty(); } catch (e) { return caught(e); }
+}
+
+export async function deleteNoteAction(id: string, noteId: string): Promise<ActionResult> {
+  const a = await actor('projects.manage');
+  if ('error' in a) return a.error;
+  try { await deleteNote(id, noteId); refresh(id); return doneEmpty(); } catch (e) { return caught(e); }
+}
+
+export async function linkNoteTaskAction(id: string, noteId: string, taskKey: string | null): Promise<ActionResult> {
+  const a = await actor('projects.manage');
+  if ('error' in a) return a.error;
+  try { await linkNoteTask(id, noteId, taskKey); return doneEmpty(); } catch (e) { return caught(e); }
 }
 
 /* ───────────── Εκδόσεις προσφοράς ───────────── */

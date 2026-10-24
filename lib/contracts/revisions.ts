@@ -19,6 +19,7 @@ export function viewToInput(c: ContractView): ContractInput {
     lines: c.lines.map(({ id: _id, ...l }) => l),
     parties: c.parties, members: c.members.map((m) => m.id),
     milestones: c.milestones.map((m) => ({ id: m.id, partyKey: m.partyKey, title: m.title, deliverables: m.deliverables, dueDate: m.dueDate, amount: m.amount, status: m.status })),
+    tasks: c.tasks.map(({ projectTaskId: _p, ...t }) => t),
   });
 }
 
@@ -77,6 +78,7 @@ export async function duplicateContract(id: string, revision: number | null, use
   }
   // Τα συνεργεία/milestones παίρνουν νέα κλειδιά — καμία σύνδεση με τις εγγραφές της αρχικής.
   const keyMap = new Map(input.parties.map((p, i) => [p.key, `copy-${i}-${p.key}`]));
+  const taskKey = new Map((input.tasks ?? []).map((t, i) => [t.key, `copy-${i}-${t.key}`]));
   return createContract({
     ...input,
     title: `${input.title} — αντίγραφο`.slice(0, 200),
@@ -84,5 +86,6 @@ export async function duplicateContract(id: string, revision: number | null, use
     parties: input.parties.map((p) => ({ ...p, key: keyMap.get(p.key)! })),
     lines: input.lines.map((l) => ({ ...l, partyKey: l.partyKey ? keyMap.get(l.partyKey) ?? null : null })),
     milestones: input.milestones.map((m) => ({ ...m, id: null, status: 'PENDING', partyKey: m.partyKey ? keyMap.get(m.partyKey) ?? null : null })),
+    tasks: input.tasks?.map((t) => ({ ...t, key: taskKey.get(t.key)!, dependsOn: t.dependsOn.map((k) => taskKey.get(k)).filter((x): x is string => !!x) })),
   }, userId);
 }

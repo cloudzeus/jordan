@@ -25,7 +25,7 @@ import {
 } from '@/lib/contracts/core';
 import { roomLines, roomNet } from '@/lib/contracts/room-lines';
 import type { FloorPlanItem } from '@/lib/floorplan/offer-core';
-import type { PlanRoom } from '@/lib/floorplan/saved';
+import type { PlanPin, PlanRoom } from '@/lib/floorplan/saved';
 import { siteLine } from '@/lib/project-site-core';
 import type { ContractView } from '@/lib/contracts/service';
 import type { OfferLine, OfferLineMode } from '@/lib/install-recipes-core';
@@ -38,6 +38,9 @@ import { CrewPicker, CustomerPicker, MicButton, type CrewOpt } from './editor/pi
 import { RoomsSection } from './editor/rooms-section';
 import { PaymentsSection, type EditorMilestone, type PlanPreset } from './editor/payments-section';
 import { StockBadge, StockCard, useStock } from './editor/stock';
+import { ScheduleSection, type EditorTask, type TemplateOption } from './editor/schedule-section';
+import { NoteButton, NotesProvider, NoteThread } from './editor/notes';
+import type { NoteView } from '@/lib/contracts/notes';
 
 // ── Τύποι κατάστασης φόρμας (ίδιο σχήμα με το contractInput του server) ─────────────────────────
 type Line = { uid: string; kind: 'MATERIAL' | 'SERVICE'; mtrl: number | null; code: string | null; name: string; unit: string | null; qty: number; unitPrice: number; discount: number; notes: string | null; partyKey: string | null; crewFee: number | null; roomId: string | null };
@@ -47,14 +50,15 @@ type State = {
   title: string; summary: string; customerText: string | null; kind: ContractKind; trdr: number | null; customerName: string | null; customerEmail: string | null; customerPhone: string | null;
   site: ProjectSiteValue | null; startDate: string | null; endDate: string | null; validUntil: string | null; vatRate: number; terms: string | null;
   lines: Line[]; parties: Party[]; members: string[]; milestones: EditorMilestone[];
-  floorPlanId: string | null; floorPlanTitle: string | null; rooms: PlanRoom[];
+  floorPlanId: string | null; floorPlanTitle: string | null; rooms: PlanRoom[]; pins: PlanPin[];
+  tasks: EditorTask[];
 };
 
 const uid = () => (typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`);
 const blank = (): State => ({
   title: '', summary: '', customerText: null, kind: 'PRODUCT_INSTALL', trdr: null, customerName: null, customerEmail: null, customerPhone: null,
   site: null, startDate: null, endDate: null, validUntil: null, vatRate: 24, terms: null, lines: [], parties: [], members: [], milestones: [],
-  floorPlanId: null, floorPlanTitle: null, rooms: [],
+  floorPlanId: null, floorPlanTitle: null, rooms: [], pins: [], tasks: [],
 });
 function fromView(c: ContractView): State {
   return {
@@ -62,14 +66,16 @@ function fromView(c: ContractView): State {
     site: c.site, startDate: c.startDate, endDate: c.endDate, validUntil: c.validUntil, vatRate: c.vatRate, terms: c.terms,
     lines: c.lines.map((l) => ({ ...l, uid: l.id })), parties: c.parties, members: c.members.map((m) => m.id),
     milestones: c.milestones.map((m) => ({ ...m, uid: m.id })),
-    floorPlanId: c.floorPlanId, floorPlanTitle: c.floorPlan?.title ?? null, rooms: c.floorPlan?.rooms ?? [],
+    floorPlanId: c.floorPlanId, floorPlanTitle: c.floorPlan?.title ?? null, rooms: c.floorPlan?.rooms ?? [], pins: c.floorPlan?.pins ?? [],
+    tasks: c.tasks,
   };
 }
-const toPayload = ({ floorPlanTitle: _t, rooms, ...s }: State) => ({
+const toPayload = ({ floorPlanTitle: _t, pins: _pins, rooms, ...s }: State) => ({
   ...s,
   roomMaterials: s.floorPlanId ? rooms.map((r) => ({ roomId: r.id, material: r.material })) : undefined,
   lines: s.lines.map(({ uid: _u, ...l }) => l),
   milestones: s.milestones.map(({ uid: _u, ...m }) => m),
+  tasks: s.tasks.map(({ projectTaskId: _p, ...t }) => t),
 });
 
 const ITEM = 'cursor-pointer gap-2 text-(length:--fs-12)';
@@ -137,8 +143,14 @@ function RowMenu({ label, children }: { label: string; children: React.ReactNode
 }
 
 // ── Editor ───────────────────────────────────────────────────────────────────────────────────────
-export function ContractEditor({ initial, staff, readOnly = false, customer = null }: {
+export function ContractEditor({ initial, staff, readOnly = false, customer = null, templates = [], today, notes = [] }: {
   initial: ContractView | null; staff: Staff[]; readOnly?: boolean;
+  /** Templates εργασιών για το χρονοδιάγραμμα. */
+  templates?: TemplateOption[];
+  /** Σημερινή ημερομηνία (Αθήνα) από τον server. */
+  today: string;
+  /** Σημειώσεις / ειδικές οδηγίες της προσφοράς (όλες — βλέπουμε πάντα όλες). */
+  notes?: NoteView[];
   /** Νέα προσφορά από το μενού του πελάτη: ο πελάτης ήδη επιλεγμένος. */
   customer?: { trdr: number; name: string; email: string | null; phone: string | null } | null;
 }) {
@@ -236,12 +248,12 @@ export function ContractEditor({ initial, staff, readOnly = false, customer = nu
     void recalcRooms(rooms, ids);
     toast.success(`Το ίδιο υλικό σε ${ids.size} χώρ${ids.size === 1 ? 'ο' : 'ους'}`);
   };
-  const applyPlan = (r: { floorPlanId: string; title: string; rooms: PlanRoom[] }) => {
-    up((p) => ({ floorPlanId: r.floorPlanId, floorPlanTitle: r.title, rooms: r.rooms, lines: p.lines.filter((l) => !l.roomId || r.rooms.some((x) => x.id === l.roomId)) }));
+  const applyPlan = (r: { floorPlanId: string; title: string; rooms: PlanRoom[]; pins: PlanPin[] }) => {
+    up((p) => ({ floorPlanId: r.floorPlanId, floorPlanTitle: r.title, rooms: r.rooms, pins: r.pins, lines: p.lines.filter((l) => !l.roomId || r.rooms.some((x) => x.id === l.roomId)) }));
     void recalcRooms(r.rooms, null);
   };
   const unlinkPlan = () => {
-    up((p) => ({ floorPlanId: null, floorPlanTitle: null, rooms: [], lines: p.lines.map((l) => ({ ...l, roomId: null })) }));
+    up((p) => ({ floorPlanId: null, floorPlanTitle: null, rooms: [], pins: [], lines: p.lines.map((l) => ({ ...l, roomId: null })) }));
     toast.message('Η κάτοψη αποσυνδέθηκε — οι γραμμές των χώρων έμειναν ως απλές γραμμές.');
   };
 
@@ -327,6 +339,7 @@ export function ContractEditor({ initial, staff, readOnly = false, customer = nu
     { id: 'c-lines', label: 'Υλικά & εργασίες', done: s.lines.length > 0 },
     { id: 'c-text', label: 'Περιγραφή για τον πελάτη', done: !!(s.customerText?.trim() || s.summary.trim()) },
     { id: 'c-pay', label: 'Πληρωμές', done: s.milestones.some((m) => !m.partyKey) && customerMs.ok },
+    { id: 'c-plan', label: 'Χρονοδιάγραμμα', done: s.tasks.length > 0, optional: true },
     ...(crews ? [{ id: 'c-crews', label: 'Συνεργεία', done: s.parties.length > 0, optional: true }] : []),
   ];
   const stepNo = (id: string) => steps.findIndex((x) => x.id === id) + 1;
@@ -404,6 +417,30 @@ export function ContractEditor({ initial, staff, readOnly = false, customer = nu
     );
   };
 
+  // ── Σημειώσεις: πάροχος για τα κουμπιά δίπλα σε κάθε σημείο ──
+  const savedTasks = new Set((initial?.tasks ?? []).map((t) => t.key));
+  const notesCtx = {
+    contractId: initial?.id ?? null,
+    notes,
+    // Μόνο συνεργεία που έχουν αποθηκευτεί (έχουν id) — αλλιώς η κοινοποίηση δεν θα έδειχνε πουθενά.
+    parties: s.parties.filter((p) => !p.key.startsWith('new-')).map((p) => ({ key: p.key, name: p.name })),
+    taskKeys: new Set(s.tasks.map((t) => t.key)),
+    readOnly: ro,
+    // Σημείωση → εργασία: μπαίνει στο χρονοδιάγραμμα με τις φωτογραφίες της (αποθηκεύεται με την προσφορά).
+    onToTask: (n: NoteView) => {
+      const first = n.body.split('\n')[0].trim();
+      const t: EditorTask = {
+        key: uid(), name: (first.length > 90 ? `${first.slice(0, 87)}…` : first) || 'Εργασία από σημείωση', description: n.body,
+        durationValue: 1, durationUnit: 'DAYS', startDate: null,
+        dependsOn: n.targetType === 'TASK' && n.targetId ? [n.targetId] : [], roomId: n.targetType === 'ROOM' ? n.targetId : null,
+        customerVisible: n.shareWith.includes('CUSTOMER'), photoFileIds: n.photoFileIds,
+      };
+      up((p) => ({ tasks: [...p.tasks, t] }));
+      return t.key;
+    },
+  };
+  const noteBtn = (type: 'ROOM' | 'MILESTONE' | 'TASK', id: string | null, label: string) => (id ? <NoteButton target={{ type, id, label }} /> : null);
+
   const totalsCard = (
     <section aria-labelledby="c-total-h" className="rounded-xl border border-border bg-card p-4 shadow-xs">
       <h2 id="c-total-h" className="text-(length:--fs-12) font-medium text-muted-foreground">Σύνολο προσφοράς</h2>
@@ -425,6 +462,7 @@ export function ContractEditor({ initial, staff, readOnly = false, customer = nu
   );
 
   return (
+    <NotesProvider value={notesCtx}>
     <div className="items-start gap-5 lg:grid lg:grid-cols-[minmax(0,1fr)_17.5rem]">
       <div className="min-w-0 space-y-4">
         {/* ── 1. Έργο & πελάτης ── */}
@@ -492,6 +530,17 @@ export function ContractEditor({ initial, staff, readOnly = false, customer = nu
             rooms={s.rooms} costOf={(id) => roomNet(s.lines, id)} recipes={recipes} recipesError={recipesError}
             markupPct={markupPct} mode={lineMode} readOnly={ro}
             onApplyPlan={applyPlan} onMaterial={setRoomMaterial} onApplyToEmpty={applyToEmpty}
+            extra={(r) => noteBtn('ROOM', r.id, `Χώρος: ${r.name}`)}
+            pins={s.pins} pinIsTask={(id) => s.tasks.some((t) => t.key === `pin-${id}`)}
+            onPinToTask={(p) => {
+              // Σταθερό key «pin-<id>»: η ίδια σημείωση δεν γίνεται δεύτερη εργασία.
+              const first = p.text.split('\n')[0].trim();
+              up((st) => ({ tasks: [...st.tasks, {
+                key: `pin-${p.id}`, name: first.length > 90 ? `${first.slice(0, 87)}…` : first, description: p.roomName ? `${p.text}\n(Χώρος: ${p.roomName})` : p.text,
+                durationValue: 1, durationUnit: 'DAYS', startDate: null, dependsOn: [], roomId: p.roomId, customerVisible: false, photoFileIds: p.photoFileIds,
+              }] }));
+              toast.success('Η σημείωση μπήκε στο χρονοδιάγραμμα ως εργασία — πατήστε «Αποθήκευση»');
+            }}
             onMarkup={setMarkupPct} onMode={setLineMode} onUnlink={unlinkPlan}
             onRecalc={() => {
               // Από την αρχή: φρέσκιες συνταγές και τιμές ειδών (αλλαγές στις συνταγές περνούν στην προσφορά).
@@ -601,13 +650,41 @@ export function ContractEditor({ initial, staff, readOnly = false, customer = nu
           </div>
         </Section>
 
+        {/* ── Σημειώσεις & ειδικές οδηγίες (γενικές) ── */}
+        <Section id="c-notes" n={null} title="Σημειώσεις & ειδικές οδηγίες"
+          hint={`Γενικές για το έργο — για συγκεκριμένο χώρο, πληρωμή ή εργασία πατήστε το εικονίδιο δίπλα του.${notes.length ? ` Σύνολο: ${notes.length} (${notes.filter((n) => n.authorKind === 'CUSTOMER').length} από τον πελάτη).` : ''}`}>
+          <NoteThread target={{ type: 'CONTRACT', id: null, label: 'Γενικά' }} />
+          {notes.some((n) => n.targetType !== 'CONTRACT') && (
+            <details className="mt-3 rounded-lg border border-border">
+              <summary className="cursor-pointer px-3 py-2 text-(length:--fs-12) font-medium">Όλες οι σημειώσεις σε σημεία ({notes.filter((n) => n.targetType !== 'CONTRACT').length})</summary>
+              <ul className="divide-y divide-border border-t border-border">
+                {notes.filter((n) => n.targetType !== 'CONTRACT').map((n) => (
+                  <li key={n.id} className="px-3 py-2 text-(length:--fs-12)">
+                    <span className="font-medium">{n.targetLabel ?? n.targetType}</span>
+                    <span className="text-muted-foreground"> · {n.authorKind === 'CUSTOMER' ? 'Πελάτης' : n.authorName ?? 'Εμείς'}{n.kind === 'INSTRUCTION' ? ' · ειδική οδηγία' : ''}{n.resolved ? ' · επιλύθηκε' : ''}</span>
+                    <p className="mt-0.5 line-clamp-2 whitespace-pre-wrap">{n.body}</p>
+                  </li>
+                ))}
+              </ul>
+            </details>
+          )}
+        </Section>
+
         {/* ── 5. Πληρωμές ── */}
         <Section id="c-pay" n={stepNo('c-pay')} done={stepDone('c-pay')} title="Πληρωμές"
           hint="Πότε και πόσα πληρώνει ο πελάτης (και εμείς τα συνεργεία) — με την ενεργοποίηση γίνονται εργασίες στο ημερολόγιο">
           <PaymentsSection
             milestones={s.milestones} parties={crews ? s.parties : []} customerTotal={t.gross} feeOf={feeOf} readOnly={ro}
             onAdd={addMilestone} onPlan={splitPlan} onSet={setMs} onRemove={(u) => up((p) => ({ milestones: p.milestones.filter((x) => x.uid !== u) }))}
+            noteFor={(m) => noteBtn('MILESTONE', m.id, `Πληρωμή: ${m.title || '—'}`)}
           />
+        </Section>
+
+        {/* ── Χρονοδιάγραμμα (Gantt) ── */}
+        <Section id="c-plan" n={stepNo('c-plan')} done={stepDone('c-plan')} optional title="Χρονοδιάγραμμα εργασιών"
+          hint="Τι γίνεται και πότε — ήδη από την προσφορά. Με την ενεργοποίηση γίνονται εργασίες του έργου (Kanban & Gantt)">
+          <ScheduleSection tasks={s.tasks} rooms={s.rooms} start={s.startDate} today={today} templates={templates} readOnly={ro} onChange={(tasks) => up({ tasks })}
+            noteFor={(t) => noteBtn('TASK', savedTasks.has(t.key) ? t.key : null, `Εργασία: ${t.name || '—'}`)} />
         </Section>
 
         {/* ── 6. Συνεργεία ── */}
@@ -727,5 +804,6 @@ export function ContractEditor({ initial, staff, readOnly = false, customer = nu
         )}
       </aside>
     </div>
+    </NotesProvider>
   );
 }

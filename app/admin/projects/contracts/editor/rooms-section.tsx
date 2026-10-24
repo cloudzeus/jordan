@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { MaterialChip, RoomMaterialEditor, type RoomMaterial } from '@/components/admin/floorplan/offer-panel';
 import type { FloorPlanOwner } from '@/components/admin/floorplan/floor-plan-dialog';
-import type { PlanRoom } from '@/lib/floorplan/saved';
+import type { PlanPin, PlanRoom } from '@/lib/floorplan/saved';
 import type { OfferLineMode } from '@/lib/install-recipes-core';
 import type { RecipeView } from '@/lib/install-recipes';
 import { eur } from '@/lib/contracts/core';
@@ -26,7 +26,7 @@ export type EditorRoom = PlanRoom;
 
 export function RoomsSection({
   owner, ownerHint, projectLabel, floorPlan, rooms, costOf, recipes, recipesError, markupPct, mode, readOnly,
-  onApplyPlan, onMaterial, onApplyToEmpty, onMarkup, onMode, onRecalc, onUnlink,
+  onApplyPlan, onMaterial, onApplyToEmpty, onMarkup, onMode, onRecalc, onUnlink, extra, pins = [], pinIsTask, onPinToTask,
 }: {
   owner: FloorPlanOwner | null;
   /** Γιατί δεν ανοίγει ακόμη το εργαλείο (π.χ. «Επιλέξτε πρώτα πελάτη»). */
@@ -40,13 +40,19 @@ export function RoomsSection({
   markupPct: number;
   mode: OfferLineMode;
   readOnly: boolean;
-  onApplyPlan: (r: { floorPlanId: string; title: string; rooms: PlanRoom[] }) => void;
+  onApplyPlan: (r: { floorPlanId: string; title: string; rooms: PlanRoom[]; pins: PlanPin[] }) => void;
+  /** Σημειώσεις-πινέζες της κάτοψης· «→ Εργασία» τις βάζει στο χρονοδιάγραμμα. */
+  pins?: PlanPin[];
+  pinIsTask?: (id: string) => boolean;
+  onPinToTask?: (p: PlanPin) => void;
   onMaterial: (roomId: string, m: RoomMaterial | null) => void;
   onApplyToEmpty: (m: RoomMaterial) => void;
   onMarkup: (n: number) => void;
   onMode: (m: OfferLineMode) => void;
   onRecalc: () => void;
   onUnlink: () => void;
+  /** Επιπλέον κουμπί δίπλα σε κάθε χώρο (σημειώσεις). */
+  extra?: (room: EditorRoom) => React.ReactNode;
 }) {
   // Το εργαλείο μένει mounted μετά το πρώτο άνοιγμα: κλείσιμο/άνοιγμα δεν χάνει την κάτοψη.
   const [tool, setTool] = React.useState<'closed' | 'open' | 'hidden'>('closed');
@@ -157,6 +163,7 @@ export function RoomsSection({
                   )}
                 </div>
                 <span className="w-24 shrink-0 text-right text-(length:--fs-13) font-semibold tabular-nums">{r.material ? eur(cost) : '—'}</span>
+                {extra?.(r)}
                 {!readOnly && (
                   <DropdownMenu>
                     <DropdownMenuTrigger className="inline-flex size-9 shrink-0 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring" aria-label={`Ενέργειες για ${r.name}`}>
@@ -187,6 +194,32 @@ export function RoomsSection({
           );
         })}
       </ul>
+
+      {pins.length > 0 && (
+        <div className="mt-3 rounded-lg border border-border">
+          <p className="border-b border-border px-3 py-2 text-(length:--fs-12) font-semibold">Σημειώσεις στην κάτοψη ({pins.length})</p>
+          <ul className="divide-y divide-border">
+            {pins.map((p, i) => {
+              const done = pinIsTask?.(p.id) ?? false;
+              return (
+                <li key={p.id} className="flex flex-wrap items-center gap-2 px-3 py-2 text-(length:--fs-12)">
+                  <span className="inline-flex size-6 shrink-0 items-center justify-center rounded-full bg-rose-600 font-mono text-[11px] font-bold text-white" aria-hidden>{i + 1}</span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate">{p.text}</span>
+                    <span className="text-(length:--fs-11) text-muted-foreground">{p.roomName ?? 'Εκτός χώρου'}{p.photoFileIds.length ? ` · ${p.photoFileIds.length} φωτογραφ${p.photoFileIds.length === 1 ? 'ία' : 'ίες'}` : ''}</span>
+                  </span>
+                  {p.photoFileIds.slice(0, 3).map((f, j) => <img key={f} src={`/api/admin/entity-files/file/${f}`} alt={`Φωτογραφία ${j + 1} της σημείωσης ${i + 1}`} loading="lazy" className="size-9 rounded object-cover ring-1 ring-border" />)}
+                  {!readOnly && (
+                    <Button type="button" size="sm" variant={done ? 'ghost' : 'outline'} disabled={done} onClick={() => onPinToTask?.(p)} className="gap-1.5">
+                      {done ? 'Έγινε εργασία' : '→ Εργασία'}
+                    </Button>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
 
       {!readOnly && (
         <div className="mt-3 flex flex-wrap items-center justify-between gap-2">

@@ -3,6 +3,7 @@
 // να βγει σε λίγο διαφορετική ανάλυση, οπότε όλα κλιμακώνονται με `scalePlanData`.
 import { z } from 'zod';
 import { wallArea, type RoomWalls } from './walls';
+import { pointInPolygon } from './core';
 
 const pt = z.object({ x: z.number().finite(), y: z.number().finite() });
 const opening = z.object({
@@ -46,6 +47,11 @@ export const planData = z.object({
   drawnWalls: z.array(z.object({ a: pt, b: pt, t: z.number().finite().min(0) })).max(5000).default([]),
   /** Διαστάσεις «από–έως» που τοποθέτησε ο χρήστης (μόνο ένδειξη — δεν επηρεάζουν εμβαδά). */
   dims: z.array(z.object({ id: z.string().min(1).max(64), a: pt, b: pt })).max(500).default([]),
+  /** Σημειώσεις-«πινέζες» πάνω στο σχέδιο (κείμενο + φωτογραφίες) — γίνονται εργασίες στην προσφορά. */
+  pins: z.array(z.object({
+    id: z.string().min(1).max(64), x: z.number().finite(), y: z.number().finite(),
+    text: z.string().max(2000).default(''), photoFileIds: z.array(z.string().min(1).max(64)).max(8).default([]),
+  })).max(300).default([]),
   /** Η τελευταία εικόνα της προβολής 3D (EntityFile, φάκελος «Κατόψεις»). */
   render3dFileId: z.string().max(64).nullish().transform((v) => v ?? null),
   rooms: z.array(savedRoom).max(300),
@@ -68,6 +74,7 @@ export function scalePlanData(d: PlanData, w: number, h: number): PlanData {
     dividers: d.dividers.map(([a, b]) => [p(a), p(b)] as [{ x: number; y: number }, { x: number; y: number }]),
     drawnWalls: d.drawnWalls.map((x) => ({ a: p(x.a), b: p(x.b), t: x.t * k })),
     dims: d.dims.map((x) => ({ ...x, a: p(x.a), b: p(x.b) })),
+    pins: d.pins.map((x) => ({ ...x, ...p(x) })),
     rooms: d.rooms.map((r) => ({
       ...r, polygon: r.polygon.map(p), areaPx: r.areaPx * k * k, perimeterPx: r.perimeterPx * k,
       walls: r.walls ? { ...r.walls, openings: r.walls.openings.map((o) => (o.at ? { ...o, at: [p(o.at[0]), p(o.at[1])] as [{ x: number; y: number }, { x: number; y: number }] } : o)) } : r.walls,
@@ -127,4 +134,13 @@ export function planRooms(d: Pick<PlanData, 'calib' | 'rooms'>): PlanRoom[] {
 export function withRoomMaterials(d: PlanData, materials: { roomId: string; material: SavedRoom['material'] }[]): PlanData {
   const by = new Map(materials.map((m) => [m.roomId, m.material]));
   return { ...d, rooms: d.rooms.map((r) => (by.has(r.id) ? { ...r, material: by.get(r.id) ?? null } : r)) };
+}
+
+/** Οι σημειώσεις του σχεδίου με τον χώρο μέσα στον οποίο βρίσκεται η καθεμία (για εργασίες ανά χώρο). */
+export type PlanPin = { id: string; text: string; photoFileIds: string[]; roomId: string | null; roomName: string | null };
+export function planPins(d: Pick<PlanData, 'pins' | 'rooms'>): PlanPin[] {
+  return d.pins.map((p, i) => {
+    const r = d.rooms.find((x) => pointInPolygon(p, x.polygon));
+    return { id: p.id, text: p.text.trim() || `Σημείωση ${i + 1}`, photoFileIds: p.photoFileIds, roomId: r?.id ?? null, roomName: r ? r.name.trim() || 'Χώρος' : null };
+  });
 }

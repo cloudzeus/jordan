@@ -122,6 +122,21 @@ export const milestoneInput = z.object({
   amount: num(0).default(0),
   status: z.enum(['PENDING', 'DONE', 'PAID']).default('PENDING'),
 });
+/** Εργασία του χρονοδιαγράμματος της προσφοράς. `key` = id της εγγραφής ή προσωρινό· οι εξαρτήσεις με keys. */
+export const planTaskInput = z.object({
+  key: z.string().min(1).max(64),
+  name: z.string().trim().min(1, 'Κάθε εργασία χρειάζεται όνομα').max(200),
+  description: optStr(5000),
+  durationValue: num(0.01, 10_000).default(1),
+  durationUnit: z.enum(['DAYS', 'HOURS']).default('DAYS'),
+  startDate: dateStr,
+  dependsOn: z.array(z.string().min(1).max(64)).max(50).default([]),
+  roomId: optStr(64),
+  customerVisible: z.boolean().default(true),
+  photoFileIds: z.array(z.string().min(1).max(64)).max(30).default([]),
+});
+export type PlanTaskInput = z.infer<typeof planTaskInput>;
+
 export const siteValue = z.object({
   address: optStr(200), zip: optStr(16), district: optStr(120), city: optStr(120), formatted: optStr(300),
   lat: z.number().min(-90).max(90), lng: z.number().min(-180).max(180),
@@ -153,6 +168,8 @@ export const contractInput = z.object({
   parties: z.array(partyInput).max(50).default([]),
   members: z.array(z.string().min(1).max(64)).max(50).default([]),
   milestones: z.array(milestoneInput).max(100).default([]),
+  /** Χρονοδιάγραμμα (Gantt) — `undefined` = καμία αλλαγή (π.χ. παλιοί clients / δημιουργία από κάτοψη). */
+  tasks: z.array(planTaskInput).max(200).optional(),
 }).superRefine((c, ctx) => {
   if (!c.trdr && !c.customerName) ctx.addIssue({ code: 'custom', message: 'Επιλέξτε πελάτη', path: ['trdr'] });
   if (c.startDate && c.endDate && c.endDate < c.startDate) ctx.addIssue({ code: 'custom', message: 'Η λήξη είναι πριν από την έναρξη', path: ['endDate'] });
@@ -236,6 +253,8 @@ export type PromptInput = {
   terms?: string | null;
   /** Εγκεκριμένο «κείμενο για τον πελάτη» — μόνο στα έγγραφα του πελάτη. */
   customerText?: string | null;
+  /** Ειδικές οδηγίες από τις σημειώσεις (όσες βλέπει ο παραλήπτης του εγγράφου). */
+  instructions?: string[];
   guides: PromptGuide[];
 };
 
@@ -293,6 +312,7 @@ export function buildPrompt(p: PromptInput): { system: string; user: string } {
     'Milestones (παραδοτέα με πληρωμή):',
     ms || '—',
     p.terms ? `\nΕιδικοί όροι που ΠΡΕΠΕΙ να ενσωματωθούν:\n${p.terms}` : '',
+    p.instructions?.length ? `\nΕιδικές οδηγίες (σημειώσεις του έργου) που ΠΡΕΠΕΙ να τηρηθούν${party ? ' — βάλ’ τες και στις οδηγίες εγκατάστασης' : ''}:\n${p.instructions.map((x) => `- ${x}`).join('\n')}` : '',
     install && guides ? `\nΟδηγοί εγκατάστασης ειδών (πρωτογενής πηγή):\n${guides}` : '',
   ].filter((x) => x !== '').join('\n');
   return { system, user };

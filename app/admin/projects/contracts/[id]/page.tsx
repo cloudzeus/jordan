@@ -6,6 +6,8 @@ import { getContract, staffOptions } from '@/lib/contracts/service';
 import { KIND_LABEL, type ContractKind, type ContractStatus } from '@/lib/contracts/core';
 import { PageHeader } from '@/components/admin/page-header';
 import { ContractEditor } from '../contract-editor';
+import { listTemplates } from '@/lib/project-tasks';
+import { zonedParts } from '@/lib/appointments-core';
 import { StatusBadge } from '../status-badge';
 import { ContractActions, CreateProjectBanner } from './contract-actions';
 import { DocumentsPanel } from './documents-panel';
@@ -16,13 +18,14 @@ import { contractRfps } from '@/lib/rfp/service';
 import { rfpDefaults } from '@/lib/rfp/core';
 import { listRevisions } from '@/lib/contracts/revisions';
 import { RevisionsPanel } from './revisions-panel';
+import { listNotes } from '@/lib/contracts/notes';
 
 export const dynamic = 'force-dynamic';
 
 export default async function ContractPage({ params }: { params: Promise<{ id: string }> }) {
   await requirePermission('projects.read');
   const { id } = await params;
-  const [c, staff, canManage, rfps, revisions] = await Promise.all([getContract(id), staffOptions(), hasPermission('projects.manage'), contractRfps(id), listRevisions(id)]);
+  const [c, staff, canManage, rfps, revisions, templates, notes] = await Promise.all([getContract(id), staffOptions(), hasPermission('projects.manage'), contractRfps(id), listRevisions(id), listTemplates(), listNotes(id, { kind: 'STAFF' })]);
   if (!c) notFound();
   const closed = c.status === 'COMPLETED' || c.status === 'CANCELLED';
   return (
@@ -50,7 +53,7 @@ export default async function ContractPage({ params }: { params: Promise<{ id: s
         {c.kind !== 'PRODUCT' && <RfpPanel contractId={c.id} title={rfpDefaults(c).title} summary={rfpDefaults(c).scope} rfps={rfps} canManage={canManage && c.status !== 'COMPLETED' && c.status !== 'CANCELLED'} />}
         {['ACCEPTED', 'ACTIVE', 'COMPLETED'].includes(c.status) ? <MilestonesProgress contract={c} canManage={canManage && c.status !== 'COMPLETED'} /> : null}
         <RevisionsPanel contractId={c.id} current={c.revision} currentGross={c.totals.gross} revisions={revisions} canManage={canManage && !closed} canRestore={c.stage === 'OFFER' && ['DRAFT', 'SENT'].includes(c.status)} />
-        <ContractEditor initial={c} staff={staff} readOnly={!canManage || closed} />
+        <ContractEditor templates={templates} notes={notes} today={zonedParts(new Date()).date} initial={c} staff={staff} readOnly={!canManage || closed} />
       </div>
     </div>
   );

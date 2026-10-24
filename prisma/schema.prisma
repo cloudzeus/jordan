@@ -3734,11 +3734,64 @@ model Contract {
   floorPlan   FloorPlan? @relation(fields: [floorPlanId], references: [id], onDelete: SetNull)
   rfps        Rfp[]
   revisions   ContractRevision[]
+  tasks       ContractTask[]
+  notes       ContractNote[]
 
   @@index([prjc])
   @@index([trdr])
   @@index([status])
   @@index([floorPlanId])
+}
+
+/// Χρονοδιάγραμμα της προσφοράς (πριν από την αποδοχή): εργασίες με διάρκεια, έναρξη ή εξαρτήσεις
+/// (Gantt). Με την ενεργοποίηση γίνονται εργασίες του έργου (`projectTaskId`), μαζί με τις φωτογραφίες.
+model ContractTask {
+  id              String    @id @default(cuid())
+  contractId      String
+  contract        Contract  @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  name            String
+  description     String?
+  durationValue   Float     @default(1)
+  durationUnit    String    @default("DAYS")
+  startDate       DateTime? @db.Date
+  /// id άλλων ContractTask (finish-to-start)
+  dependsOn       String[]  @default([])
+  /// Χώρος της κάτοψης που αφορά (προαιρετικό)
+  roomId          String?
+  customerVisible Boolean   @default(true)
+  /// Φωτογραφίες (EntityFile) — π.χ. από σημείωση της κάτοψης
+  photoFileIds    String[]  @default([])
+  sortOrder       Int       @default(0)
+  projectTaskId   String?
+
+  @@index([contractId, sortOrder])
+}
+
+/// Σημείωση / ειδική οδηγία σε σημείο της προσφοράς (γενικά, χώρος, πληρωμή, εργασία) — από τον
+/// χρήστη ή τον πελάτη (portal). `shareWith`: ποιος τη βλέπει πέρα από εμάς — CUSTOMER και/ή PARTY:<id>.
+model ContractNote {
+  id           String    @id @default(cuid())
+  contractId   String
+  contract     Contract  @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  /// CONTRACT · ROOM · MILESTONE · TASK
+  targetType   String    @default("CONTRACT")
+  targetId     String?
+  targetLabel  String?
+  /// NOTE · INSTRUCTION (η ειδική οδηγία μπαίνει και στα έγγραφα όσων τη βλέπουν)
+  kind         String    @default("NOTE")
+  body         String
+  shareWith    String[]  @default([])
+  photoFileIds String[]  @default([])
+  /// Η εργασία του χρονοδιαγράμματος που φτιάχτηκε από τη σημείωση
+  taskId       String?
+  /// STAFF · CUSTOMER
+  authorKind   String
+  authorId     String?
+  authorName   String?
+  resolvedAt   DateTime?
+  createdAt    DateTime  @default(now())
+
+  @@index([contractId, createdAt])
 }
 
 /// Παγωμένη έκδοση προσφοράς/σύμβασης: ολόκληρη η φόρμα (σχήμα contractInput) τη στιγμή που στάλθηκε,
