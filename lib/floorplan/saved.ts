@@ -4,6 +4,7 @@
 import { z } from 'zod';
 import { wallArea, type RoomWalls } from './walls';
 import { pointInPolygon } from './core';
+import { planCable, planDevice } from './network';
 
 const pt = z.object({ x: z.number().finite(), y: z.number().finite() });
 const opening = z.object({
@@ -52,6 +53,9 @@ export const planData = z.object({
     id: z.string().min(1).max(64), x: z.number().finite(), y: z.number().finite(),
     text: z.string().max(2000).default(''), photoFileIds: z.array(z.string().min(1).max(64)).max(8).default([]),
   })).max(300).default([]),
+  /** Ηλεκτρολογικά & δίκτυο: πρίζες, κάμερες, access points, rack (με στοιχεία και φωτογραφίες) και καλωδιώσεις. */
+  devices: z.array(planDevice).max(1000).default([]),
+  cables: z.array(planCable).max(2000).default([]),
   /** Η τελευταία εικόνα της προβολής 3D (EntityFile, φάκελος «Κατόψεις»). */
   render3dFileId: z.string().max(64).nullish().transform((v) => v ?? null),
   rooms: z.array(savedRoom).max(300),
@@ -75,6 +79,8 @@ export function scalePlanData(d: PlanData, w: number, h: number): PlanData {
     drawnWalls: d.drawnWalls.map((x) => ({ a: p(x.a), b: p(x.b), t: x.t * k })),
     dims: d.dims.map((x) => ({ ...x, a: p(x.a), b: p(x.b) })),
     pins: d.pins.map((x) => ({ ...x, ...p(x) })),
+    devices: d.devices.map((x) => ({ ...x, ...p(x) })),
+    cables: d.cables.map((x) => ({ ...x, pts: x.pts.map(p) })),
     rooms: d.rooms.map((r) => ({
       ...r, polygon: r.polygon.map(p), areaPx: r.areaPx * k * k, perimeterPx: r.perimeterPx * k,
       walls: r.walls ? { ...r.walls, openings: r.walls.openings.map((o) => (o.at ? { ...o, at: [p(o.at[0]), p(o.at[1])] as [{ x: number; y: number }, { x: number; y: number }] } : o)) } : r.walls,

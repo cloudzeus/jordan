@@ -19,6 +19,8 @@ import {
 } from 'react-icons/fi';
 import { BrickWall, DoorOpen, Eraser, RectangleHorizontal, Ruler, RulerDimensionLine, Spline } from 'lucide-react';
 import { eraseHit, type EraseHit } from '@/lib/floorplan/erase';
+import { angleTo, cameraWedge, CABLE_META, DEVICE_META, nearestDevice, newDevice, type PlanCable, type PlanDevice } from '@/lib/floorplan/network';
+import { DEVICE_ICON, NetworkMenu, NetworkPanel, type NetPick } from './network-ui';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -256,6 +258,11 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
   const [pins, setPins] = React.useState<Array<{ id: string; x: number; y: number; text: string; photoFileIds: string[] }>>([]);
   const [pinSel, setPinSel] = React.useState<string | null>(null);
   const [pinUploading, setPinUploading] = React.useState(false);
+  /** Ηλεκτρολογικά & δίκτυο: συσκευές, καλωδιώσεις, τι σχεδιάζεται τώρα και ποια συσκευή είναι επιλεγμένη. */
+  const [devices, setDevices] = React.useState<PlanDevice[]>([]);
+  const [cables, setCables] = React.useState<PlanCable[]>([]);
+  const [netPick, setNetPick] = React.useState<NetPick>({ tool: 'device', kind: 'socket' });
+  const [devSel, setDevSel] = React.useState<string | null>(null);
   /** Ρυθμίσεις του εργαλείου «Άνοιγμα»: είδος, ύψος και ποδιά (m). */
   const [openingKind, setOpeningKind] = React.useState<OpeningKind>('door');
   const [openingH, setOpeningH] = React.useState(OPENING_PRESETS.door.h);
@@ -292,7 +299,7 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
   // ── Φόρτωση ──────────────────────────────────────────────────────────────────────────
   const reset = () => {
     setWalls(null); setThr(null); setThick(null); setDraft([]); setDividers([]); setCalib(null); setCalibLine(null);
-    setMeters(''); setRooms([]); setSelected(null); setTool('calibrate'); seq.current = 0; setDims([]); setPins([]); setPinSel(null); setView3d(false);
+    setMeters(''); setRooms([]); setSelected(null); setTool('calibrate'); seq.current = 0; setDims([]); setPins([]); setPinSel(null); setDevices([]); setCables([]); setDevSel(null); setView3d(false);
     setDrawnWalls([]); setAutoWalls(true);
     setSavedId(null); setPlanTitle(''); setCreatedOffer(null); imageSavedFor.current = null;
   };
@@ -349,7 +356,7 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
       reset();
       setFile(null); setPlan(p);
       setAutoWalls(d.autoWalls); setThr(d.thr); setThick(d.thick); setWallCm(d.wallCm); setDoorCm(d.doorCm);
-      setDividers(d.dividers); setDrawnWalls(d.drawnWalls); setCalib(d.calib); setDims(d.dims); setPins(d.pins);
+      setDividers(d.dividers); setDrawnWalls(d.drawnWalls); setCalib(d.calib); setDims(d.dims); setPins(d.pins); setDevices(d.devices); setCables(d.cables);
       setRooms(d.rooms.map((r) => ({ ...r, walls: r.walls, material: r.material })));
       seq.current = d.rooms.length;
       setSavedId(id); setPlanTitle(body.plan.title); imageSavedFor.current = p;
@@ -554,7 +561,19 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
     }
     return best ? { ...best } : p;
   };
-  const finish = () => { if (tool === 'wall') setDraft([]); else finishPolygon(); };
+  const finish = () => { if (tool === 'wall') setDraft([]); else if (tool === 'cable') finishCable(draft); else finishPolygon(); };
+
+  /** Ολοκλήρωση καλωδίου: άκρα δεμένα σε συσκευές (αν πέφτουν πάνω τους)· έλεγχος τερματισμού. */
+  const finishCable = (pts: Pt[]) => {
+    setDraft([]);
+    if (netPick.tool !== 'cable' || pts.length < 2) return;
+    const kind = netPick.kind;
+    const tol = maxDim * 0.012;
+    const from = nearestDevice(pts[0], devices, tol), to = nearestDevice(pts[pts.length - 1], devices, tol);
+    setCables((cs) => [...cs, { id: uid(), kind, pts, from: from?.id ?? null, to: to?.id ?? null, spec: CABLE_META[kind].spec, notes: '' }]);
+    const end = kind === 'network' ? 'rack' : 'panel';
+    if (from?.kind !== end && to?.kind !== end) toast.message(kind === 'network' ? 'Το καλώδιο δικτύου δεν τερματίζει σε rack — σύνδεσέ το εκεί.' : 'Το κύκλωμα δεν ξεκινά από τον πίνακα — αρκεί να φτάνει εκεί μέσω άλλων συσκευών.');
+  };
 
   const finishPolygon = () => {
     if (tool !== 'polygon' || draft.length < 3) return;
@@ -617,6 +636,34 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
       return;
     }
     if (tool === 'erase') { erase(p); return; }
+    if (tool === 'device' && netPick.tool === 'device') {
+      const kind = netPick.kind;
+      // Κάμερα: δεύτερο κλικ = προς τα πού κοιτά.
+      if (kind === 'camera' && draft.length) {
+        const a = draft[0];
+        const id = uid();
+        setDevices((ds) => [...ds, { ...newDevice(id, 'camera', a, ds.filter((x) => x.kind === 'camera').length + 1), angle: angleTo(a, p) }]);
+        setDevSel(id); setDraft([]);
+        return;
+      }
+      const hit = nearestDevice(p, devices, maxDim * 0.012);
+      if (hit) { setDevSel(hit.id); return; }
+      if (kind === 'camera') { setDraft([p]); return; }
+      const id = uid();
+      setDevices((ds) => [...ds, newDevice(id, kind, p, ds.filter((x) => x.kind === kind).length + 1)]);
+      setDevSel(id);
+      return;
+    }
+    if (tool === 'cable') {
+      // Τα σημεία «κουμπώνουν» σε συσκευές· η διαδρομή κλείνει με διπλό κλικ / Enter ή κλικ σε συσκευή.
+      const dev = nearestDevice(p, devices, maxDim * 0.012);
+      const q = dev ? { x: dev.x, y: dev.y } : p;
+      const last = draft[draft.length - 1];
+      if (last && Math.hypot(q.x - last.x, q.y - last.y) < 2) return;
+      const next = [...draft, q];
+      if (dev && draft.length >= 1) finishCable(next); else setDraft(next);
+      return;
+    }
     if (!blocked) return;
     if (tool === 'room') {
       const hit = [...rooms].reverse().find((r) => pointInPolygon(p, r.polygon));
@@ -678,29 +725,35 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
 
   // ── Γόμα ────────────────────────────────────────────────────────────────────────────
   // Κάθε σβήσιμο κρατά στιγμιότυπο για επαναφορά (⌘/Ctrl+Z ή «Αναίρεση» στο μήνυμα).
-  type Snap = { drawnWalls: DrawnWall[]; dividers: Array<[Pt, Pt]>; dims: typeof dims; pins: typeof pins; rooms: Room[] };
+  type Snap = { drawnWalls: DrawnWall[]; dividers: Array<[Pt, Pt]>; dims: typeof dims; pins: typeof pins; rooms: Room[]; devices: PlanDevice[]; cables: PlanCable[] };
   const eraseHist = React.useRef<Snap[]>([]);
-  const ERASED: Record<EraseHit['kind'], string> = { pin: 'Η σημείωση', dim: 'Η διάσταση', opening: 'Το άνοιγμα', divider: 'Το διαχωριστικό', wall: 'Ο τοίχος', room: 'Ο χώρος' };
+  const ERASED: Record<EraseHit['kind'], string> = { device: 'Η συσκευή', cable: 'Το καλώδιο', pin: 'Η σημείωση', dim: 'Η διάσταση', opening: 'Το άνοιγμα', divider: 'Το διαχωριστικό', wall: 'Ο τοίχος', room: 'Ο χώρος' };
   const undoErase = () => {
     const s = eraseHist.current.pop();
     if (!s) return false;
-    setDrawnWalls(s.drawnWalls); setDividers(s.dividers); setDims(s.dims); setPins(s.pins); setRooms(s.rooms);
+    setDrawnWalls(s.drawnWalls); setDividers(s.dividers); setDims(s.dims); setPins(s.pins); setRooms(s.rooms); setDevices(s.devices); setCables(s.cables);
     return true;
   };
   const erase = (p: Pt) => {
     const hit = eraseHit(p, {
-      pins, dims, dividers, walls: drawnWalls,
+      pins, dims, dividers, walls: drawnWalls, devices, cables,
       rooms: rooms.map((r) => ({ id: r.id, polygon: r.polygon, openings: r.walls?.openings })),
     }, maxDim * 0.008);
     if (!hit) { toast.message('Δεν υπάρχει κάτι για σβήσιμο εδώ — κάνε κλικ πάνω σε γραμμή, σημείωση ή χώρο.'); return; }
-    eraseHist.current = [...eraseHist.current.slice(-49), { drawnWalls, dividers, dims, pins, rooms }];
+    eraseHist.current = [...eraseHist.current.slice(-49), { drawnWalls, dividers, dims, pins, rooms, devices, cables }];
     if (hit.kind === 'pin') { setPins((ps) => ps.filter((x) => x.id !== hit.id)); if (pinSel === hit.id) setPinSel(null); }
+    else if (hit.kind === 'device') {
+      setDevices((ds) => ds.filter((x) => x.id !== hit.id));
+      setCables((cs) => cs.map((c) => ({ ...c, from: c.from === hit.id ? null : c.from, to: c.to === hit.id ? null : c.to })));
+      if (devSel === hit.id) setDevSel(null);
+    }
+    else if (hit.kind === 'cable') setCables((cs) => cs.filter((x) => x.id !== hit.id));
     else if (hit.kind === 'dim') setDims((ds) => ds.filter((x) => x.id !== hit.id));
     else if (hit.kind === 'divider') setDividers((ds) => ds.filter((_, i) => i !== hit.index));
     else if (hit.kind === 'wall') setDrawnWalls((ws) => ws.filter((_, i) => i !== hit.index));
     else if (hit.kind === 'opening') setRooms((rs) => rs.map((x) => (x.id === hit.roomId && x.walls ? { ...x, walls: { ...x.walls, openings: x.walls.openings.filter((o) => o.id !== hit.id) } } : x)));
     else { setRooms((rs) => rs.filter((x) => x.id !== hit.id)); if (selected === hit.id) setSelected(null); }
-    const name = hit.kind === 'room' ? rooms.find((x) => x.id === hit.id)?.name : null;
+    const name = hit.kind === 'room' ? rooms.find((x) => x.id === hit.id)?.name : hit.kind === 'device' ? devices.find((x) => x.id === hit.id)?.label : null;
     toast.success(`${ERASED[hit.kind]}${name ? ` «${name}»` : ''} σβήστηκε.`, { action: { label: 'Αναίρεση', onClick: () => { undoErase(); } } });
   };
 
@@ -746,6 +799,7 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
       if (e.key === 'Enter') { finish(); return; }
       if (e.key === 'Backspace' && draft.length) { e.preventDefault(); setDraft((d) => d.slice(0, -1)); return; }
       if (e.key === 'F8') { e.preventDefault(); toggleOrtho(); return; }
+      if (e.key.toLowerCase() === 'l' && !e.metaKey && !e.ctrlKey) { setTool(netPick.tool); setDraft([]); return; }
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z') {
         const done = tool === 'erase' || !history.current.length ? undoErase() || undoEdit() : undoEdit() || undoErase();
         if (done) e.preventDefault();
@@ -807,7 +861,7 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
   // ── Αποθήκευση χαρτογράφησης ─────────────────────────────────────────────────────────
   const planDataNow = (): PlanData => ({
     v: 1, w, h, pxPerM: plan?.pxPerM ?? null, page: plan?.page ?? 1, calib, autoWalls, thr, thick, wallCm, doorCm,
-    dividers, drawnWalls, dims, pins, render3dFileId: null,
+    dividers, drawnWalls, dims, pins, devices, cables, render3dFileId: null,
     rooms: rooms.map((r) => ({ id: r.id, name: r.name, color: r.color, polygon: r.polygon, areaPx: r.areaPx, perimeterPx: r.perimeterPx, manual: r.manual, walls: r.walls, material: r.material })),
   });
   const canvasPng = (c: HTMLCanvasElement) => new Promise<Blob>((res, rej) => c.toBlob((b) => (b ? res(b) : rej(new Error('PNG export failed'))), 'image/png'));
@@ -860,6 +914,26 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
       setPins((ps) => ps.map((x) => (x.id === pinId ? { ...x, photoFileIds: [...x.photoFileIds, d.file.id].slice(0, 8) } : x)));
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Η φωτογραφία δεν ανέβηκε.');
+    } finally {
+      setPinUploading(false);
+    }
+  };
+
+  /** Φωτογραφία συσκευής (ηλεκτρολογικά/δίκτυο): στα αρχεία του έργου/πελάτη, φάκελος «Ηλεκτρολογικά & δίκτυο». */
+  const uploadDevicePhoto = async (f: File): Promise<string | null> => {
+    setPinUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append('file', f);
+      fd.append('subfolder', 'Ηλεκτρολογικά & δίκτυο');
+      fd.append('notes', `Συσκευή κάτοψης · ${projectLabel}`);
+      const r = await fetch(filesUrl, { method: 'POST', body: fd });
+      const d = await r.json().catch(() => null);
+      if (!r.ok) throw new Error(d?.message ?? 'Η φωτογραφία δεν ανέβηκε.');
+      return d.file.id as string;
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Η φωτογραφία δεν ανέβηκε.');
+      return null;
     } finally {
       setPinUploading(false);
     }
@@ -936,7 +1010,22 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
   const wallLenPx = drawnWalls.reduce((sum, d) => sum + Math.hypot(d.b.x - d.a.x, d.b.y - d.a.y), 0);
   const wallsReady = autoWalls ? !!walls : drawnWalls.length > 0;
   const step = !wallsReady ? 1 : !calib ? 2 : 3;
-  const activeTool = TOOLS.find((t) => t.key === tool)!;
+  const viewerDevices = React.useMemo(() => devices.map((d) => {
+    const rangePx = mPerPx && d.rangeM > 0 ? d.rangeM / mPerPx : 0;
+    return {
+      id: d.id, x: d.x, y: d.y, label: [d.label, d.brand, d.model, d.ip].filter(Boolean).join(' · '), color: DEVICE_META[d.kind].color, icon: DEVICE_ICON[d.kind], selected: d.id === devSel,
+      coverage: d.kind === 'camera' && rangePx ? cameraWedge(d, rangePx) : null,
+      circlePx: d.kind === 'ap' && rangePx ? rangePx : undefined,
+    };
+  }), [devices, devSel, mPerPx]);
+  const viewerCables = React.useMemo(() => cables.map((c) => ({ id: c.id, pts: c.pts, color: CABLE_META[c.kind].color, selected: !!devSel && (c.from === devSel || c.to === devSel), dashed: c.kind === 'network' })), [cables, devSel]);
+  const netLabel = netPick.tool === 'device' ? DEVICE_META[netPick.kind].label : CABLE_META[netPick.kind].label;
+  const netHint = netPick.tool === 'device'
+    ? (netPick.kind === 'camera' ? 'Κλικ στη θέση της κάμερας, δεύτερο κλικ προς τα πού κοιτά. Κλικ σε υπάρχουσα συσκευή = επιλογή.' : `Κλικ για νέο/α ${DEVICE_META[netPick.kind].short.toLowerCase()} · κλικ σε υπάρχουσα συσκευή = επιλογή και στοιχεία αριστερά.`)
+    : `${CABLE_META[netPick.kind].help} 90° (F8) για ευθείες διαδρομές.`;
+  const activeTool = (tool === 'device' || tool === 'cable')
+    ? { label: netLabel, hint: netHint }
+    : TOOLS.find((t) => t.key === tool)!;
   const thickCm = walls && mPerPx ? walls.minThickness * mPerPx * 100 : null;
 
   return (
@@ -1209,6 +1298,8 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
                     <p className="mt-1 text-(length:--fs-10) text-muted-foreground">Αποθηκεύονται με τη χαρτογράφηση. Στην προσφορά: «→ Εργασία».</p>
                   </div>
                 )}
+                <NetworkPanel devices={devices} cables={cables} setDevices={setDevices} setCables={setCables} selected={devSel} setSelected={setDevSel}
+                  mPerPx={mPerPx} fmtLen={fmtLen} uploadPhoto={uploadDevicePhoto} uploading={pinUploading} />
                 {dims.length > 0 && (
                   <div className="rounded-lg border border-border bg-background p-2">
                     <div className="mb-1 flex items-center justify-between">
@@ -1425,6 +1516,7 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
                   calibration={calibLine ?? (calib && !blankScale ? [calib.a, calib.b] : null)}
                   draft={draft} tool={tool} formatLength={fmtLen}
                   onPick={onPick} onFinish={finish} onEdit={onEdit} fitKey={fitKey} ortho={ortho}
+                  netDevices={viewerDevices} netCables={viewerCables} cableColor={netPick.tool === 'cable' ? CABLE_META[netPick.kind].color : undefined}
                 />
               )}
 
@@ -1448,6 +1540,7 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
                     </React.Fragment>
                   ))}
                   <span className="mx-1.5 my-0.5 h-px bg-slate-700" aria-hidden />
+                  <NetworkMenu active={tool === 'device' || tool === 'cable' ? netPick : null} onPick={(np) => { setNetPick(np); setTool(np.tool); setDraft([]); }} />
                   <Tooltip delayDuration={250}>
                     <TooltipTrigger asChild>
                       <button

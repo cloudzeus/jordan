@@ -1,9 +1,11 @@
 // lib/floorplan/erase.ts — καθαρή λογική της «Γόμας» στην κάτοψη: τι βρίσκεται κάτω από ένα κλικ.
-// Προτεραιότητα στο πιο «λεπτό»/πάνω στοιχείο: σημείωση → διάσταση → άνοιγμα → διαχωριστικό → τοίχος → χώρος.
+// Προτεραιότητα στο πιο «λεπτό»/πάνω στοιχείο: σημείωση → συσκευή → διάσταση → καλώδιο → άνοιγμα → διαχωριστικό → τοίχος → χώρος.
 import { pointInPolygon, type Pt } from './core';
 
 export type EraseHit =
   | { kind: 'pin'; id: string }
+  | { kind: 'device'; id: string }
+  | { kind: 'cable'; id: string }
   | { kind: 'dim'; id: string }
   | { kind: 'opening'; roomId: string; id: string }
   | { kind: 'divider'; index: number }
@@ -24,6 +26,8 @@ type Input = {
   rooms: Array<{ id: string; polygon: Pt[]; openings?: Array<{ id: string; at?: [Pt, Pt] | null }> }>;
   dividers: Array<[Pt, Pt]>;
   walls: Array<{ a: Pt; b: Pt; t: number }>;
+  devices?: Array<{ id: string; x: number; y: number }>;
+  cables?: Array<{ id: string; pts: Pt[] }>;
 };
 
 /** `tol` = ανοχή κλικ σε px εικόνας (ανάλογη του zoom/μεγέθους σχεδίου). Από τα πιο πρόσφατα προς τα παλιότερα. */
@@ -35,8 +39,14 @@ export function eraseHit(p: Pt, x: Input, tol: number): EraseHit | null {
   };
   const pin = nearest(x.pins, (q) => Math.hypot(p.x - q.x, p.y - q.y), () => tol * 1.5);
   if (pin >= 0) return { kind: 'pin', id: x.pins[pin].id };
+  const devices = x.devices ?? [];
+  const dev = nearest(devices, (q) => Math.hypot(p.x - q.x, p.y - q.y), () => tol * 1.5);
+  if (dev >= 0) return { kind: 'device', id: devices[dev].id };
   const dim = nearest(x.dims, (d) => segDist(p, d.a, d.b), () => tol);
   if (dim >= 0) return { kind: 'dim', id: x.dims[dim].id };
+  const cables = x.cables ?? [];
+  const cab = nearest(cables, (c) => Math.min(...c.pts.slice(1).map((q, i) => segDist(p, c.pts[i], q))), () => tol);
+  if (cab >= 0) return { kind: 'cable', id: cables[cab].id };
   const ops = x.rooms.flatMap((r) => (r.openings ?? []).filter((o) => o.at).map((o) => ({ roomId: r.id, id: o.id, a: o.at![0], b: o.at![1] })));
   const op = nearest(ops, (o) => segDist(p, o.a, o.b), () => tol);
   if (op >= 0) return { kind: 'opening', roomId: ops[op].roomId, id: ops[op].id };

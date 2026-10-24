@@ -16,9 +16,9 @@ import { LineMaterial } from 'three/examples/jsm/lines/LineMaterial.js';
 import type { Pt } from '@/lib/floorplan/core';
 
 export type ViewerRoom = { id: string; color: string; polygon: Pt[]; label: string; sub: string; anchor: Pt };
-export type ViewerTool = 'room' | 'rect' | 'polygon' | 'wall' | 'divider' | 'opening' | 'calibrate' | 'measure' | 'pin' | 'pan' | 'edit' | 'erase';
+export type ViewerTool = 'room' | 'rect' | 'polygon' | 'wall' | 'divider' | 'opening' | 'calibrate' | 'measure' | 'pin' | 'pan' | 'edit' | 'erase' | 'device' | 'cable';
 /** Εργαλεία που σχεδιάζουν γραμμές — σε αυτά ισχύει το «Ορθογώνια» (μόνο οριζόντια/κάθετα). */
-export const LINE_TOOLS: ReadonlySet<ViewerTool> = new Set(['wall', 'polygon', 'measure', 'divider', 'calibrate']);
+export const LINE_TOOLS: ReadonlySet<ViewerTool> = new Set(['wall', 'polygon', 'measure', 'divider', 'calibrate', 'cable']);
 /** Άνοιγμα (πόρτα/παράθυρο) πάνω σε τοίχο χώρου, όπως σχεδιάστηκε. */
 export type ViewerOpening = { id: string; kind: 'door' | 'window' | 'other'; a: Pt; b: Pt; selected?: boolean };
 export const OPENING_COLOR = { door: '#F59E0B', window: '#38BDF8', other: '#A78BFA' } as const;
@@ -52,6 +52,11 @@ export type PlanViewerProps = {
   /** Μήκος σε px → κείμενο (π.χ. «3,42 m») για τη ζωντανή ένδειξη στο σχέδιο. */
   formatLength: (px: number) => string;
   onPick: (p: Pt) => void;
+  /** Ηλεκτρολογικά & δίκτυο: συσκευές (με εμβέλεια: κύκλος AP, «κώνος» κάμερας) και καλωδιώσεις. */
+  netDevices?: Array<{ id: string; x: number; y: number; label: string; color: string; icon: React.ReactNode; selected: boolean; coverage?: Pt[] | null; circlePx?: number }>;
+  netCables?: Array<{ id: string; pts: Pt[]; color: string; selected: boolean; dashed?: boolean }>;
+  /** Χρώμα του «λάστιχου» όταν σχεδιάζεται καλώδιο. */
+  cableColor?: string;
   /** «Ορθογώνια»: στα εργαλεία γραμμών κάθε κλικ κουμπώνει οριζόντια/κάθετα· το Shift το αναστέλλει προσωρινά. */
   ortho?: boolean;
   onFinish: () => void;
@@ -60,7 +65,7 @@ export type PlanViewerProps = {
   fitKey: number;
 };
 
-const Z = { plan: 0, walls: 0.2, rooms: 0.4, outline: 0.6, divider: 0.8, draft: 1 };
+const Z = { plan: 0, walls: 0.2, rooms: 0.4, outline: 0.6, net: 0.7, divider: 0.8, draft: 1 };
 const BG = '#0B1220';
 /** Χρώμα τοίχων που σχεδιάζει ο χρήστης (και στη μάσκα, βλ. floor-plan-dialog). */
 export const WALL_DRAW = '#FB923C';
@@ -96,7 +101,7 @@ function inside(p: Pt, pts: Pt[]) {
 }
 
 export function PlanViewer(props: PlanViewerProps) {
-  const { image, w, h, wallsOverlay, showWalls, rooms, selectedId, dividers, calibration, openings, dimensions, pins, draft, tool, fitKey, formatLength } = props;
+  const { image, w, h, wallsOverlay, showWalls, rooms, selectedId, dividers, calibration, openings, dimensions, pins, draft, tool, fitKey, formatLength, netDevices, netCables } = props;
   const host = React.useRef<HTMLDivElement | null>(null);
   const labelsEl = React.useRef<HTMLDivElement | null>(null);
   const tipEl = React.useRef<HTMLDivElement | null>(null);
@@ -106,7 +111,7 @@ export function PlanViewer(props: PlanViewerProps) {
 
   type Ctx = {
     renderer: THREE.WebGLRenderer; scene: THREE.Scene; camera: THREE.OrthographicCamera; controls: OrbitControls;
-    plane: THREE.Mesh; layers: Record<'walls' | 'rooms' | 'lines' | 'draft', THREE.Group>;
+    plane: THREE.Mesh; layers: Record<'walls' | 'rooms' | 'net' | 'lines' | 'draft', THREE.Group>;
     lineMats: Set<LineMaterial>; dot: THREE.Texture; vdot: THREE.Texture; plus: THREE.Texture; hover: Pt | null; shift: boolean;
     /** Τρέχον σύρσιμο επεξεργασίας (κορυφή ή ολόκληρος χώρος). */
     drag: { id: string; kind: 'vertex' | 'move'; i: number; base: Pt[]; from: Pt; moved: boolean } | null;
@@ -159,7 +164,7 @@ export function PlanViewer(props: PlanViewerProps) {
     const { draft: d, tool: t } = cbs.current;
     clear(c.layers.draft);
     if (!d.length) return;
-    const color = t === 'calibrate' ? '#F59E0B' : t === 'divider' ? '#F43F5E' : t === 'wall' ? WALL_DRAW : t === 'opening' ? OPENING_COLOR[cbs.current.openingKind ?? 'door'] : t === 'measure' ? '#FDE047' : '#22D3EE';
+    const color = t === 'calibrate' ? '#F59E0B' : t === 'divider' ? '#F43F5E' : t === 'wall' ? WALL_DRAW : t === 'opening' ? OPENING_COLOR[cbs.current.openingKind ?? 'door'] : t === 'measure' ? '#FDE047' : t === 'cable' ? (cbs.current.cableColor ?? '#3B82F6') : '#22D3EE';
     const seq = c.hover ? [...d, c.hover] : d;
     if (t === 'rect' && c.hover) {
       // Ορθογώνιο από την πρώτη γωνία ως τον κέρσορα.
@@ -212,7 +217,7 @@ export function PlanViewer(props: PlanViewerProps) {
     sheet.position.z = -0.5;
     scene.add(sheet);
 
-    const layers = { walls: new THREE.Group(), rooms: new THREE.Group(), lines: new THREE.Group(), draft: new THREE.Group() };
+    const layers = { walls: new THREE.Group(), rooms: new THREE.Group(), net: new THREE.Group(), lines: new THREE.Group(), draft: new THREE.Group() };
     Object.values(layers).forEach((g) => scene.add(g));
 
     const c: Ctx = {
@@ -514,6 +519,28 @@ export function PlanViewer(props: PlanViewerProps) {
     }
   }, [dividers, calibration, openings, dimensions, image, w, h, toWorld, clear, line, dots]);
 
+  // Ηλεκτρολογικά & δίκτυο: κάλυψη AP / κάμερας (ημιδιαφανής) και διαδρομές καλωδίων.
+  React.useEffect(() => {
+    const c = ctx.current;
+    if (!c) return;
+    clear(c.layers.net);
+    for (const d of netDevices ?? []) {
+      const shape = d.coverage && d.coverage.length >= 3 ? new THREE.Shape(d.coverage.map((p) => new THREE.Vector2(p.x - w / 2, h / 2 - p.y))) : null;
+      const geo = shape ? new THREE.ShapeGeometry(shape) : d.circlePx ? new THREE.CircleGeometry(d.circlePx, 64) : null;
+      if (!geo) continue;
+      const fill = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: d.color, transparent: true, opacity: d.selected ? 0.22 : 0.12, depthWrite: false, side: THREE.DoubleSide }));
+      if (!shape) fill.position.set(d.x - w / 2, h / 2 - d.y, 0);
+      fill.position.z = Z.net;
+      c.layers.net.add(fill);
+      const ring = shape ? d.coverage! : Array.from({ length: 65 }, (_, i) => ({ x: d.x + Math.cos((i / 64) * Math.PI * 2) * d.circlePx!, y: d.y + Math.sin((i / 64) * Math.PI * 2) * d.circlePx! }));
+      c.layers.net.add(line(ring, Z.net + 0.01, d.color, d.selected ? 2 : 1.2, { closed: !!shape, dashed: true }));
+    }
+    for (const k of netCables ?? []) {
+      if (k.selected) c.layers.net.add(line(k.pts, Z.net + 0.02, '#FFFFFF', 6));
+      c.layers.net.add(line(k.pts, Z.net + 0.03, k.color, 3, { dashed: k.dashed }));
+    }
+  }, [netDevices, netCables, image, w, h, clear, line]);
+
   // «Χωράει ολόκληρο».
   React.useEffect(() => {
     const c = ctx.current;
@@ -540,27 +567,36 @@ export function PlanViewer(props: PlanViewerProps) {
             key={r.id}
             data-x={r.anchor.x}
             data-y={r.anchor.y}
-            className="absolute left-0 top-0 whitespace-nowrap rounded-md border px-2 py-1 text-center shadow-lg backdrop-blur-xs"
-            style={{ borderColor: r.color, background: 'rgba(11,18,32,0.82)', color: '#F8FAFC', outline: r.id === selectedId ? '2px solid #fff' : undefined }}
+            className="absolute left-0 top-0 whitespace-nowrap rounded border px-1.5 py-0.5 text-center shadow-md backdrop-blur-xs"
+            style={{ borderColor: r.color, background: 'rgba(11,18,32,0.78)', color: '#F8FAFC', outline: r.id === selectedId ? '2px solid #fff' : undefined }}
           >
-            <div className="text-(length:--fs-11) font-medium leading-tight opacity-80">{r.label}</div>
-            <div className="font-mono text-(length:--fs-13) font-semibold leading-tight tabular-nums">{r.sub}</div>
+            <div className="text-(length:--fs-10) font-medium leading-tight opacity-80">{r.label}</div>
+            <div className="font-mono text-(length:--fs-11) font-semibold leading-tight tabular-nums">{r.sub}</div>
           </div>
         ))}
         {(pins ?? []).map((p) => (
           <div
             key={p.id} data-x={p.x} data-y={p.y}
-            className="absolute left-0 top-0 inline-flex size-7 items-center justify-center rounded-full border-2 font-mono text-(length:--fs-12) font-bold shadow-lg"
+            className="absolute left-0 top-0 inline-flex size-5 items-center justify-center rounded-full border-2 font-mono text-(length:--fs-10) font-bold shadow-lg"
             style={{ background: p.selected ? '#F43F5E' : '#E11D48', borderColor: p.selected ? '#FFFFFF' : '#FECDD3', color: '#FFFFFF' }}
             title={p.hasPhoto ? 'Σημείωση με φωτογραφία' : 'Σημείωση'}
           >
             {p.n}
           </div>
         ))}
+        {(netDevices ?? []).map((d) => (
+          <div
+            key={d.id} data-x={d.x} data-y={d.y} title={d.label}
+            className="absolute left-0 top-0 inline-flex size-5 items-center justify-center rounded-full border shadow-md [&_svg]:size-3"
+            style={{ background: '#0B1220', borderColor: d.color, color: d.color, outline: d.selected ? '2px solid #fff' : undefined, outlineOffset: 1 }}
+          >
+            {d.icon}
+          </div>
+        ))}
         {(dimensions ?? []).map((d) => (
           <div
             key={d.id} data-x={(d.a.x + d.b.x) / 2} data-y={(d.a.y + d.b.y) / 2}
-            className="absolute left-0 top-0 whitespace-nowrap rounded px-1.5 py-0.5 font-mono text-(length:--fs-11) font-semibold tabular-nums shadow-sm"
+            className="absolute left-0 top-0 whitespace-nowrap rounded px-1 py-px font-mono text-(length:--fs-10) font-semibold tabular-nums shadow-sm"
             style={{ background: DIM_COLOR, color: '#0B1220' }}
           >
             {formatLength(Math.hypot(d.b.x - d.a.x, d.b.y - d.a.y))}
