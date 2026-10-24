@@ -14,7 +14,8 @@ export function ContractInbox({ items }: { items: InboxItem[] }) {
   return (
     <section aria-labelledby="inbox-h" className="mb-4 rounded-lg border border-amber-200 bg-amber-50/60">
       <h2 id="inbox-h" className="flex items-center gap-2 border-b border-amber-200 px-4 py-2.5 text-(length:--fs-13) font-semibold text-amber-950">
-        <FiInbox className="size-4" aria-hidden /> Περιμένουν εμάς · {head}
+        <FiInbox className="size-4" aria-hidden /> <span className="flex-1">Περιμένουν εμάς · {head}</span>
+        <Link href="/admin/offer-requests" className="text-(length:--fs-12) font-medium underline-offset-2 hover:underline">Όλα τα αιτήματα προσφοράς →</Link>
       </h2>
       <ul className="divide-y divide-amber-200/70">
         {items.slice(0, 8).map((i) => (

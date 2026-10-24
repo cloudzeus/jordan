@@ -23,11 +23,13 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   // Υπαγόρευση + AI μορφοποίηση σε κάθε πεδίο κειμένου: μόνο ADMIN / SUPER_ADMIN.
   const canTextAssist = textAssistAllowed(user.role.key);
   const canSeeContracts = user.role.key === 'SUPER_ADMIN' || user.permissionKeys.has('projects.read');
-  const [orderRequests, appointments, contractInbox] = await Promise.all([
+  const [orderRequests, appointments, inbox] = await Promise.all([
     canSeeRequests ? countPendingOrderRequests().catch(() => 0) : 0,
     canSeeAppointments ? countPendingAppointments().catch(() => 0) : 0,
-    canSeeContracts ? countContractInbox().catch(() => 0) : 0,
+    canSeeContracts ? countContractInbox().catch(() => null) : null,
   ]);
+  const contractQuestions = inbox?.questions ?? 0;
+  const offerRequests = inbox?.requests ?? 0;
 
   return (
     <div className="flex min-h-dvh bg-background">
@@ -37,7 +39,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         roleKey={user.role.key ?? null}
         locale={locale}
         permissionKeys={permissionKeys}
-        badges={{ orderRequests, appointments, contractInbox }}
+        badges={{ orderRequests, appointments, contractInbox: contractQuestions, offerRequests }}
       />
       <div className="flex min-w-0 flex-1 flex-col pb-[calc(4rem+env(safe-area-inset-bottom))] lg:pb-0">
         {/* Η κατάσταση της σύνδεσης με το ERP αφορά ΚΑΘΕ σελίδα, όχι μόνο την ουρά: η πτώση
@@ -48,7 +50,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           {children}
         </main>
       </div>
-      <AdminBottomNav user={{ name: user.name, email: user.email }} roleName={user.role.name} roleKey={user.role.key ?? null} permissionKeys={permissionKeys} badges={{ orderRequests, appointments, contractInbox }} />
+      <AdminBottomNav user={{ name: user.name, email: user.email }} roleName={user.role.name} roleKey={user.role.key ?? null} permissionKeys={permissionKeys} badges={{ orderRequests, appointments, contractInbox: contractQuestions, offerRequests }} />
       {canAssistant && <AirJordanLauncher canMemory={canAssistantMemory} />}
       {canTextAssist && <TextAssistLayer />}
     </div>

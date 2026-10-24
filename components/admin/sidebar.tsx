@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { FiMail,
   FiGrid, FiUsers, FiShield, FiKey, FiImage, FiChevronDown, FiList, FiTag, FiMaximize2, FiTrendingDown, FiShoppingCart,
-  FiActivity, FiSettings, FiFileText, FiLogOut, FiDatabase, FiBriefcase, FiLayers, FiCpu, FiBookOpen, FiBook, FiUserCheck, FiBox, FiTool, FiFolder, FiAlertCircle, FiUserPlus, FiPackage, FiPlayCircle, FiUploadCloud, FiHelpCircle, FiClipboard, FiCalendar, FiTarget, FiCheckSquare, FiMenu, FiX,
+  FiActivity, FiSettings, FiFileText, FiInbox, FiLogOut, FiDatabase, FiBriefcase, FiLayers, FiCpu, FiBookOpen, FiBook, FiUserCheck, FiBox, FiTool, FiFolder, FiAlertCircle, FiUserPlus, FiPackage, FiPlayCircle, FiUploadCloud, FiHelpCircle, FiClipboard, FiCalendar, FiTarget, FiCheckSquare, FiMenu, FiX,
 } from 'react-icons/fi';
 import { Dialog as DialogPrimitive } from 'radix-ui';
 import { AirJordanIcon } from '@/components/assistant/air-jordan-icon';
@@ -27,8 +27,10 @@ type NavItem = {
 type NavGroup = { label: string; items: NavItem[] };
 
 export interface Badges {
-  /** Νέα αιτήματα προσφοράς από την πύλη + ερωτήσεις πελατών χωρίς απάντηση. */
+  /** Ερωτήσεις/αλλαγές πελατών σε προσφορές χωρίς απάντηση. */
   contractInbox?: number;
+  /** Νέα αιτήματα προσφοράς από την πύλη που δεν έχει ανοίξει κανείς. */
+  offerRequests?: number;
   pendingUsers?: number;
   /** Εκκρεμείς εκδότες χωρίς συναλλασσόμενο — από /api/admin/ocr/queues/counts. */
   newTraders?: number;
@@ -63,6 +65,7 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { href: '/admin/projects', label: 'Έργα', icon: FiBriefcase, permissions: ['projects.read'] },
       { href: '/admin/projects/contracts', label: 'Συμβάσεις & Προσφορές', icon: FiFileText, permissions: ['projects.read'], badgeKey: 'contractInbox' },
+      { href: '/admin/offer-requests', label: 'Αιτήματα προσφοράς', icon: FiInbox, permissions: ['projects.read'], badgeKey: 'offerRequests' },
       { href: '/admin/tasks', label: 'Εργασίες & Gantt', icon: FiCheckSquare, permissions: ['projects.read'] },
       { href: '/admin/recipes', label: 'Συνταγές τοποθέτησης', icon: FiLayers, permissions: ['recipes.read'] },
       { href: '/admin/dynamic-offers', label: 'Δυναμικές προσφορές', icon: FiTrendingDown, permissions: ['dynamic_offers.read'] },

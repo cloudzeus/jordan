@@ -30,10 +30,10 @@ async function unansweredQuestions() {
   return open.filter((n) => !answered.has(n.id));
 }
 
-/** Πλήθος για το σήμα του μενού. */
-export async function countContractInbox(): Promise<number> {
+/** Πλήθη για τα σήματα του μενού: νέα αιτήματα (→ Αιτήματα προσφοράς) και αναπάντητες ερωτήσεις (→ Συμβάσεις & Προσφορές). */
+export async function countContractInbox(): Promise<{ requests: number; questions: number }> {
   const [req, q] = await Promise.all([newRequestIds(), unansweredQuestions()]);
-  return req.length + q.length;
+  return { requests: req.length, questions: q.length };
 }
 
 /** Η λίστα στην κορυφή των «Συμβάσεις & Προσφορές». */
