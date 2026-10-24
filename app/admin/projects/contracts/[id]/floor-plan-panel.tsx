@@ -1,6 +1,7 @@
 import { FiDownload, FiLayers, FiPackage, FiSquare } from 'react-icons/fi';
 import { getFloorPlan } from '@/lib/floorplan/plans';
 import { roomSheet } from '@/lib/floorplan/saved';
+import { FloorPlanEditButton } from './floor-plan-edit';
 
 const nf2 = new Intl.NumberFormat('el-GR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const m2 = (n: number) => `${nf2.format(n)} m²`;
@@ -9,7 +10,7 @@ const m2 = (n: number) => `${nf2.format(n)} m²`;
  * Η χαρτογράφηση κάτοψης από την οποία βγήκε η προσφορά: εικόνα με τους χώρους και πίνακας. Το ίδιο
  * υλικό μπαίνει στο PDF του πελάτη («Κάτοψη χώρων») και των συνεργείων («Κάτοψη & χώροι εργασίας»).
  */
-export async function FloorPlanPanel({ floorPlanId }: { floorPlanId: string }) {
+export async function FloorPlanPanel({ floorPlanId, canEdit = false }: { floorPlanId: string; canEdit?: boolean }) {
   const p = await getFloorPlan(floorPlanId).catch(() => null);
   if (!p) return null;
   const sheet = roomSheet(p.data);
@@ -23,6 +24,9 @@ export async function FloorPlanPanel({ floorPlanId }: { floorPlanId: string }) {
             {p.title} · {sheet.rows.length} χώροι · δάπεδο {m2(sheet.floorM2)}{sheet.wallsM2 > 0 ? ` · τοίχοι ${m2(sheet.wallsM2)}` : ''} — μπαίνει στο PDF πελάτη και συνεργείων
           </span>
         </span>
+        {canEdit && (p.prjc != null || p.trdr != null) && (
+          <FloorPlanEditButton planId={p.id} owner={p.prjc != null ? { prjc: p.prjc } : { trdr: p.trdr! }} label={p.title} />
+        )}
         <span className="text-(length:--fs-12) text-muted-foreground group-open:hidden">Εμφάνιση</span>
       </summary>
       <div className="grid gap-4 border-t border-border p-4 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
@@ -59,7 +63,11 @@ export async function FloorPlanPanel({ floorPlanId }: { floorPlanId: string }) {
               <FiDownload className="size-3.5" aria-hidden /> Πρωτότυπο σχέδιο{p.source ? ` (${p.source})` : ''}
             </a>
           )}
-          <p className="mt-2 text-(length:--fs-11) text-muted-foreground">Η χαρτογράφηση ξανανοίγει από το έργο: ⋮ → «Διαστασιολόγηση κάτοψης…» → «Αποθηκευμένες χαρτογραφήσεις».</p>
+          <p className="mt-2 text-(length:--fs-11) text-muted-foreground">
+            {canEdit
+              ? 'Με «Επεξεργασία κάτοψης» αλλάζεις την ίδια χαρτογράφηση (χώροι, τοίχοι, ηλεκτρολογικά & δίκτυο) — ενημερώνονται εικόνα και PDF. Οι γραμμές της προσφοράς αλλάζουν μόνο με «Εφαρμογή στην προσφορά» από τη φόρμα («Κάτοψη & χώροι»).'
+              : 'Η χαρτογράφηση ξανανοίγει από το έργο: ⋮ → «Διαστασιολόγηση κάτοψης…» → «Αποθηκευμένες χαρτογραφήσεις».'}
+          </p>
         </div>
       </div>
     </details>

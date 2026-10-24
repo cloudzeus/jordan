@@ -867,7 +867,8 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
   const canvasPng = (c: HTMLCanvasElement) => new Promise<Blob>((res, rej) => c.toBlob((b) => (b ? res(b) : rej(new Error('PNG export failed'))), 'image/png'));
   /** Νέα ή ενημέρωση της χαρτογράφησης στο έργο· επιστρέφει το id (null σε αποτυχία). */
   const savePlan = async (quiet = false): Promise<string | null> => {
-    if (!plan || !rooms.length) return null;
+    // Αποθηκεύεται και κάτοψη μόνο με ηλεκτρολογικά/δίκτυο (χωρίς χώρους).
+    if (!plan || (!rooms.length && !devices.length && !cables.length)) return null;
     setPlanSaving(true);
     try {
       const fd = new FormData();
@@ -1433,7 +1434,7 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
                       ? <>Οι <b className="text-foreground">{rooms.length}</b> χώροι μπαίνουν στη φόρμα της προσφοράς· υλικά/συνταγές ορίζονται κι εκεί, με το κόστος κάθε χώρου.</>
                       : 'Μέτρησε τουλάχιστον έναν χώρο.'}
                   </p>
-                  <Button size="sm" className="w-full" disabled={!calib || !rooms.length || planSaving} onClick={() => void apply()}>
+                  <Button size="sm" className="w-full" disabled={!calib || (!rooms.length && !devices.length && !cables.length) || planSaving} onClick={() => void apply()}>
                     {planSaving ? <FiLoader className="animate-spin" aria-hidden /> : <FiCheck aria-hidden />} Μεταφορά στην προσφορά
                   </Button>
                 </Step>
@@ -1490,7 +1491,7 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
                       id="fp-title" value={planTitle} onChange={(e) => setPlanTitle(e.target.value)} placeholder={`Κάτοψη ${projectLabel}`} maxLength={200}
                       className="h-8 w-full rounded-md border border-slate-600 bg-slate-900 px-2 text-(length:--fs-12) text-slate-100 placeholder:text-slate-500 focus:border-cyan-300 focus:outline-hidden"
                     />
-                    <Button className="w-full" size="sm" disabled={!rooms.length || !calib || planSaving} onClick={() => void savePlan()}>
+                    <Button className="w-full" size="sm" disabled={(!rooms.length && !devices.length && !cables.length) || !calib || planSaving} onClick={() => void savePlan()}>
                       {planSaving ? <FiLoader className="animate-spin" aria-hidden /> : <FiSave aria-hidden />} {savedId ? 'Ενημέρωση χαρτογράφησης' : 'Αποθήκευση χαρτογράφησης'}
                     </Button>
                     {savedId && <p className="text-[length:var(--fs-11)] text-slate-400">Αποθηκευμένη — ξανανοίγει από την αρχική οθόνη του εργαλείου.</p>}
