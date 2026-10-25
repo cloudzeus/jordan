@@ -386,7 +386,7 @@ export function LinkCustomersDialog({
         <FiSearch className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" aria-hidden />
         <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Αναζήτηση (επωνυμία, κωδικός, ΑΦΜ, πόλη)…" className={cn(fieldCls, 'pl-8')} autoFocus aria-label="Αναζήτηση πελάτη" />
       </div>
-      <ul className="max-h-[50dvh] divide-y divide-border overflow-y-auto rounded-md border border-border bg-card" aria-busy={linked == null}>
+      <ul className="divide-y divide-border rounded-md border border-border bg-card" aria-busy={linked == null}>
         {shown.length === 0 && <li className="px-3 py-6 text-center text-(length:--fs-12) text-muted-foreground">Κανένας πελάτης</li>}
         {shown.map((c) => {
           const already = linked?.has(c.trdr) ?? false;

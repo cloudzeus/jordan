@@ -95,7 +95,7 @@ export function CreditLinkDialog({ docId, canEdit, onClose }: { docId: string; c
                   {data.candidates.length === 0 ? 'Δεν βρέθηκε κανένα παραστατικό του ίδιου εκδότη.' : 'Κανένα αποτέλεσμα για την αναζήτηση.'}
                 </p>
               ) : (
-                <ul role="radiogroup" aria-label="Αρχικό παραστατικό" className="max-h-[42dvh] space-y-1 overflow-auto pr-1">
+                <ul role="radiogroup" aria-label="Αρχικό παραστατικό" className="space-y-1 pr-1">
                   {list.map((c) => {
                     const on = picked === c.findoc;
                     return (

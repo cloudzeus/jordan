@@ -344,7 +344,7 @@ export function OfferWizard({ open, onOpenChange, offerId, onDone }: {
         <FiSearch className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
         <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Αναζήτηση προϊόντος για προσθήκη (κωδικός ή περιγραφή)…" className={cn(fieldCls, 'h-10 pl-8')} autoFocus aria-label="Αναζήτηση προϊόντος" />
       </div>
-      <ul className="grid max-h-[40dvh] gap-1.5 overflow-y-auto sm:grid-cols-2" aria-label="Αποτελέσματα">
+      <ul className="grid gap-1.5 sm:grid-cols-2" aria-label="Αποτελέσματα">
         {hits.map((h) => {
           const on = chosen.has(h.mtrl);
           return (
@@ -535,7 +535,7 @@ export function OfferWizard({ open, onOpenChange, offerId, onDone }: {
             {allOn ? 'Καμία' : 'Όλοι με email'}
           </button>
         </div>
-        <ul className="max-h-60 divide-y divide-border overflow-y-auto">
+        <ul className="divide-y divide-border">
           {shown.slice(0, 300).map((o) => {
             const k = `${o.kind}:${o.refId}`;
             return (

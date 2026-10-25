@@ -45,7 +45,7 @@ export function UploadProgress({ items, open, onClose, onCancel }: UploadProgres
           </div>
         </DialogHeader>
 
-        <div className="max-h-[60vh] overflow-y-auto bg-muted/20 px-4 py-3">
+        <div className="min-h-0 flex-1 overflow-y-auto bg-muted/20 px-4 py-3">
           <ul className="divide-y divide-border overflow-hidden rounded-lg border border-border bg-card">
             {items.map((item) => (
               <li key={item.id} className="px-3 py-2">

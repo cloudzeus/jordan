@@ -122,7 +122,7 @@ export function AadeLookupButton({ initialAfm, onApply, size = 'sm', label = 'Ά
             </div>
           </DialogHeader>
 
-          <div className="max-h-[66vh] space-y-3 overflow-auto bg-muted/20 px-4 py-3">
+          <div className="min-h-0 flex-1 space-y-3 overflow-auto bg-muted/20 px-4 py-3">
             <FormSection tone="blue" icon={<FiSearch />} title="Αναζήτηση">
               <div className="grid grid-cols-12 items-end gap-x-3 gap-y-2">
                 <Field label="ΑΦΜ" htmlFor="aade-afm" className="col-span-12 sm:col-span-8">
@@ -174,7 +174,7 @@ export function AadeLookupButton({ initialAfm, onApply, size = 'sm', label = 'Ά
 
             {data && (
               <FormSection tone="amber" icon={<FiList />} title={`ΚΑΔ (${data.activities.length})`}>
-                <ul className="-mx-3 -my-2.5 max-h-40 divide-y divide-border overflow-y-auto">
+                <ul className="-mx-3 -my-2.5 divide-y divide-border">
                   {data.activities.map((a) => (
                     <li key={a.code} className="flex items-center gap-2 px-3 py-1">
                       <span className="w-20 shrink-0 font-mono text-(length:--fs-11) tabular-nums">{a.code}</span>

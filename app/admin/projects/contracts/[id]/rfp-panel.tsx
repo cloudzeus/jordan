@@ -259,7 +259,7 @@ function NewRfpDialog({ open, onOpenChange, contractId, title, summary, onCreate
               <FiSearch className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" aria-hidden />
               <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Αναζήτηση συνεργείου, τεχνικής εταιρίας, μάστορα…" className="pl-8" />
             </div>
-            <ul className="mt-1.5 max-h-56 divide-y divide-border overflow-y-auto rounded-md border border-border">
+            <ul className="mt-1.5 divide-y divide-border rounded-md border border-border">
               {opts.length === 0 && <li className="px-3 py-3 text-center text-(length:--fs-12) text-muted-foreground">Κανένα αποτέλεσμα</li>}
               {opts.map((o) => (
                 <li key={key(o)}>

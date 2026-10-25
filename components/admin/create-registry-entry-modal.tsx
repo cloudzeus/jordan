@@ -589,7 +589,7 @@ export function CreateRegistryEntryModal({
         {!meta ? (
           <div className="px-5 py-12 text-center text-(length:--fs-13) text-muted-foreground">Φόρτωση πινάκων…</div>
         ) : tab === 'form' ? (
-          <div className="max-h-[66vh] space-y-3 overflow-auto bg-muted/20 px-4 py-3">
+          <div className="min-h-0 flex-1 space-y-3 overflow-auto bg-muted/20 px-4 py-3">
             {needsTemplate && (
               <section className="space-y-2 rounded-xl border border-sisyphus-200 bg-sisyphus-50/40 p-3">
                 <p className="text-(length:--fs-11) font-medium text-sisyphus-700">
@@ -799,7 +799,7 @@ export function CreateRegistryEntryModal({
             </FormSection>
           </div>
         ) : (
-          <div className="max-h-[60vh] space-y-2 overflow-auto px-5 py-4">
+          <div className="min-h-0 flex-1 space-y-2 overflow-auto px-5 py-4">
             {dryPayload != null
               ? <p className="text-(length:--fs-11) font-medium text-emerald-700">Object από τον server (dry-run) — αυτό ακριβώς θα σταλεί στο SoftOne:</p>
               : <p className="text-(length:--fs-11) text-muted-foreground">Πάτησε «Προετοιμασία object» για να δεις τι θα σταλεί.</p>}

@@ -80,7 +80,7 @@ export function SoftoneAfmDialog({
           )}
         </DialogHeader>
 
-        <div className="max-h-[66vh] space-y-3 overflow-auto bg-muted/20 px-4 py-3">
+        <div className="min-h-0 flex-1 space-y-3 overflow-auto bg-muted/20 px-4 py-3">
           {loading && <div role="status" className="py-8 text-center text-(length:--fs-13) text-muted-foreground">Έλεγχος…</div>}
           {error && <div role="alert" className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-(length:--fs-13) text-destructive">{error}</div>}
 

@@ -73,6 +73,10 @@ function DialogContent({
           // Κάθε εσωτερική περιοχή κύλισης γίνεται containing block (βλ. DialogBody): κρυφά
           // absolute inputs δεν ξεχειλίζουν στο παράθυρο → καμία διπλή μπάρα.
           "[&_.overflow-auto]:relative [&_.overflow-y-auto]:relative",
+          // Ένα <form> που τυλίγει σώμα με κύλιση γίνεται κι αυτό στήλη flex: κυλά μόνο το σώμα,
+          // κεφαλίδα και κουμπιά της φόρμας μένουν ορατά.
+          "[&>form:has(>.overflow-auto)]:flex [&>form:has(>.overflow-auto)]:min-h-0 [&>form:has(>.overflow-auto)]:flex-col",
+          "[&>form:has(>.overflow-y-auto)]:flex [&>form:has(>.overflow-y-auto)]:min-h-0 [&>form:has(>.overflow-y-auto)]:flex-col",
           autoBody && [
             "[&:has([data-slot=dialog-body])]:gap-0 [&:has([data-slot=dialog-body])]:p-0",
             "[&:has([data-slot=dialog-body])>form]:flex [&:has([data-slot=dialog-body])>form]:min-h-0 [&:has([data-slot=dialog-body])>form]:flex-col",

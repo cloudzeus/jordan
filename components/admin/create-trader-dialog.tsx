@@ -347,7 +347,7 @@ export function CreateTraderDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="max-h-[66vh] space-y-3 overflow-auto bg-muted/20 px-4 py-3">
+        <div className="min-h-0 flex-1 space-y-3 overflow-auto bg-muted/20 px-4 py-3">
           {/* ── 1. ΤΑΥΤΟΤΗΤΑ: ΑΦΜ + κωδικός σε μία σειρά, επωνυμία από κάτω· οι βοήθειες κάτω από τη σειρά. */}
           <FormSection tone="blue" icon={<FiUser />} title="Ταυτότητα">
             <div className="grid grid-cols-12 gap-x-3 gap-y-2">

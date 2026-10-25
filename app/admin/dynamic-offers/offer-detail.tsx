@@ -101,7 +101,7 @@ function ReservationDialog({ open, onOpenChange, offer, onSaved }: { open: boole
               <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Αναζήτηση πελάτη…" className={cn(fieldCls, 'pl-8')} autoFocus aria-label="Αναζήτηση πελάτη" />
             </div>
           </Field>
-          <ul className="max-h-48 divide-y divide-border overflow-y-auto rounded-md border border-border bg-card" aria-busy={!customers}>
+          <ul className="divide-y divide-border rounded-md border border-border bg-card" aria-busy={!customers}>
             {shown.map((c) => (
               <li key={c.refId}>
                 <label className={cn('flex min-h-11 cursor-pointer items-center gap-2 px-2.5 py-1.5 hover:bg-muted/50', trdr === c.refId && 'bg-emerald-50 dark:bg-emerald-500/10')}>

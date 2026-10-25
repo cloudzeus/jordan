@@ -188,7 +188,7 @@ export function JobUploadDialog({ templateId, templateName, defaultEmails, open,
               )}
 
               {files.length > 0 && (
-                <ul className="max-h-40 divide-y divide-border overflow-auto rounded-md border border-border bg-card">
+                <ul className="divide-y divide-border rounded-md border border-border bg-card">
                   {files.map((f, i) => (
                     <li key={`${f.name}:${f.size}:${i}`} className="flex h-8 items-center gap-2 px-2 text-(length:--fs-11) hover:bg-muted/40">
                       <FiFile className="size-3 shrink-0 text-muted-foreground" aria-hidden />

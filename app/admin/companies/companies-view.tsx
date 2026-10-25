@@ -1271,7 +1271,7 @@ function BranchDialog({
             <DialogDescription className="truncate text-(length:--fs-11)">Στοιχεία διεύθυνσης και επικοινωνίας υποκαταστήματος.</DialogDescription>
           </div>
         </DialogHeader>
-        <div className="max-h-[70vh] space-y-3 overflow-auto bg-muted/20 px-4 py-3
+        <div className="min-h-0 flex-1 space-y-3 overflow-auto bg-muted/20 px-4 py-3
           [&_input]:text-(length:--fs-13)! [&_input]:h-8! [&_input]:px-2!
           [&_label]:text-(length:--fs-11)! [&_label]:font-medium!">
           <Section tone="blue" icon={<FiMapPin />} title="Υποκατάστημα">
@@ -1547,7 +1547,7 @@ function ContactDialog({
           </div>
         </DialogHeader>
 
-        <div className="max-h-[70vh] space-y-3 overflow-auto bg-muted/20 px-4 py-3
+        <div className="min-h-0 flex-1 space-y-3 overflow-auto bg-muted/20 px-4 py-3
           [&_input]:text-(length:--fs-13)! [&_input]:h-8! [&_input]:px-2!
           [&_label]:text-(length:--fs-11)! [&_label]:font-medium!
           [&_textarea]:text-(length:--fs-13)!">

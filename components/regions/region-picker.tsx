@@ -28,7 +28,7 @@ export function RegionPicker({
           <span aria-hidden className="grid size-8 shrink-0 place-items-center rounded-lg bg-sisyphus-50 text-sisyphus-600 dark:bg-sisyphus-500/15"><FiMapPin className="size-4" /></span>
           <DialogTitle className="min-w-0 flex-1 truncate text-(length:--fs-15)">Επιλογή Δήμου / Περιοχής</DialogTitle>
         </DialogHeader>
-        <div className="max-h-[70vh] overflow-auto bg-muted/20 px-4 py-3">
+        <div className="min-h-0 flex-1 overflow-auto bg-muted/20 px-4 py-3">
           <FormSection tone="blue" icon={<FiMap />} title="Διοικητική διαίρεση">
             {roots == null ? (
               <div role="status" className="p-4 text-center text-(length:--fs-13) text-muted-foreground">Φόρτωση…</div>

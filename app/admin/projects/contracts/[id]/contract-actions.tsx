@@ -135,7 +135,7 @@ function LinkDialog({ open, onOpenChange, contract: c }: { open: boolean; onOpen
             <FiSearch className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" aria-hidden />
             <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Κωδικός ή όνομα έργου…" className="h-9 pl-8" autoFocus aria-label="Αναζήτηση έργου" />
           </div>
-          <ul className="max-h-72 overflow-auto rounded-md border border-border">
+          <ul className="rounded-md border border-border">
             {opts.map((p) => (
               <li key={p.prjc}>
                 <button type="button" disabled={busy} onClick={() => pick(p.prjc)} className="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-muted">
@@ -192,7 +192,7 @@ function CreatePrjcDialog({ open, onOpenChange, contract: c }: { open: boolean; 
           {!plan && !error && <p className="text-(length:--fs-12) text-muted-foreground"><FiLoader className="mr-1 inline size-3 animate-spin" />Προεπισκόπηση…</p>}
           {plan && (
             <>
-              <pre className="max-h-64 overflow-auto rounded-md bg-muted p-3 font-mono text-(length:--fs-11)">{JSON.stringify(plan.payload, null, 2)}</pre>
+              <pre className="overflow-auto rounded-md bg-muted p-3 font-mono text-(length:--fs-11)">{JSON.stringify(plan.payload, null, 2)}</pre>
               <label className="flex items-start gap-2 text-(length:--fs-13)">
                 <input type="checkbox" checked={agree} onChange={(e) => setAgree(e.target.checked)} className="mt-1" />
                 <span>Επιβεβαιώνω ότι θέλω να <strong>γραφτεί</strong> το έργο {plan.code} στο SoftOne.</span>

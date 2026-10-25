@@ -378,7 +378,7 @@ function TargetPicker({ defaultKind, onPick, onClose }: { defaultKind: MatchKind
         </label>
         <button type="button" onClick={onClose} className={cn(BTN_GHOST, 'px-2 text-(length:--fs-11)')}>Κλείσιμο</button>
       </div>
-      <ul className="mt-2 max-h-48 divide-y divide-border overflow-y-auto rounded-md border border-border bg-card">
+      <ul className="mt-2 divide-y divide-border rounded-md border border-border bg-card">
         {loading && <li className="px-2 py-1.5 text-(length:--fs-11) text-muted-foreground">Αναζήτηση…</li>}
         {!loading && res.length === 0 && <li className="px-2 py-1.5 text-(length:--fs-11) text-muted-foreground">{kind === 'product' || kind === 'service' ? 'Γράψε τουλάχιστον δύο χαρακτήρες.' : 'Δεν βρέθηκε τίποτα.'}</li>}
         {res.map((x) => (

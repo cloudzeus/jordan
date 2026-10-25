@@ -58,7 +58,7 @@ export function CompanyTypesDialog({
           </div>
         </DialogHeader>
 
-        <div className="max-h-[66vh] space-y-3 overflow-auto bg-muted/20 px-4 py-3">
+        <div className="min-h-0 flex-1 space-y-3 overflow-auto bg-muted/20 px-4 py-3">
           <FormSection tone="blue" icon={<FiLayers />} title="Υπάρχοντες τύποι" aside={<span className="tabular-nums text-muted-foreground">{types.length}</span>}>
             <ul className="-mx-3 -my-2.5 divide-y divide-border">
               {types.map((t) => (

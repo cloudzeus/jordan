@@ -76,7 +76,7 @@ export function SaveTemplateDialog({ open, onOpenChange, prjc, tasks, onSaved }:
                   {picked.length === tasks.length ? 'Καμία' : 'Όλες'}
                 </button>
               </div>
-              <ul className="max-h-64 space-y-0.5 overflow-auto rounded-md border border-border p-1">
+              <ul className="space-y-0.5 rounded-md border border-border p-1">
                 {ordered.map((t) => (
                   <li key={t.id}>
                     <label className="flex min-h-10 cursor-pointer items-center gap-2 rounded px-2 text-(length:--fs-13) hover:bg-muted">
@@ -174,7 +174,7 @@ export function ApplyTemplateDialog({ open, onOpenChange, prjc, templates, today
                   <p className="mb-1 flex items-baseline justify-between gap-2 text-(length:--fs-12) font-medium text-muted-foreground">
                     <span>Προεπισκόπηση</span><span className="font-normal tabular-nums">{preview.length} εργασίες · εργάσιμες ημέρες</span>
                   </p>
-                  <ol className="max-h-56 space-y-0.5 overflow-auto rounded-md border border-border p-1 text-(length:--fs-12)">
+                  <ol className="space-y-0.5 rounded-md border border-border p-1 text-(length:--fs-12)">
                     {preview.map((p) => (
                       <li key={p.key} className="flex min-h-8 items-center gap-2 px-2">
                         <span className="min-w-0 flex-1 truncate">{p.name}</span>

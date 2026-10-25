@@ -53,7 +53,7 @@ function PartySearch({ onPick, only, placeholder = 'Επωνυμία, κωδικ
         <Input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder={placeholder} className="pl-8" aria-label="Αναζήτηση πελάτη ή συνεργάτη" />
       </div>
       {q.trim().length >= 2 && (
-        <ul className="max-h-60 w-full min-w-0 overflow-y-auto rounded-md border border-border" role="listbox" aria-label="Αποτελέσματα">
+        <ul className="w-full min-w-0 rounded-md border border-border" role="listbox" aria-label="Αποτελέσματα">
           {(loading || hits.length === 0) && <li className="px-3 py-3 text-(length:--fs-12) text-muted-foreground">{loading ? 'Αναζήτηση…' : (only ? 'Δεν βρέθηκε συναλλασσόμενος.' : 'Δεν βρέθηκε κανείς — δημιουργήστε «Νέα επαφή» ή «Νέο πελάτη».')}</li>}
           {hits.map((h) => {
             const k = KIND[h.kind];

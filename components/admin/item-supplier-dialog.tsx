@@ -193,7 +193,7 @@ export function ItemSupplierDialog({ open, onOpenChange, lineId }: { open: boole
                   </button>
                 )}
                 {showJson && preview.payload != null && (
-                  <pre className="mt-1 max-h-56 overflow-auto rounded-md bg-[#0E1626] p-2 font-mono text-(length:--fs-11) text-[#d6e2f5]">{JSON.stringify(preview.payload, null, 2)}</pre>
+                  <pre className="mt-1 overflow-auto rounded-md bg-[#0E1626] p-2 font-mono text-(length:--fs-11) text-[#d6e2f5]">{JSON.stringify(preview.payload, null, 2)}</pre>
                 )}
               </section>
             )}

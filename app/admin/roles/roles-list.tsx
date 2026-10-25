@@ -166,7 +166,7 @@ function RolePermissionsEditor({
 
   return (
     <>
-      <div className="max-h-[66vh] space-y-3 overflow-y-auto bg-muted/20 px-4 py-3">
+      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto bg-muted/20 px-4 py-3">
         <FormSection
           tone="blue" icon={<FiKey />} title="Δικαιώματα"
           aside={<span className="font-mono tabular-nums">{selected.size}/{Object.values(byResource).reduce((n, ps) => n + ps.length, 0)}</span>}

@@ -1310,7 +1310,7 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
                       <span className="text-(length:--fs-11) font-semibold uppercase tracking-wider text-muted-foreground">Διαστάσεις ({dims.length})</span>
                       <Button size="xs" variant="ghost" onClick={() => setDims([])}>Όλες</Button>
                     </div>
-                    <ul className="max-h-28 space-y-0.5 overflow-y-auto">
+                    <ul className="space-y-0.5">
                       {dims.map((d, i) => (
                         <li key={d.id} className="flex items-center justify-between gap-2 text-(length:--fs-12)">
                           <span className="font-mono tabular-nums">{i + 1}. {fmtLen(Math.hypot(d.b.x - d.a.x, d.b.y - d.a.y))}</span>

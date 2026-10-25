@@ -72,7 +72,7 @@ export function TestJsonDialog({ open, onOpenChange, result, slug }: { open: boo
                 {result.errors.length > 0 && <RowHint tone="bad">{result.errors.map((e) => `${e.fieldKey}: ${e.message}`).join(' · ')}</RowHint>}
               </FormSection>
               <FormSection tone="slate" icon={<FiCode />} title="JSON εξόδου" aside={<span className="font-mono">{slug}.json</span>}>
-                <pre ref={preRef} className="-mx-3 -my-2.5 max-h-[50vh] overflow-auto bg-neutral-4 px-3 py-2.5 font-mono text-(length:--fs-11) leading-relaxed">{json}</pre>
+                <pre ref={preRef} className="-mx-3 -my-2.5 overflow-auto bg-neutral-4 px-3 py-2.5 font-mono text-(length:--fs-11) leading-relaxed">{json}</pre>
               </FormSection>
             </div>
             <DialogFooter className="mx-0 mb-0 gap-2 border-t border-border bg-card px-4 py-2.5">

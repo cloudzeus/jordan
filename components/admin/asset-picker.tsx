@@ -56,7 +56,7 @@ export function AssetSearch({ id, disabled, onPick }: { id: string; disabled?: b
         {loading && <FiLoader aria-hidden className="absolute right-2.5 top-1/2 size-3.5 -translate-y-1/2 animate-spin text-muted-foreground motion-reduce:animate-none" />}
       </div>
       {results.length > 0 && (
-        <ul className="max-h-48 overflow-y-auto rounded-lg border border-border">
+        <ul className="rounded-lg border border-border">
           {results.map((r) => (
             <li key={r.mtrl}>
               <button
@@ -212,7 +212,7 @@ export function CreateAssetDialog({ open, onOpenChange, lineId, lineName, lineVa
           </div>
         </DialogHeader>
 
-        <div className="max-h-[66vh] space-y-3 overflow-auto bg-muted/20 px-4 py-3">
+        <div className="min-h-0 flex-1 space-y-3 overflow-auto bg-muted/20 px-4 py-3">
           {!data && !error && <p className="flex items-center gap-2 text-(length:--fs-13) text-muted-foreground"><FiLoader className="size-4 animate-spin motion-reduce:animate-none" aria-hidden />Φόρτωση κατηγοριών…</p>}
           {data && (
             <>

@@ -447,7 +447,7 @@ function LinkExisting({ prjc, taskId, linked, onLinked }: { prjc: number; taskId
           <DialogBody>
             {choices == null ? <p className="py-6 text-center text-(length:--fs-12) text-muted-foreground"><FiLoader className="mr-1 inline size-3 motion-safe:animate-spin" aria-hidden />Φόρτωση…</p>
               : avail.length === 0 ? <p className="py-6 text-center text-(length:--fs-12) text-muted-foreground">Δεν υπάρχουν άλλα αρχεία στον φάκελο του έργου.</p> : (
-                <ul className="max-h-72 space-y-0.5 overflow-auto">
+                <ul className="space-y-0.5">
                   {avail.map((c) => (
                     <li key={c.id}>
                       <label className="flex min-h-10 cursor-pointer items-center gap-2 rounded px-2 text-(length:--fs-13) hover:bg-muted">
