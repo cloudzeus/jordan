@@ -137,7 +137,7 @@ export function TaskDialog({
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!busy) onOpenChange(o); }}>
-      <DialogContent className="sm:max-w-2xl">
+      <DialogContent className="sm:max-w-3xl">
         <DialogHeader>
           <DialogTitle>{task ? 'Επεξεργασία εργασίας' : 'Νέα εργασία'}</DialogTitle>
           <DialogDescription>Υποχρεωτικά μόνο το όνομα και ο χρόνος· τα υπόλοιπα όποτε χρειαστούν. Δεν γράφεται τίποτα στο SoftOne.</DialogDescription>
@@ -221,14 +221,15 @@ export function TaskDialog({
                   <Label htmlFor="task-dep-q">Γίνεται αφού ολοκληρωθούν</Label>
                   {others.length === 0 ? <p className={hint}>Δεν υπάρχουν άλλες εργασίες στο έργο.</p> : (
                     <>
-                      {others.length > 6 && (
+                      {others.length > DEP_LIMIT && (
                         <div className="relative">
                           <FiSearch className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" aria-hidden />
                           <Input id="task-dep-q" value={depQuery} onChange={(e) => setDepQuery(e.target.value)} placeholder="Αναζήτηση εργασίας…" className={cn(inputCls, 'pl-8')} />
                         </div>
                       )}
-                      <ul className="max-h-40 space-y-0.5 overflow-auto rounded-md border border-border p-1">
-                        {depMatches.map((t) => (
+                      {/* Χωρίς δικό της scroll (διπλή κύλιση μέσα στο παράθυρο): λίγες γραμμές + αναζήτηση */}
+                      <ul className="grid gap-0.5 rounded-md border border-border p-1 sm:grid-cols-2">
+                        {depMatches.slice(0, DEP_LIMIT).map((t) => (
                           <li key={t.id}>
                             <label className="flex min-h-10 cursor-pointer items-center gap-2 rounded px-2 text-(length:--fs-13) hover:bg-muted">
                               <Checkbox checked={deps.includes(t.id)} onCheckedChange={(c) => setDeps((d) => (c ? [...d, t.id] : d.filter((x) => x !== t.id)))} />
@@ -239,6 +240,7 @@ export function TaskDialog({
                         ))}
                         {depMatches.length === 0 && <li className="px-2 py-2 text-(length:--fs-12) text-muted-foreground">Κανένα αποτέλεσμα.</li>}
                       </ul>
+                      {depMatches.length > DEP_LIMIT && <p className={hint}>+{depMatches.length - DEP_LIMIT} ακόμη — περιορίστε με την αναζήτηση.</p>}
                       <p className={hint}>Κύκλος εξαρτήσεων (η Α περιμένει τη Β και η Β την Α) απορρίπτεται κατά την αποθήκευση.</p>
                     </>
                   )}
@@ -322,6 +324,10 @@ function Group({ title, children }: { title: string; children: React.ReactNode }
   );
 }
 
+/** Πόσες γραμμές δείχνουν οι λίστες επιλογής· οι υπόλοιπες βρίσκονται με αναζήτηση (όχι εσωτερικό scroll). */
+const DEP_LIMIT = 8;
+const PARTY_LIMIT = 6;
+
 const Req = () => <span className="text-destructive" aria-hidden>*</span>;
 
 /** Εμπλεκόμενοι: υπάλληλοι/συνεργάτες από λίστα, πελάτες/προμηθευτές με αναζήτηση στον καθρέφτη SoftOne. */
@@ -383,9 +389,9 @@ function PartiesField({ prjc, value, onChange, options }: { prjc: number; value:
         </div>
         <div className="px-1.5 pb-1.5">
           <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder={isTrader ? 'Επωνυμία, κωδικός ή ΑΦΜ (2+ χαρακτήρες)…' : 'Αναζήτηση…'} aria-label="Αναζήτηση εμπλεκομένου" className={inputCls} />
-          <ul className="mt-1 max-h-36 overflow-auto" aria-live="polite">
+          <ul className="mt-1" aria-live="polite">
             {loading && <li className="px-2 py-1.5 text-(length:--fs-12) text-muted-foreground"><FiLoader className="mr-1 inline size-3 motion-safe:animate-spin" aria-hidden />Αναζήτηση…</li>}
-            {list.slice(0, 30).map((o) => (
+            {list.slice(0, PARTY_LIMIT).map((o) => (
               <li key={o.ref}>
                 <button type="button" onClick={() => { onChange([...value, o]); setQ(''); }} className="flex min-h-10 w-full cursor-pointer items-center gap-2 rounded px-2 text-left text-(length:--fs-13) hover:bg-muted focus-visible:bg-muted focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring">
                   <span className="min-w-0 flex-1 truncate">{o.label}</span>
@@ -393,6 +399,7 @@ function PartiesField({ prjc, value, onChange, options }: { prjc: number; value:
                 </button>
               </li>
             ))}
+            {list.length > PARTY_LIMIT && <li className="px-2 py-1.5 text-(length:--fs-12) text-muted-foreground">+{list.length - PARTY_LIMIT} ακόμη — πληκτρολογήστε για να βρείτε.</li>}
             {!loading && list.length === 0 && (
               <li className="px-2 py-1.5 text-(length:--fs-12) text-muted-foreground">{isTrader && q.trim().length < 2 ? 'Πληκτρολογήστε για αναζήτηση.' : 'Κανένα αποτέλεσμα.'}</li>
             )}

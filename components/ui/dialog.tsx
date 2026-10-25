@@ -70,6 +70,9 @@ function DialogContent({
           // div με overflow-auto) παίρνει τον χώρο που μένει και κυλά μόνο αυτό.
           "fixed top-1/2 left-1/2 z-50 flex max-h-[calc(100dvh-1rem)] w-full max-w-[calc(100%-1rem)] -translate-x-1/2 -translate-y-1/2 flex-col gap-4 rounded-xl bg-card p-6 text-sm text-foreground border border-border shadow-pop duration-100 outline-none sm:max-h-[calc(100dvh-2rem)] sm:max-w-md data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
           "[&>[data-slot=dialog-footer]]:shrink-0 [&>[data-slot=dialog-header]]:shrink-0",
+          // Κάθε εσωτερική περιοχή κύλισης γίνεται containing block (βλ. DialogBody): κρυφά
+          // absolute inputs δεν ξεχειλίζουν στο παράθυρο → καμία διπλή μπάρα.
+          "[&_.overflow-auto]:relative [&_.overflow-y-auto]:relative",
           autoBody && [
             "[&:has([data-slot=dialog-body])]:gap-0 [&:has([data-slot=dialog-body])]:p-0",
             "[&:has([data-slot=dialog-body])>form]:flex [&:has([data-slot=dialog-body])>form]:min-h-0 [&:has([data-slot=dialog-body])>form]:flex-col",
@@ -80,7 +83,10 @@ function DialogContent({
           // Εφεδρεία: αν το περιεχόμενο δεν έχει δικό του σώμα που κυλά (π.χ. ένα <form> τυλίγει
           // τα πάντα), κυλά ολόκληρο το παράθυρο αντί να κόβεται. Υπερισχύει του `overflow-hidden`
           // των καλούντων — εκείνο έκοβε το κάτω μέρος (και τα κουμπιά) χωρίς τρόπο πρόσβασης.
-          "overflow-x-hidden overflow-y-auto overscroll-contain"
+          "overflow-x-hidden overflow-y-auto overscroll-contain",
+          // Με DialogBody κυλά ΜΟΝΟ το σώμα: το παράθυρο δεν αποκτά δεύτερη μπάρα (διπλή κύλιση
+          // όταν το σώμα ξεχείλιζε κατά λίγα px λόγω στρογγυλοποίησης ύψους).
+          "[&:has(>[data-slot=dialog-body])]:overflow-y-hidden [&:has(>form>[data-slot=dialog-body])]:overflow-y-hidden"
         )}
         {...props}
       >
@@ -113,7 +119,9 @@ function DialogBody({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="dialog-body"
-      className={cn("min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-3 [scrollbar-gutter:stable]", className)}
+      // `relative`: τα κρυφά absolute inputs (Switch/Checkbox του Radix, `sr-only` file input)
+      // μένουν μέσα στο σώμα — αλλιώς ξέφευγαν στο παράθυρο και έβγαζαν δεύτερη μπάρα κύλισης.
+      className={cn("relative min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-3 [scrollbar-gutter:stable]", className)}
       {...props}
     />
   )
