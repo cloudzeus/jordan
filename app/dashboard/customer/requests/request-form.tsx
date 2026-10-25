@@ -9,7 +9,7 @@ import { SitePicker, type PickSite } from './site-picker';
 
 const field = 'mt-1 w-full border border-(--s-line) bg-white px-3 text-(length:--fs-15) outline-hidden focus-visible:border-(--s-ink)';
 
-export function RequestForm({ disabledReason, sites = [] }: { disabledReason?: string | null; sites?: PickSite[] }) {
+export function RequestForm({ disabledReason, onBehalf = null, sites = [] }: { disabledReason?: string | null; onBehalf?: string | null; sites?: PickSite[] }) {
   const router = useRouter();
   const [kind, setKind] = React.useState<'PRODUCT_INSTALL' | 'PRODUCT'>('PRODUCT_INSTALL');
   const [title, setTitle] = React.useState('');
@@ -91,6 +91,7 @@ export function RequestForm({ disabledReason, sites = [] }: { disabledReason?: s
           <FiCamera className="size-4 text-(--s-accent)" aria-hidden /><span className="s-link">Φωτογραφίες ή κάτοψη</span>
           <input type="file" accept="image/*" multiple className="sr-only" onChange={(e) => { const l = e.target.files; if (l) setFiles((x) => [...x, ...[...l]].slice(0, 8)); e.target.value = ''; }} />
         </label>
+        {onBehalf && <p className="border-l-2 border-(--s-accent) bg-(--s-paper) px-4 py-3 text-(length:--fs-13) text-(--s-ink-2)">Αποστολή <strong>εκ μέρους του πελάτη</strong> («Προβολή ως») — στο ιστορικό γράφεται ότι την έκανε {onBehalf}.</p>}
         <button type="submit" disabled={pending || title.trim().length < 3 || description.trim().length < 10} className="p-btn p-btn-primary">
           {pending ? <FiLoader className="size-4 animate-spin motion-reduce:animate-none" aria-hidden /> : <FiSend className="size-4" aria-hidden />}
           {pending ? 'Αποστολή…' : 'Αποστολή αιτήματος'}

@@ -19,8 +19,10 @@ export { offerRequestInput, SITE_REQUIRED, type OfferRequestInput } from './port
 import type { OfferRequestInput } from './portal-requests-core';
 
 type Who = { id: string; email: string; name: string | null };
+/** Μέλος του προσωπικού που καταχωρίζει το αίτημα εκ μέρους του πελάτη («Προβολή ως»). */
+type OnBehalf = { id: string; name: string };
 
-export async function createOfferRequest(trdr: number, input: OfferRequestInput, photos: File[], by: Who) {
+export async function createOfferRequest(trdr: number, input: OfferRequestInput, photos: File[], by: Who, onBehalf?: OnBehalf | null) {
   const [trader, saved] = await Promise.all([
     prisma.softoneTrader.findUnique({ where: { trdr }, select: { name: true, email: true, phone: true } }),
     input.siteId ? prisma.customerSite.findFirst({ where: { id: input.siteId, trdr } }) : Promise.resolve(null),
@@ -42,6 +44,10 @@ export async function createOfferRequest(trdr: number, input: OfferRequestInput,
   // Η περιγραφή μένει και ως μήνυμα του πελάτη (με τις φωτογραφίες) — αρχή του ιστορικού της προσφοράς.
   await addNote(c.id, { targetType: 'CONTRACT', targetId: null, targetLabel: null, kind: 'NOTE', body: input.description, shareWith: [], replyToId: null }, photos, { kind: 'CUSTOMER', id: by.id, name: by.name, email: by.email });
   await logContractEvent(c.id, { type: 'REQUESTED', actor: { kind: 'CUSTOMER', id: by.id, name: by.name || by.email }, summary: `Αίτημα προσφοράς: ${input.title}`, customer: true });
+  // Εκ μέρους του πελάτη: το αίτημα είναι του πελάτη, αλλά καταγράφεται (εσωτερικά) ποιος το καταχώρισε.
+  if (onBehalf) {
+    await logContractEvent(c.id, { type: 'REQUESTED', actor: { kind: 'STAFF', id: onBehalf.id, name: onBehalf.name }, summary: `Καταχωρίστηκε από ${onBehalf.name} εκ μέρους του πελάτη («Προβολή ως»)`, customer: false });
+  }
   // Η συνομιλία με τον βοηθό μένει ως εσωτερική σημείωση — μας δίνει το πλαίσιο, ο πελάτης δεν τη χρειάζεται ξανά.
   if (input.transcript?.length) {
     const t = input.transcript.map((m) => `${m.role === 'user' ? 'Πελάτης' : 'Βοηθός'}: ${m.text}`).join('\n').slice(0, 3900);
@@ -51,17 +57,17 @@ export async function createOfferRequest(trdr: number, input: OfferRequestInput,
     await logContractEvent(c.id, { type: 'REQUESTED', actor: { kind: 'SYSTEM', name: 'AI βοηθός' }, summary: `Εκτίμηση βοηθού: ${verdictText(input.scope.verdict)}${input.scope.cannot.length ? ` — εκτός: ${input.scope.cannot.join(', ')}` : ''}`, customer: false });
   }
   const ref = contractRef(c.number);
-  await notify(c.id, ref, input, photos.length, trader?.name ?? `Πελάτης #${trdr}`, by);
+  await notify(c.id, ref, input, photos.length, trader?.name ?? `Πελάτης #${trdr}`, by, onBehalf ?? null);
   return { id: c.id, ref };
 }
 
-async function notify(id: string, ref: string, input: OfferRequestInput, photos: number, who: string, by: Who) {
+async function notify(id: string, ref: string, input: OfferRequestInput, photos: number, who: string, by: Who, onBehalf: OnBehalf | null) {
   try {
     const [brand, inbox, override] = await Promise.all([emailBrand(), getSetting<string>('company.email'), getSetting<string>('orders.notifyEmail')]);
     const base = appUrl();
     if (override?.trim().toLowerCase() !== 'off') {
       const m = offerRequestStaffEmail(brand, {
-        ref, title: input.title, who, by: `${by.name ?? ''} (${by.email})`.trim(), description: input.description, site: input.site,
+        ref, title: input.title, who, by: `${by.name ?? ''} (${by.email})`.trim() + (onBehalf ? ` — καταχώριση από ${onBehalf.name} εκ μέρους του πελάτη` : ''), description: input.description, site: input.site,
         wanted: input.wanted ? new Date(`${input.wanted}T00:00:00Z`).toLocaleDateString('el-GR') : null, photos, link: base ? `${base}/admin/projects/contracts/${id}` : null,
       });
       await sendTransactionalEmail(override?.trim() || inbox?.trim() || mailgunConfig().address, m.subject, m.html, { fromName: brand.name, replyTo: by.email, text: m.text });
@@ -75,7 +81,8 @@ async function notify(id: string, ref: string, input: OfferRequestInput, photos:
 
 /** Τα αιτήματα προσφοράς του πελάτη και πού βρίσκεται το καθένα. */
 export async function customerOfferRequests(trdr: number) {
-  const ev = await prisma.contractEvent.findMany({ where: { type: 'REQUESTED', contract: { trdr } }, orderBy: { createdAt: 'desc' }, select: { createdAt: true, contract: { select: { id: true, number: true, title: true, status: true, summary: true } } } });
+  // Ένα αίτημα = ένα συμβάν του πελάτη (όχι η εκτίμηση του βοηθού ή η καταγραφή του προσωπικού).
+  const ev = await prisma.contractEvent.findMany({ where: { type: 'REQUESTED', actorKind: 'CUSTOMER', contract: { trdr } }, orderBy: { createdAt: 'desc' }, select: { createdAt: true, contract: { select: { id: true, number: true, title: true, status: true, summary: true } } } });
   return ev.map(({ createdAt, contract: c }) => ({
     id: c.id, ref: contractRef(c.number), title: c.title, at: createdAt.toISOString(),
     description: c.summary.replace(/^Αίτημα πελάτη από την πύλη:\n/, ''),

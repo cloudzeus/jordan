@@ -194,7 +194,7 @@ function ViewAsBar({ name, role, admin }: { name: string; role: string; admin: s
       <div className="mx-auto flex w-full max-w-[1440px] flex-wrap items-center gap-x-4 gap-y-1 px-5 py-2 text-(length:--fs-13) sm:px-8 lg:px-12">
         <FiEye className="size-4 shrink-0 text-[#E9D8C4]" aria-hidden />
         <span className="min-w-0 flex-1">
-          Προβολή ως <b className="font-medium">{name}</b>{role ? ` (${role})` : ''} · μόνο ανάγνωση — οι ενέργειες δεν εκτελούνται.
+          Προβολή ως <b className="font-medium">{name}</b>{role ? ` (${role})` : ''} · μόνο ανάγνωση — οι ενέργειες δεν εκτελούνται (εκτός από αίτημα προσφοράς εκ μέρους του πελάτη).
           <span className="hidden text-white/60 md:inline"> Διαχειριστής: {admin}</span>
         </span>
         <form action={endViewAsAction}>

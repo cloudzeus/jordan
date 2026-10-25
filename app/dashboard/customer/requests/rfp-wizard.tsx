@@ -30,7 +30,7 @@ const VERDICT = {
   UNKNOWN: { cls: 'text-(--s-mute)', bg: 'bg-(--s-paper)', icon: FiCircle },
 } as const;
 
-export function RfpWizard({ disabledReason, sites = [] }: { disabledReason?: string | null; sites?: PickSite[] }) {
+export function RfpWizard({ disabledReason, onBehalf = null, sites = [] }: { disabledReason?: string | null; /** «Προβολή ως»: όνομα του μέλους του προσωπικού που στέλνει εκ μέρους του πελάτη. */ onBehalf?: string | null; sites?: PickSite[] }) {
   const router = useRouter();
   const [msgs, setMsgs] = React.useState<ChatMsg[]>([{ role: 'assistant', text: GREETING }]);
   const [quick, setQuick] = React.useState<string[]>(STARTERS);
@@ -94,7 +94,7 @@ export function RfpWizard({ disabledReason, sites = [] }: { disabledReason?: str
   if (manual) return (
     <div className="space-y-4">
       <button type="button" onClick={() => setManual(false)} className="s-link min-h-11 text-(length:--fs-14) text-(--s-ink)">← Με τον βοηθό</button>
-      <RequestForm disabledReason={disabledReason} sites={sites} />
+      <RequestForm disabledReason={disabledReason} onBehalf={onBehalf} sites={sites} />
     </div>
   );
 
@@ -220,6 +220,7 @@ export function RfpWizard({ disabledReason, sites = [] }: { disabledReason?: str
           </section>
         )}
 
+        {onBehalf && !disabledReason && <p className="border-l-2 border-(--s-accent) bg-(--s-paper) px-4 py-3 text-(length:--fs-13) text-(--s-ink-2)">Αποστολή <strong>εκ μέρους του πελάτη</strong> («Προβολή ως») — στο ιστορικό γράφεται ότι την έκανε {onBehalf}.</p>}
         {disabledReason ? (
           <p className="border-l-2 border-(--s-accent) bg-(--s-paper) px-4 py-3 text-(length:--fs-13) text-(--s-ink-2)">{disabledReason}</p>
         ) : (

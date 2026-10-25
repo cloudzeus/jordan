@@ -75,9 +75,10 @@ export type PortalUser = NonNullable<UserWithRole> & {
 
 /**
  * Ο χρήστης που «βλέπει» το portal: ο ίδιος, ή — για διαχειριστή με `portal.view_as` σε λειτουργία
- * «Προβολή ως» — ο πελάτης/συνεργάτης/συνεργείο-στόχος. ΜΟΝΟ για ανάγνωση (σελίδες, λήψεις αρχείων).
- * Οι ενέργειες χρησιμοποιούν πάντα `getCurrentUserWithPermissions()`, άρα ο διαχειριστής δεν ενεργεί
- * ποτέ εκ μέρους του πελάτη.
+ * «Προβολή ως» — ο πελάτης/συνεργάτης/συνεργείο-στόχος. ΜΟΝΟ για ανάγνωση (σελίδες, λήψεις αρχείων) —
+ * μοναδική εξαίρεση το αίτημα προσφοράς εκ μέρους του πελάτη (createOfferRequestAction, με καταγραφή).
+ * Οι υπόλοιπες ενέργειες χρησιμοποιούν `getCurrentUserWithPermissions()`, άρα εκεί ο διαχειριστής δεν
+ * ενεργεί εκ μέρους του πελάτη.
  */
 export const getPortalUser = cache(async (): Promise<PortalUser | null> => {
   const real = await getCurrentUserWithPermissions();

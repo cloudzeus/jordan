@@ -14,9 +14,15 @@ import type { ActionResult } from '@/lib/action-result';
 /** Νέο αίτημα προσφοράς από τον πελάτη. FormData: `data` (JSON: title, description, site, wanted, kind) + `photos`. */
 export async function createOfferRequestAction(form: FormData): Promise<ActionResult<{ ref: string }>> {
   const viewer = await getPortalUser();
-  if (viewer?.viewAs) return { ok: false, message: 'Σε «Προβολή ως» δεν στέλνονται αιτήματα εκ μέρους του πελάτη.' };
-  const u = await getCurrentUserWithPermissions();
-  const trdr = customerTrdrOf(u);
+  const real = await getCurrentUserWithPermissions();
+  // «Προβολή ως»: το προσωπικό στέλνει εκ μέρους του πελάτη (με δικαίωμα προσφορών) — το αίτημα είναι του
+  // πελάτη, το συμβάν και το audit γράφουν ποιος το καταχώρισε.
+  const onBehalf = viewer?.viewAs && real ? { id: real.id, name: viewer.viewAs.adminName, email: real.email } : null;
+  if (onBehalf && real?.role.key !== 'SUPER_ADMIN' && !real?.permissionKeys.has('projects.manage')) {
+    return { ok: false, message: 'Για αίτημα εκ μέρους του πελάτη χρειάζεται δικαίωμα προσφορών (projects.manage).' };
+  }
+  const u = onBehalf ? viewer : real;
+  const trdr = customerTrdrOf(u ?? null);
   if (!u || trdr == null) return { ok: false, message: 'Η σύνδεση έληξε — συνδεθείτε ξανά.' };
   let raw: unknown;
   try { raw = JSON.parse(String(form.get('data') ?? '{}')); } catch { return { ok: false, message: 'Μη έγκυρα στοιχεία' }; }
@@ -32,8 +38,11 @@ export async function createOfferRequestAction(form: FormData): Promise<ActionRe
   if (!v.success) return { ok: false, message: v.error.issues[0]?.message ?? 'Μη έγκυρα στοιχεία' };
   const photos = form.getAll('photos').filter((f): f is File => f instanceof File && f.size > 0).slice(0, 8);
   try {
-    const r = await createOfferRequest(trdr, v.data, photos, { id: u.id, email: u.email, name: u.name ?? null });
-    await logAudit({ userId: u.id, userEmail: u.email, action: 'contract.request.portal', resource: 'contract', resourceId: r.id, metadata: { trdr, ref: r.ref } }).catch(() => null);
+    const r = await createOfferRequest(trdr, v.data, photos, { id: u.id, email: u.email, name: u.name ?? null }, onBehalf);
+    await logAudit(onBehalf
+      ? { userId: onBehalf.id, userEmail: onBehalf.email, action: 'contract.request.portal.on_behalf', resource: 'contract', resourceId: r.id, metadata: { trdr, ref: r.ref, customerUserId: u.id, customerEmail: u.email } }
+      : { userId: u.id, userEmail: u.email, action: 'contract.request.portal', resource: 'contract', resourceId: r.id, metadata: { trdr, ref: r.ref } }).catch(() => null);
+    revalidatePath('/admin/offer-requests');
     revalidatePath('/dashboard/customer/requests');
     revalidatePath('/admin/projects/contracts');
     return { ok: true, data: { ref: r.ref } };

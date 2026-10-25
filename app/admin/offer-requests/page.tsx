@@ -80,7 +80,7 @@ export default async function OfferRequestsPage({ searchParams }: { searchParams
                     {r.status === 'CANCELLED' ? <span className="inline-flex items-center gap-1 rounded bg-rose-50 px-1.5 py-0.5 text-(length:--fs-11) font-semibold text-rose-800 ring-1 ring-rose-200"><FiX className="size-3" aria-hidden /> Ακυρώθηκε</span> : null}
                   </p>
                   <Link href={`/admin/projects/contracts/${r.id}`} className="mt-0.5 block text-(length:--fs-15) font-semibold leading-snug hover:underline">{r.title}</Link>
-                  <p className="text-(length:--fs-13) text-muted-foreground">{r.customer} · {r.city ?? <span className="font-medium text-amber-800">χωρίς τοποθεσία</span>}{r.email ? ` · ${r.email}` : ''}</p>
+                  <p className="text-(length:--fs-13) text-muted-foreground">{r.customer} · {r.city ?? <span className="font-medium text-amber-800">χωρίς τοποθεσία</span>}{r.email ? ` · ${r.email}` : ''}{r.onBehalfBy && <span className="ml-1.5 rounded bg-violet-50 px-1.5 text-(length:--fs-11) font-medium text-violet-800 ring-1 ring-violet-200">από {r.onBehalfBy} εκ μέρους του πελάτη</span>}</p>
                 </div>
                 <div className="shrink-0 text-right">
                   <p className="text-(length:--fs-11) text-muted-foreground">Προσφορά{r.revision > 1 ? ` · έκδ. ${r.revision}` : ''}</p>

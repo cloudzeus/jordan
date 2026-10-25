@@ -37,7 +37,7 @@ export default async function CustomerRequestsPage() {
             Ο βοηθός μας σας κάνει λίγες απλές ερωτήσεις και ετοιμάζει το αίτημα. Εμείς το ελέγχουμε και σας στέλνουμε προσφορά εδώ, όπου μπορείτε να ρωτήσετε ή να ζητήσετε αλλαγές.
           </PageTitle>
           <div className="mt-10">
-            <RfpWizard sites={sites} disabledReason={user.viewAs ? 'Σε «Προβολή ως» ο βοηθός απαντά, αλλά η αποστολή γίνεται μόνο από τον πελάτη.' : null} />
+            <RfpWizard sites={sites} onBehalf={user.viewAs?.adminName ?? null} />
           </div>
         </div>
         <section aria-labelledby="rq-list">
