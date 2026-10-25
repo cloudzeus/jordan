@@ -96,7 +96,7 @@ export function FloorPlanOfferDialog({ open, onOpenChange, apiBase, rooms, recip
   /** Πόσες γραμμές ηλεκτρολογικών/δικτύου βγάζει η κάτοψη (0 = καμία). */
   networkLines?: number;
 }) {
-  const [defaults, setDefaults] = React.useState<{ title: string; customer: Customer | null; site: string | null } | null>(null);
+  const [defaults, setDefaults] = React.useState<{ title: string; customer: Customer | null; prospect?: { id: number; name: string; email: string | null; city: string | null } | null; site: string | null } | null>(null);
   const [loadError, setLoadError] = React.useState<string | null>(null);
   const [title, setTitle] = React.useState('');
   const [customer, setCustomer] = React.useState<Customer | null>(null);
@@ -168,7 +168,7 @@ export function FloorPlanOfferDialog({ open, onOpenChange, apiBase, rooms, recip
 
   const errors = [
     !title.trim() && 'Δώστε τίτλο',
-    !customer && 'Επιλέξτε πελάτη',
+    !customer && !defaults?.prospect && 'Επιλέξτε πελάτη',
     !preview.lines.length && !(includeNetwork && networkLines > 0) && 'Δεν υπάρχουν γραμμές — ορίστε υλικό σε τουλάχιστον έναν χώρο',
     preview.missing.length > 0 && `Λείπει υλικό/συνταγή για: ${preview.missing.join(', ')}`,
     !markupOk && 'Μη έγκυρο περιθώριο',
@@ -198,7 +198,7 @@ export function FloorPlanOfferDialog({ open, onOpenChange, apiBase, rooms, recip
           <DialogHeader className="border-b border-border px-5 pb-3 pt-4">
             <DialogTitle className="text-[length:var(--fs-16)]">Δημιουργία προσφοράς από την κάτοψη</DialogTitle>
             <DialogDescription className="text-[length:var(--fs-12)]">
-              Ελέγξτε τα στοιχεία και την προεπισκόπηση. Η προσφορά καταχωρίζεται ως πρόχειρη {apiBase.includes('/traders/') ? 'στον πελάτη — το έργο δημιουργείται όταν γίνει αποδεκτή' : 'στο έργο'} και διορθώνεται μετά στις «Συμβάσεις & Προσφορές».
+              Ελέγξτε τα στοιχεία και την προεπισκόπηση. Η προσφορά καταχωρίζεται ως πρόχειρη {apiBase.includes('/prospects/') ? 'στον δυνητικό πελάτη — πελάτης και έργο γράφονται στο SoftOne όταν γίνει αποδεκτή' : apiBase.includes('/traders/') ? 'στον πελάτη — το έργο δημιουργείται όταν γίνει αποδεκτή' : 'στο έργο'} και διορθώνεται μετά στις «Συμβάσεις & Προσφορές».
             </DialogDescription>
           </DialogHeader>
 
@@ -216,8 +216,14 @@ export function FloorPlanOfferDialog({ open, onOpenChange, apiBase, rooms, recip
                 <Label htmlFor="fo-customer" className="mb-1 block text-[length:var(--fs-12)]">Πελάτης <span className="text-destructive">*</span></Label>
                 {!defaults && !loadError ? (
                   <p className="flex h-9 items-center gap-2 text-[length:var(--fs-12)] text-muted-foreground"><FiLoader className="size-3.5 animate-spin" aria-hidden /> Φόρτωση…</p>
+                ) : defaults?.prospect ? (
+                  // Δυνητικός πελάτης: σταθερός — η προσφορά είναι δική του.
+                  <p className="flex min-h-9 items-center gap-2 rounded-md border border-border bg-muted/40 px-3 text-[length:var(--fs-13)]">
+                    <span className="truncate font-medium">{defaults.prospect.name}</span>
+                    <span className="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-[length:var(--fs-11)] font-medium text-amber-900">Δυνητικός · όχι στο SoftOne</span>
+                  </p>
                 ) : <CustomerField value={customer} onChange={setCustomer} />}
-                {defaults && !defaults.customer && <p className="mt-1 text-[length:var(--fs-11)] text-muted-foreground">Το έργο δεν έχει πελάτη στο SoftOne — αναζητήστε τον.</p>}
+                {defaults && !defaults.customer && !defaults.prospect && <p className="mt-1 text-[length:var(--fs-11)] text-muted-foreground">Το έργο δεν έχει πελάτη στο SoftOne — αναζητήστε τον.</p>}
               </div>
               {defaults?.site && <p className="text-[length:var(--fs-12)] text-muted-foreground">Τοποθεσία από το έργο: <span className="text-foreground">{defaults.site}</span></p>}
               <div className="grid gap-3 sm:grid-cols-3">

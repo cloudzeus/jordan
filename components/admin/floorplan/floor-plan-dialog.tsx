@@ -205,8 +205,8 @@ function Range({ label, value, min, max, step = 1, display, onChange, disabled }
   );
 }
 
-/** Σε ποιον ανήκει η χαρτογράφηση: έργο ή πελάτης (προσφορά από το μενού του πελάτη, πριν από το έργο). */
-export type FloorPlanOwner = { prjc: number } | { trdr: number };
+/** Σε ποιον ανήκει η χαρτογράφηση: έργο, πελάτης (προσφορά πριν από το έργο) ή δυνητικός πελάτης (πριν υπάρξει στο SoftOne). */
+export type FloorPlanOwner = { prjc: number } | { trdr: number } | { prospect: number };
 
 export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSave = false, canOffer = false, onApply, initialPlanId = null }: {
   owner: FloorPlanOwner; projectLabel: string; open: boolean; onOpenChange: (o: boolean) => void;
@@ -219,10 +219,11 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
   /** Χαρτογράφηση που ανοίγει κατευθείαν (η ήδη συνδεδεμένη με την προσφορά). */
   initialPlanId?: string | null;
 }) {
-  const ownerId = 'prjc' in owner ? owner.prjc : owner.trdr;
+  const ownerId = 'prjc' in owner ? owner.prjc : 'trdr' in owner ? owner.trdr : owner.prospect;
   // API της χαρτογράφησης ανά ιδιοκτήτη· αρχεία στον φάκελο του έργου ή του πελάτη.
-  const apiBase = 'prjc' in owner ? `/api/admin/projects/${owner.prjc}` : `/api/admin/traders/${owner.trdr}`;
-  const filesUrl = 'prjc' in owner ? `/api/admin/entity-files/projects/${owner.prjc}` : `/api/admin/entity-files/traders/${owner.trdr}`;
+  const ownerPath = 'prjc' in owner ? `projects/${owner.prjc}` : 'trdr' in owner ? `traders/${owner.trdr}` : `prospects/${owner.prospect}`;
+  const apiBase = `/api/admin/${ownerPath}`;
+  const filesUrl = `/api/admin/entity-files/${ownerPath}`;
   const [file, setFile] = React.useState<File | null>(null);
   const [plan, setPlan] = React.useState<LoadedPlan | null>(null);
   const [loading, setLoading] = React.useState(false);

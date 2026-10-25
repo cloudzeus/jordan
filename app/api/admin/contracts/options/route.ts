@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { requirePermission } from '@/lib/rbac';
+import { searchProspects } from '@/lib/prospects';
 import { crewOptions, itemDefaults, projectChoices, searchCustomers, staffOptions } from '@/lib/contracts/service';
 
 export const runtime = 'nodejs';
@@ -12,7 +13,8 @@ export async function GET(req: Request) {
   const q = sp.get('q') ?? '';
   switch (sp.get('kind')) {
     case 'crew': return NextResponse.json({ options: await crewOptions(q) });
-    case 'customers': return NextResponse.json({ options: await searchCustomers(q) });
+    // Πελάτες SoftOne + δυνητικοί (μόνο στην εφαρμογή, όσοι δεν μετατράπηκαν ακόμη).
+    case 'customers': { const [options, prospects] = await Promise.all([searchCustomers(q), searchProspects(q)]); return NextResponse.json({ options, prospects }); }
     case 'staff': return NextResponse.json({ options: await staffOptions() });
     case 'projects': return NextResponse.json({ options: await projectChoices(q) });
     case 'item': return NextResponse.json({ item: await itemDefaults(Number(sp.get('mtrl'))) });

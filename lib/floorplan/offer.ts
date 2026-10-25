@@ -5,7 +5,7 @@ import { getRecipe, type RecipeView } from '@/lib/install-recipes';
 import { getProjectSite } from '@/lib/project-site';
 import { ContractError, createContract, itemDefaults } from '@/lib/contracts/service';
 import { CONTRACT_KINDS, contractInput } from '@/lib/contracts/core';
-import type { PlanOwner } from './plans';
+import { ownsPlan, type PlanOwner } from './plans';
 import { floorPlanOffer, floorPlanSummary, type FloorPlanItem, type FloorPlanRoom } from './offer-core';
 
 export const floorPlanOfferInput = z.object({
@@ -55,29 +55,38 @@ async function offerContext(owner: PlanOwner) {
   if (owner.kind === 'customer') {
     const t = await prisma.softoneTrader.findUnique({ where: { trdr: owner.trdr }, select: { trdr: true, name: true } });
     if (!t) throw new ContractError('Ο πελάτης δεν βρέθηκε στον καθρέφτη του SoftOne', 404);
-    return { label: t.name, trdr: t.trdr, prjc: null, site: null };
+    return { label: t.name, trdr: t.trdr, prospectId: null, prjc: null, site: null };
+  }
+  if (owner.kind === 'prospect') {
+    // Δυνητικός που έχει ήδη μετατραπεί: η νέα προσφορά πάει στον πελάτη SoftOne.
+    const p = await prisma.prospect.findUnique({ where: { id: owner.prospect }, select: { id: true, name: true, trdr: true } });
+    if (!p) throw new ContractError('Ο δυνητικός πελάτης δεν βρέθηκε', 404);
+    return { label: p.name, trdr: p.trdr, prospectId: p.trdr ? null : p.id, prjc: null, site: null };
   }
   const project = await prisma.softoneProject.findUnique({ where: { prjc: owner.prjc }, select: { code: true, name: true, trdr: true } });
   if (!project) throw new ContractError('Το έργο δεν βρέθηκε στον καθρέφτη του SoftOne', 404);
-  return { label: project.name || project.code, trdr: project.trdr, prjc: owner.prjc, site: await getProjectSite(owner.prjc) };
+  return { label: project.name || project.code, trdr: project.trdr, prospectId: null, prjc: owner.prjc, site: await getProjectSite(owner.prjc) };
 }
 
 /** Προεπιλογές του modal: τίτλος, πελάτης και τοποθεσία (του έργου, αν υπάρχει). */
 export async function floorPlanOfferDefaults(owner: PlanOwner) {
   const ctx = await offerContext(owner);
   const customer = ctx.trdr ? await prisma.softoneTrader.findUnique({ where: { trdr: ctx.trdr }, select: { trdr: true, name: true, code: true, email: true, city: true } }) : null;
+  const prospect = ctx.prospectId ? await prisma.prospect.findUnique({ where: { id: ctx.prospectId }, select: { name: true, email: true, city: true } }) : null;
   const site = ctx.site;
   return {
     title: `Προσφορά κάτοψης — ${ctx.label}`,
     customer: customer ? { trdr: customer.trdr, name: customer.name, code: customer.code, email: customer.email, city: customer.city } : null,
+    /** Δυνητικός πελάτης (χωρίς SoftOne): ο πελάτης της προσφοράς είναι σταθερός, δεν επιλέγεται. */
+    prospect: prospect && ctx.prospectId ? { id: ctx.prospectId, name: prospect.name, email: prospect.email, city: prospect.city } : null,
     site: site ? site.formatted || [site.address, site.zip, site.city].filter(Boolean).join(', ') : null,
   };
 }
 
 export async function createFloorPlanOffer(owner: PlanOwner, input: FloorPlanOfferInput, userId: string) {
   const ctx = await offerContext(owner);
-  const trdr = input.trdr ?? ctx.trdr;
-  if (!trdr) throw new ContractError('Επιλέξτε πελάτη — το έργο δεν έχει πελάτη στο SoftOne', 400);
+  const trdr = ctx.prospectId ? null : input.trdr ?? ctx.trdr;
+  if (!trdr && !ctx.prospectId) throw new ContractError('Επιλέξτε πελάτη — το έργο δεν έχει πελάτη στο SoftOne', 400);
 
   const recipeIds = [...new Set(input.rooms.flatMap((r) => (r.material?.type === 'recipe' ? [r.material.recipeId] : [])))];
   const mtrls = [...new Set(input.rooms.flatMap((r) => (r.material?.type === 'item' ? [r.material.mtrl] : [])))];
@@ -87,9 +96,8 @@ export async function createFloorPlanOffer(owner: PlanOwner, input: FloorPlanOff
   for (const mtrl of mtrls) { const it = await itemDefaults(mtrl); if (it) items.set(mtrl, { mtrl, code: it.code, name: it.name, price: it.price }); }
 
   if (input.floorPlanId) {
-    const fp = await prisma.floorPlan.findUnique({ where: { id: input.floorPlanId }, select: { prjc: true, trdr: true } });
-    const mine = fp && (owner.kind === 'project' ? fp.prjc === owner.prjc : fp.trdr === owner.trdr);
-    if (!mine) throw new ContractError(owner.kind === 'project' ? 'Η χαρτογράφηση δεν βρέθηκε σε αυτό το έργο' : 'Η χαρτογράφηση δεν βρέθηκε σε αυτόν τον πελάτη', 404);
+    const fp = await prisma.floorPlan.findUnique({ where: { id: input.floorPlanId }, select: { prjc: true, trdr: true, prospectId: true } });
+    if (!fp || !ownsPlan(owner, fp)) throw new ContractError(owner.kind === 'project' ? 'Η χαρτογράφηση δεν βρέθηκε σε αυτό το έργο' : 'Η χαρτογράφηση δεν βρέθηκε σε αυτόν τον πελάτη', 404);
   }
   const { lines, kind: autoKind, missing } = floorPlanOffer({ rooms: input.rooms, recipes, items, markupPct: input.markupPct, mode: input.mode, includeWalls: input.includeWalls });
   if (missing.length) throw new ContractError(`Δεν βρέθηκε το υλικό/η συνταγή για: ${missing.join(', ')}`, 404);
@@ -106,6 +114,7 @@ export async function createFloorPlanOffer(owner: PlanOwner, input: FloorPlanOff
     summary: floorPlanSummary({ rooms: input.rooms, materialLabel: label, source: input.source, wallLenM: input.wallLenM }),
     kind: input.kind ?? autoKind,
     trdr,
+    prospectId: ctx.prospectId,
     validUntil: input.validUntil,
     vatRate: input.vatRate,
     terms: input.terms,

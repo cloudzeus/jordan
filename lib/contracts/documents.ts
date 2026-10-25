@@ -64,7 +64,7 @@ export async function generateDocument(contractId: string, partyId: string | nul
   const party = partyId ? c.parties.find((p) => p.id === partyId) : null;
   if (partyId && !party) throw new ContractError('Το συνεργείο δεν βρέθηκε', 404);
   if (!c.lines.length) throw new ContractError('Προσθέστε υλικά/υπηρεσίες πριν από τη σύνταξη', 409);
-  if (!c.prjc && !c.trdr) throw new ContractError('Χωρίς πελάτη SoftOne ή έργο δεν υπάρχει φάκελος αρχείων για το PDF', 409);
+  if (!c.prjc && !c.trdr && !c.prospectId) throw new ContractError('Χωρίς πελάτη (SoftOne ή δυνητικό) ή έργο δεν υπάρχει φάκελος αρχείων για το PDF', 409);
 
   const audience = party ? 'PARTY' : 'CUSTOMER';
   const lines = party ? c.lines.filter((l) => l.partyId === party.id) : c.lines;
@@ -73,7 +73,9 @@ export async function generateDocument(contractId: string, partyId: string | nul
 
   const [brand, trader, guides, partyTrader, floorPlan] = await Promise.all([
     emailBrand(),
-    c.trdr ? prisma.softoneTrader.findUnique({ where: { trdr: c.trdr }, select: { name: true, afm: true, address: true, zip: true, city: true, email: true, phone: true } }) : null,
+    // Δυνητικός πελάτης: τα στοιχεία του από την εφαρμογή (ίδιο σχήμα με τον καθρέφτη).
+    c.trdr ? prisma.softoneTrader.findUnique({ where: { trdr: c.trdr }, select: { name: true, afm: true, address: true, zip: true, city: true, email: true, phone: true } })
+      : c.prospectId ? prisma.prospect.findUnique({ where: { id: c.prospectId }, select: { name: true, afm: true, address: true, zip: true, city: true, email: true, phone: true } }) : null,
     itemGuides([...new Set(lines.map((l) => l.mtrl).filter((x): x is number => x != null))]),
     party?.trdr ? prisma.softoneTrader.findUnique({ where: { trdr: party.trdr }, select: { address: true, zip: true, city: true } }) : null,
     floorPlanForDocument(c.floorPlanId),
@@ -122,7 +124,7 @@ export async function generateDocument(contractId: string, partyId: string | nul
   const pdf = await renderContractPdf(pdfData);
   const fileName = pdfFileName(c.number, c.stage, audience, version, party?.name);
   const file = await uploadEntityFile({
-    type: c.prjc ? 'PROJECT' : 'TRADER', id: (c.prjc ?? c.trdr)!, buffer: pdf, name: fileName, subfolder: SUBFOLDER,
+    type: c.prjc ? 'PROJECT' : c.trdr ? 'TRADER' : 'PROSPECT', id: (c.prjc ?? c.trdr ?? c.prospectId)!, buffer: pdf, name: fileName, subfolder: SUBFOLDER,
     notes: `${docTitle(c.stage, audience)} ${ref} · έκδοση ${version}${party ? ` · ${party.name}` : ''}`, user,
   });
   const created = await prisma.contractDocument.create({

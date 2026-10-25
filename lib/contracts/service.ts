@@ -13,7 +13,7 @@ import { siteLine as projectSiteLine } from '@/lib/project-site-core';
 import { syncProjectBudget } from './budget-sync';
 import { logContractEvent } from './history';
 import {
-  canTransition, contractRef, OFFER_SITE_REQUIRED, siteText, stageAfter, totals, transitionTo, type ContractAction, type ContractInput,
+  canTransition, contractRef, needsRegistration, OFFER_SITE_REQUIRED, siteText, stageAfter, totals, transitionTo, type ContractAction, type ContractInput,
 } from './core';
 
 export class ContractError extends Error {
@@ -37,13 +37,14 @@ export async function getContract(id: string) {
     },
   });
   if (!c) return null;
-  const [trader, project, users, files, plan, projectSite] = await Promise.all([
+  const [trader, project, users, files, plan, projectSite, prospect] = await Promise.all([
     c.trdr ? prisma.softoneTrader.findUnique({ where: { trdr: c.trdr }, select: { code: true, name: true, email: true, phone: true, afm: true } }) : null,
     c.prjc ? prisma.softoneProject.findUnique({ where: { prjc: c.prjc }, select: { code: true, name: true } }) : null,
     c.members.length ? prisma.user.findMany({ where: { id: { in: c.members.map((m) => m.userId) } }, select: { id: true, name: true, email: true } }) : [],
     prisma.entityFile.findMany({ where: { id: { in: c.documents.map((x) => x.fileId).filter((x): x is string => !!x) } }, select: { id: true, size: true } }),
     c.floorPlanId ? getFloorPlan(c.floorPlanId).catch(() => null) : null,
     c.prjc ? getProjectSite(c.prjc).catch(() => null) : null,
+    c.prospectId ? prisma.prospect.findUnique({ where: { id: c.prospectId }, select: { id: true, name: true, email: true, phone: true, afm: true, city: true, trdr: true } }) : null,
   ]);
   const fileSize = new Map(files.map((f) => [f.id, f.size]));
   const t = totals(c.lines, c.vatRate);
@@ -54,6 +55,10 @@ export async function getContract(id: string) {
     customerText: c.customerText,
     trdr: c.trdr, customer: trader ? { code: trader.code, name: trader.name, email: trader.email, phone: trader.phone, afm: trader.afm } : null,
     customerName: c.customerName, customerEmail: c.customerEmail, customerPhone: c.customerPhone,
+    /** Δυνητικός πελάτης (μόνο στην εφαρμογή) — `trdr` κενό μέχρι τη μετατροπή του με την αποδοχή. */
+    prospectId: c.prospectId, prospect,
+    /** Αποδεκτή αλλά λείπει πελάτης ή έργο στο SoftOne → «Ολοκλήρωση εγγραφών SoftOne». */
+    needsRegistration: needsRegistration(c),
     prjc: c.prjc, project: project ? { code: project.code, name: project.name } : null,
     site: c.siteLat != null && c.siteLng != null ? {
       address: c.siteAddress, zip: c.siteZip, district: c.siteDistrict, city: c.siteCity, formatted: c.siteFormatted,
@@ -111,6 +116,8 @@ export async function listContracts() {
   return rows.map((r) => ({
     id: r.id, ref: contractRef(r.number), title: r.title, kind: r.kind, stage: r.stage, status: r.status,
     customer: (r.trdr ? tn.get(r.trdr) : null) ?? r.customerName ?? '—',
+    /** Πελάτης μόνο στην εφαρμογή (δεν υπάρχει ακόμη στο SoftOne). */
+    prospect: !r.trdr && r.prospectId != null,
     prjc: r.prjc, projectCode: r.prjc ? pc.get(r.prjc) ?? null : null,
     city: r.siteCity, startDate: ds(r.startDate), endDate: ds(r.endDate),
     gross: totals(r.lines, r.vatRate).gross,
@@ -131,7 +138,7 @@ function headerData(input: ContractInput, keepSiteText = false) {
   // Χωρίς σημείο στον χάρτη, η διεύθυνση/πόλη που έγραψε ο πελάτης (πύλη) ΔΕΝ σβήνεται στην αποθήκευση.
   const text = s || !keepSiteText ? { siteAddress: s?.address ?? null, siteZip: s?.zip ?? null, siteDistrict: s?.district ?? null, siteCity: s?.city ?? null } : {};
   return {
-    title: input.title, summary: input.summary, kind: input.kind, trdr: input.trdr,
+    title: input.title, summary: input.summary, kind: input.kind, trdr: input.trdr, prospectId: input.trdr ? null : input.prospectId,
     customerName: input.customerName, customerEmail: input.customerEmail, customerPhone: input.customerPhone,
     ...text,
     siteFormatted: s?.formatted ?? null, siteLat: s?.lat ?? null, siteLng: s?.lng ?? null, siteSource: s?.source ?? null, sitePrecision: s?.precision ?? null,
@@ -151,6 +158,13 @@ async function saveRoomMaterials(floorPlanId: string | null | undefined, input: 
 }
 
 async function snapshotCustomer(input: ContractInput): Promise<ContractInput> {
+  if (!input.trdr && input.prospectId) {
+    const p = await prisma.prospect.findUnique({ where: { id: input.prospectId }, select: { name: true, email: true, phone: true, trdr: true } });
+    if (!p) throw new ContractError('Ο δυνητικός πελάτης δεν βρέθηκε', 404);
+    // Μετατράπηκε ήδη σε πελάτη SoftOne: η προσφορά πάει κατευθείαν σε εκείνον.
+    if (p.trdr) return snapshotCustomer({ ...input, trdr: p.trdr, prospectId: null });
+    return { ...input, customerName: p.name, customerEmail: input.customerEmail ?? p.email ?? null, customerPhone: input.customerPhone ?? p.phone ?? null };
+  }
   if (!input.trdr) return input;
   const t = await prisma.softoneTrader.findUnique({ where: { trdr: input.trdr }, select: { name: true, email: true, phone: true, sodtype: true } });
   if (!t) throw new ContractError('Ο πελάτης δεν βρέθηκε στον καθρέφτη του SoftOne', 404);

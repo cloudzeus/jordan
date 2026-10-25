@@ -47,6 +47,9 @@ export default async function ContractPage({ params }: { params: Promise<{ id: s
       />
       <div className="mb-4 flex flex-wrap items-center gap-2 text-(length:--fs-12)">
         <StatusBadge stage={c.stage} status={c.status as ContractStatus} />
+        {!c.trdr && c.prospect && (
+          <Link href={`/admin/prospects?id=${c.prospect.id}`} className="rounded bg-amber-50 px-1.5 py-0.5 font-medium text-amber-900 ring-1 ring-amber-200 hover:underline">Δυνητικός πελάτης · γίνεται πελάτης SoftOne με την αποδοχή</Link>
+        )}
         {c.project
           ? <Link href={`/admin/projects/${c.prjc}`} className="rounded bg-muted px-1.5 py-0.5 font-medium hover:underline">Έργο SoftOne {c.project.code}</Link>
           : c.stage === 'OFFER'

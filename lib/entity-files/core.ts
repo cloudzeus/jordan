@@ -1,7 +1,8 @@
 // lib/entity-files/core.ts — ISOMORPHIC, χωρίς db/bunny: τύποι αρχείων, έλεγχος υπογραφής και
 // διαδρομές φακέλων για τα «Αρχεία» πελατών/προμηθευτών (TRDR) και έργων (PRJC).
 
-export type EntityType = 'TRADER' | 'PROJECT';
+/** PROSPECT = δυνητικός πελάτης (μόνο στην εφαρμογή)· με τη μετατροπή ο φάκελος περνά στον πελάτη (TRADER). */
+export type EntityType = 'TRADER' | 'PROJECT' | 'PROSPECT';
 
 /** 100 MB — τα DWG μεγάλων έργων ξεπερνούν άνετα τα 20–30 MB. */
 export const MAX_ENTITY_FILE_BYTES = 100 * 1024 * 1024;
@@ -128,7 +129,7 @@ export function slugPart(s: string, max = 40): string {
  * Ο κωδικός ΚΑΙ το SoftOne id μπαίνουν ώστε να είναι μοναδική ακόμη κι αν δύο κωδικοί δίνουν ίδιο slug.
  */
 export function buildBasePath(type: EntityType, id: number, code: string, name: string): string {
-  const root = type === 'TRADER' ? 'traders' : 'projects';
+  const root = type === 'TRADER' ? 'traders' : type === 'PROSPECT' ? 'prospects' : 'projects';
   const parts = [slugPart(code, 24), slugPart(name, 40)].filter(Boolean);
   return `${root}/${id}${parts.length ? `-${parts.join('-')}` : ''}`;
 }

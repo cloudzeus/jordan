@@ -3745,6 +3745,9 @@ model Contract {
   customerEmail String?
   customerPhone String?
   prjc          Int? // συνδεδεμένο έργο SoftOne
+  /// Δυνητικός πελάτης (μόνο στην εφαρμογή) — με την αποδοχή γίνεται πελάτης SoftOne και γεμίζει το `trdr`.
+  prospectId    Int?
+  prospect      Prospect? @relation(fields: [prospectId], references: [id], onDelete: SetNull)
   // Τοποθεσία (ίδια μορφή με ProjectSite — αντιγράφεται εκεί όταν συνδεθεί PRJC)
   siteAddress   String?
   siteZip       String?
@@ -3791,6 +3794,7 @@ model Contract {
 
   @@index([prjc])
   @@index([trdr])
+  @@index([prospectId])
   @@index([status])
   @@index([floorPlanId])
   @@index([customerSiteId])
@@ -3906,6 +3910,8 @@ model FloorPlan {
   prjc            Int?
   /// Πελάτης SoftOne (χαρτογράφηση από το μενού του πελάτη)· μένει και όταν συνδεθεί έργο.
   trdr            Int?
+  /// Δυνητικός πελάτης (προσφορά πριν υπάρξει στο SoftOne)· με τη μετατροπή συμπληρώνεται και το `trdr`.
+  prospectId      Int?
   title           String
   source          String?
   data            Json
@@ -3923,6 +3929,40 @@ model FloorPlan {
 
   @@index([prjc, updatedAt])
   @@index([trdr, updatedAt])
+  @@index([prospectId, updatedAt])
+}
+
+// Δυνητικός πελάτης: ζει ΜΟΝΟ στην εφαρμογή όσο οι προσφορές του δεν έχουν γίνει αποδεκτές. Με την
+// αποδοχή γράφεται στο SoftOne ως πελάτης (ή συνδέεται με υπάρχοντα, ίδιο ΑΦΜ/email) — `trdr` +
+// `convertedAt` — και οι προσφορές, οι κατόψεις και τα αρχεία του περνούν στον πελάτη. Λογική στο
+// `lib/prospects.ts`· αρχεία στον φάκελο `prospects/<id>-…` (EntityFolder PROSPECT) μέχρι τη μετατροπή.
+model Prospect {
+  id          Int        @id @default(autoincrement())
+  /// Επωνυμία εταιρίας ή ονοματεπώνυμο ιδιώτη — γίνεται NAME του πελάτη στο SoftOne.
+  name        String
+  /// Υπεύθυνος επικοινωνίας (όταν ο πελάτης είναι εταιρία).
+  contactName String?
+  email       String?
+  phone       String?
+  afm         String?
+  doy         String?
+  profession  String?
+  address     String?
+  zip         String?
+  city        String?
+  notes       String?
+  /// Από ποιο lead του website προήλθε (αν προήλθε).
+  leadId      String?
+  /// Πελάτης SoftOne μετά τη μετατροπή (νέος ή υπάρχων που ταίριαξε σε ΑΦΜ/email).
+  trdr        Int?
+  convertedAt DateTime?
+  createdById String?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  contracts   Contract[]
+
+  @@index([name])
+  @@index([trdr])
 }
 
 // Υλικά & υπηρεσίες. Όνομα/μονάδα ως στιγμιότυπο. `partyId` = το συνεργείο που εκτελεί τη γραμμή,

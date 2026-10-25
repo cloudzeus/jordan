@@ -20,7 +20,7 @@ export class FloorPlanAiError extends Error {
   constructor(message: string, readonly status = 400) { super(message); }
 }
 
-export async function detectRooms(image: File, user: { id: string }, ref: { type: 'Project' | 'Trader'; id: number }): Promise<AiResponse & { model: string }> {
+export async function detectRooms(image: File, user: { id: string }, ref: { type: 'Project' | 'Trader' | 'Prospect'; id: number }): Promise<AiResponse & { model: string }> {
   if (!/^image\/(jpeg|png|webp)$/.test(image.type)) throw new FloorPlanAiError('Η εικόνα πρέπει να είναι JPG, PNG ή WebP');
   if (image.size > MAX_BYTES) throw new FloorPlanAiError('Η εικόνα είναι πολύ μεγάλη');
   const dataUrl = `data:${image.type};base64,${Buffer.from(await image.arrayBuffer()).toString('base64')}`;

@@ -4,7 +4,7 @@ import { EntityFileError, type EntityType } from '@/lib/entity-files/core';
 /** `/api/admin/entity-files/traders/256` · `/projects/25` → (TRADER, 256) · (PROJECT, 25). */
 export async function entityOf(params: Promise<{ type: string; id: string }>): Promise<{ type: EntityType; id: number } | null> {
   const p = await params;
-  const type = p.type === 'traders' ? 'TRADER' : p.type === 'projects' ? 'PROJECT' : null;
+  const type = p.type === 'traders' ? 'TRADER' : p.type === 'projects' ? 'PROJECT' : p.type === 'prospects' ? 'PROSPECT' : null;
   const id = Number(p.id);
   return type && Number.isInteger(id) && id > 0 ? { type, id } : null;
 }

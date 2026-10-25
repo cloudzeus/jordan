@@ -21,6 +21,8 @@ import { logContractEvent } from '@/lib/contracts/history';
 import { stockSummary, type StockSummary } from '@/lib/item-stock';
 import { syncProjectBudget, type BudgetSyncResult } from '@/lib/contracts/budget-sync';
 import { createPrjc, prjcPlan } from '@/lib/contracts/softone';
+import { acceptAndRegister, acceptPlan, ProspectError, type AcceptResult } from '@/lib/prospects';
+import type { AcceptPlan } from '@/lib/prospects-core';
 import { TaskError } from '@/lib/project-tasks';
 import { SoftoneError } from '@/lib/softone';
 import { awardRecipient, createRfp, recipientEvents, renewLink, RfpError, setRfpStatus } from '@/lib/rfp/service';
@@ -30,7 +32,7 @@ const refresh = (id?: string) => { revalidatePath(LIST); if (id) revalidatePath(
 
 /** Γνωστά σφάλματα → το μήνυμά τους· SoftOne με πρόθεμα· τα υπόλοιπα στο log. */
 function caught(e: unknown) {
-  if (e instanceof ContractError || e instanceof TaskError || e instanceof DocParseError) return fail(e.message);
+  if (e instanceof ContractError || e instanceof TaskError || e instanceof DocParseError || e instanceof ProspectError) return fail(e.message);
   if (e instanceof ZodError) return fail(e.issues[0]?.message ?? 'Μη έγκυρα στοιχεία');
   if (e instanceof SoftoneError) return fail(`SoftOne: ${e.message}`);
   console.error('[contracts action]', e);
@@ -488,5 +490,33 @@ export async function setRfpStatusAction(rfpId: string, status: 'CLOSED' | 'CANC
     return doneEmpty();
   } catch (e) {
     return rfpCaught(e);
+  }
+}
+
+/**
+ * Αποδοχή — βήμα 1: ΠΡΟΕΠΙΣΚΟΠΗΣΗ (τίποτα δεν γράφεται). Τι θα γίνει στο SoftOne: πελάτης (νέος / σύνδεση
+ * με υπάρχοντα / ήδη πελάτης) και έργο, με τους κωδικούς που θα πάρουν.
+ */
+export async function acceptPlanAction(id: string): Promise<ActionResult<AcceptPlan>> {
+  const a = await actor('projects.manage');
+  if ('error' in a) return a.error;
+  try { return done(await acceptPlan(id)); } catch (e) { return caught(e); }
+}
+
+/** Αποδοχή — βήμα 2: ΕΓΓΡΑΦΗ στο SoftOne (πελάτης → αποδοχή → έργο) όπως τα είδε ο χρήστης. */
+export async function acceptAndRegisterAction(id: string, expected: { customerCode: string | null; projectCode: string | null }): Promise<ActionResult<AcceptResult>> {
+  const a = await actor('projects.manage');
+  if ('error' in a) return a.error;
+  const v = parse(z.object({ customerCode: z.string().trim().max(32).nullable(), projectCode: z.string().trim().max(32).nullable() }), expected);
+  if ('error' in v) return v.error;
+  try {
+    const r = await acceptAndRegister(id, v.data, a.user.id);
+    if (r.project) await copyDocsToProject(id, { id: a.user.id, name: a.user.name, email: a.user.email }).catch((e) => console.error('[contracts] copy docs', e));
+    await logAudit({ userId: a.user.id, userEmail: a.user.email, action: 'contract.accept_register', resource: 'contract', resourceId: id, metadata: { ...r } }).catch(() => null);
+    refresh(id);
+    revalidatePath('/admin/prospects');
+    return done(r);
+  } catch (e) {
+    return caught(e);
   }
 }

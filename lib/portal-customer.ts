@@ -2,6 +2,7 @@ import 'server-only';
 import { prisma } from '@/lib/db';
 import { contractRef, docTitle, eur as eurEl, lineNet, STAGE_LABEL, STATUS_LABEL, totals, type ContractStatus } from '@/lib/contracts/core';
 import { ContractError, transition } from '@/lib/contracts/service';
+import { createProjectAfterAccept } from '@/lib/prospects';
 import { logAudit } from '@/lib/audit';
 import { getSetting } from '@/lib/settings';
 import { mailgunConfig, sendTransactionalEmail } from '@/lib/mailgun';
@@ -105,6 +106,8 @@ export async function customerAcceptContract(trdr: number, id: string, by: { id:
   }
   const total = totals(c.lines, c.vatRate).gross;
   await logAudit({ userId: by.id, userEmail: by.email, action: 'contract.accept.portal', resource: 'contract', resourceId: id, metadata: { trdr, ref: contractRef(c.number), total } }).catch(() => null);
+  // Η αποδοχή είναι η στιγμή του έργου: δημιουργείται στο SoftOne αμέσως (best-effort, βλ. lib/prospects.ts).
+  if (!c.prjc) await createProjectAfterAccept(c.id, by.id);
   await notifyAccepted(c.id, contractRef(c.number), c.title, trdr, by, eurEl(total));
 }
 

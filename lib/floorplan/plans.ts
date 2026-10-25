@@ -18,9 +18,13 @@ const MAX_PNG = 15 * 1024 * 1024;
 type User = { id: string; name: string | null; email: string };
 
 /** Σε ποιον ανήκει η χαρτογράφηση: έργο SoftOne ή πελάτης (προσφορά πριν από το έργο). */
-export type PlanOwner = { kind: 'project'; prjc: number } | { kind: 'customer'; trdr: number };
-const ownerWhere = (o: PlanOwner) => (o.kind === 'project' ? { prjc: o.prjc } : { trdr: o.trdr });
-const ownerFiles = (o: PlanOwner) => (o.kind === 'project' ? { type: 'PROJECT' as const, id: o.prjc } : { type: 'TRADER' as const, id: o.trdr });
+export type PlanOwner = { kind: 'project'; prjc: number } | { kind: 'customer'; trdr: number } | { kind: 'prospect'; prospect: number };
+const ownerWhere = (o: PlanOwner) => (o.kind === 'project' ? { prjc: o.prjc } : o.kind === 'customer' ? { trdr: o.trdr } : { prospectId: o.prospect });
+const ownerFiles = (o: PlanOwner) => (o.kind === 'project' ? { type: 'PROJECT' as const, id: o.prjc } : o.kind === 'customer' ? { type: 'TRADER' as const, id: o.trdr } : { type: 'PROSPECT' as const, id: o.prospect });
+/** Ανήκει η αποθηκευμένη χαρτογράφηση στον ιδιοκτήτη; (Δυνητικού που μετατράπηκε: και στον πελάτη του.) */
+export const ownsPlan = (o: PlanOwner, fp: { prjc: number | null; trdr: number | null; prospectId: number | null }) =>
+  o.kind === 'project' ? fp.prjc === o.prjc : o.kind === 'customer' ? fp.trdr === o.trdr : fp.prospectId === o.prospect;
+const OWNER_OTHER: Record<PlanOwner['kind'], string> = { project: 'Η χαρτογράφηση ανήκει σε άλλο έργο', customer: 'Η χαρτογράφηση ανήκει σε άλλον πελάτη', prospect: 'Η χαρτογράφηση ανήκει σε άλλον δυνητικό πελάτη' };
 
 export type FloorPlanListRow = {
   id: string; title: string; source: string | null; floorM2: number; wallsM2: number; roomCount: number;
@@ -68,9 +72,7 @@ export async function saveFloorPlan(o: {
   const d: PlanData = parsed.data;
   const cur = o.id ? await prisma.floorPlan.findUnique({ where: { id: o.id } }) : null;
   if (o.id && !cur) throw new FloorPlanError('Η χαρτογράφηση δεν βρέθηκε', 404);
-  if (cur && (o.owner.kind === 'project' ? cur.prjc !== o.owner.prjc : cur.trdr !== o.owner.trdr)) {
-    throw new FloorPlanError(o.owner.kind === 'project' ? 'Η χαρτογράφηση ανήκει σε άλλο έργο' : 'Η χαρτογράφηση ανήκει σε άλλον πελάτη', 409);
-  }
+  if (cur && !ownsPlan(o.owner, cur)) throw new FloorPlanError(OWNER_OTHER[o.owner.kind], 409);
   const files = ownerFiles(o.owner);
   if (!cur && !o.image) throw new FloorPlanError('Λείπει η εικόνα της κάτοψης');
 
@@ -120,7 +122,7 @@ export async function saveFloorPlan(o: {
   // Χαρτογράφηση έργου: κρατάμε και τον πελάτη του έργου (εμφανίζεται και στο μενού του πελάτη).
   const owner = o.owner.kind === 'project'
     ? { prjc: o.owner.prjc, trdr: (await prisma.softoneProject.findUnique({ where: { prjc: o.owner.prjc }, select: { trdr: true } }))?.trdr ?? null }
-    : { prjc: null, trdr: o.owner.trdr };
+    : o.owner.kind === 'customer' ? { prjc: null, trdr: o.owner.trdr } : { prjc: null, trdr: null, prospectId: o.owner.prospect };
   const row = await prisma.floorPlan.create({ data: { ...owner, createdById: o.user.id, ...fields } });
   return { id: row.id, created: true };
 }
@@ -149,6 +151,8 @@ export async function attachFloorPlanToProject(floorPlanId: string | null, prjc:
 export type FloorPlanCard = {
   id: string; title: string; source: string | null; floorM2: number; wallsM2: number; roomCount: number;
   prjc: number | null; projectLabel: string | null; trdr: number | null; customerName: string | null;
+  /** Δυνητικός πελάτης (όσο δεν έχει γίνει πελάτης SoftOne). */
+  prospectId: number | null;
   hasPlan: boolean; hasAnnotated: boolean; hasSource: boolean; has3d: boolean;
   rooms: string[]; contracts: { id: string; number: number; title: string }[]; updatedAt: string;
 };
@@ -157,7 +161,7 @@ export async function listAllFloorPlans(limit = 500): Promise<FloorPlanCard[]> {
   const rows = await prisma.floorPlan.findMany({
     orderBy: { updatedAt: 'desc' }, take: limit,
     select: {
-      id: true, title: true, source: true, floorM2: true, wallsM2: true, roomCount: true, prjc: true, trdr: true,
+      id: true, title: true, source: true, floorM2: true, wallsM2: true, roomCount: true, prjc: true, trdr: true, prospectId: true,
       imageFileId: true, annotatedFileId: true, sourceFileId: true, updatedAt: true,
       contracts: { select: { id: true, number: true, title: true } },
     },
@@ -165,14 +169,16 @@ export async function listAllFloorPlans(limit = 500): Promise<FloorPlanCard[]> {
   if (!rows.length) return [];
   const ids = rows.map((r) => r.id);
   // Μόνο τα λίγα πεδία που χρειάζεται η κάρτα από το JSON — όχι τα περιγράμματα (μπορεί να είναι MB).
-  const [extra, projects, traders] = await Promise.all([
+  const [extra, projects, traders, prospects] = await Promise.all([
     prisma.$queryRawUnsafe<{ id: string; render3d: string | null; rooms: string[] | null }[]>(
       `SELECT "id", "data"->>'render3dFileId' AS render3d,
               ARRAY(SELECT jsonb_array_elements("data"->'rooms')->>'name') AS rooms
        FROM "FloorPlan" WHERE "id" = ANY($1)`, ids),
     prisma.softoneProject.findMany({ where: { prjc: { in: [...new Set(rows.map((r) => r.prjc).filter((x): x is number => x != null))] } }, select: { prjc: true, code: true, name: true } }),
     prisma.softoneTrader.findMany({ where: { trdr: { in: [...new Set(rows.map((r) => r.trdr).filter((x): x is number => x != null))] } }, select: { trdr: true, name: true } }),
+    prisma.prospect.findMany({ where: { id: { in: [...new Set(rows.map((r) => r.prospectId).filter((x): x is number => x != null))] } }, select: { id: true, name: true } }),
   ]);
+  const prs = new Map(prospects.map((p) => [p.id, p.name]));
   const ex = new Map(extra.map((e) => [e.id, e]));
   const prj = new Map(projects.map((p) => [p.prjc, `${p.code} · ${p.name}`]));
   const trd = new Map(traders.map((t) => [t.trdr, t.name]));
@@ -181,7 +187,8 @@ export async function listAllFloorPlans(limit = 500): Promise<FloorPlanCard[]> {
     return {
       id: r.id, title: r.title, source: r.source, floorM2: r.floorM2, wallsM2: r.wallsM2, roomCount: r.roomCount,
       prjc: r.prjc, projectLabel: r.prjc != null ? prj.get(r.prjc) ?? `Έργο ${r.prjc}` : null,
-      trdr: r.trdr, customerName: r.trdr != null ? trd.get(r.trdr) ?? null : null,
+      trdr: r.trdr, customerName: r.trdr != null ? trd.get(r.trdr) ?? null : r.prospectId != null ? prs.get(r.prospectId) ?? null : null,
+      prospectId: r.trdr == null ? r.prospectId : null,
       hasPlan: !!r.imageFileId, hasAnnotated: !!r.annotatedFileId, hasSource: !!r.sourceFileId, has3d: !!e?.render3d,
       rooms: (e?.rooms ?? []).map((n) => (n ?? '').trim()).filter(Boolean),
       contracts: r.contracts, updatedAt: r.updatedAt.toISOString(),

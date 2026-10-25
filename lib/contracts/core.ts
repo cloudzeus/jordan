@@ -43,6 +43,9 @@ const NEXT: Record<ContractAction, { from: ContractStatus[]; to: ContractStatus 
 export function canTransition(status: string, action: ContractAction): boolean {
   return NEXT[action].from.includes(status as ContractStatus);
 }
+/** Αποδεκτή σύμβαση στην οποία λείπει ακόμη πελάτης (δυνητικός) ή έργο στο SoftOne. */
+export const needsRegistration = (c: { stage: string; status: string; trdr: number | null; prjc: number | null; prospectId: number | null }) =>
+  c.stage !== 'OFFER' && c.status !== 'CANCELLED' && (!c.trdr ? c.prospectId != null : !c.prjc && c.trdr > 0);
 export const transitionTo = (action: ContractAction): ContractStatus => NEXT[action].to;
 /** Η αποδοχή κάνει την προσφορά σύμβαση· το άνοιγμα ξανά τη γυρίζει σε προσφορά μόνο αν δεν ενεργοποιήθηκε ποτέ. */
 export function stageAfter(action: ContractAction, stage: string, everActivated: boolean): string {
@@ -149,6 +152,8 @@ export const contractInput = z.object({
   summary: z.string().trim().max(20_000).default(''),
   kind: z.enum(CONTRACT_KINDS),
   trdr: z.coerce.number().int().positive().nullish().transform((v) => v ?? null),
+  /** Δυνητικός πελάτης (μόνο στην εφαρμογή) — αντί για `trdr` μέχρι την αποδοχή. */
+  prospectId: z.coerce.number().int().positive().nullish().transform((v) => v ?? null),
   customerName: optStr(200),
   customerEmail: z.string().trim().email('Μη έγκυρο email πελάτη').max(200).nullish().or(z.literal('')).transform((v) => v || null),
   customerPhone: optStr(64),
@@ -171,7 +176,7 @@ export const contractInput = z.object({
   /** Χρονοδιάγραμμα (Gantt) — `undefined` = καμία αλλαγή (π.χ. παλιοί clients / δημιουργία από κάτοψη). */
   tasks: z.array(planTaskInput).max(200).optional(),
 }).superRefine((c, ctx) => {
-  if (!c.trdr && !c.customerName) ctx.addIssue({ code: 'custom', message: 'Επιλέξτε πελάτη', path: ['trdr'] });
+  if (!c.trdr && !c.prospectId && !c.customerName) ctx.addIssue({ code: 'custom', message: 'Επιλέξτε πελάτη ή δυνητικό πελάτη', path: ['trdr'] });
   if (c.startDate && c.endDate && c.endDate < c.startDate) ctx.addIssue({ code: 'custom', message: 'Η λήξη είναι πριν από την έναρξη', path: ['endDate'] });
   const keys = new Set(c.parties.map((p) => p.key));
   if (!allowsCrews(c.kind) && c.parties.length) ctx.addIssue({ code: 'custom', message: 'Ο τύπος «Μόνο προϊόν» δεν έχει συνεργεία', path: ['parties'] });

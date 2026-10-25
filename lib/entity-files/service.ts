@@ -46,6 +46,7 @@ function toDTO(f: FileRow): EntityFileDTO {
 /** Κωδικός + όνομα από τον καθρέφτη του SoftOne (μόνο για τη ΔΗΜΙΟΥΡΓΙΑ της διαδρομής). */
 async function entityInfo(type: EntityType, id: number): Promise<{ code: string; name: string } | null> {
   if (type === 'TRADER') return prisma.softoneTrader.findUnique({ where: { trdr: id }, select: { code: true, name: true } });
+  if (type === 'PROSPECT') return prisma.prospect.findUnique({ where: { id }, select: { name: true } }).then((p) => (p ? { code: `D${id}`, name: p.name } : null));
   return prisma.softoneProject.findUnique({ where: { prjc: id }, select: { code: true, name: true } });
 }
 
@@ -54,7 +55,7 @@ export async function ensureFolder(type: EntityType, id: number) {
   const existing = await prisma.entityFolder.findUnique({ where: { entityType_entityId: { entityType: type, entityId: id } } });
   if (existing) return existing;
   const info = await entityInfo(type, id);
-  if (!info) throw new EntityFileError(type === 'TRADER' ? 'Ο συναλλασσόμενος δεν βρέθηκε.' : 'Το έργο δεν βρέθηκε.', 404);
+  if (!info) throw new EntityFileError(type === 'TRADER' ? 'Ο συναλλασσόμενος δεν βρέθηκε.' : type === 'PROSPECT' ? 'Ο δυνητικός πελάτης δεν βρέθηκε.' : 'Το έργο δεν βρέθηκε.', 404);
   const base = buildBasePath(type, id, info.code, info.name);
   let folder;
   try {

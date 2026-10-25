@@ -41,7 +41,7 @@ export function FloorPlansGallery({ plans, canSave, canOffer }: { plans: FloorPl
     .filter((p) => !needle || [p.title, p.projectLabel, p.customerName, p.source, ...p.rooms].some((s) => s?.toLowerCase().includes(needle)))
     .sort((a, b) => (sort === 'area' ? b.floorM2 - a.floorM2 : sort === 'title' ? a.title.localeCompare(b.title, 'el') : b.updatedAt.localeCompare(a.updatedAt)));
 
-  const owner: FloorPlanOwner | null = editing ? (editing.prjc != null ? { prjc: editing.prjc } : editing.trdr != null ? { trdr: editing.trdr } : null) : null;
+  const owner: FloorPlanOwner | null = editing ? (editing.prjc != null ? { prjc: editing.prjc } : editing.trdr != null ? { trdr: editing.trdr } : editing.prospectId != null ? { prospect: editing.prospectId } : null) : null;
 
   return (
     <div className="space-y-4">
@@ -138,6 +138,7 @@ function PlanCard({ plan: p, onEdit }: { plan: FloorPlanCard; onEdit: () => void
             <p className="flex min-w-0 items-center gap-1 text-(length:--fs-12) text-muted-foreground">
               {p.prjc != null ? <FiBriefcase className="size-3 shrink-0" aria-hidden /> : <FiUser className="size-3 shrink-0" aria-hidden />}
               <span className="truncate" title={p.projectLabel ?? p.customerName ?? undefined}>{p.projectLabel ?? p.customerName ?? 'Χωρίς κάτοχο'}</span>
+              {p.prospectId != null && <span className="shrink-0 rounded bg-amber-50 px-1 text-(length:--fs-11) font-medium text-amber-900 ring-1 ring-amber-200">δυνητικός</span>}
             </p>
           </div>
           <PlanActions plan={p} onEdit={onEdit} />

@@ -51,7 +51,7 @@ type Line = { uid: string; kind: 'MATERIAL' | 'SERVICE'; mtrl: number | null; co
 type Party = { key: string; kind: 'SUPPLIER' | 'PARTNER'; trdr: number | null; partnerId: string | null; name: string; email: string | null; phone: string | null; afm: string | null; specialty: string | null; scope: string | null };
 type Staff = { id: string; label: string; email: string };
 type State = {
-  title: string; summary: string; customerText: string | null; kind: ContractKind; trdr: number | null; customerName: string | null; customerEmail: string | null; customerPhone: string | null;
+  title: string; summary: string; customerText: string | null; kind: ContractKind; trdr: number | null; prospectId: number | null; customerName: string | null; customerEmail: string | null; customerPhone: string | null;
   site: ProjectSiteValue | null; startDate: string | null; endDate: string | null; validUntil: string | null; vatRate: number; terms: string | null;
   lines: Line[]; parties: Party[]; members: string[]; milestones: EditorMilestone[];
   floorPlanId: string | null; floorPlanTitle: string | null; rooms: PlanRoom[]; pins: PlanPin[];
@@ -60,13 +60,13 @@ type State = {
 
 const uid = () => (typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`);
 const blank = (): State => ({
-  title: '', summary: '', customerText: null, kind: 'PRODUCT_INSTALL', trdr: null, customerName: null, customerEmail: null, customerPhone: null,
+  title: '', summary: '', customerText: null, kind: 'PRODUCT_INSTALL', trdr: null, prospectId: null, customerName: null, customerEmail: null, customerPhone: null,
   site: null, startDate: null, endDate: null, validUntil: null, vatRate: 24, terms: null, lines: [], parties: [], members: [], milestones: [],
   floorPlanId: null, floorPlanTitle: null, rooms: [], pins: [], tasks: [],
 });
 function fromView(c: ContractView): State {
   return {
-    title: c.title, summary: c.summary, customerText: c.customerText, kind: c.kind as ContractKind, trdr: c.trdr, customerName: c.customerName, customerEmail: c.customerEmail, customerPhone: c.customerPhone,
+    title: c.title, summary: c.summary, customerText: c.customerText, kind: c.kind as ContractKind, trdr: c.trdr, prospectId: c.trdr ? null : c.prospectId, customerName: c.customerName, customerEmail: c.customerEmail, customerPhone: c.customerPhone,
     site: c.site, startDate: c.startDate, endDate: c.endDate, validUntil: c.validUntil, vatRate: c.vatRate, terms: c.terms,
     lines: c.lines.map((l) => ({ ...l, uid: l.id })), parties: c.parties, members: c.members.map((m) => m.id),
     milestones: c.milestones.map((m) => ({ ...m, uid: m.id })),
@@ -192,12 +192,12 @@ export function ContractEditor({ initial, staff, readOnly = false, customer = nu
   today: string;
   /** Σημειώσεις / ειδικές οδηγίες της προσφοράς (όλες — βλέπουμε πάντα όλες). */
   notes?: NoteView[];
-  /** Νέα προσφορά από το μενού του πελάτη: ο πελάτης ήδη επιλεγμένος. */
-  customer?: { trdr: number; name: string; email: string | null; phone: string | null } | null;
+  /** Νέα προσφορά από το μενού του πελάτη ή του δυνητικού πελάτη: ο πελάτης ήδη επιλεγμένος. */
+  customer?: { trdr: number | null; prospectId: number | null; name: string; email: string | null; phone: string | null } | null;
 }) {
   const router = useRouter();
   const [s, setS] = React.useState<State>(() => (initial ? fromView(initial)
-    : customer ? { ...blank(), trdr: customer.trdr, customerName: customer.name, customerEmail: customer.email, customerPhone: customer.phone }
+    : customer ? { ...blank(), trdr: customer.trdr, prospectId: customer.prospectId, customerName: customer.name, customerEmail: customer.email, customerPhone: customer.phone }
     : blank()));
   const [dirty, setDirty] = React.useState(false);
   const [saving, setSaving] = React.useState(false);
@@ -383,7 +383,7 @@ export function ContractEditor({ initial, staff, readOnly = false, customer = nu
   };
 
   const ro = readOnly;
-  const owner: FloorPlanOwner | null = initial?.prjc ? { prjc: initial.prjc } : s.trdr ? { trdr: s.trdr } : null;
+  const owner: FloorPlanOwner | null = initial?.prjc ? { prjc: initial.prjc } : s.trdr ? { trdr: s.trdr } : s.prospectId ? { prospect: s.prospectId } : null;
 
   // Τοποθεσία: σημείο στον χάρτη, ή ό,τι έγραψε ο πελάτης / του συνδεδεμένου έργου. Χωρίς αυτήν η προσφορά δεν στέλνεται.
   const siteFallback = initial?.siteLabel ?? null;
@@ -391,7 +391,7 @@ export function ContractEditor({ initial, staff, readOnly = false, customer = nu
 
   // ── Πρόοδος (δεξιά στήλη) ──
   const steps = [
-    { id: 'c-basics', label: 'Έργο & πελάτης', done: !!s.title.trim() && !!(s.trdr || s.customerName) && hasSite },
+    { id: 'c-basics', label: 'Έργο & πελάτης', done: !!s.title.trim() && !!(s.trdr || s.prospectId || s.customerName) && hasSite },
     { id: 'c-rooms', label: 'Κάτοψη & χώροι', done: s.rooms.length > 0 && s.rooms.every((r) => r.material), optional: true },
     { id: 'c-lines', label: 'Υλικά & εργασίες', done: s.lines.length > 0 },
     { id: 'c-text', label: 'Περιγραφή για τον πελάτη', done: !!(s.customerText?.trim() || s.summary.trim()) },
@@ -559,8 +559,9 @@ export function ContractEditor({ initial, staff, readOnly = false, customer = nu
             </div>
             <div className="space-y-1 md:col-span-2">
               <Label className={lbl} htmlFor="c-customer">Πελάτης <span className="text-destructive" aria-hidden>*</span></Label>
-              <CustomerPicker disabled={ro} value={{ trdr: s.trdr, name: s.customerName }}
-                onPick={(h) => up(h ? { trdr: h.trdr, customerName: h.name, customerEmail: h.email, customerPhone: h.phone } : { trdr: null, customerName: null })} />
+              <CustomerPicker disabled={ro} value={{ trdr: s.trdr, prospectId: s.prospectId, name: s.customerName }}
+                onPick={(h) => up(!h ? { trdr: null, prospectId: null, customerName: null }
+                  : { trdr: h.kind === 'customer' ? h.trdr : null, prospectId: h.kind === 'prospect' ? h.prospectId : null, customerName: h.name, customerEmail: h.email, customerPhone: h.phone })} />
             </div>
             <fieldset className="md:col-span-2" disabled={ro}>
               <legend className={cn(lbl, 'mb-1.5')}>Τύπος δουλειάς</legend>

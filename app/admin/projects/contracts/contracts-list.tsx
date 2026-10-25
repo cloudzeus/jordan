@@ -79,7 +79,7 @@ export function ContractsList({ rows, canManage }: { rows: ContractListRow[]; ca
                 </div>
                 <p className="mt-0.5 truncate text-(length:--fs-14) font-medium">{r.title}</p>
                 <p className="truncate text-(length:--fs-12) text-muted-foreground">
-                  {r.customer}{r.city ? ` · ${r.city}` : ''}{r.projectCode ? ` · Έργο ${r.projectCode}` : ' · χωρίς έργο SoftOne'}
+                  {r.customer}{r.prospect && <span className="ml-1 rounded bg-amber-50 px-1 text-(length:--fs-11) font-medium text-amber-900 ring-1 ring-amber-200">δυνητικός</span>}{r.city ? ` · ${r.city}` : ''}{r.projectCode ? ` · Έργο ${r.projectCode}` : ' · χωρίς έργο SoftOne'}
                   {r.startDate ? ` · ${dayEl(r.startDate)}${r.endDate ? `–${dayEl(r.endDate)}` : ''}` : ''}
                 </p>
               </div>
