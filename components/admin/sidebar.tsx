@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { FiMail,
   FiGrid, FiUsers, FiShield, FiKey, FiImage, FiChevronDown, FiList, FiTag, FiMaximize2, FiTrendingDown, FiShoppingCart,
-  FiActivity, FiSettings, FiFileText, FiInbox, FiEdit3, FiLogOut, FiDatabase, FiBriefcase, FiLayers, FiCpu, FiBookOpen, FiBook, FiUserCheck, FiBox, FiTool, FiFolder, FiAlertCircle, FiUserPlus, FiPackage, FiPlayCircle, FiUploadCloud, FiHelpCircle, FiClipboard, FiCalendar, FiTarget, FiCheckSquare, FiMenu, FiX,
+  FiActivity, FiSettings, FiFileText, FiInbox, FiEdit3, FiLogOut, FiDatabase, FiBriefcase, FiLayers, FiCpu, FiBookOpen, FiBook, FiUserCheck, FiBox, FiTool, FiFolder, FiAlertCircle, FiUserPlus, FiPackage, FiPlayCircle, FiUploadCloud, FiHelpCircle, FiClipboard, FiCalendar, FiTarget, FiCheckSquare, FiMap, FiMenu, FiX,
 } from 'react-icons/fi';
 import { Dialog as DialogPrimitive } from 'radix-ui';
 import { AirJordanIcon } from '@/components/assistant/air-jordan-icon';
@@ -69,6 +69,7 @@ const NAV_GROUPS: NavGroup[] = [
       { href: '/admin/projects/contracts', label: 'Συμβάσεις & Προσφορές', icon: FiFileText, permissions: ['projects.read'], badgeKey: 'contractInbox' },
       { href: '/admin/offer-requests', label: 'Αιτήματα προσφοράς', icon: FiInbox, permissions: ['projects.read'], badgeKey: 'offerRequests' },
       { href: '/admin/tasks', label: 'Εργασίες & Gantt', icon: FiCheckSquare, permissions: ['projects.read'] },
+      { href: '/admin/floorplans', label: 'Κατόψεις & σχέδια', icon: FiMap, permissions: ['projects.read'] },
       { href: '/admin/recipes', label: 'Συνταγές τοποθέτησης', icon: FiLayers, permissions: ['recipes.read'] },
       { href: '/admin/dynamic-offers', label: 'Δυναμικές προσφορές', icon: FiTrendingDown, permissions: ['dynamic_offers.read'] },
       { href: '/admin/order-requests', label: 'Αιτήματα παραγγελίας', icon: FiShoppingCart, permissions: ['order_requests.read'], badgeKey: 'orderRequests' },

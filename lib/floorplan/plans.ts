@@ -144,3 +144,47 @@ export async function attachFloorPlanToProject(floorPlanId: string | null, prjc:
   if (!floorPlanId) return;
   await prisma.floorPlan.updateMany({ where: { id: floorPlanId, prjc: null }, data: { prjc } });
 }
+
+/** Μία κάρτα της σελίδας «Κατόψεις & σχέδια»: όλες οι χαρτογραφήσεις, έργων και πελατών. */
+export type FloorPlanCard = {
+  id: string; title: string; source: string | null; floorM2: number; wallsM2: number; roomCount: number;
+  prjc: number | null; projectLabel: string | null; trdr: number | null; customerName: string | null;
+  hasPlan: boolean; hasAnnotated: boolean; hasSource: boolean; has3d: boolean;
+  rooms: string[]; contracts: { id: string; number: number; title: string }[]; updatedAt: string;
+};
+
+export async function listAllFloorPlans(limit = 500): Promise<FloorPlanCard[]> {
+  const rows = await prisma.floorPlan.findMany({
+    orderBy: { updatedAt: 'desc' }, take: limit,
+    select: {
+      id: true, title: true, source: true, floorM2: true, wallsM2: true, roomCount: true, prjc: true, trdr: true,
+      imageFileId: true, annotatedFileId: true, sourceFileId: true, updatedAt: true,
+      contracts: { select: { id: true, number: true, title: true } },
+    },
+  });
+  if (!rows.length) return [];
+  const ids = rows.map((r) => r.id);
+  // Μόνο τα λίγα πεδία που χρειάζεται η κάρτα από το JSON — όχι τα περιγράμματα (μπορεί να είναι MB).
+  const [extra, projects, traders] = await Promise.all([
+    prisma.$queryRawUnsafe<{ id: string; render3d: string | null; rooms: string[] | null }[]>(
+      `SELECT "id", "data"->>'render3dFileId' AS render3d,
+              ARRAY(SELECT jsonb_array_elements("data"->'rooms')->>'name') AS rooms
+       FROM "FloorPlan" WHERE "id" = ANY($1)`, ids),
+    prisma.softoneProject.findMany({ where: { prjc: { in: [...new Set(rows.map((r) => r.prjc).filter((x): x is number => x != null))] } }, select: { prjc: true, code: true, name: true } }),
+    prisma.softoneTrader.findMany({ where: { trdr: { in: [...new Set(rows.map((r) => r.trdr).filter((x): x is number => x != null))] } }, select: { trdr: true, name: true } }),
+  ]);
+  const ex = new Map(extra.map((e) => [e.id, e]));
+  const prj = new Map(projects.map((p) => [p.prjc, `${p.code} · ${p.name}`]));
+  const trd = new Map(traders.map((t) => [t.trdr, t.name]));
+  return rows.map((r) => {
+    const e = ex.get(r.id);
+    return {
+      id: r.id, title: r.title, source: r.source, floorM2: r.floorM2, wallsM2: r.wallsM2, roomCount: r.roomCount,
+      prjc: r.prjc, projectLabel: r.prjc != null ? prj.get(r.prjc) ?? `Έργο ${r.prjc}` : null,
+      trdr: r.trdr, customerName: r.trdr != null ? trd.get(r.trdr) ?? null : null,
+      hasPlan: !!r.imageFileId, hasAnnotated: !!r.annotatedFileId, hasSource: !!r.sourceFileId, has3d: !!e?.render3d,
+      rooms: (e?.rooms ?? []).map((n) => (n ?? '').trim()).filter(Boolean),
+      contracts: r.contracts, updatedAt: r.updatedAt.toISOString(),
+    };
+  });
+}
