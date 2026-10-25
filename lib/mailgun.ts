@@ -52,20 +52,33 @@ export type MailAttachment = { filename: string; content: string | Uint8Array; c
 // Μέχρι να βγει live η εφαρμογή ΔΕΝ φεύγει email σε πελάτες/προμηθευτές/τρίτους (παράπονα 10/2026):
 // επιτρέπονται ΜΟΝΟ email ενεργών χρηστών του προσωπικού (SUPER_ADMIN/ADMIN/EMPLOYEE). Οι υπόλοιποι
 // παραλήπτες κόβονται σιωπηλά (γραμμή στο log). Άνοιγμα για όλους: `MAIL_LIVE=1` στο περιβάλλον.
-// Ρητές εξαιρέσεις (π.χ. demo πελάτης): `MAIL_ALLOW=a@x.gr,b@y.gr`.
+// Ρητές εξαιρέσεις (π.χ. demo πελάτης): `MAIL_ALLOW=a@x.gr,b@y.gr`. Τα ΔΙΚΑ ΜΑΣ εισερχόμενα (email εταιρίας,
+// παραλήπτες ειδοποιήσεων, κοινό mailbox) είναι εσωτερικά — αλλιώς κόβονταν οι ειδοποιήσεις προς το γραφείο
+// (π.χ. «Νέο αίτημα προσφοράς» στο info@) και το προσωπικό δεν μάθαινε τίποτα.
 const STAFF_ROLES: RoleKey[] = ['SUPER_ADMIN', 'ADMIN', 'EMPLOYEE'];
 export const mailLive = () => process.env.MAIL_LIVE === '1';
 export const mailAllowList = () => new Set((process.env.MAIL_ALLOW ?? '').split(',').map((x) => x.trim().toLowerCase()).filter(Boolean));
+const INBOX_SETTINGS = ['company.email', 'orders.notifyEmail', 'leads.notifyEmail'];
+
+/** Τα εισερχόμενα της εταιρίας (ρυθμίσεις + κοινό mailbox) — πάντα επιτρεπτοί παραλήπτες. */
+async function companyInboxes(): Promise<string[]> {
+  const rows = await prisma.appSetting.findMany({ where: { key: { in: INBOX_SETTINGS } }, select: { value: true } }).catch(() => []);
+  return [...rows.flatMap((r) => (typeof r.value === 'string' ? r.value.split(',') : [])), mailgunConfig().address]
+    .map((x) => x.trim().toLowerCase()).filter((x) => x.includes('@'));
+}
 
 /** Οι παραλήπτες (λίστα με κόμμα) που επιτρέπεται να λάβουν email τώρα. */
 export async function allowedRecipients(to: string): Promise<string[]> {
   const list = to.split(',').map((x) => x.trim()).filter(Boolean);
   if (mailLive() || !list.length) return list;
-  const staff = await prisma.user.findMany({
-    where: { isActive: true, email: { in: list, mode: 'insensitive' }, role: { key: { in: STAFF_ROLES } } },
-    select: { email: true },
-  });
-  const ok = new Set([...staff.map((u) => u.email.toLowerCase()), ...mailAllowList()]);
+  const [staff, inboxes] = await Promise.all([
+    prisma.user.findMany({
+      where: { isActive: true, email: { in: list, mode: 'insensitive' }, role: { key: { in: STAFF_ROLES } } },
+      select: { email: true },
+    }),
+    companyInboxes(),
+  ]);
+  const ok = new Set([...staff.map((u) => u.email.toLowerCase()), ...mailAllowList(), ...inboxes]);
   return list.filter((e) => ok.has(e.toLowerCase()));
 }
 

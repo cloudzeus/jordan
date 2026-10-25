@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-const db = vi.hoisted(() => ({ prisma: { user: { findMany: vi.fn() } } }));
+const db = vi.hoisted(() => ({ prisma: { user: { findMany: vi.fn() }, appSetting: { findMany: vi.fn(async () => [{ value: 'info@damask.gr' }]) } } }));
 vi.mock('@/lib/db', () => db);
 const create = vi.hoisted(() => vi.fn(async () => ({ id: 'm1' })));
 vi.mock('mailgun.js', () => ({ default: class { client() { return { messages: { create } }; } } }));
@@ -23,6 +23,11 @@ describe('φραγμός email πριν το live', () => {
     const r = await sendTransactionalEmail('promitheftis@example.org', 'Θέμα', '<p>x</p>');
     expect(r).toMatchObject({ blocked: true });
     expect(create).not.toHaveBeenCalled();
+  });
+
+  it('τα εισερχόμενα της εταιρίας (ρυθμίσεις) περνούν — ειδοποιήσεις προς το γραφείο', async () => {
+    db.prisma.user.findMany.mockResolvedValue([]);
+    expect(await allowedRecipients('Info@Damask.gr, pelatis@gmail.com')).toEqual(['Info@Damask.gr']);
   });
 
   it('με MAIL_LIVE=1 ανοίγει για όλους', async () => {
