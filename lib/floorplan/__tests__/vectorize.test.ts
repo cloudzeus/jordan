@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { thinZhangSuen } from '../vectorize';
+import { thinZhangSuen, distanceToBackground } from '../vectorize';
 
 type M = Uint8Array;
 const blank = (w: number, h: number): M => new Uint8Array(w * h);
@@ -29,5 +29,23 @@ describe('thinZhangSuen', () => {
     const once = thinZhangSuen(m, w, h);
     expect([...once]).toEqual([...m]);
     expect([...thinZhangSuen(once, w, h)]).toEqual([...once]);
+  });
+});
+
+describe('distanceToBackground', () => {
+  it('gives the axis of a thick bar its distance to the background (Chebyshev)', () => {
+    // Μπάρα πλάτους 5 (στήλες 10..14)· άξονας στήλη 12. Πλησιέστερο φόντο: στήλη 9/15 → απόσταση 3.
+    const w = 25, h = 7, m = blank(w, h);
+    fillRect(m, w, 10, 0, 14, 6);
+    const d = distanceToBackground(m, w, h);
+    expect(d[3 * w + 12]).toBe(3);   // άξονας → πάχος = 2·3 − 1 = 5 ✓
+    expect(d[3 * w + 10]).toBe(1);   // άκρο της μπάρας: 1 pixel από το φόντο
+  });
+
+  it('is 1 everywhere on a 1px line', () => {
+    const w = 20, h = 5, m = blank(w, h);
+    fillRect(m, w, 2, 2, 17, 2);
+    const d = distanceToBackground(m, w, h);
+    expect(d[2 * w + 9]).toBe(1);
   });
 });

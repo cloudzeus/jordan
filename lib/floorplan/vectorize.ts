@@ -43,3 +43,42 @@ export function thinZhangSuen(mask: Mask, w: number, h: number): Mask {
   }
   return m;
 }
+
+/**
+ * Απόσταση Chebyshev κάθε ενεργού pixel προς το πλησιέστερο φόντο (two-pass chamfer). Τα pixels εκτός
+ * εικόνας μετρούν ως φόντο. Σε ένα pixel του σκελετού, το πάχος του τοίχου ≈ 2·d − 1.
+ */
+export function distanceToBackground(mask: Mask, w: number, h: number): Int32Array {
+  const d = new Int32Array(w * h);
+  const BIG = w + h;
+  for (let i = 0; i < d.length; i++) d[i] = mask[i] ? BIG : 0;
+  const idx = (x: number, y: number) => y * w + x;
+  const bg = (x: number, y: number) => (x < 0 || y < 0 || x >= w || y >= h ? 0 : null);
+  // Forward: πάνω-αριστερά γείτονες (συμπ. διαγώνιων) + 1.
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      if (!mask[idx(x, y)]) continue;
+      let best = d[idx(x, y)];
+      for (const [dx, dy] of [[-1, 0], [0, -1], [-1, -1], [1, -1]] as const) {
+        const nx = x + dx, ny = y + dy;
+        const v = bg(nx, ny) === 0 ? 0 : d[idx(nx, ny)];
+        if (v + 1 < best) best = v + 1;
+      }
+      d[idx(x, y)] = best;
+    }
+  }
+  // Backward: κάτω-δεξιά γείτονες.
+  for (let y = h - 1; y >= 0; y--) {
+    for (let x = w - 1; x >= 0; x--) {
+      if (!mask[idx(x, y)]) continue;
+      let best = d[idx(x, y)];
+      for (const [dx, dy] of [[1, 0], [0, 1], [1, 1], [-1, 1]] as const) {
+        const nx = x + dx, ny = y + dy;
+        const v = bg(nx, ny) === 0 ? 0 : d[idx(nx, ny)];
+        if (v + 1 < best) best = v + 1;
+      }
+      d[idx(x, y)] = best;
+    }
+  }
+  return d;
+}
