@@ -15,10 +15,13 @@ import { readRegistry } from '@/lib/product-registry';
  * Το «πόσα είδη το χρησιμοποιούν» έρχεται ΖΩΝΤΑΝΑ από το SoftOne (ένα GetTable στο MTRL, με μνήμη
  * 5 λεπτών) — ο τοπικός καθρέφτης ειδών δεν κρατά αυτά τα πεδία.
  *
- * ΕΓΓΡΑΦΗ: μόνο οι εμπορικές κατηγορίες γράφονται πίσω (object `ITECATEGORY`/`SRVCATEGORY`, βλ.
- * `lib/item-classifications.ts`). Ομάδες, μάρκες και κατασκευαστές είναι αντικείμενα-λίστα
- * (`$MTRGROUP`, `$ITEMARK`, `$MTRMANFCTR`): στις ομάδες το setData ΕΣΒΗΣΕ γραμμή σε ζωντανό tenant,
- * οπότε μέχρι να επιβεβαιωθεί ελεγχόμενα η συμπεριφορά τους τα δείχνουμε μόνο για ανάγνωση.
+ * ΕΓΓΡΑΦΗ: κατηγορίες (`ITECATEGORY`/`SRVCATEGORY`, βλ. `lib/item-classifications.ts`) και μάρκες/
+ * κατασκευαστές (`$ITEMARK`/`$MTRMANFCTR`, βλ. `lib/product-registry.ts` — πλήρης λίστα κάθε φορά).
+ *
+ * ΟΜΑΔΕΣ: ΔΕΝ γράφονται. Δοκιμάστηκε ελεγχόμενα (2026-10-28) και το `getData ITEGROUP` αποδείχθηκε
+ * ΑΝΑΞΙΟΠΙΣΤΟ: για ΚΑΘΕ KEY επέστρεφε την ίδια λάθος λίστα — έκρυβε υπαρκτή ομάδα (2 «Πλακάκια»)
+ * και εμφάνιζε ανύπαρκτη (5). Ο πίνακας `MTRGROUP` (GetTable/SQL) έλεγε την αλήθεια και έμεινε
+ * άθικτος. Χωρίς αξιόπιστο read-before-write, εγγραφή στις ομάδες σβήνει πραγματικές γραμμές.
  */
 
 export type { ProductData, ProductDataRow, ProductTab } from './product-data-core';

@@ -32,7 +32,7 @@ const ICON: Record<ProductTab, React.ReactNode> = {
 };
 /** Γιατί δεν γράφεται το μητρώο — φαίνεται πάνω από τη λίστα. */
 const READ_ONLY_WHY: Partial<Record<ProductTab, string>> = {
-  groups: 'Οι ομάδες ΔΕΝ γράφονται από την εφαρμογή: σε δοκιμή σε ζωντανό SoftOne το setData έσβησε γραμμή ομάδας. Αλλαγές μόνο από το SoftOne.',
+  groups: 'Οι ομάδες ΔΕΝ γράφονται από την εφαρμογή. Το getData του «ITEGROUP» επιστρέφει αναξιόπιστη λίστα (κρύβει υπαρκτές ομάδες και δείχνει ανύπαρκτες), οπότε καμία ασφαλής εγγραφή δεν είναι δυνατή — θα έσβηνε πραγματικές γραμμές. Αλλαγές μόνο από το SoftOne.',
 };
 /** Το μητρώο του SoftOne πίσω από κάθε καρτέλα που γράφεται ως λίστα. */
 const REGISTRY_OF: Partial<Record<ProductTab, 'MTRMARK' | 'MTRMANFCTR'>> = { brands: 'MTRMARK', manufacturers: 'MTRMANFCTR' };
