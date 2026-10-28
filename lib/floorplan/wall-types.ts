@@ -54,6 +54,8 @@ export const wallTypeInput = z
   });
 
 export type WallTypeInput = z.infer<typeof wallTypeInput>;
+/** Είσοδος πριν την επικύρωση (με προαιρετικά/defaults) — ό,τι δέχονται τα create/update. */
+export type WallTypeInputRaw = z.input<typeof wallTypeInput>;
 
 /** Βασικός κατάλογος (seed) — επεκτείνεται από τον διαχειριστή. Καλύπτει και τις πέντε κατηγορίες. */
 export const WALL_TYPE_SEED: WallTypeInput[] = [

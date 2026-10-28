@@ -1,7 +1,7 @@
 import 'server-only';
 import type { WallType } from '@prisma/client';
 import { prisma } from '@/lib/db';
-import { wallTypeInput, type WallTypeInput } from './wall-types';
+import { wallTypeInput, type WallTypeInputRaw } from './wall-types';
 
 // Λογική βάσης του global καταλόγου τύπων κατασκευής (WallType). Καθαρά CRUD — τα δικαιώματα και το
 // audit μένουν στο action (app/admin/floorplans/wall-types/actions.ts).
@@ -17,7 +17,7 @@ export function listWallTypes(): Promise<WallType[]> {
   return prisma.wallType.findMany({ orderBy: [{ sortOrder: 'asc' }, { code: 'asc' }] });
 }
 
-export async function createWallType(input: WallTypeInput): Promise<WallType> {
+export async function createWallType(input: WallTypeInputRaw): Promise<WallType> {
   const data = wallTypeInput.parse(input);
   try {
     return await prisma.wallType.create({ data });
@@ -27,7 +27,7 @@ export async function createWallType(input: WallTypeInput): Promise<WallType> {
   }
 }
 
-export async function updateWallType(id: string, input: WallTypeInput): Promise<WallType> {
+export async function updateWallType(id: string, input: WallTypeInputRaw): Promise<WallType> {
   const data = wallTypeInput.parse(input);
   try {
     return await prisma.wallType.update({ where: { id }, data });
