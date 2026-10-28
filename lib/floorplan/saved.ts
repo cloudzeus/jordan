@@ -18,6 +18,9 @@ export const roomMaterial = z.discriminatedUnion('type', [
   z.object({ type: z.literal('item'), mtrl: z.number().int().positive(), code: z.string().max(64), label: z.string().max(300) }),
 ]);
 
+/** Τοίχοι ενός χώρου (v1): ενεργό πλακάκι, ύψος και ανοίγματα — κοινό για v1 και τα v2 rooms. */
+export const roomWalls = z.object({ on: z.boolean(), heightM: z.number().finite().min(0).max(20), openings: z.array(opening).max(100) });
+
 export const savedRoom = z.object({
   id: z.string().min(1).max(64),
   name: z.string().trim().max(120),
@@ -26,7 +29,7 @@ export const savedRoom = z.object({
   areaPx: z.number().finite().min(0),
   perimeterPx: z.number().finite().min(0),
   manual: z.boolean().default(false),
-  walls: z.object({ on: z.boolean(), heightM: z.number().finite().min(0).max(20), openings: z.array(opening).max(100) }).nullish().transform((v) => v ?? undefined),
+  walls: roomWalls.nullish().transform((v) => v ?? undefined),
   material: roomMaterial.nullish().transform((v) => v ?? null),
   /** Εναλλακτικό υλικό (Β) για τον χώρο — ο πελάτης διαλέγει A ή Β στην προσφορά. */
   materialB: roomMaterial.nullish().transform((v) => v ?? null),
@@ -63,6 +66,82 @@ export const planData = z.object({
   rooms: z.array(savedRoom).max(300),
 });
 export type PlanData = z.infer<typeof planData>;
+
+// ── planData v2: διανυσματικό μοντέλο σε ΜΕΤΡΑ (οι τοίχοι γίνονται οντότητες) ──────────────────
+const calibM = z.object({ a: pt, b: pt, meters: z.number().finite().positive() });
+
+/** Τοίχος v2: ευθύγραμμο τμήμα a–b σε μέτρα, με αναφορά σε τύπο κατασκευής. */
+export const wallEntity = z.object({
+  id: z.string().min(1).max(64),
+  a: pt, b: pt,
+  typeId: z.string().max(64).nullable(),
+  source: z.enum(['auto', 'cad', 'drawn']),
+  locked: z.boolean().optional(),
+});
+
+/** Άνοιγμα v2: παραμετρική θέση t0…t1 (0..1) πάνω σε έναν τοίχο. */
+export const openingEntity = z.object({
+  id: z.string().min(1).max(64),
+  wallId: z.string().min(1).max(64),
+  t0: z.number().finite().min(0).max(1),
+  t1: z.number().finite().min(0).max(1),
+  modelId: z.string().max(64).nullish().transform((v) => v ?? null),
+  kind: z.enum(['door', 'window', 'other']),
+  sillM: z.number().finite().min(0).max(100),
+  heightM: z.number().finite().min(0).max(100),
+  swing: z.enum(['left', 'right']).nullish().transform((v) => v ?? null),
+});
+
+export const savedRoomV2 = z.object({
+  id: z.string().min(1).max(64),
+  name: z.string().trim().max(120),
+  color: z.string().max(32),
+  /** Σπόρος (σημείο μέσα στον χώρο) — για επανυπολογισμό περιγράμματος· null = χειροκίνητος. */
+  seed: pt.nullable(),
+  /** Περίγραμμα σε μέτρα (παράγωγο· κενό όταν θα ξαναϋπολογιστεί από τους τοίχους). */
+  polygon: z.array(pt).max(20_000).default([]),
+  manual: z.boolean().default(false),
+  walls: roomWalls.nullish().transform((v) => v ?? undefined),
+  material: roomMaterial.nullish().transform((v) => v ?? null),
+  materialB: roomMaterial.nullish().transform((v) => v ?? null),
+  floorM2: z.number().finite().min(0),
+  perimeterM: z.number().finite().min(0),
+});
+export type SavedRoomV2 = z.infer<typeof savedRoomV2>;
+
+export const planDataV2 = z.object({
+  v: z.literal(2),
+  floor: z.object({ ceilingM: z.number().finite().positive().default(2.8), slabM: z.number().finite().default(0) }).default({ ceilingM: 2.8, slabM: 0 }),
+  underlay: z.object({
+    fileId: z.string().max(64).nullish().transform((v) => v ?? null),
+    page: z.number().int().positive().default(1),
+    wPx: z.number().int().positive().max(20_000),
+    hPx: z.number().int().positive().max(20_000),
+    /** Μέτρα ανά pixel· null = κάτοψη χωρίς κλίμακα (μονάδες εικόνας). */
+    mPerPx: z.number().finite().positive().nullable(),
+    rotation: z.number().finite().default(0),
+    offset: pt.default({ x: 0, y: 0 }),
+    calib: calibM.nullable(),
+    opacity: z.number().finite().min(0).max(1).default(1),
+  }).nullable(),
+  walls: z.array(wallEntity).max(20_000).default([]),
+  openings: z.array(openingEntity).max(5_000).default([]),
+  dividers: z.array(z.tuple([pt, pt])).max(2_000).default([]),
+  dims: z.array(z.object({ id: z.string().min(1).max(64), a: pt, b: pt })).max(500).default([]),
+  pins: z.array(z.object({
+    id: z.string().min(1).max(64), x: z.number().finite(), y: z.number().finite(),
+    text: z.string().max(2000).default(''), photoFileIds: z.array(z.string().min(1).max(64)).max(8).default([]),
+  })).max(300).default([]),
+  devices: z.array(planDevice).max(1000).default([]),
+  cables: z.array(planCable).max(2000).default([]),
+  render3dFileId: z.string().max(64).nullish().transform((v) => v ?? null),
+  rooms: z.array(savedRoomV2).max(300),
+});
+export type PlanDataV2 = z.infer<typeof planDataV2>;
+
+/** Οποιαδήποτε έκδοση δεδομένων κάτοψης — διακρίνεται από το `v`. */
+export const planDataAny = z.discriminatedUnion('v', [planData, planDataV2]);
+export type PlanDataAny = z.infer<typeof planDataAny>;
 
 export const mPerPxOf = (d: Pick<PlanData, 'calib'>) =>
   d.calib ? d.calib.meters / Math.hypot(d.calib.b.x - d.calib.a.x, d.calib.b.y - d.calib.a.y) : null;
