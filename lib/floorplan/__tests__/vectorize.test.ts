@@ -177,3 +177,26 @@ describe('vectorizeWalls', () => {
     expect(vectorizeWalls(m, w, h)).toHaveLength(4);
   });
 });
+
+describe('mergeCollinear — overlapping segments (review #1)', () => {
+  it('keeps the full union span when one segment nests inside the other', () => {
+    const segs: Seg[] = [{ a: { x: 0, y: 0 }, b: { x: 20, y: 0 } }, { a: { x: 5, y: 0 }, b: { x: 10, y: 0 } }];
+    const out = mergeCollinear(segs, { maxAngleDeg: 3, maxGapPx: 8 });
+    expect(out).toHaveLength(1);
+    const xs = [out[0].a.x, out[0].b.x].sort((p, q) => p - q);
+    expect(xs).toEqual([0, 20]);
+  });
+});
+
+describe('snapNodes — spread junction (review #2)', () => {
+  it('welds three endpoints linked within tol (single-linkage), even if the extremes exceed tol', () => {
+    const segs: Seg[] = [
+      { a: { x: 0, y: 0 }, b: { x: 100, y: 0 } },
+      { a: { x: 3.9, y: 0 }, b: { x: 100, y: 50 } },
+      { a: { x: 7.8, y: 0 }, b: { x: 50, y: 100 } },
+    ];
+    const out = snapNodes(segs, 4);
+    expect(out[0].a).toEqual(out[1].a);
+    expect(out[1].a).toEqual(out[2].a);
+  });
+});

@@ -216,9 +216,15 @@ export function mergeCollinear(segs: Seg[], o: { maxAngleDeg: number; maxGapPx: 
         let best: { d: number; p: Pt; q: Pt } | null = null;
         for (const [p, q] of pairs) { const d = Math.hypot(p.x - q.x, p.y - q.y); if (!best || d < best.d) best = { d, p, q }; }
         if (!best || best.d > o.maxGapPx) continue;
-        const farA = best.p === A.a ? A.b : A.a;
-        const farB = best.q === B.a ? B.b : B.a;
-        const m: Seg = { a: farA, b: farB };
+        // Το ενωμένο τμήμα = το ΠΙΟ ΑΠΟΜΑΚΡΥΣΜΕΝΟ ζεύγος από τα 4 άκρα (όχι το συμπλήρωμα του κοντινού
+        // ζεύγους) — αλλιώς σε επικάλυψη/εγκλεισμό θα «κόβαμε» μέρος του τοίχου.
+        const all = [A.a, A.b, B.a, B.b];
+        let fa = all[0], fb = all[1], fd = -1;
+        for (let x = 0; x < 4; x++) for (let y = x + 1; y < 4; y++) {
+          const d = Math.hypot(all[x].x - all[y].x, all[x].y - all[y].y);
+          if (d > fd) { fd = d; fa = all[x]; fb = all[y]; }
+        }
+        const m: Seg = { a: fa, b: fb };
         if (dirDiffDeg(angleOf(m), angleOf(A)) > o.maxAngleDeg) continue;
         out.splice(j, 1); out.splice(i, 1); out.push(m);
         merged = true; break;
@@ -228,17 +234,25 @@ export function mergeCollinear(segs: Seg[], o: { maxAngleDeg: number; maxGapPx: 
   return out;
 }
 
-/** Κούμπωμα κόμβων: άκρα τμημάτων σε απόσταση < tolPx συγχωνεύονται σε κοινό σημείο (μέσος όρος). */
+/**
+ * Κούμπωμα κόμβων: άκρα τμημάτων σε απόσταση ≤ tolPx συγχωνεύονται σε κοινό σημείο (μέσος όρος).
+ * Single-linkage (union-find) ώστε και διάσπαρτος κόμβος (π.χ. T σε χοντρό τοίχο) να κλείνει σωστά,
+ * με κάθε μοναδικό άκρο να μετρά μία φορά (κοινές αναφορές Pt δεν διπλομετρώνται).
+ */
 export function snapNodes(segs: Seg[], tolPx: number): Seg[] {
-  const clusters: { cx: number; cy: number; pts: Pt[] }[] = [];
-  const assign = (p: Pt) => {
-    for (const c of clusters) if (Math.hypot(c.cx - p.x, c.cy - p.y) <= tolPx) { c.pts.push(p); c.cx = c.pts.reduce((s, q) => s + q.x, 0) / c.pts.length; c.cy = c.pts.reduce((s, q) => s + q.y, 0) / c.pts.length; return c; }
-    const c = { cx: p.x, cy: p.y, pts: [p] }; clusters.push(c); return c;
-  };
-  const map = new Map<Pt, { cx: number; cy: number; pts: Pt[] }>();
-  for (const s of segs) { map.set(s.a, assign(s.a)); map.set(s.b, assign(s.b)); }
-  const node = (p: Pt): Pt => { const c = map.get(p)!; return c.pts.length > 1 ? { x: c.cx, y: c.cy } : { x: p.x, y: p.y }; };
-  return segs.map((s) => ({ a: node(s.a), b: node(s.b) }));
+  const uniq: Pt[] = [];
+  const seen = new Set<Pt>();
+  for (const s of segs) for (const p of [s.a, s.b]) if (!seen.has(p)) { seen.add(p); uniq.push(p); }
+  const parent = uniq.map((_, i) => i);
+  const find = (i: number): number => { while (parent[i] !== i) { parent[i] = parent[parent[i]]; i = parent[i]; } return i; };
+  for (let i = 0; i < uniq.length; i++) for (let j = i + 1; j < uniq.length; j++) {
+    if (Math.hypot(uniq[i].x - uniq[j].x, uniq[i].y - uniq[j].y) <= tolPx) { const a = find(i), b = find(j); if (a !== b) parent[a] = b; }
+  }
+  const groups = new Map<number, { sx: number; sy: number; n: number }>();
+  uniq.forEach((p, i) => { const r = find(i); const g = groups.get(r) ?? { sx: 0, sy: 0, n: 0 }; g.sx += p.x; g.sy += p.y; g.n++; groups.set(r, g); });
+  const nodeOf = new Map<Pt, Pt>();
+  uniq.forEach((p, i) => { const g = groups.get(find(i))!; nodeOf.set(p, g.n > 1 ? { x: g.sx / g.n, y: g.sy / g.n } : { x: p.x, y: p.y }); });
+  return segs.map((s) => ({ a: nodeOf.get(s.a)!, b: nodeOf.get(s.b)! }));
 }
 
 export type VectorWall = { a: Pt; b: Pt; thicknessPx: number };
