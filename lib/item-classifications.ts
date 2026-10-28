@@ -67,7 +67,7 @@ export async function syncClassifications() {
 
 // ── Μέλη (είδη ανά κατηγορία/ομάδα) ──────────────────────────────────────────────────────────
 
-type Member = { mtrl: number; code: string; name: string; sodtype: number; category: number | null; group: number | null };
+type Member = { mtrl: number; code: string; name: string; sodtype: number; category: number | null; group: number | null; manufacturer: number | null; brand: number | null };
 const MEMBERS_TTL_MS = 5 * 60_000;
 let memberCache: { at: number; rows: Member[] } | null = null;
 
@@ -76,13 +76,14 @@ const intOrNull = (v: unknown) => {
   return v === '' || v == null || !Number.isInteger(n) ? null : n;
 };
 
-/** Ενεργά είδη/υπηρεσίες με την κατηγορία και την ομάδα τους — ζωντανά, κρατιούνται 5 λεπτά. */
+/** Ενεργά είδη/υπηρεσίες με κατηγορία, ομάδα, κατασκευαστή και μάρκα — ζωντανά, κρατιούνται 5 λεπτά. */
 export async function classificationMembers(fresh = false): Promise<Member[]> {
   if (!fresh && memberCache && Date.now() - memberCache.at < MEMBERS_TTL_MS) return memberCache.rows;
-  const rows = await softoneGetTable('MTRL', ['MTRL', 'CODE', 'NAME', 'SODTYPE', 'MTRCATEGORY', 'MTRGROUP'], 'SODTYPE IN (51,52)');
+  const rows = await softoneGetTable('MTRL', ['MTRL', 'CODE', 'NAME', 'SODTYPE', 'MTRCATEGORY', 'MTRGROUP', 'MTRMANFCTR', 'MTRMARK'], 'SODTYPE IN (51,52)');
   const out = rows.map((r) => ({
     mtrl: Number(r.MTRL), code: String(r.CODE ?? ''), name: String(r.NAME ?? ''), sodtype: Number(r.SODTYPE),
     category: intOrNull(r.MTRCATEGORY), group: intOrNull(r.MTRGROUP),
+    manufacturer: intOrNull(r.MTRMANFCTR), brand: intOrNull(r.MTRMARK),
   })).filter((m) => Number.isInteger(m.mtrl));
   memberCache = { at: Date.now(), rows: out };
   return out;
