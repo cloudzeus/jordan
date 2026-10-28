@@ -1,6 +1,7 @@
 import 'server-only';
 import { prisma } from '@/lib/db';
 import { classificationMembers } from '@/lib/item-classifications';
+import { readRegistry } from '@/lib/product-registry';
 
 /**
  * Τα μητρώα που χαρακτηρίζουν ένα είδος στο SoftOne, σε μία σελίδα: **μάρκες** (MTRMARK),
@@ -24,10 +25,15 @@ export type { ProductData, ProductDataRow, ProductTab } from './product-data-cor
 import { type ProductData, type ProductDataRow, type ProductTab } from './product-data-core';
 
 export async function listProductData(): Promise<ProductData> {
-  const [classes, lookups, members] = await Promise.all([
+  // Μάρκες/κατασκευαστές: ζωντανά από το SoftOne, γιατί χρειαζόμαστε τον ΚΩΔΙΚΟ και το ενεργό/ανενεργό
+  // που ο καθρέφτης `SoftoneLookup` δεν κρατά — και χωρίς αυτά η επεξεργασία θα έσβηνε τον κωδικό.
+  // Αν το SoftOne δεν απαντήσει, πέφτουμε πίσω στον καθρέφτη (λίστα χωρίς κωδικούς, μόνο ανάγνωση).
+  const [classes, lookups, members, live] = await Promise.all([
     prisma.softoneClassification.findMany({ orderBy: [{ sodtype: 'asc' }, { code: 'asc' }] }),
     prisma.softoneLookup.findMany({ where: { kind: { in: ['MTRMARK', 'MTRMANFCTR'] } }, orderBy: [{ kind: 'asc' }, { order: 'asc' }, { code: 'asc' }] }),
     classificationMembers().then((m) => ({ m, err: null as string | null })).catch((e) => ({ m: null, err: (e as Error).message })),
+    Promise.all((['MTRMARK', 'MTRMANFCTR'] as const).map(async (k) => [k, await readRegistry(k).catch(() => null)] as const))
+      .then((xs) => new Map(xs)),
   ]);
 
   // Μετρήσεις χρήσης ανά μητρώο. Κατηγορία/ομάδα μετρούν ανά SODTYPE (ίδιος αριθμός σε είδη και
@@ -48,14 +54,27 @@ export async function listProductData(): Promise<ProductData> {
       code: r.code, shortCode: r.shortCode, name: r.name, isActive: r.isActive, sodtype: r.sodtype,
       itemCount: counted(tab, r.sodtype, r.code),
     }));
-  const fromLookup = (tab: 'brands' | 'manufacturers', kind: 'MTRMARK' | 'MTRMANFCTR'): ProductDataRow[] =>
-    lookups.filter((r) => r.kind === kind).map((r) => {
+  const fromLookup = (tab: 'brands' | 'manufacturers', kind: 'MTRMARK' | 'MTRMANFCTR'): ProductDataRow[] => {
+    const rows = live.get(kind);
+    if (rows) {
+      const idField = kind;
+      return rows.map((r) => {
+        const code = Number(r[idField]);
+        return {
+          code, shortCode: r.CODE?.trim() || null, name: (r.NAME || r.CODE || '').trim(),
+          isActive: r.ISACTIVE !== '0', sodtype: null,
+          itemCount: Number.isInteger(code) ? counted(tab, null, code) : null,
+        };
+      }).sort((a, b) => a.code - b.code);
+    }
+    return lookups.filter((r) => r.kind === kind).map((r) => {
       const code = Number(r.code);
       return {
         code, shortCode: null, name: r.name, isActive: true, sodtype: null,
         itemCount: Number.isInteger(code) ? counted(tab, null, code) : null,
       };
     });
+  };
 
   return {
     rows: {

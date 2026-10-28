@@ -4,7 +4,7 @@ import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import {
-  FiAlertTriangle, FiAward, FiEdit2, FiLoader, FiMoreVertical, FiPackage, FiPlus, FiRefreshCw, FiSearch, FiTag, FiTool,
+  FiAlertTriangle, FiAward, FiEdit2, FiLoader, FiMoreVertical, FiPackage, FiPlus, FiRefreshCw, FiSearch, FiTag, FiTool, FiTrash2,
 } from 'react-icons/fi';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -18,7 +18,11 @@ import {
 import { Field, fieldCls, RowHint } from '@/components/admin/form-kit';
 import { cn } from '@/lib/utils';
 import { PRODUCT_TABS, type ProductDataRow, type ProductTab } from '@/lib/product-data-core';
-import { createCategoryAction, syncProductDataAction, updateCategoryAction } from './actions';
+import { confirmAction } from '@/components/ui/confirm-dialog';
+import type { RegistryKind } from '@/lib/product-registry-core';
+import {
+  createCategoryAction, createRegistryRowAction, deleteRegistryRowAction, syncProductDataAction, updateCategoryAction, updateRegistryRowAction,
+} from './actions';
 
 const ICON: Record<ProductTab, React.ReactNode> = {
   brands: <FiAward className="size-3.5" aria-hidden />,
@@ -26,12 +30,13 @@ const ICON: Record<ProductTab, React.ReactNode> = {
   categories: <FiTag className="size-3.5" aria-hidden />,
   groups: <FiPackage className="size-3.5" aria-hidden />,
 };
-/** Γιατί δεν γράφεται το μητρώο (βλ. lib/product-data.ts) — φαίνεται πάνω από τη λίστα. */
+/** Γιατί δεν γράφεται το μητρώο — φαίνεται πάνω από τη λίστα. */
 const READ_ONLY_WHY: Partial<Record<ProductTab, string>> = {
-  brands: 'Οι μάρκες διαβάζονται από το SoftOne. Η εγγραφή τους (αντικείμενο «$ITEMARK») δεν έχει επιβεβαιωθεί ακόμη ελεγχόμενα — νέα μάρκα προστίθεται από το SoftOne.',
-  manufacturers: 'Οι κατασκευαστές διαβάζονται από το SoftOne. Η εγγραφή τους (αντικείμενο «$MTRMANFCTR») δεν έχει επιβεβαιωθεί ακόμη ελεγχόμενα — νέος κατασκευαστής προστίθεται από το SoftOne.',
   groups: 'Οι ομάδες ΔΕΝ γράφονται από την εφαρμογή: σε δοκιμή σε ζωντανό SoftOne το setData έσβησε γραμμή ομάδας. Αλλαγές μόνο από το SoftOne.',
 };
+/** Το μητρώο του SoftOne πίσω από κάθε καρτέλα που γράφεται ως λίστα. */
+const REGISTRY_OF: Partial<Record<ProductTab, 'MTRMARK' | 'MTRMANFCTR'>> = { brands: 'MTRMARK', manufacturers: 'MTRMANFCTR' };
+const NEW_LABEL: Record<ProductTab, string> = { brands: 'Νέα μάρκα', manufacturers: 'Νέος κατασκευαστής', categories: 'Νέα κατηγορία', groups: '' };
 const SODTYPE_LABEL: Record<number, string> = { 51: 'Είδη', 52: 'Υπηρεσίες' };
 const dt = (s: string | null) => (s ? new Date(s).toLocaleString('el-GR', { dateStyle: 'short', timeStyle: 'short' }) : '—');
 
@@ -106,6 +111,17 @@ function RegistryTable({ tab, table, rows, canManage, readOnlyWhy }: {
   const [editing, setEditing] = React.useState<ProductDataRow | null>(null);
   const [creating, setCreating] = React.useState(false);
   const hasSodtype = rows.some((r) => r.sodtype != null);
+  const registry = REGISTRY_OF[tab] ?? null;
+  const router = useRouter();
+
+  const remove = async (r: ProductDataRow) => {
+    if (!registry) return;
+    if (!(await confirmAction(`Διαγραφή «${r.name}» από το SoftOne;\nΗ γραμμή αφαιρείται από το μητρώο ${table}.`))) return;
+    const res = await deleteRegistryRowAction(registry, r.code);
+    if (!res.ok) { toast.error(res.message); return; }
+    toast.success('Διαγράφηκε από το SoftOne');
+    router.refresh();
+  };
 
   const s = q.trim().toLowerCase();
   const shown = rows
@@ -136,7 +152,7 @@ function RegistryTable({ tab, table, rows, canManage, readOnlyWhy }: {
           {shown.length} εγγραφές{used > 0 ? ` · ${used} είδη` : ''}
         </span>
         {canManage && (
-          <Button size="sm" className="ml-auto h-8 gap-1.5" onClick={() => setCreating(true)}><FiPlus className="size-3.5" aria-hidden /> Νέα κατηγορία</Button>
+          <Button size="sm" className="ml-auto h-8 gap-1.5" onClick={() => setCreating(true)}><FiPlus className="size-3.5" aria-hidden /> {NEW_LABEL[tab]}</Button>
         )}
       </div>
 
@@ -172,8 +188,14 @@ function RegistryTable({ tab, table, rows, canManage, readOnlyWhy }: {
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-56">
                     <DropdownMenuItem className="cursor-pointer gap-2 text-(length:--fs-12)" onSelect={() => setEditing(r)}>
-                      <FiEdit2 className="size-3.5" aria-hidden /> Ονομασία & κατάσταση…
+                      <FiEdit2 className="size-3.5" aria-hidden /> {registry ? 'Κωδικός, ονομασία & κατάσταση…' : 'Ονομασία & κατάσταση…'}
                     </DropdownMenuItem>
+                    {registry && (
+                      <DropdownMenuItem variant="destructive" className="cursor-pointer gap-2 text-(length:--fs-12)" disabled={!!r.itemCount}
+                        title={r.itemCount ? `Τη χρησιμοποιούν ${r.itemCount} είδη` : undefined} onSelect={() => void remove(r)}>
+                        <FiTrash2 className="size-3.5" aria-hidden /> Διαγραφή{r.itemCount ? ` (σε χρήση)` : ''}
+                      </DropdownMenuItem>
+                    )}
                   </DropdownMenuContent>
                 </DropdownMenu>
               ) : <span className="w-8 shrink-0" />}
@@ -186,6 +208,12 @@ function RegistryTable({ tab, table, rows, canManage, readOnlyWhy }: {
         <>
           <CategoryDialog open={creating} onOpenChange={setCreating} />
           <CategoryDialog open={!!editing} onOpenChange={(o) => { if (!o) setEditing(null); }} row={editing} />
+        </>
+      )}
+      {registry && (
+        <>
+          <RegistryDialog kind={registry} label={NEW_LABEL[tab]} open={creating} onOpenChange={setCreating} />
+          <RegistryDialog kind={registry} label={NEW_LABEL[tab]} open={!!editing} onOpenChange={(o) => { if (!o) setEditing(null); }} row={editing} />
         </>
       )}
     </div>
@@ -270,6 +298,74 @@ function CategoryDialog({ open, onOpenChange, row }: { open: boolean; onOpenChan
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={busy}>Άκυρο</Button>
             <Button type="submit" disabled={busy || !shortCode.trim() || !name.trim()} aria-busy={busy} className="gap-1.5">
+              {busy && <FiLoader className="size-3.5 animate-spin" aria-hidden />}
+              {edit ? 'Αποθήκευση στο SoftOne' : 'Δημιουργία στο SoftOne'}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/**
+ * Νέα ή αλλαγή μάρκας/κατασκευαστή. ΓΡΑΦΕΙ στο SoftOne σε αντικείμενο-λίστα: ο server διαβάζει όλη τη
+ * λίστα, αλλάζει μόνο αυτή τη γραμμή και επιβεβαιώνει ότι καμία άλλη δεν επηρεάστηκε.
+ */
+function RegistryDialog({ kind, label, open, onOpenChange, row }: {
+  kind: RegistryKind; label: string; open: boolean; onOpenChange: (o: boolean) => void; row?: ProductDataRow | null;
+}) {
+  const router = useRouter();
+  const edit = !!row;
+  const [code, setCode] = React.useState('');
+  const [name, setName] = React.useState('');
+  const [isActive, setIsActive] = React.useState(true);
+  const [busy, setBusy] = React.useState(false);
+  const [err, setErr] = React.useState<string | null>(null);
+  const [prev, setPrev] = React.useState(false);
+  if (open !== prev) {
+    setPrev(open);
+    if (open) { setErr(null); setBusy(false); setCode(row?.shortCode ?? ''); setName(row?.name ?? ''); setIsActive(row?.isActive ?? true); }
+  }
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setBusy(true); setErr(null);
+    const input = { code, name, isActive };
+    const r = edit && row ? await updateRegistryRowAction(kind, row.code, input) : await createRegistryRowAction(kind, input);
+    setBusy(false);
+    if (!r.ok) { setErr(r.message); return; }
+    toast.success(edit ? 'Αποθηκεύτηκε στο SoftOne' : 'Δημιουργήθηκε στο SoftOne');
+    onOpenChange(false);
+    router.refresh();
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => !busy && onOpenChange(o)}>
+      <DialogContent className="sm:max-w-md">
+        <form onSubmit={submit} noValidate>
+          <DialogHeader>
+            <DialogTitle>{edit ? 'Επεξεργασία' : label}</DialogTitle>
+            <DialogDescription>
+              {edit ? `Κωδικός SoftOne ${row?.code} — η αλλαγή γράφεται στο SoftOne.` : 'Η εγγραφή δημιουργείται στο SoftOne με τον επόμενο ελεύθερο αριθμό.'}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogBody className="space-y-3">
+            <Field label="Κωδικός" required htmlFor="pr-code">
+              <Input id="pr-code" value={code} onChange={(e) => setCode(e.target.value)} className={fieldCls} maxLength={32} autoFocus />
+            </Field>
+            <Field label="Ονομασία" required htmlFor="pr-name">
+              <Input id="pr-name" value={name} onChange={(e) => setName(e.target.value)} className={fieldCls} maxLength={128} />
+            </Field>
+            <label className="flex cursor-pointer items-center gap-2 text-(length:--fs-13)">
+              <input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} className="accent-(--primary)" />
+              Ενεργή
+            </label>
+            {err && <p role="alert" className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-(length:--fs-12) text-destructive">{err}</p>}
+          </DialogBody>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={busy}>Άκυρο</Button>
+            <Button type="submit" disabled={busy || !code.trim() || !name.trim()} aria-busy={busy} className="gap-1.5">
               {busy && <FiLoader className="size-3.5 animate-spin" aria-hidden />}
               {edit ? 'Αποθήκευση στο SoftOne' : 'Δημιουργία στο SoftOne'}
             </Button>

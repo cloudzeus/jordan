@@ -2,8 +2,8 @@
 // «Δεδομένα προϊόντων». Η ανάγνωση από τη βάση/SoftOne ζει στο `lib/product-data.ts` (server-only).
 
 export const PRODUCT_TABS = [
-  { key: 'brands', label: 'Μάρκες', table: 'MTRMARK', editable: false },
-  { key: 'manufacturers', label: 'Κατασκευαστές', table: 'MTRMANFCTR', editable: false },
+  { key: 'brands', label: 'Μάρκες', table: 'MTRMARK', editable: true },
+  { key: 'manufacturers', label: 'Κατασκευαστές', table: 'MTRMANFCTR', editable: true },
   { key: 'categories', label: 'Εμπορικές κατηγορίες', table: 'MTRCATEGORY', editable: true },
   { key: 'groups', label: 'Ομάδες', table: 'MTRGROUP', editable: false },
 ] as const;
