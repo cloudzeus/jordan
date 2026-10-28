@@ -188,7 +188,7 @@ export type Seg = { a: Pt; b: Pt };
 const angleOf = (s: Seg) => Math.atan2(s.b.y - s.a.y, s.b.x - s.a.x);
 /** Γωνία (μοίρες) ανάμεσα σε δύο κατευθύνσεις τμημάτων, αγνοώντας φορά (0..90). */
 function dirDiffDeg(a: number, b: number): number {
-  let d = (Math.abs(a - b) * 180) / Math.PI % 180;
+  const d = (Math.abs(a - b) * 180) / Math.PI % 180;
   return Math.min(d, 180 - d);
 }
 

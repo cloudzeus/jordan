@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { thinZhangSuen, distanceToBackground, tracePolylines, simplifyOpen, pruneShort, mergeCollinear, snapAxisAligned, snapNodes, vectorizeWalls, type Seg, type VectorWall } from '../vectorize';
+import { thinZhangSuen, distanceToBackground, tracePolylines, simplifyOpen, pruneShort, mergeCollinear, snapAxisAligned, snapNodes, vectorizeWalls, type Seg } from '../vectorize';
 import type { Pt } from '../core';
 
 type M = Uint8Array;
