@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { thinZhangSuen, distanceToBackground, tracePolylines, simplifyOpen, pruneShort, mergeCollinear, snapAxisAligned, type Seg } from '../vectorize';
+import { thinZhangSuen, distanceToBackground, tracePolylines, simplifyOpen, pruneShort, mergeCollinear, snapAxisAligned, snapNodes, type Seg } from '../vectorize';
 import type { Pt } from '../core';
 
 type M = Uint8Array;
@@ -129,5 +129,19 @@ describe('snapAxisAligned', () => {
   it('leaves a clear diagonal untouched', () => {
     const seg: Seg = { a: { x: 0, y: 0 }, b: { x: 10, y: 5.77 } }; // ~30°
     expect(snapAxisAligned(seg, 2)).toEqual(seg);
+  });
+});
+
+describe('snapNodes', () => {
+  it('welds nearby endpoints to a shared node', () => {
+    const segs: Seg[] = [{ a: { x: 0, y: 0 }, b: { x: 100, y: 100 } }, { a: { x: 102, y: 101 }, b: { x: 200, y: 200 } }];
+    const out = snapNodes(segs, 4);
+    expect(out[0].b).toEqual(out[1].a);
+  });
+  it('leaves endpoints farther than tol apart', () => {
+    const segs: Seg[] = [{ a: { x: 0, y: 0 }, b: { x: 100, y: 100 } }, { a: { x: 102, y: 101 }, b: { x: 200, y: 200 } }];
+    const out = snapNodes(segs, 1);
+    expect(out[0].b).toEqual({ x: 100, y: 100 });
+    expect(out[1].a).toEqual({ x: 102, y: 101 });
   });
 });

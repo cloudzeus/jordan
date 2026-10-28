@@ -227,3 +227,16 @@ export function mergeCollinear(segs: Seg[], o: { maxAngleDeg: number; maxGapPx: 
   }
   return out;
 }
+
+/** Κούμπωμα κόμβων: άκρα τμημάτων σε απόσταση < tolPx συγχωνεύονται σε κοινό σημείο (μέσος όρος). */
+export function snapNodes(segs: Seg[], tolPx: number): Seg[] {
+  const clusters: { cx: number; cy: number; pts: Pt[] }[] = [];
+  const assign = (p: Pt) => {
+    for (const c of clusters) if (Math.hypot(c.cx - p.x, c.cy - p.y) <= tolPx) { c.pts.push(p); c.cx = c.pts.reduce((s, q) => s + q.x, 0) / c.pts.length; c.cy = c.pts.reduce((s, q) => s + q.y, 0) / c.pts.length; return c; }
+    const c = { cx: p.x, cy: p.y, pts: [p] }; clusters.push(c); return c;
+  };
+  const map = new Map<Pt, { cx: number; cy: number; pts: Pt[] }>();
+  for (const s of segs) { map.set(s.a, assign(s.a)); map.set(s.b, assign(s.b)); }
+  const node = (p: Pt): Pt => { const c = map.get(p)!; return c.pts.length > 1 ? { x: c.cx, y: c.cy } : { x: p.x, y: p.y }; };
+  return segs.map((s) => ({ a: node(s.a), b: node(s.b) }));
+}
