@@ -3936,6 +3936,47 @@ model FloorPlan {
   @@index([prospectId, updatedAt])
 }
 
+enum WallTypeCategory {
+  BEARING // Φέρων
+  MASONRY // Τοιχοποιία
+  DRYWALL // Χώρισμα ξηράς δόμησης
+  GLASS // Υαλοπάνελ
+  INDICATIVE // Ενδεικτικό
+}
+
+enum WallMeasureFaces {
+  none
+  one
+  both
+}
+
+/// Τύπος κατασκευής τοίχου/χωρίσματος — global κατάλογος (κοινός για όλες τις κατόψεις v2). Ορίζει
+/// πάχος, ύψη, χρώμα, υλικά (συνταγές/είδη SoftOne) και κανόνες επιμέτρησης. Λογική: lib/floorplan/wall-types.ts.
+model WallType {
+  id             String           @id @default(cuid())
+  code           String           @unique
+  name           String
+  category       WallTypeCategory
+  thicknessM     Float
+  bottomM        Float            @default(0)
+  topM           Float?
+  color          String           @default("#94a3b8")
+  pattern        String?
+  coreRecipeId   String?
+  faceRecipeId   String?
+  lengthItemMtrl Int?
+  measureFaces   WallMeasureFaces @default(both)
+  attenuationDb  Float?
+  cadLayerHints  String[]
+  hotkey         String?
+  sortOrder      Int              @default(0)
+  active         Boolean          @default(true)
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  @@index([active, sortOrder])
+}
+
 // Δυνητικός πελάτης: ζει ΜΟΝΟ στην εφαρμογή όσο οι προσφορές του δεν έχουν γίνει αποδεκτές. Με την
 // αποδοχή γράφεται στο SoftOne ως πελάτης (ή συνδέεται με υπάρχοντα, ίδιο ΑΦΜ/email) — `trdr` +
 // `convertedAt` — και οι προσφορές, οι κατόψεις και τα αρχεία του περνούν στον πελάτη. Λογική στο
