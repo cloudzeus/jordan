@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { customerTrdrOf, getCurrentUserWithPermissions, getPortalUser } from '@/lib/rbac';
-import { AcceptError, customerAcceptContract, customerContract } from '@/lib/portal-customer';
+import { AcceptError, customerAcceptContract, customerChooseOption, customerContract } from '@/lib/portal-customer';
 import { addNote, noteInput } from '@/lib/contracts/notes';
 import { ContractError } from '@/lib/contracts/service';
 import { EntityFileError } from '@/lib/entity-files/core';
@@ -50,6 +50,26 @@ export async function addCustomerNoteAction(id: string, form: FormData): Promise
   } catch (e) {
     if (e instanceof ContractError || e instanceof EntityFileError) return { ok: false, message: e.message };
     console.error('[customer-note]', e);
+    return { ok: false, message: 'Κάτι πήγε στραβά — δοκιμάστε ξανά.' };
+  }
+  revalidatePath(`/dashboard/customer/contracts/${id}`);
+  revalidatePath(`/admin/projects/contracts/${id}`);
+  return { ok: true, data: undefined };
+}
+
+/** Ο πελάτης διαλέγει Α ή Β σε μια εναλλακτική (χώρος/εργασία) — ποτέ σε «Προβολή ως». */
+export async function chooseOptionAction(id: string, group: string, option: 'A' | 'B'): Promise<ActionResult> {
+  const viewer = await getPortalUser();
+  if (viewer?.viewAs) return { ok: false, message: 'Σε «Προβολή ως» την επιλογή την κάνει ο πελάτης — ή αλλάξτε τη από τη φόρμα της προσφοράς.' };
+  const u = await getCurrentUserWithPermissions();
+  const trdr = customerTrdrOf(u);
+  if (!u || trdr == null) return { ok: false, message: 'Η σύνδεση έληξε — συνδεθείτε ξανά.' };
+  if (option !== 'A' && option !== 'B') return { ok: false, message: 'Άκυρη επιλογή' };
+  try {
+    await customerChooseOption(trdr, id, String(group).slice(0, 80), option, { id: u.id, email: u.email, name: u.name });
+  } catch (e) {
+    if (e instanceof AcceptError) return { ok: false, message: e.message };
+    console.error('[choose-option]', e);
     return { ok: false, message: 'Κάτι πήγε στραβά — δοκιμάστε ξανά.' };
   }
   revalidatePath(`/dashboard/customer/contracts/${id}`);

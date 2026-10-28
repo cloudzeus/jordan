@@ -2,6 +2,7 @@ import 'server-only';
 import { prisma } from '@/lib/db';
 import { contractRef, docTitle, eur as eurEl, lineNet, STAGE_LABEL, STATUS_LABEL, totals, type ContractStatus } from '@/lib/contracts/core';
 import { ContractError, transition } from '@/lib/contracts/service';
+import { optionsView, setOptionChoice, type OptionView } from '@/lib/contracts/options';
 import { createProjectAfterAccept } from '@/lib/prospects';
 import { logAudit } from '@/lib/audit';
 import { getSetting } from '@/lib/settings';
@@ -34,6 +35,8 @@ export type CustomerContract = {
   documents: { id: string; title: string; version: number; createdAt: string; hasFile: boolean }[];
   acceptedAt: string | null;
   updatedAt: string;
+  /** Εναλλακτικές A/B ανά χώρο/εργασία — ο πελάτης διαλέγει όσο η προσφορά είναι «Στάλθηκε». */
+  options: OptionView[];
 };
 
 async function load(trdr: number, id?: string): Promise<CustomerContract[]> {
@@ -41,26 +44,29 @@ async function load(trdr: number, id?: string): Promise<CustomerContract[]> {
     where: { trdr, status: { in: [...VISIBLE] }, ...(id ? { id } : {}) },
     orderBy: { updatedAt: 'desc' },
     include: {
-      lines: { orderBy: { sortOrder: 'asc' }, select: { id: true, kind: true, name: true, code: true, qty: true, unit: true, unitPrice: true, discount: true, notes: true } },
+      lines: { orderBy: { sortOrder: 'asc' }, select: { optionGroup: true, option: true, inactive: true, id: true, kind: true, name: true, code: true, qty: true, unit: true, unitPrice: true, discount: true, notes: true } },
       milestones: { where: { partyId: null }, orderBy: [{ sortOrder: 'asc' }, { dueDate: 'asc' }], select: { id: true, title: true, deliverables: true, dueDate: true, amount: true, status: true } },
       documents: { where: { audience: 'CUSTOMER' }, orderBy: { createdAt: 'desc' }, select: { id: true, stage: true, version: true, createdAt: true, fileId: true } },
     },
   });
-  return rows.map((c) => {
-    const t = totals(c.lines, c.vatRate);
+  return Promise.all(rows.map(async (c) => {
+    // Οι γραμμές του πίνακα και τα σύνολα: μόνο η επιλεγμένη επιλογή· οι εναλλακτικές χωριστά (`options`).
+    const active = c.lines.filter((l) => !l.inactive);
+    const t = totals(active, c.vatRate);
     return {
       id: c.id, ref: contractRef(c.number), title: c.title, summary: c.summary, customerText: c.customerText?.trim() || null,
       stage: c.stage, stageLabel: STAGE_LABEL[c.stage] ?? c.stage, status: c.status, statusLabel: CUSTOMER_STATUS[c.status] ?? STATUS_LABEL[c.status as ContractStatus] ?? c.status,
       prjc: c.prjc, site: c.siteFormatted || [c.siteAddress, c.siteCity].filter(Boolean).join(', ') || null,
       startDate: dateOnly(c.startDate), endDate: dateOnly(c.endDate), validUntil: dateOnly(c.validUntil),
       vatRate: c.vatRate, net: t.net, vat: t.vat, total: t.gross,
-      lines: c.lines.map((l) => ({ ...l, net: lineNet(l) })),
+      lines: active.map(({ optionGroup: _g, option: _o, inactive: _i, ...l }) => ({ ...l, net: lineNet(l) })),
+      options: await optionsView(c, c.lines),
       milestones: c.milestones.map((m) => ({ ...m, dueDate: dateOnly(m.dueDate) })),
       documents: c.documents.map((d) => ({ id: d.id, title: docTitle(d.stage, 'CUSTOMER'), version: d.version, createdAt: d.createdAt.toISOString(), hasFile: !!d.fileId })),
       acceptedAt: c.acceptedAt?.toISOString() ?? null,
       updatedAt: c.updatedAt.toISOString(),
     };
-  });
+  }));
 }
 
 export const customerContracts = (trdr: number) => load(trdr);
@@ -93,7 +99,7 @@ export class AcceptError extends Error {}
  * Σύμβαση)· καταγράφεται ποιος την έκανε και ειδοποιείται το προσωπικό (best-effort).
  */
 export async function customerAcceptContract(trdr: number, id: string, by: { id: string; email: string; name: string | null }) {
-  const c = await prisma.contract.findFirst({ where: { id, trdr }, include: { lines: { select: { qty: true, unitPrice: true, discount: true } } } });
+  const c = await prisma.contract.findFirst({ where: { id, trdr }, include: { lines: { where: { inactive: false }, select: { qty: true, unitPrice: true, discount: true } } } });
   if (!c) throw new AcceptError('Η προσφορά δεν βρέθηκε.');
   if (c.status !== 'SENT') throw new AcceptError(c.status === 'ACCEPTED' || c.status === 'ACTIVE' ? 'Η προσφορά έχει ήδη γίνει αποδεκτή.' : 'Η προσφορά δεν είναι πλέον διαθέσιμη για αποδοχή.');
   const today = zonedParts(new Date()).date;
@@ -127,5 +133,19 @@ async function notifyAccepted(id: string, ref: string, title: string, trdr: numb
     await sendTransactionalEmail(to, m.subject, m.html, { fromName: brand.name, replyTo: by.email, text: m.text });
   } catch (e) {
     console.error('[contract-accept-mail]', e instanceof Error ? e.message : e);
+  }
+}
+
+/** Ο πελάτης διαλέγει Α ή Β σε μια ομάδα εναλλακτικών — μόνο σε δική του προσφορά «Στάλθηκε», εντός ισχύος. */
+export async function customerChooseOption(trdr: number, id: string, group: string, option: 'A' | 'B', by: { id: string; email: string; name: string | null }) {
+  const c = await prisma.contract.findFirst({ where: { id, trdr }, select: { status: true, validUntil: true } });
+  if (!c) throw new AcceptError('Η προσφορά δεν βρέθηκε.');
+  if (c.status !== 'SENT') throw new AcceptError('Η επιλογή αλλάζει μόνο πριν από την αποδοχή της προσφοράς.');
+  if (c.validUntil && c.validUntil.toISOString().slice(0, 10) < zonedParts(new Date()).date) throw new AcceptError('Η ισχύς της προσφοράς έληξε — επικοινωνήστε μαζί μας για ανανέωση.');
+  try {
+    await setOptionChoice(id, group, option, { kind: 'CUSTOMER', id: by.id, name: by.name || by.email });
+  } catch (e) {
+    if (e instanceof ContractError) throw new AcceptError(e.message);
+    throw e;
   }
 }

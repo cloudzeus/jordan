@@ -7,6 +7,7 @@ import { callout, facts, paragraph, renderEmail, none } from '@/lib/email/layout
 import { sendLeadMail } from '@/lib/lead-mail';
 import { bunnyDownload } from '@/lib/bunny';
 import { uploadEntityFile } from '@/lib/entity-files/service';
+import { optionsView } from './options';
 import { InstallGuideSchema, type InstallGuide } from '@/lib/install-guide/guide';
 import { composeContractDoc } from './ai';
 import { renderContractPdf, type ContractPdfData } from './pdf';
@@ -58,7 +59,8 @@ function withRooms(summary: string, fp: Awaited<ReturnType<typeof floorPlanForDo
 export async function generateDocument(contractId: string, partyId: string | null, user: User) {
   const c = await prisma.contract.findUnique({
     where: { id: contractId },
-    include: { lines: { orderBy: { sortOrder: 'asc' } }, parties: true, milestones: { orderBy: { sortOrder: 'asc' } } },
+    // Μόνο η επιλεγμένη επιλογή κάθε ομάδας εναλλακτικών (οι υπόλοιπες μπαίνουν χωριστά στο PDF πελάτη).
+    include: { lines: { where: { inactive: false }, orderBy: { sortOrder: 'asc' } }, parties: true, milestones: { orderBy: { sortOrder: 'asc' } } },
   });
   if (!c) throw new ContractError('Η σύμβαση δεν βρέθηκε', 404);
   const party = partyId ? c.parties.find((p) => p.id === partyId) : null;
@@ -120,6 +122,8 @@ export async function generateDocument(contractId: string, partyId: string | nul
     milestones: milestones.map((m) => ({ title: m.title, deliverables: m.deliverables, dueDate: m.dueDate?.toISOString().slice(0, 10) ?? null, amount: m.amount })),
     doc, itemGuides: party ? guides : [],
     floorPlan,
+    options: party || c.stage !== 'OFFER' ? [] : (await optionsView(c, await prisma.contractLine.findMany({ where: { contractId: c.id, optionGroup: { not: null } } })))
+      .map((o) => ({ label: o.label, a: o.a.title, b: o.b.title, grossA: o.a.net * (1 + c.vatRate / 100), grossB: o.b.net * (1 + c.vatRate / 100), chosen: o.chosen })),
   };
   const pdf = await renderContractPdf(pdfData);
   const fileName = pdfFileName(c.number, c.stage, audience, version, party?.name);
@@ -152,7 +156,7 @@ export async function sendDocument(contractId: string, docId: string, opts: { to
   const ref = contractRef(c.number);
   const what = docTitle(d.stage, d.audience);
   const doc = d.content as unknown as ContractDoc;
-  const t = totals(await prisma.contractLine.findMany({ where: { contractId } }), c.vatRate);
+  const t = totals(await prisma.contractLine.findMany({ where: { contractId, inactive: false } }), c.vatRate);
   const m = renderEmail({
     brand,
     subject: `${what} ${ref} · ${c.title}`,

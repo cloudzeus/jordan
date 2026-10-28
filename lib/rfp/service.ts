@@ -57,7 +57,7 @@ export async function recipientEvents(recipientId: string) {
 
 // ── Specs ──────────────────────────────────────────────────────────────────────────────────
 async function contractForSpecs(contractId: string) {
-  const c = await prisma.contract.findUnique({ where: { id: contractId }, include: { lines: { orderBy: { sortOrder: 'asc' } } } });
+  const c = await prisma.contract.findUnique({ where: { id: contractId }, include: { lines: { where: { inactive: false }, orderBy: { sortOrder: 'asc' } } } });
   if (!c) throw new RfpError('Η προσφορά/σύμβαση δεν βρέθηκε', 404);
   if (c.status === 'COMPLETED' || c.status === 'CANCELLED') throw new RfpError('Η σύμβαση είναι κλειστή', 409);
   if (!c.lines.length) throw new RfpError('Η προσφορά δεν έχει γραμμές — πρόσθεσε πρώτα υλικά/εργασίες', 409);
@@ -325,7 +325,7 @@ export type ContractRfpView = Awaited<ReturnType<typeof contractRfps>>[number];
  * Οι υπόλοιποι παραλήπτες γίνονται «Δεν επιλέχθηκε» και ενημερώνονται με email.
  */
 export async function awardRecipient(rfpId: string, recipientId: string, user: User) {
-  const rfp = await prisma.rfp.findUnique({ where: { id: rfpId }, include: { recipients: true, contract: { include: { lines: true, parties: true } } } });
+  const rfp = await prisma.rfp.findUnique({ where: { id: rfpId }, include: { recipients: true, contract: { include: { lines: { where: { inactive: false } }, parties: true } } } });
   if (!rfp) throw new RfpError('Το αίτημα δεν βρέθηκε', 404);
   if (rfp.status !== 'OPEN') throw new RfpError('Το αίτημα δεν είναι ανοιχτό', 409);
   const c = rfp.contract;

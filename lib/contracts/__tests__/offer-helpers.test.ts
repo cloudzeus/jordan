@@ -65,8 +65,8 @@ describe('planRooms / withRoomMaterials', () => {
     v: 1, w: 100, h: 100, pxPerM: null, page: 1, calib: { a: { x: 0, y: 0 }, b: { x: 10, y: 0 }, meters: 1 },
     autoWalls: true, thr: null, thick: null, wallCm: 15, doorCm: 100, dividers: [], drawnWalls: [], dims: [], pins: [], devices: [], cables: [], render3dFileId: null,
     rooms: [
-      { id: 'a', name: 'Κουζίνα', color: '#000', polygon: [{ x: 0, y: 0 }, { x: 40, y: 0 }, { x: 40, y: 30 }], areaPx: 1200, perimeterPx: 140, manual: false, walls: undefined, material: null },
-      { id: 'b', name: ' ', color: '#111', polygon: [{ x: 0, y: 0 }, { x: 20, y: 0 }, { x: 20, y: 20 }], areaPx: 400, perimeterPx: 80, manual: false, walls: { on: true, heightM: 2, openings: [] }, material: null },
+      { id: 'a', name: 'Κουζίνα', color: '#000', polygon: [{ x: 0, y: 0 }, { x: 40, y: 0 }, { x: 40, y: 30 }], areaPx: 1200, perimeterPx: 140, manual: false, walls: undefined, material: null, materialB: null },
+      { id: 'b', name: ' ', color: '#111', polygon: [{ x: 0, y: 0 }, { x: 20, y: 0 }, { x: 20, y: 20 }], areaPx: 400, perimeterPx: 80, manual: false, walls: { on: true, heightM: 2, openings: [] }, material: null, materialB: null },
     ],
   };
   it('μετατρέπει σε μέτρα και κρατά τα id', () => {

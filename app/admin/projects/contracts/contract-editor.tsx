@@ -9,7 +9,7 @@ import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import {
   FiArrowDown, FiArrowUp, FiCheck, FiChevronDown, FiEdit3, FiFileText, FiLayers, FiLoader, FiMapPin, FiMessageSquare, FiMoreVertical,
-  FiAlertTriangle, FiPackage, FiPlus, FiSave, FiSquare, FiTool, FiTrash2, FiUsers, FiX, FiZap,
+  FiAlertTriangle, FiCheckCircle, FiCopy, FiScissors, FiShuffle, FiPackage, FiPlus, FiSave, FiSquare, FiTool, FiTrash2, FiUsers, FiX, FiZap,
 } from 'react-icons/fi';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -25,6 +25,7 @@ import {
   CONTRACT_KINDS, KIND_HINT, KIND_LABEL, allowsCrews, crewTotal, eur, lineNet, milestoneCoverage, round2, totals, type ContractKind,
 } from '@/lib/contracts/core';
 import { roomLines, roomNet } from '@/lib/contracts/room-lines';
+import { activeLines, isActive, lineGroup, lineGroupLabel, optionGroups, roomGroup, type OptionChoices, type OptionKey } from '@/lib/contracts/options-core';
 import type { FloorPlanItem } from '@/lib/floorplan/offer-core';
 import type { PlanPin, PlanRoom } from '@/lib/floorplan/saved';
 import { siteLine } from '@/lib/project-site-core';
@@ -47,7 +48,9 @@ import { applyRevision } from '@/lib/contracts/revise-core';
 import type { NoteView } from '@/lib/contracts/notes';
 
 // ── Τύποι κατάστασης φόρμας (ίδιο σχήμα με το contractInput του server) ─────────────────────────
-type Line = { uid: string; kind: 'MATERIAL' | 'SERVICE'; mtrl: number | null; code: string | null; name: string; unit: string | null; qty: number; unitPrice: number; discount: number; notes: string | null; partyKey: string | null; crewFee: number | null; roomId: string | null };
+type Line = { uid: string; kind: 'MATERIAL' | 'SERVICE'; mtrl: number | null; code: string | null; name: string; unit: string | null; qty: number; unitPrice: number; discount: number; notes: string | null; partyKey: string | null; crewFee: number | null; roomId: string | null;
+  /** Εναλλακτικές (options-core): ομάδα «room:…»/«line:…» και επιλογή A/B. */
+  optionGroup?: string | null; option?: OptionKey | null };
 type Party = { key: string; kind: 'SUPPLIER' | 'PARTNER'; trdr: number | null; partnerId: string | null; name: string; email: string | null; phone: string | null; afm: string | null; specialty: string | null; scope: string | null };
 type Staff = { id: string; label: string; email: string };
 type State = {
@@ -56,27 +59,29 @@ type State = {
   lines: Line[]; parties: Party[]; members: string[]; milestones: EditorMilestone[];
   floorPlanId: string | null; floorPlanTitle: string | null; rooms: PlanRoom[]; pins: PlanPin[];
   tasks: EditorTask[];
+  /** Επιλογή ανά ομάδα εναλλακτικών (λείπει = A). */
+  optionChoices: OptionChoices;
 };
 
 const uid = () => (typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`);
 const blank = (): State => ({
   title: '', summary: '', customerText: null, kind: 'PRODUCT_INSTALL', trdr: null, prospectId: null, customerName: null, customerEmail: null, customerPhone: null,
   site: null, startDate: null, endDate: null, validUntil: null, vatRate: 24, terms: null, lines: [], parties: [], members: [], milestones: [],
-  floorPlanId: null, floorPlanTitle: null, rooms: [], pins: [], tasks: [],
+  floorPlanId: null, floorPlanTitle: null, rooms: [], pins: [], tasks: [], optionChoices: {},
 });
 function fromView(c: ContractView): State {
   return {
     title: c.title, summary: c.summary, customerText: c.customerText, kind: c.kind as ContractKind, trdr: c.trdr, prospectId: c.trdr ? null : c.prospectId, customerName: c.customerName, customerEmail: c.customerEmail, customerPhone: c.customerPhone,
     site: c.site, startDate: c.startDate, endDate: c.endDate, validUntil: c.validUntil, vatRate: c.vatRate, terms: c.terms,
-    lines: c.lines.map((l) => ({ ...l, uid: l.id })), parties: c.parties, members: c.members.map((m) => m.id),
+    lines: c.lines.map(({ inactive: _i, ...l }) => ({ ...l, uid: l.id })), parties: c.parties, members: c.members.map((m) => m.id),
     milestones: c.milestones.map((m) => ({ ...m, uid: m.id })),
     floorPlanId: c.floorPlanId, floorPlanTitle: c.floorPlan?.title ?? null, rooms: c.floorPlan?.rooms ?? [], pins: c.floorPlan?.pins ?? [],
-    tasks: c.tasks,
+    tasks: c.tasks, optionChoices: c.optionChoices,
   };
 }
 const toPayload = ({ floorPlanTitle: _t, pins: _pins, rooms, ...s }: State) => ({
   ...s,
-  roomMaterials: s.floorPlanId ? rooms.map((r) => ({ roomId: r.id, material: r.material })) : undefined,
+  roomMaterials: s.floorPlanId ? rooms.map((r) => ({ roomId: r.id, material: r.material, materialB: r.material ? r.materialB ?? null : null })) : undefined,
   lines: s.lines.map(({ uid: _u, ...l }) => l),
   milestones: s.milestones.map(({ uid: _u, ...m }) => m),
   tasks: s.tasks.map(({ projectTaskId: _p, ...t }) => t),
@@ -203,6 +208,8 @@ export function ContractEditor({ initial, staff, readOnly = false, customer = nu
   const [saving, setSaving] = React.useState(false);
   const [siteOpen, setSiteOpen] = React.useState(false);
   const [adding, setAdding] = React.useState<'product' | 'service' | null>(null);
+  /** Γραμμή για την οποία αναζητείται εναλλακτικό είδος (Β) στον κατάλογο. */
+  const [altFor, setAltFor] = React.useState<string | null>(null);
   const [fromRecipe, setFromRecipe] = React.useState(false);
   const [openNotes, setOpenNotes] = React.useState<Set<string>>(new Set());
   const [writing, setWriting] = React.useState(false);
@@ -231,12 +238,15 @@ export function ContractEditor({ initial, staff, readOnly = false, customer = nu
   const move = <T,>(arr: T[], i: number, d: number) => { const a = [...arr]; const j = i + d; if (j < 0 || j >= a.length) return a; [a[i], a[j]] = [a[j], a[i]]; return a; };
 
   const crews = allowsCrews(s.kind);
-  const t = totals(s.lines, s.vatRate);
-  const feeOf = (key: string) => crewTotal(s.lines.map((l) => ({ ...l, partyId: l.partyKey })), key);
+  // Μόνο η επιλεγμένη επιλογή κάθε ομάδας εναλλακτικών μετράει σε σύνολα, αμοιβές, απόθεμα, BOM.
+  const active = React.useMemo(() => activeLines(s.lines, s.optionChoices), [s.lines, s.optionChoices]);
+  const optGroups = optionGroups(s.lines, s.optionChoices);
+  const t = totals(active, s.vatRate);
+  const feeOf = (key: string) => crewTotal(active.map((l) => ({ ...l, partyId: l.partyKey })), key);
   const customerMs = milestoneCoverage(s.milestones.filter((m) => !m.partyKey).map((m) => m.amount), t.gross);
-  const stock = useStock(s.lines);
+  const stock = useStock(active);
   const [reviseOpen, setReviseOpen] = React.useState(false);
-  const bomLines = React.useMemo(() => s.lines.map((l) => ({ ...l, partyId: l.partyKey ?? null })), [s.lines]);
+  const bomLines = React.useMemo(() => active.map((l) => ({ ...l, partyId: l.partyKey ?? null })), [active]);
 
   // ── Συνταγές & τιμές ειδών για τις γραμμές των χώρων (φορτώνονται μία φορά, όταν χρειαστούν) ──
   const [recipes, setRecipes] = React.useState<RecipeView[] | null>(null);
@@ -256,21 +266,26 @@ export function ContractEditor({ initial, staff, readOnly = false, customer = nu
   /** Γραμμές για τους χώρους `ids` (ή όλους) — οι υπόλοιπες γραμμές μένουν ως έχουν. Σειρά: χώροι, μετά τα άλλα. */
   const recalcRooms = async (rooms: PlanRoom[], ids: Set<string> | null, opts = { markupPct, mode: lineMode }) => {
     const target = rooms.filter((r) => r.material && (!ids || ids.has(r.id)));
-    const needRecipes = target.some((r) => r.material?.type === 'recipe');
-    const list = needRecipes ? await loadRecipes() : [];
-    for (const r of target) {
-      if (r.material?.type !== 'item' || items.current.has(r.material.mtrl)) continue;
-      const it = await itemDefaultsAction(r.material.mtrl).catch(() => null);
-      if (it) items.current.set(r.material.mtrl, { mtrl: r.material.mtrl, code: it.code, name: it.name, price: it.price });
+    const mats = target.flatMap((r) => [r.material, r.materialB].filter((m): m is RoomMaterial => !!m));
+    const list = mats.some((m) => m.type === 'recipe') ? await loadRecipes() : [];
+    for (const m of mats) {
+      if (m.type !== 'item' || items.current.has(m.mtrl)) continue;
+      const it = await itemDefaultsAction(m.mtrl).catch(() => null);
+      if (it) items.current.set(m.mtrl, { mtrl: m.mtrl, code: it.code, name: it.name, price: it.price });
     }
     const recipeMap = new Map(list.map((x) => [x.id, x]));
     const fresh = new Map<string, Line[]>();
     const missing: string[] = [];
     for (const r of rooms) {
       if (ids && !ids.has(r.id)) continue;
-      const out = roomLines({ room: r, material: r.material, recipes: recipeMap, items: items.current, markupPct: opts.markupPct, mode: opts.mode });
-      if (out.missing) missing.push(r.name);
-      fresh.set(r.id, out.lines.map((l) => ({ ...l, uid: uid(), discount: 0, partyKey: null, crewFee: null })));
+      const base = { room: r, recipes: recipeMap, items: items.current, markupPct: opts.markupPct, mode: opts.mode };
+      const out = roomLines({ ...base, material: r.material });
+      // Εναλλακτικό υλικό (Β): δεύτερο σετ γραμμών του χώρου — ο πελάτης διαλέγει A ή Β.
+      const outB = r.material && r.materialB ? roomLines({ ...base, material: r.materialB }) : null;
+      if (out.missing || outB?.missing) missing.push(r.name);
+      const g = outB ? roomGroup(r.id) : null;
+      const mk = (ls: typeof out.lines, option: OptionKey | null): Line[] => ls.map((l) => ({ ...l, uid: uid(), discount: 0, partyKey: null, crewFee: null, optionGroup: option ? g : null, option }));
+      fresh.set(r.id, [...mk(out.lines, outB ? 'A' : null), ...(outB ? mk(outB.lines, 'B') : [])]);
     }
     up((p) => {
       const keep = new Set(rooms.map((r) => r.id));
@@ -280,10 +295,39 @@ export function ContractEditor({ initial, staff, readOnly = false, customer = nu
     if (missing.length) toast.error(`Δεν βρέθηκε υλικό/συνταγή για: ${missing.join(', ')}`);
   };
   const setRoomMaterial = (roomId: string, m: RoomMaterial | null) => {
-    const rooms = s.rooms.map((r) => (r.id === roomId ? { ...r, material: m } : r));
+    // Χωρίς κύριο υλικό δεν υπάρχει ούτε εναλλακτικό.
+    const rooms = s.rooms.map((r) => (r.id === roomId ? { ...r, material: m, materialB: m ? r.materialB : null } : r));
     up({ rooms });
     void recalcRooms(rooms, new Set([roomId]));
   };
+  const setRoomMaterialB = (roomId: string, m: RoomMaterial | null) => {
+    const rooms = s.rooms.map((r) => (r.id === roomId ? { ...r, materialB: m } : r));
+    up({ rooms });
+    void recalcRooms(rooms, new Set([roomId]));
+  };
+  const choose = (group: string, o: OptionKey) => up((p) => ({ optionChoices: { ...p.optionChoices, [group]: o } }));
+  /** Εναλλακτική (Β) μιας γραμμής: από τον κατάλογο (`pick`) ή αντίγραφο για να αλλαχτεί. */
+  const addAlternative = async (u: string, pick: RegistryPick | null) => {
+    const src = s.lines.find((l) => l.uid === u);
+    if (!src) return;
+    const g = lineGroup(src.uid);
+    const b: Line = { ...src, uid: uid(), optionGroup: g, option: 'B', ...(pick ? { mtrl: pick.id, code: pick.code, name: pick.name } : { name: `${src.name} (εναλλακτική)` }) };
+    up((p) => {
+      const i = p.lines.findIndex((l) => l.uid === u);
+      const lines = p.lines.map((l) => (l.uid === u ? { ...l, optionGroup: g, option: 'A' as const } : l));
+      lines.splice(i + 1, 0, b);
+      return { lines };
+    });
+    setAltFor(null);
+    if (pick) {
+      const item = await itemDefaultsAction(pick.id).catch(() => null);
+      if (item) setLine(b.uid, { unit: item.unit ?? src.unit, unitPrice: item.price ?? 0 });
+    }
+  };
+  /** Κρατά μόνο τη μία επιλογή μιας ομάδας γραμμής (οι γραμμές του χώρου αλλάζουν από τον χώρο). */
+  const keepOnly = (l: Line) => up((p) => ({
+    lines: p.lines.filter((x) => x.optionGroup !== l.optionGroup || x.option === l.option).map((x) => (x.optionGroup === l.optionGroup ? { ...x, optionGroup: null, option: null } : x)),
+  }));
   const applyToEmpty = (m: RoomMaterial) => {
     const ids = new Set(s.rooms.filter((r) => !r.material).map((r) => r.id));
     const rooms = s.rooms.map((r) => (ids.has(r.id) ? { ...r, material: m } : r));
@@ -418,9 +462,17 @@ export function ContractEditor({ initial, staff, readOnly = false, customer = nu
     const need = l.kind === 'MATERIAL' && l.mtrl != null ? stock.byMtrl.get(l.mtrl) : undefined;
     const inRoom = !!l.roomId && roomName.has(l.roomId);
     const shownNote = inRoom && l.notes ? l.notes.replace(/^Χώρος:[^—]*(—\s*)?/, '').trim() || null : l.notes;
+    const opt = l.optionGroup && l.option ? l.option : null;
+    const off = !!opt && !isActive(l, s.optionChoices);
     return (
-      <li key={l.uid} className="py-1.5">
+      <li key={l.uid} className={cn('py-1.5', opt && 'border-l-2 pl-2', opt === 'A' ? 'border-sky-300' : opt === 'B' && 'border-violet-300', off && 'opacity-55')}>
         <div className="flex items-start gap-2">
+          {opt && (
+            <span className={cn('mt-1.5 inline-flex h-5 shrink-0 items-center rounded px-1.5 text-(length:--fs-11) font-bold', opt === 'A' ? 'bg-sky-100 text-sky-800' : 'bg-violet-100 text-violet-800')}
+              title={off ? `Επιλογή ${opt === 'A' ? 'Α' : 'Β'} — δεν έχει διαλεχτεί (εκτός συνόλων)` : `Επιλογή ${opt === 'A' ? 'Α' : 'Β'} — διαλεγμένη`}>
+              {opt === 'A' ? 'Α' : 'Β'}
+            </span>
+          )}
           <span className={cn('mt-1.5 inline-flex size-5 shrink-0 items-center justify-center rounded [&_svg]:size-3', l.kind === 'SERVICE' ? 'bg-orange-50 text-orange-700' : 'bg-sky-50 text-sky-700')}
             title={l.kind === 'SERVICE' ? 'Εργασία' : 'Υλικό'} aria-label={l.kind === 'SERVICE' ? 'Εργασία' : 'Υλικό'}>
             {l.kind === 'SERVICE' ? <FiTool /> : <FiPackage />}
@@ -434,10 +486,25 @@ export function ContractEditor({ initial, staff, readOnly = false, customer = nu
             <NumInput value={l.unitPrice} onValue={(n) => setLine(l.uid, { unitPrice: n ?? 0 })} className={cn(field, 'tabular-nums')} disabled={ro} aria-label="Τιμή μονάδας" placeholder="Τιμή" />
             <NumInput value={l.discount} onValue={(n) => setLine(l.uid, { discount: n ?? 0 })} className={cn(field, 'tabular-nums')} disabled={ro} aria-label="Έκπτωση %" title="Έκπτωση %" placeholder="Έκπ.%" />
           </div>
-          <span className="mt-1.5 w-20 shrink-0 text-right text-(length:--fs-12) font-semibold tabular-nums">{eur(lineNet(l))}</span>
+          <span className={cn('mt-1.5 w-20 shrink-0 text-right text-(length:--fs-12) font-semibold tabular-nums', off && 'font-normal text-muted-foreground line-through')}>{eur(lineNet(l))}</span>
           {!ro ? (
             <RowMenu label={`Ενέργειες γραμμής ${i + 1}`}>
               <DropdownMenuItem className={ITEM} onSelect={() => setOpenNotes((x) => new Set(x).add(l.uid))}><FiMessageSquare className="size-3.5" />Σημείωση…</DropdownMenuItem>
+              {/* Εναλλακτική ανά εργασία/γραμμή — οι γραμμές χώρου παίρνουν εναλλακτική από το υλικό Β του χώρου. */}
+              {!l.optionGroup && !inRoom && (
+                <>
+                  <DropdownMenuSeparator />
+                  {l.mtrl != null && <DropdownMenuItem className={ITEM} onSelect={() => { setAltFor(l.uid); setAdding(null); }}><FiShuffle className="size-3.5" />Εναλλακτική επιλογή (Β) από το μητρώο…</DropdownMenuItem>}
+                  <DropdownMenuItem className={ITEM} onSelect={() => void addAlternative(l.uid, null)}><FiCopy className="size-3.5" />Εναλλακτική επιλογή (Β) ως αντίγραφο</DropdownMenuItem>
+                </>
+              )}
+              {opt && l.optionGroup?.startsWith('line:') && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem className={ITEM} onSelect={() => choose(l.optionGroup!, opt)} disabled={!off}><FiCheckCircle className="size-3.5" />Ορισμός ως επιλεγμένη</DropdownMenuItem>
+                  <DropdownMenuItem className={ITEM} onSelect={() => keepOnly(l)}><FiScissors className="size-3.5" />Κράτα μόνο αυτή (χωρίς εναλλακτική)</DropdownMenuItem>
+                </>
+              )}
               <DropdownMenuItem className={ITEM} disabled={i === 0} onSelect={() => up((p) => ({ lines: move(p.lines, i, -1) }))}><FiArrowUp className="size-3.5" />Μετακίνηση πάνω</DropdownMenuItem>
               <DropdownMenuItem className={ITEM} disabled={i === s.lines.length - 1} onSelect={() => up((p) => ({ lines: move(p.lines, i, 1) }))}><FiArrowDown className="size-3.5" />Μετακίνηση κάτω</DropdownMenuItem>
               <DropdownMenuSeparator />
@@ -621,9 +688,9 @@ export function ContractEditor({ initial, staff, readOnly = false, customer = nu
             owner={owner} ownerHint={owner ? null : 'Επιλέξτε πρώτα πελάτη — η κάτοψη αποθηκεύεται στον φάκελό του.'}
             projectLabel={s.title || s.customerName || 'Νέα προσφορά'}
             floorPlan={s.floorPlanId ? { id: s.floorPlanId, title: s.floorPlanTitle ?? 'Κάτοψη' } : null}
-            rooms={s.rooms} costOf={(id) => roomNet(s.lines, id)} recipes={recipes} recipesError={recipesError}
+            rooms={s.rooms} costOf={(id) => roomNet(s.lines.filter((l) => l.option !== 'B'), id)} costOfB={(id) => roomNet(s.lines.filter((l) => l.option === 'B'), id)} recipes={recipes} recipesError={recipesError}
             markupPct={markupPct} mode={lineMode} readOnly={ro}
-            onApplyPlan={applyPlan} onMaterial={setRoomMaterial} onApplyToEmpty={applyToEmpty}
+            onApplyPlan={applyPlan} onMaterial={setRoomMaterial} onMaterialB={setRoomMaterialB} onApplyToEmpty={applyToEmpty}
             extra={(r) => noteBtn('ROOM', r.id, `Χώρος: ${r.name}`)}
             pins={s.pins} pinIsTask={(id) => s.tasks.some((t) => t.key === `pin-${id}`)}
             onPinToTask={(p) => {
@@ -660,6 +727,17 @@ export function ContractEditor({ initial, staff, readOnly = false, customer = nu
               </DropdownMenuContent>
             </DropdownMenu>
           ) : undefined}>
+          {altFor && (() => {
+            const src = s.lines.find((x) => x.uid === altFor);
+            return src ? (
+              <div className="mb-2 flex items-end gap-2 rounded-lg border border-violet-200 bg-violet-50/60 p-2">
+                <div className="min-w-0 flex-1">
+                  <RegistrySearch kind={src.kind === 'SERVICE' ? 'service' : 'product'} id="c-alt" label={`Εναλλακτική (Β) για «${src.name}»`} onPick={(p) => void addAlternative(altFor, p)} />
+                </div>
+                <Button type="button" variant="ghost" size="sm" onClick={() => setAltFor(null)} aria-label="Κλείσιμο αναζήτησης εναλλακτικής"><FiX className="size-4" /></Button>
+              </div>
+            ) : null;
+          })()}
           {adding && (
             <div className="mb-3 flex items-end gap-2 rounded-md border border-dashed border-border p-3">
               <div className="min-w-0 flex-1">
@@ -695,11 +773,18 @@ export function ContractEditor({ initial, staff, readOnly = false, customer = nu
                       <span className="truncate">{g.room ? g.room.name : g.key === 'net' ? 'Ηλεκτρολογικά & δίκτυο (από την κάτοψη)' : s.rooms.length ? 'Άλλα υλικά & εργασίες' : 'Γραμμές'}</span>
                       <span className="font-normal text-muted-foreground">· {g.lines.length}{g.room ? ` · ${m2(g.room.floorM2 + g.room.wallsM2)}` : ''}</span>
                     </span>
-                    <span className="shrink-0 text-(length:--fs-12) tabular-nums">{eur(round2(g.lines.reduce((a, l) => a + lineNet(l), 0)))}</span>
+                    <span className="shrink-0 text-(length:--fs-12) tabular-nums">{eur(round2(g.lines.filter((l) => isActive(l, s.optionChoices)).reduce((a, l) => a + lineNet(l), 0)))}</span>
                   </summary>
                   <ul className="divide-y divide-border border-t border-border px-3">{g.lines.map(lineRow)}</ul>
                 </details>
               ))}
+              {optGroups.length > 0 && (
+                <OptionsPanel groups={optGroups.map((g) => ({
+                  key: g.key, netA: g.netA, netB: g.netB, chosen: g.chosen,
+                  label: g.key.startsWith('room:') ? roomName.get(g.key.slice(5)) ?? 'Χώρος' : lineGroupLabel(g.a[0]),
+                  a: g.a.find((l) => l.kind === 'MATERIAL')?.name ?? g.a[0]?.name ?? '', b: g.b.find((l) => l.kind === 'MATERIAL')?.name ?? g.b[0]?.name ?? '',
+                }))} onChoose={choose} disabled={ro} />
+              )}
               <dl className="ml-auto grid w-full max-w-xs grid-cols-2 items-baseline gap-y-1 pt-2 text-(length:--fs-12)">
                 <dt className="text-muted-foreground">Καθαρή αξία</dt><dd className="text-right tabular-nums">{eur(t.net)}</dd>
                 <dt className="text-muted-foreground">ΦΠΑ {s.vatRate}%</dt><dd className="text-right tabular-nums">{eur(t.vat)}</dd>
@@ -943,5 +1028,40 @@ export function ContractEditor({ initial, staff, readOnly = false, customer = nu
       </aside>
     </div>
     </NotesProvider>
+  );
+}
+
+/**
+ * Εναλλακτικές επιλογές της προσφοράς: ανά χώρο/εργασία η Α και η Β με τη διαφορά τιμής. Ο πελάτης
+ * διαλέγει στην πύλη· εδώ το προσωπικό ορίζει την αρχική (ή καταγράφει ό,τι είπε ο πελάτης).
+ */
+function OptionsPanel({ groups, onChoose, disabled }: {
+  groups: { key: string; label: string; a: string; b: string; netA: number; netB: number; chosen: OptionKey }[];
+  onChoose: (group: string, o: OptionKey) => void; disabled?: boolean;
+}) {
+  return (
+    <section aria-labelledby="c-options" className="rounded-lg border border-violet-200 bg-violet-50/40 p-3">
+      <h3 id="c-options" className="flex items-center gap-2 text-(length:--fs-13) font-semibold"><FiShuffle className="size-3.5 text-violet-700" aria-hidden />Εναλλακτικές επιλογές · {groups.length}</h3>
+      <p className="mt-0.5 text-(length:--fs-11) text-muted-foreground">Ο πελάτης διαλέγει Α ή Β στην πύλη πριν από την αποδοχή. Στα σύνολα, στο PDF και στο έργο μετράει μόνο η επιλεγμένη.</p>
+      <ul className="mt-2 space-y-1.5">
+        {groups.map((g) => {
+          const diff = round2(g.netB - g.netA);
+          return (
+            <li key={g.key} className="grid gap-1.5 rounded-md bg-card p-2 ring-1 ring-border sm:grid-cols-[minmax(0,10rem)_1fr_1fr] sm:items-center">
+              <span className="truncate text-(length:--fs-12) font-medium" title={g.label}>{g.label}</span>
+              {(['A', 'B'] as const).map((o) => (
+                <label key={o} className={cn('flex min-h-10 cursor-pointer items-center gap-2 rounded-md border px-2 text-(length:--fs-12)', g.chosen === o ? (o === 'A' ? 'border-sky-400 bg-sky-50' : 'border-violet-400 bg-violet-50') : 'border-border hover:bg-muted/50', disabled && 'cursor-default')}>
+                  <input type="radio" name={`opt-${g.key}`} checked={g.chosen === o} onChange={() => onChoose(g.key, o)} disabled={disabled} className="accent-(--primary)" />
+                  <span className={cn('rounded px-1 text-(length:--fs-11) font-bold', o === 'A' ? 'bg-sky-100 text-sky-800' : 'bg-violet-100 text-violet-800')}>{o === 'A' ? 'Α' : 'Β'}</span>
+                  <span className="min-w-0 flex-1 truncate" title={o === 'A' ? g.a : g.b}>{o === 'A' ? g.a : g.b}</span>
+                  <span className="shrink-0 tabular-nums text-muted-foreground">{eur(o === 'A' ? g.netA : g.netB)}</span>
+                </label>
+              ))}
+              <span className="text-(length:--fs-11) text-muted-foreground sm:col-start-3 sm:text-right">Β {diff >= 0 ? '+' : '−'}{eur(Math.abs(diff))} καθαρά</span>
+            </li>
+          );
+        })}
+      </ul>
+    </section>
   );
 }

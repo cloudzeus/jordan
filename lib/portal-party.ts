@@ -52,7 +52,7 @@ async function loadAssignments(p: PartyRef, contractId?: string): Promise<PartyA
         id: true, number: true, title: true, status: true, startDate: true, endDate: true, prjc: true, customerName: true,
         siteFormatted: true, siteAddress: true, siteCity: true, siteLat: true, siteLng: true,
       } },
-      lines: { orderBy: { sortOrder: 'asc' }, select: { id: true, name: true, qty: true, unit: true, crewFee: true, notes: true, partyId: true, unitPrice: true } },
+      lines: { where: { inactive: false }, orderBy: { sortOrder: 'asc' }, select: { id: true, name: true, qty: true, unit: true, crewFee: true, notes: true, partyId: true, unitPrice: true } },
       milestones: { orderBy: [{ sortOrder: 'asc' }, { dueDate: 'asc' }] },
       documents: { where: { audience: 'PARTY' }, orderBy: { createdAt: 'desc' }, select: { id: true, stage: true, version: true, createdAt: true, fileId: true } },
     },

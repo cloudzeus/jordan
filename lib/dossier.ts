@@ -16,7 +16,7 @@ export async function customerDossier(trdr: number, id: string) {
   const c = await prisma.contract.findFirst({
     where: { id, trdr, status: { in: ['ACCEPTED', 'ACTIVE', 'COMPLETED'] } },
     include: {
-      lines: { orderBy: { sortOrder: 'asc' }, select: { kind: true, code: true, name: true, qty: true, unit: true, roomId: true } },
+      lines: { where: { inactive: false }, orderBy: { sortOrder: 'asc' }, select: { kind: true, code: true, name: true, qty: true, unit: true, roomId: true } },
       milestones: { where: { partyId: null }, orderBy: [{ sortOrder: 'asc' }], select: { id: true, title: true, status: true, doneAt: true, deliveryNote: true, proofFileIds: true } },
       documents: { where: { audience: 'CUSTOMER' }, orderBy: { createdAt: 'desc' }, select: { id: true, stage: true, version: true, fileId: true } },
       tasks: { select: { projectTaskId: true } },

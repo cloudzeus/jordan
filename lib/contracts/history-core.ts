@@ -7,7 +7,7 @@ export const NOTE_KIND_LABEL: Record<string, string> = {
 };
 export const EVENT_LABEL: Record<string, string> = {
   REQUESTED: 'Αίτημα προσφοράς', SENT: 'Αποστολή προσφοράς', ACCEPTED: 'Αποδοχή', REVISED: 'Νέα έκδοση', AI_REVISED: 'Αναπροσαρμογή (AI)', RESTORED: 'Επαναφορά έκδοσης',
-  ACTIVATED: 'Ενεργοποίηση', COMPLETED: 'Ολοκλήρωση', CANCELLED: 'Ακύρωση', RESOLVED: 'Κλείσιμο αιτήματος', REOPENED: 'Επανάνοιγμα αιτήματος', OPENED: 'Το αίτημα ανοίχτηκε',
+  ACTIVATED: 'Ενεργοποίηση', COMPLETED: 'Ολοκλήρωση', CANCELLED: 'Ακύρωση', RESOLVED: 'Κλείσιμο αιτήματος', REOPENED: 'Επανάνοιγμα αιτήματος', OPENED: 'Το αίτημα ανοίχτηκε', OPTION_CHOSEN: 'Επιλογή υλικού',
 };
 
 export type HistoryNote = {

@@ -5,6 +5,7 @@ import { logContractEvent } from './history';
 import 'server-only';
 import { prisma } from '@/lib/db';
 import { contractInput, totals, type ContractInput } from './core';
+import { activeLines } from './options-core';
 import { ContractError, createContract, getContract, updateContract, type ContractView } from './service';
 
 export type RevisionReason = 'MANUAL' | 'SENT' | 'DOCUMENT' | 'RESTORE';
@@ -16,8 +17,9 @@ export function viewToInput(c: ContractView): ContractInput {
     customerName: c.customerName, customerEmail: c.customerEmail, customerPhone: c.customerPhone, site: c.site,
     startDate: c.startDate, endDate: c.endDate, validUntil: c.validUntil, vatRate: c.vatRate, terms: c.terms,
     floorPlanId: c.floorPlanId,
-    roomMaterials: c.floorPlan ? c.floorPlan.rooms.map((r) => ({ roomId: r.id, material: r.material })) : undefined,
-    lines: c.lines.map(({ id: _id, ...l }) => l),
+    roomMaterials: c.floorPlan ? c.floorPlan.rooms.map((r) => ({ roomId: r.id, material: r.material, materialB: r.materialB })) : undefined,
+    lines: c.lines.map(({ id: _id, inactive: _i, ...l }) => l),
+    optionChoices: c.optionChoices,
     parties: c.parties, members: c.members.map((m) => m.id),
     milestones: c.milestones.map((m) => ({ id: m.id, partyKey: m.partyKey, title: m.title, deliverables: m.deliverables, dueDate: m.dueDate, amount: m.amount, status: m.status })),
     tasks: c.tasks.map(({ projectTaskId: _p, ...t }) => t),
@@ -31,7 +33,7 @@ export async function freezeRevision(id: string, reason: RevisionReason, userId:
   const exists = await prisma.contractRevision.findUnique({ where: { contractId_revision: { contractId: id, revision: c.revision } }, select: { id: true } });
   if (exists) return c.revision;
   const input = viewToInput(c);
-  const t = totals(input.lines, input.vatRate);
+  const t = totals(activeLines(input.lines, input.optionChoices), input.vatRate);
   await prisma.contractRevision.create({
     data: { contractId: id, revision: c.revision, reason, note, snapshot: input as unknown as object, net: t.net, gross: t.gross, lineCount: input.lines.length, createdById: userId },
   });
@@ -53,7 +55,7 @@ export async function getRevision(id: string, revision: number) {
   const r = await prisma.contractRevision.findUnique({ where: { contractId_revision: { contractId: id, revision } } });
   if (!r) throw new ContractError('Η έκδοση δεν βρέθηκε', 404);
   const input = contractInput.parse(r.snapshot);
-  return { revision: r.revision, reason: r.reason as RevisionReason, note: r.note, createdAt: r.createdAt.toISOString(), input, totals: totals(input.lines, input.vatRate) };
+  return { revision: r.revision, reason: r.reason as RevisionReason, note: r.note, createdAt: r.createdAt.toISOString(), input, totals: totals(activeLines(input.lines, input.optionChoices), input.vatRate) };
 }
 export type RevisionDetail = Awaited<ReturnType<typeof getRevision>>;
 

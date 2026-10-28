@@ -103,6 +103,9 @@ export const lineInput = z.object({
   crewFee: num(0).nullish().transform((v) => v ?? null),
   /** Χώρος της κάτοψης που παρήγαγε τη γραμμή (ξαναϋπολογίζεται όταν αλλάξει το υλικό του χώρου). */
   roomId: optStr(64),
+  /** Εναλλακτικές επιλογές (lib/contracts/options-core.ts): ομάδα + A/B. */
+  optionGroup: optStr(80),
+  option: z.enum(['A', 'B']).nullish().transform((v) => v ?? null),
 });
 export const partyInput = z.object({
   key: z.string().min(1).max(64), // σταθερό στον client: id της εγγραφής ή προσωρινό
@@ -168,13 +171,15 @@ export const contractInput = z.object({
   /** Χαρτογράφηση κάτοψης· `undefined` = καμία αλλαγή, `null` = αποσύνδεση. */
   floorPlanId: z.string().min(1).max(64).nullish(),
   /** Υλικό/συνταγή ανά χώρο, όπως ορίστηκε στη φόρμα — γράφεται και στη χαρτογράφηση. */
-  roomMaterials: z.array(z.object({ roomId: z.string().min(1).max(64), material: roomMaterial.nullable() })).max(300).optional(),
+  roomMaterials: z.array(z.object({ roomId: z.string().min(1).max(64), material: roomMaterial.nullable(), materialB: roomMaterial.nullish().transform((v) => v ?? null) })).max(300).optional(),
   lines: z.array(lineInput).max(500).default([]),
   parties: z.array(partyInput).max(50).default([]),
   members: z.array(z.string().min(1).max(64)).max(50).default([]),
   milestones: z.array(milestoneInput).max(100).default([]),
   /** Χρονοδιάγραμμα (Gantt) — `undefined` = καμία αλλαγή (π.χ. παλιοί clients / δημιουργία από κάτοψη). */
   tasks: z.array(planTaskInput).max(200).optional(),
+  /** Επιλογή ανά ομάδα εναλλακτικών — `undefined` = καμία αλλαγή. */
+  optionChoices: z.record(z.string().min(1).max(80), z.enum(['A', 'B'])).optional(),
 }).superRefine((c, ctx) => {
   if (!c.trdr && !c.prospectId && !c.customerName) ctx.addIssue({ code: 'custom', message: 'Επιλέξτε πελάτη ή δυνητικό πελάτη', path: ['trdr'] });
   if (c.startDate && c.endDate && c.endDate < c.startDate) ctx.addIssue({ code: 'custom', message: 'Η λήξη είναι πριν από την έναρξη', path: ['endDate'] });

@@ -5,7 +5,7 @@
 // ξαναϋπολογίζονται αυτόματα όταν αλλάζει το υλικό.
 import * as React from 'react';
 import dynamic from 'next/dynamic';
-import { FiChevronDown, FiEdit3, FiLayers, FiMoreVertical, FiRefreshCw, FiSquare, FiUploadCloud, FiX } from 'react-icons/fi';
+import { FiChevronDown, FiEdit3, FiLayers, FiMoreVertical, FiRefreshCw, FiSquare, FiUploadCloud, FiX, FiShuffle } from 'react-icons/fi';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { MaterialChip, RoomMaterialEditor, type RoomMaterial } from '@/components/admin/floorplan/offer-panel';
@@ -27,7 +27,7 @@ export type EditorRoom = PlanRoom;
 
 export function RoomsSection({
   owner, ownerHint, projectLabel, floorPlan, rooms, costOf, recipes, recipesError, markupPct, mode, readOnly,
-  onApplyPlan, onMaterial, onApplyToEmpty, onMarkup, onMode, onRecalc, onUnlink, extra, pins = [], pinIsTask, onPinToTask,
+  onApplyPlan, onMaterial, onMaterialB, costOfB, onApplyToEmpty, onMarkup, onMode, onRecalc, onUnlink, extra, pins = [], pinIsTask, onPinToTask,
 }: {
   owner: FloorPlanOwner | null;
   /** Γιατί δεν ανοίγει ακόμη το εργαλείο (π.χ. «Επιλέξτε πρώτα πελάτη»). */
@@ -47,6 +47,9 @@ export function RoomsSection({
   pinIsTask?: (id: string) => boolean;
   onPinToTask?: (p: PlanPin) => void;
   onMaterial: (roomId: string, m: RoomMaterial | null) => void;
+  /** Εναλλακτικό υλικό (Β) του χώρου — ο πελάτης διαλέγει A ή Β. */
+  onMaterialB: (roomId: string, m: RoomMaterial | null) => void;
+  costOfB: (roomId: string) => number;
   onApplyToEmpty: (m: RoomMaterial) => void;
   onMarkup: (n: number) => void;
   onMode: (m: OfferLineMode) => void;
@@ -144,8 +147,9 @@ export function RoomsSection({
         {rooms.map((r) => {
           const cost = costOf(r.id);
           const open = editing === r.id;
+          const openB = editing === `${r.id}:B`;
           return (
-            <li key={r.id} className={cn(open && 'bg-muted/30')}>
+            <li key={r.id} className={cn((open || openB) && 'bg-muted/30')}>
               <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 px-3 py-1">
                 <span className="size-3 shrink-0 rounded-sm" style={{ background: r.color }} aria-hidden />
                 {/* Όνομα και επιφάνεια σε μία γραμμή. */}
@@ -171,6 +175,8 @@ export function RoomsSection({
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="min-w-56">
                       <DropdownMenuItem className={ITEM} onSelect={() => setEditing(r.id)}><FiLayers className="size-3.5" />Υλικό / συνταγή…</DropdownMenuItem>
+                      <DropdownMenuItem className={ITEM} disabled={!r.material} onSelect={() => setEditing(`${r.id}:B`)}><FiShuffle className="size-3.5" />{r.materialB ? 'Αλλαγή εναλλακτικής (Β)…' : 'Εναλλακτικό υλικό (Β) για επιλογή του πελάτη…'}</DropdownMenuItem>
+                      {r.materialB && <DropdownMenuItem className={ITEM} onSelect={() => onMaterialB(r.id, null)}><FiX className="size-3.5" />Αφαίρεση εναλλακτικής (Β)</DropdownMenuItem>}
                       <DropdownMenuItem className={ITEM} disabled={!r.material || rooms.every((x) => x.id === r.id || x.material)} onSelect={() => r.material && onApplyToEmpty(r.material)}>
                         <FiLayers className="size-3.5" />Ίδιο υλικό στους χώρους χωρίς υλικό
                       </DropdownMenuItem>
@@ -180,6 +186,32 @@ export function RoomsSection({
                   </DropdownMenu>
                 )}
               </div>
+              {/* Εναλλακτική (Β): δεύτερη γραμμή του χώρου, με το κόστος της. */}
+              {r.material && r.materialB && (
+                <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 px-3 pb-1">
+                  <span className="min-w-0 flex-1 basis-40 pl-5 text-(length:--fs-11) font-medium text-violet-800">Εναλλακτική επιλογή για τον πελάτη</span>
+                  <div className="min-w-0 basis-48">
+                    {readOnly ? <MaterialChip material={r.materialB} /> : (
+                      <button type="button" onClick={() => setEditing(openB ? null : `${r.id}:B`)} aria-expanded={openB}
+                        className="flex min-h-8 w-full cursor-pointer items-center justify-between gap-2 rounded-md border border-violet-300 bg-violet-50/60 px-2 text-left hover:bg-violet-50 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring">
+                        <span className="flex min-w-0 items-center gap-1.5"><span className="rounded bg-violet-100 px-1 text-(length:--fs-11) font-bold text-violet-800">Β</span><MaterialChip material={r.materialB} /></span>
+                        <FiChevronDown className={cn('size-3.5 shrink-0 text-muted-foreground transition-transform', openB && 'rotate-180')} aria-hidden />
+                      </button>
+                    )}
+                  </div>
+                  <span className="w-20 shrink-0 text-right text-(length:--fs-12) tabular-nums text-violet-800">{eur(costOfB(r.id))}</span>
+                  <span className="w-8 shrink-0" />
+                </div>
+              )}
+              {openB && !readOnly && (
+                <div className="px-3 pb-3">
+                  <RoomMaterialEditor
+                    roomName={`${r.name} — εναλλακτική (Β)`} value={r.materialB ?? null} recipes={recipes} recipesError={recipesError}
+                    onChange={(m) => { onMaterialB(r.id, m); if (m) setEditing(null); }}
+                    canApplyAll={false} onApplyAll={() => {}}
+                  />
+                </div>
+              )}
               {open && !readOnly && (
                 <div className="px-3 pb-3">
                   <RoomMaterialEditor

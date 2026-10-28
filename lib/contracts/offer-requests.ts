@@ -12,7 +12,7 @@ export async function listOfferRequests() {
     orderBy: { createdAt: 'desc' }, take: 500,
     select: {
       id: true, number: true, title: true, status: true, trdr: true, prjc: true, customerName: true, customerEmail: true, siteCity: true, siteAddress: true, vatRate: true, revision: true,
-      lines: { select: { qty: true, unitPrice: true, discount: true } },
+      lines: { where: { inactive: false }, select: { qty: true, unitPrice: true, discount: true } },
       events: { select: { type: true, actorKind: true, actorName: true, summary: true, createdAt: true }, orderBy: { createdAt: 'asc' } },
       notes: { select: { kind: true, authorKind: true, resolvedAt: true, replyToId: true, photoFileIds: true } },
     },

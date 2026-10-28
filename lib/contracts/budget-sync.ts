@@ -12,7 +12,7 @@ import { contractRef } from './core';
 export type BudgetSyncResult = { created: number; replaced: number; skipped: string[] };
 
 export async function syncProjectBudget(id: string, userId: string): Promise<BudgetSyncResult | null> {
-  const c = await prisma.contract.findUnique({ where: { id }, include: { lines: { orderBy: { sortOrder: 'asc' } } } });
+  const c = await prisma.contract.findUnique({ where: { id }, include: { lines: { where: { inactive: false }, orderBy: { sortOrder: 'asc' } } } });
   if (!c?.prjc || c.stage === 'OFFER') return null;
   const plan = c.floorPlanId ? await getFloorPlan(c.floorPlanId).catch(() => null) : null;
   const rooms = plan ? planRooms(plan.data) : [];

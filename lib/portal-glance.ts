@@ -16,7 +16,7 @@ export type GlanceProject = { prjc: number; code: string; name: string; contract
 export async function customerGlance(trdr: number) {
   const today = zonedParts(new Date()).date;
   const [offers, payments, requests, replies, bankRaw] = await Promise.all([
-    prisma.contract.findMany({ where: { trdr, status: 'SENT' }, orderBy: { updatedAt: 'desc' }, select: { id: true, number: true, title: true, validUntil: true, vatRate: true, lines: { select: { qty: true, unitPrice: true, discount: true } } } }),
+    prisma.contract.findMany({ where: { trdr, status: 'SENT' }, orderBy: { updatedAt: 'desc' }, select: { id: true, number: true, title: true, validUntil: true, vatRate: true, lines: { where: { inactive: false }, select: { qty: true, unitPrice: true, discount: true } } } }),
     customerPayments(trdr),
     customerOfferRequests(trdr),
     // Απαντήσεις μας σε θέματα του πελάτη τις τελευταίες 14 ημέρες, σε θέματα που δεν έκλεισαν.

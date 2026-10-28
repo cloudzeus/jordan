@@ -53,6 +53,8 @@ type Room = {
   approx?: boolean;
   /** Υλικό/συνταγή για την προσφορά. */
   material: RoomMaterial | null;
+  /** Εναλλακτικό υλικό (Β) — ορίζεται στη φόρμα προσφοράς· εδώ απλώς διατηρείται στην αποθήκευση. */
+  materialB?: RoomMaterial | null;
 };
 type Calib = { a: Pt; b: Pt; meters: number };
 /** Τοίχος σχεδιασμένος από τον χρήστη: τμήμα a→b με πάχος t (px ανάλυσης). */
@@ -863,7 +865,7 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
   const planDataNow = (): PlanData => ({
     v: 1, w, h, pxPerM: plan?.pxPerM ?? null, page: plan?.page ?? 1, calib, autoWalls, thr, thick, wallCm, doorCm,
     dividers, drawnWalls, dims, pins, devices, cables, render3dFileId: null,
-    rooms: rooms.map((r) => ({ id: r.id, name: r.name, color: r.color, polygon: r.polygon, areaPx: r.areaPx, perimeterPx: r.perimeterPx, manual: r.manual, walls: r.walls, material: r.material })),
+    rooms: rooms.map((r) => ({ id: r.id, name: r.name, color: r.color, polygon: r.polygon, areaPx: r.areaPx, perimeterPx: r.perimeterPx, manual: r.manual, walls: r.walls, material: r.material, materialB: r.material ? r.materialB ?? null : null })),
   });
   const canvasPng = (c: HTMLCanvasElement) => new Promise<Blob>((res, rej) => c.toBlob((b) => (b ? res(b) : rej(new Error('PNG export failed'))), 'image/png'));
   /** Νέα ή ενημέρωση της χαρτογράφησης στο έργο· επιστρέφει το id (null σε αποτυχία). */

@@ -28,6 +28,8 @@ export const savedRoom = z.object({
   manual: z.boolean().default(false),
   walls: z.object({ on: z.boolean(), heightM: z.number().finite().min(0).max(20), openings: z.array(opening).max(100) }).nullish().transform((v) => v ?? undefined),
   material: roomMaterial.nullish().transform((v) => v ?? null),
+  /** Εναλλακτικό υλικό (Β) για τον χώρο — ο πελάτης διαλέγει A ή Β στην προσφορά. */
+  materialB: roomMaterial.nullish().transform((v) => v ?? null),
 });
 export type SavedRoom = z.infer<typeof savedRoom>;
 
@@ -121,6 +123,7 @@ export function roomSheet(d: Pick<PlanData, 'calib' | 'rooms'>): { rows: RoomShe
 export type PlanRoom = {
   id: string; name: string; color: string; floorM2: number; wallsM2: number; perimeterM: number;
   material: SavedRoom['material'];
+  materialB: SavedRoom['materialB'];
 };
 
 export function planRooms(d: Pick<PlanData, 'calib' | 'rooms'>): PlanRoom[] {
@@ -131,15 +134,15 @@ export function planRooms(d: Pick<PlanData, 'calib' | 'rooms'>): PlanRoom[] {
     const wl = r.walls as RoomWalls | undefined;
     return {
       id: r.id, name: r.name.trim() || 'Χώρος', color: r.color, floorM2: r.areaPx * mpp * mpp, perimeterM,
-      wallsM2: wl?.on ? wallArea(perimeterM, wl).net : 0, material: r.material,
+      wallsM2: wl?.on ? wallArea(perimeterM, wl).net : 0, material: r.material, materialB: r.materialB,
     };
   });
 }
 
 /** Νέα υλικά ανά χώρο (από τη φόρμα της προσφοράς) πάνω στα αποθηκευμένα δεδομένα. */
-export function withRoomMaterials(d: PlanData, materials: { roomId: string; material: SavedRoom['material'] }[]): PlanData {
-  const by = new Map(materials.map((m) => [m.roomId, m.material]));
-  return { ...d, rooms: d.rooms.map((r) => (by.has(r.id) ? { ...r, material: by.get(r.id) ?? null } : r)) };
+export function withRoomMaterials(d: PlanData, materials: { roomId: string; material: SavedRoom['material']; materialB?: SavedRoom['materialB'] }[]): PlanData {
+  const by = new Map(materials.map((m) => [m.roomId, m]));
+  return { ...d, rooms: d.rooms.map((r) => { const m = by.get(r.id); return m ? { ...r, material: m.material ?? null, materialB: m.material ? m.materialB ?? null : null } : r; }) };
 }
 
 /** Οι σημειώσεις του σχεδίου με τον χώρο μέσα στον οποίο βρίσκεται η καθεμία (για εργασίες ανά χώρο). */

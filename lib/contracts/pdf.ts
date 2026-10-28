@@ -32,6 +32,8 @@ export type ContractPdfData = {
   itemGuides: { item: string; guide: InstallGuide }[];
   /** Χαρτογράφηση κάτοψης: εικόνα με τους χώρους (PNG) και πίνακας χώρων. */
   floorPlan?: PdfFloorPlan | null;
+  /** Εναλλακτικές A/B (μόνο προσφορά πελάτη): ποια είναι η επιλεγμένη και πόσο κάνει η άλλη. */
+  options?: { label: string; a: string; b: string; grossA: number; grossB: number; chosen: 'A' | 'B' }[];
 };
 export type PdfFloorPlan = {
   title: string; png: Uint8Array | null; floorM2: number; wallsM2: number;
@@ -315,6 +317,14 @@ export async function renderContractPdf(d: ContractPdfData): Promise<Buffer> {
   }
   if ('fee' in d.totals) sums(w, [['Συνολική αμοιβή', eur(d.totals.fee), true]]);
   else sums(w, [['Καθαρή αξία', eur(d.totals.net)], [`ΦΠΑ ${qtyEl(d.totals.vatRate)}%`, eur(d.totals.vat)], ['Σύνολο', eur(d.totals.gross), true]]);
+
+  // ── Εναλλακτικές επιλογές (το σύνολο παραπάνω είναι με τις επιλεγμένες) ──
+  if (!party && d.options?.length) {
+    w.section('Εναλλακτικές επιλογές');
+    w.para('Το σύνολο παραπάνω περιλαμβάνει τις επιλογές με την ένδειξη «επιλεγμένη». Μπορείτε να διαλέξετε την άλλη επιλογή πριν από την αποδοχή — από την πύλη πελατών ή λέγοντάς μας.', { size: 9.4 });
+    table(w, [{ label: 'Χώρος / εργασία', w: 22 }, { label: 'Επιλογή Α', w: 30 }, { label: 'Με ΦΠΑ', w: 10, align: 'right' }, { label: 'Επιλογή Β', w: 30 }, { label: 'Με ΦΠΑ', w: 10, align: 'right' }],
+      d.options.map((o) => ({ cells: [o.label, o.a, eur(o.grossA), o.b, eur(o.grossB)], sub: `Επιλεγμένη: ${o.chosen === 'A' ? 'Α' : 'Β'}` })), 0);
+  }
 
   // ── Πρόγραμμα παραδοτέων & πληρωμών ──
   if (d.milestones.length) {

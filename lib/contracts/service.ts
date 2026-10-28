@@ -12,6 +12,10 @@ import { getProjectSite, saveProjectSite } from '@/lib/project-site';
 import { siteLine as projectSiteLine } from '@/lib/project-site-core';
 import { syncProjectBudget } from './budget-sync';
 import { logContractEvent } from './history';
+import { normalizeOptions, optionChoices as optionChoicesSchema, type OptionChoices } from './options-core';
+
+/** Οι επιλογές της προσφοράς όπως είναι αποθηκευμένες (άκυρο JSON ⇒ καμία). */
+export const optionChoicesOf = (v: unknown): OptionChoices => optionChoicesSchema.parse(v ?? {});
 import {
   canTransition, contractRef, needsRegistration, OFFER_SITE_REQUIRED, siteText, stageAfter, totals, transitionTo, type ContractAction, type ContractInput,
 } from './core';
@@ -47,7 +51,8 @@ export async function getContract(id: string) {
     c.prospectId ? prisma.prospect.findUnique({ where: { id: c.prospectId }, select: { id: true, name: true, email: true, phone: true, afm: true, city: true, trdr: true } }) : null,
   ]);
   const fileSize = new Map(files.map((f) => [f.id, f.size]));
-  const t = totals(c.lines, c.vatRate);
+  // Σύνολα μόνο από την επιλεγμένη επιλογή κάθε ομάδας εναλλακτικών.
+  const t = totals(c.lines.filter((l) => !l.inactive), c.vatRate);
   return {
     id: c.id, number: c.number, ref: contractRef(c.number), title: c.title, summary: c.summary, kind: c.kind, stage: c.stage, status: c.status,
     floorPlanId: c.floorPlanId, revision: c.revision,
@@ -73,7 +78,9 @@ export async function getContract(id: string) {
     lines: c.lines.map((l) => ({
       id: l.id, kind: l.kind as 'MATERIAL' | 'SERVICE', mtrl: l.mtrl, code: l.code, name: l.name, unit: l.unit, qty: l.qty, unitPrice: l.unitPrice,
       discount: l.discount, notes: l.notes, partyKey: l.partyId, crewFee: l.crewFee, roomId: l.roomId,
+      optionGroup: l.optionGroup, option: (l.option === 'A' || l.option === 'B' ? l.option : null) as 'A' | 'B' | null, inactive: l.inactive,
     })),
+    optionChoices: optionChoicesOf(c.optionChoices),
     parties: c.parties.map((p) => ({
       key: p.id, kind: p.kind as 'SUPPLIER' | 'PARTNER', trdr: p.trdr, partnerId: p.partnerId, name: p.name, email: p.email, phone: p.phone,
       afm: p.afm, specialty: p.specialty, scope: p.scope,
@@ -102,7 +109,7 @@ export type ContractView = NonNullable<Awaited<ReturnType<typeof getContract>>>;
 export async function listContracts() {
   const rows = await prisma.contract.findMany({
     orderBy: { updatedAt: 'desc' },
-    include: { lines: { select: { qty: true, unitPrice: true, discount: true } }, _count: { select: { parties: true, milestones: true, documents: true } } },
+    include: { lines: { where: { inactive: false }, select: { qty: true, unitPrice: true, discount: true } }, _count: { select: { parties: true, milestones: true, documents: true } } },
     take: 1000,
   });
   const trdrs = [...new Set(rows.map((r) => r.trdr).filter((x): x is number => x != null))];
@@ -231,16 +238,20 @@ async function saveChildren(id: string, input: ContractInput) {
       if (prev) await tx.contractMilestone.update({ where: { id: prev.id }, data });
       else await tx.contractMilestone.create({ data: { ...data, contractId: id } });
     }
+    // Εναλλακτικές: γραμμές + επιλογή ανά ομάδα· η μη επιλεγμένη επιλογή μένει `inactive` (εκτός συνόλων).
+    const cur = input.optionChoices ?? optionChoicesOf((await tx.contract.findUnique({ where: { id }, select: { optionChoices: true } }))?.optionChoices);
+    const opt = normalizeOptions(input.lines, cur);
     await tx.contractLine.deleteMany({ where: { contractId: id } });
-    if (input.lines.length) {
+    if (opt.lines.length) {
       await tx.contractLine.createMany({
-        data: input.lines.map((l, i) => ({
+        data: opt.lines.map((l, i) => ({
           contractId: id, kind: l.kind, mtrl: l.mtrl, code: l.code, name: l.name, unit: l.unit, qty: l.qty, unitPrice: l.unitPrice,
           discount: l.discount, notes: l.notes, partyId: l.partyKey ? keyToId.get(l.partyKey) ?? null : null,
-          crewFee: l.partyKey ? l.crewFee : null, roomId: l.roomId, sortOrder: i,
+          crewFee: l.partyKey ? l.crewFee : null, roomId: l.roomId, optionGroup: l.optionGroup, option: l.option, inactive: l.inactive, sortOrder: i,
         })),
       });
     }
+    await tx.contract.update({ where: { id }, data: { optionChoices: opt.choices } });
     await tx.contractMember.deleteMany({ where: { contractId: id } });
     const members = [...new Set(input.members)];
     if (members.length) await tx.contractMember.createMany({ data: members.map((userId) => ({ contractId: id, userId })) });
@@ -300,7 +311,7 @@ export async function assertOfferSiteFor(id: string) {
 
 // ── Μεταβάσεις ─────────────────────────────────────────────────────────────────────────────────
 export async function transition(id: string, action: ContractAction, userId: string, by?: { kind: 'STAFF' | 'CUSTOMER'; name: string | null }) {
-  const c = await prisma.contract.findUnique({ where: { id }, include: { milestones: true, lines: { select: { qty: true, unitPrice: true, discount: true } } } });
+  const c = await prisma.contract.findUnique({ where: { id }, include: { milestones: true, lines: { where: { inactive: false }, select: { qty: true, unitPrice: true, discount: true } } } });
   if (!c) throw new ContractError('Η σύμβαση δεν βρέθηκε', 404);
   if (!canTransition(c.status, action)) throw new ContractError('Η ενέργεια δεν επιτρέπεται σε αυτή την κατάσταση', 409);
   if (action === 'send') await assertOfferSite(c);

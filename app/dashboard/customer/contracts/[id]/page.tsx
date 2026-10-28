@@ -15,6 +15,8 @@ import { contractTone } from '../../_ui/tones';
 import { DocList, MilestoneList } from '../../../_party/ui';
 import { zonedParts } from '@/lib/appointments-core';
 import { AcceptOffer } from './accept-offer';
+import { OptionChoices } from './option-choices';
+import { chooseOptionAction } from '../actions';
 import { AnnotateButton, CustomerNotes, type PortalNote, type PortalTarget } from './customer-notes';
 import { contractHistory } from '@/lib/contracts/history';
 import { PortalHistory } from '../../_ui/history';
@@ -93,6 +95,12 @@ export default async function CustomerContractPage({ params }: { params: Promise
         <div className="min-w-0 space-y-16">
           {/* Μόνο το κείμενο για τον πελάτη — η «περίληψη» της φόρμας είναι εσωτερική. */}
           {c.customerText && <CustomerText text={c.customerText} />}
+
+          {c.options.length > 0 && (
+            <OptionChoices options={c.options} vatRate={c.vatRate} editable={c.status === 'SENT' && !user.viewAs}
+              disabledReason={c.status === 'SENT' && user.viewAs ? 'Σε «Προβολή ως» την επιλογή την κάνει ο πελάτης — ή αλλάξτε τη από τη φόρμα της προσφοράς.' : null}
+              onChoose={chooseOptionAction.bind(null, c.id)} />
+          )}
 
           <section aria-labelledby="lines">
             <Label>Περιεχόμενο</Label>
