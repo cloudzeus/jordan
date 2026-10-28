@@ -92,6 +92,12 @@ export const MODULE_META: Record<string, ModuleMeta> = {
     gradientFrom: '#34d399', gradientTo: '#059669',
     accent: '#047857', accentSoft: '#d1fae5',
   },
+  floorplans: {
+    label: 'Κατόψεις', description: 'Διαστασιολόγηση κατόψεων, τύποι τοίχου και επιμέτρηση',
+    icon: FiHome,
+    gradientFrom: '#fbbf24', gradientTo: '#f59e0b',
+    accent: '#d97706', accentSoft: '#fef3c7',
+  },
   assistant: {
     label: 'Air Jordan', description: 'Ο βοηθός AI: ερωτήσεις με φωνή ή κείμενο για έργα, συναλλασσόμενους και υλικά',
     icon: AirJordanIcon as unknown as IconType,
