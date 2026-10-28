@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { wallTypeInput, WALL_TYPE_SEED, WALL_TYPE_CATEGORIES, WALL_TYPE_CATEGORY_LABEL } from '../wall-types';
+import { wallTypeInput, WALL_TYPE_SEED, WALL_TYPE_CATEGORIES, WALL_TYPE_CATEGORY_LABEL, nearestWallTypeByThickness } from '../wall-types';
 
 describe('wallTypeInput', () => {
   const base = { code: 'GB10', name: 'Γυψοσανίδα μονή 10 cm', category: 'DRYWALL', thicknessM: 0.1 };
@@ -43,5 +43,21 @@ describe('WALL_TYPE_SEED', () => {
 
   it('covers every category label', () => {
     for (const c of WALL_TYPE_CATEGORIES) expect(WALL_TYPE_CATEGORY_LABEL[c]).toBeTruthy();
+  });
+});
+
+describe('nearestWallTypeByThickness', () => {
+  const ts = [
+    { id: 'a', thicknessM: 0.1, active: true },
+    { id: 'b', thicknessM: 0.2, active: true },
+    { id: 'c', thicknessM: 0.25, active: false },
+  ];
+  it('picks the closest active type by thickness', () => {
+    expect(nearestWallTypeByThickness(ts, 0.12)).toBe('a');
+    expect(nearestWallTypeByThickness(ts, 0.19)).toBe('b');
+  });
+  it('ignores inactive types and returns null when none', () => {
+    expect(nearestWallTypeByThickness(ts, 0.24)).toBe('b'); // c (0.25) is inactive
+    expect(nearestWallTypeByThickness([], 0.1)).toBeNull();
   });
 });

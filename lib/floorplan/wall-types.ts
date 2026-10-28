@@ -57,6 +57,20 @@ export type WallTypeInput = z.infer<typeof wallTypeInput>;
 /** Είσοδος πριν την επικύρωση (με προαιρετικά/defaults) — ό,τι δέχονται τα create/update. */
 export type WallTypeInputRaw = z.input<typeof wallTypeInput>;
 
+/**
+ * Ο πλησιέστερος ΕΝΕΡΓΟΣ τύπος σε δεδομένο πάχος (m) — για να προτείνεται τύπος σε τοίχους που
+ * βγαίνουν από μετρημένο πάχος (migration v1→v2, vectorize, εισαγωγή CAD). `null` αν δεν υπάρχει.
+ */
+export function nearestWallTypeByThickness(types: { id: string; thicknessM: number; active: boolean }[], thicknessM: number): string | null {
+  let best: { id: string; d: number } | null = null;
+  for (const t of types) {
+    if (!t.active) continue;
+    const d = Math.abs(t.thicknessM - thicknessM);
+    if (!best || d < best.d) best = { id: t.id, d };
+  }
+  return best ? best.id : null;
+}
+
 /** Βασικός κατάλογος (seed) — επεκτείνεται από τον διαχειριστή. Καλύπτει και τις πέντε κατηγορίες. */
 export const WALL_TYPE_SEED: WallTypeInput[] = [
   { code: 'GB10', name: 'Γυψοσανίδα μονή 10 cm', category: 'DRYWALL', thicknessM: 0.1, bottomM: 0, topM: null, color: '#f59e0b', pattern: null, coreRecipeId: null, faceRecipeId: null, lengthItemMtrl: null, measureFaces: 'both', attenuationDb: null, cadLayerHints: ['γυψοσανιδα', 'drywall', 'gypsum'], hotkey: '1', sortOrder: 10, active: true },
