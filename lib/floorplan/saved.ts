@@ -143,6 +143,17 @@ export type PlanDataV2 = z.infer<typeof planDataV2>;
 export const planDataAny = z.discriminatedUnion('v', [planData, planDataV2]);
 export type PlanDataAny = z.infer<typeof planDataAny>;
 
+/** Επιμέτρηση m² ενός v2: καθαρό εμβαδό δαπέδου και όψεων τοίχων — ισοδύναμη με το v1 `roomSheet`. */
+export function roomTakeoffV2(d: Pick<PlanDataV2, 'rooms'>): { floorM2: number; wallsM2: number } {
+  let floorM2 = 0, wallsM2 = 0;
+  for (const r of d.rooms) {
+    floorM2 += r.floorM2;
+    const wl = r.walls as RoomWalls | undefined;
+    if (wl?.on) wallsM2 += wallArea(r.perimeterM, wl).net;
+  }
+  return { floorM2, wallsM2 };
+}
+
 export const mPerPxOf = (d: Pick<PlanData, 'calib'>) =>
   d.calib ? d.calib.meters / Math.hypot(d.calib.b.x - d.calib.a.x, d.calib.b.y - d.calib.a.y) : null;
 
