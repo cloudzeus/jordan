@@ -3,6 +3,8 @@
 // → συγχώνευση/ίσιωμα → κούμπωμα κόμβων. Έξοδος σε pixels· η px→m και η πρόταση τύπου μένουν στον caller.
 import type { Mask, Pt } from './core';
 
+const NB8: ReadonlyArray<readonly [number, number]> = [[-1, -1], [0, -1], [1, -1], [-1, 0], [1, 0], [-1, 1], [0, 1], [1, 1]];
+
 /**
  * Λέπτυνση Zhang–Suen: ο σκελετός ενός σχήματος σε πάχος 1px, διατηρώντας συνδεσιμότητα και άκρα.
  * Δύο υπο-περάσματα ανά επανάληψη· σταματά όταν κανένα pixel δεν σβήνεται.
@@ -81,4 +83,69 @@ export function distanceToBackground(mask: Mask, w: number, h: number): Int32Arr
     }
   }
   return d;
+}
+
+/**
+ * Ιχνηλάτηση σκελετού (1px) σε πολυγραμμές: σπάει στα άκρα (βαθμός 1) και στους κόμβους (βαθμός ≥3)·
+ * τα pixels βαθμού 2 είναι ενδιάμεσα. Κλειστοί βρόχοι (όλα βαθμού 2) βγαίνουν ως μία κλειστή πολυγραμμή.
+ */
+export function tracePolylines(skel: Mask, w: number, h: number): Pt[][] {
+  const on = (x: number, y: number) => x >= 0 && y >= 0 && x < w && y < h && skel[y * w + x] === 1;
+  // «Αποτελεσματικοί» γείτονες: μια διαγώνια ακμή αγνοείται όταν γεφυρώνεται από ορθογώνιο κελί
+  // (σκαλοπάτι σε ορθή γωνία), αλλιώς το pixel πριν τη γωνία θα φαινόταν κόμβος (βαθμός 3).
+  const nbrs = (x: number, y: number): Pt[] => {
+    const out: Pt[] = [];
+    for (const [dx, dy] of NB8) {
+      if (!on(x + dx, y + dy)) continue;
+      if (dx !== 0 && dy !== 0 && (on(x + dx, y) || on(x, y + dy))) continue; // γεφυρωμένη διαγώνιος
+      out.push({ x: x + dx, y: y + dy });
+    }
+    return out;
+  };
+  const key = (a: Pt, b: Pt) => (a.y * w + a.x < b.y * w + b.x ? `${a.x},${a.y}|${b.x},${b.y}` : `${b.x},${b.y}|${a.x},${a.y}`);
+  const usedEdge = new Set<string>();
+  const polys: Pt[][] = [];
+
+  const walk = (start: Pt, first: Pt) => {
+    const path: Pt[] = [start];
+    let prev = start, cur = first;
+    usedEdge.add(key(prev, cur));
+    for (;;) {
+      path.push(cur);
+      if (nbrs(cur.x, cur.y).length !== 2) break; // κόμβος ή άκρο
+      const next = nbrs(cur.x, cur.y).find((n) => !(n.x === prev.x && n.y === prev.y));
+      if (!next || usedEdge.has(key(cur, next))) break;
+      usedEdge.add(key(cur, next));
+      prev = cur; cur = next;
+    }
+    return path;
+  };
+
+  // 1) Από κάθε κόμβο/άκρο (βαθμός ≠ 2) προς κάθε αχρησιμοποίητη ακμή.
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      if (!on(x, y)) continue;
+      const ns = nbrs(x, y);
+      if (ns.length === 2) continue;
+      const node = { x, y };
+      for (const n of ns) {
+        if (usedEdge.has(key(node, n))) continue;
+        polys.push(walk(node, n));
+      }
+    }
+  }
+  // 2) Κλειστοί βρόχοι: αχρησιμοποίητα pixels βαθμού 2.
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      if (!on(x, y)) continue;
+      const ns = nbrs(x, y);
+      if (ns.length !== 2) continue;
+      const fresh = ns.find((n) => !usedEdge.has(key({ x, y }, n)));
+      if (!fresh) continue;
+      const path = walk({ x, y }, fresh);
+      path.push({ x, y }); // κλείσιμο
+      polys.push(path);
+    }
+  }
+  return polys;
 }

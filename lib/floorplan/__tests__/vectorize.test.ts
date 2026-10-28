@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { thinZhangSuen, distanceToBackground } from '../vectorize';
+import { thinZhangSuen, distanceToBackground, tracePolylines } from '../vectorize';
+import type { Pt } from '../core';
 
 type M = Uint8Array;
 const blank = (w: number, h: number): M => new Uint8Array(w * h);
@@ -47,5 +48,38 @@ describe('distanceToBackground', () => {
     fillRect(m, w, 2, 2, 17, 2);
     const d = distanceToBackground(m, w, h);
     expect(d[2 * w + 9]).toBe(1);
+  });
+});
+
+const has = (poly: Pt[], x: number, y: number) => poly.some((p) => p.x === x && p.y === y);
+const ends = (poly: Pt[]) => [poly[0], poly[poly.length - 1]];
+
+describe('tracePolylines', () => {
+  it('traces an L-shape as a single polyline through the corner', () => {
+    const w = 12, h = 10, m = blank(w, h);
+    fillRect(m, w, 2, 2, 8, 2); // οριζόντια
+    fillRect(m, w, 8, 2, 8, 6); // κάθετη, κοινή γωνία (8,2)
+    const polys = tracePolylines(m, w, h);
+    expect(polys).toHaveLength(1);
+    expect(has(polys[0], 8, 2)).toBe(true);
+    const e = ends(polys[0]);
+    const set = new Set(e.map((p) => `${p.x},${p.y}`));
+    expect(set).toEqual(new Set(['2,2', '8,6']));
+  });
+
+  it('splits a plus/cross into four polylines meeting at the junction', () => {
+    const w = 11, h = 11, m = blank(w, h);
+    fillRect(m, w, 2, 5, 8, 5); // οριζόντιος βραχίονας
+    fillRect(m, w, 5, 2, 5, 8); // κάθετος βραχίονας
+    const polys = tracePolylines(m, w, h);
+    expect(polys).toHaveLength(4);
+    for (const p of polys) expect(has(p, 5, 5)).toBe(true);
+  });
+
+  it('traces two disconnected bars as two polylines', () => {
+    const w = 30, h = 6, m = blank(w, h);
+    fillRect(m, w, 2, 2, 10, 2);
+    fillRect(m, w, 18, 2, 27, 2);
+    expect(tracePolylines(m, w, h)).toHaveLength(2);
   });
 });
