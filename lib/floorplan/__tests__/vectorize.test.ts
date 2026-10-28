@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { thinZhangSuen, distanceToBackground, tracePolylines, simplifyOpen, pruneShort } from '../vectorize';
+import { thinZhangSuen, distanceToBackground, tracePolylines, simplifyOpen, pruneShort, mergeCollinear, snapAxisAligned, type Seg } from '../vectorize';
 import type { Pt } from '../core';
 
 type M = Uint8Array;
@@ -104,5 +104,30 @@ describe('pruneShort', () => {
     const out = pruneShort([short, long], 8);
     expect(out).toHaveLength(1);
     expect(out[0]).toBe(long);
+  });
+});
+
+describe('mergeCollinear', () => {
+  it('joins two collinear segments across a small gap', () => {
+    const segs: Seg[] = [{ a: { x: 0, y: 0 }, b: { x: 10, y: 0 } }, { a: { x: 13, y: 0 }, b: { x: 20, y: 0 } }];
+    const out = mergeCollinear(segs, { maxAngleDeg: 3, maxGapPx: 5 });
+    expect(out).toHaveLength(1);
+    const xs = [out[0].a.x, out[0].b.x].sort((p, q) => p - q);
+    expect(xs).toEqual([0, 20]);
+  });
+  it('does not join perpendicular segments', () => {
+    const segs: Seg[] = [{ a: { x: 0, y: 0 }, b: { x: 10, y: 0 } }, { a: { x: 10, y: 0 }, b: { x: 10, y: 10 } }];
+    expect(mergeCollinear(segs, { maxAngleDeg: 3, maxGapPx: 5 })).toHaveLength(2);
+  });
+});
+
+describe('snapAxisAligned', () => {
+  it('straightens a near-horizontal segment', () => {
+    const s = snapAxisAligned({ a: { x: 0, y: 0 }, b: { x: 10, y: 0.2 } }, 2);
+    expect(s.a.y).toBe(s.b.y);
+  });
+  it('leaves a clear diagonal untouched', () => {
+    const seg: Seg = { a: { x: 0, y: 0 }, b: { x: 10, y: 5.77 } }; // ~30°
+    expect(snapAxisAligned(seg, 2)).toEqual(seg);
   });
 });

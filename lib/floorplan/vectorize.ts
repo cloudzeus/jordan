@@ -182,3 +182,48 @@ export function polylineLength(pts: Pt[]): number {
 export function pruneShort(polylines: Pt[][], minLenPx: number): Pt[][] {
   return polylines.filter((p) => polylineLength(p) >= minLenPx);
 }
+
+export type Seg = { a: Pt; b: Pt };
+
+const angleOf = (s: Seg) => Math.atan2(s.b.y - s.a.y, s.b.x - s.a.x);
+/** Γωνία (μοίρες) ανάμεσα σε δύο κατευθύνσεις τμημάτων, αγνοώντας φορά (0..90). */
+function dirDiffDeg(a: number, b: number): number {
+  let d = (Math.abs(a - b) * 180) / Math.PI % 180;
+  return Math.min(d, 180 - d);
+}
+
+/** Ίσιωμα τμήματος σε 0°/90° όταν η απόκλιση < maxDeg· αλλιώς αμετάβλητο (διατηρεί διαγώνιους). */
+export function snapAxisAligned(seg: Seg, maxDeg: number): Seg {
+  const ang = (Math.atan2(seg.b.y - seg.a.y, seg.b.x - seg.a.x) * 180) / Math.PI;
+  const devH = Math.min(Math.abs(ang), Math.abs(Math.abs(ang) - 180));
+  const devV = Math.abs(Math.abs(ang) - 90);
+  if (devH <= maxDeg) { const y = (seg.a.y + seg.b.y) / 2; return { a: { x: seg.a.x, y }, b: { x: seg.b.x, y } }; }
+  if (devV <= maxDeg) { const x = (seg.a.x + seg.b.x) / 2; return { a: { x, y: seg.a.y }, b: { x, y: seg.b.y } }; }
+  return seg;
+}
+
+/** Συγχώνευση σχεδόν-συνευθειακών τμημάτων (γωνία < maxAngleDeg) με κενό άκρων < maxGapPx. */
+export function mergeCollinear(segs: Seg[], o: { maxAngleDeg: number; maxGapPx: number }): Seg[] {
+  const out: Seg[] = segs.map((s) => ({ a: { ...s.a }, b: { ...s.b } }));
+  let merged = true;
+  while (merged) {
+    merged = false;
+    for (let i = 0; i < out.length && !merged; i++) {
+      for (let j = i + 1; j < out.length; j++) {
+        const A = out[i], B = out[j];
+        if (dirDiffDeg(angleOf(A), angleOf(B)) > o.maxAngleDeg) continue;
+        const pairs: [Pt, Pt][] = [[A.a, B.a], [A.a, B.b], [A.b, B.a], [A.b, B.b]];
+        let best: { d: number; p: Pt; q: Pt } | null = null;
+        for (const [p, q] of pairs) { const d = Math.hypot(p.x - q.x, p.y - q.y); if (!best || d < best.d) best = { d, p, q }; }
+        if (!best || best.d > o.maxGapPx) continue;
+        const farA = best.p === A.a ? A.b : A.a;
+        const farB = best.q === B.a ? B.b : B.a;
+        const m: Seg = { a: farA, b: farB };
+        if (dirDiffDeg(angleOf(m), angleOf(A)) > o.maxAngleDeg) continue;
+        out.splice(j, 1); out.splice(i, 1); out.push(m);
+        merged = true; break;
+      }
+    }
+  }
+  return out;
+}
