@@ -33,7 +33,7 @@ describe('createCategory', () => {
     softone.softoneCall
       .mockResolvedValueOnce({ success: true, id: '9' })
       .mockResolvedValueOnce(readBack({ MTRCATEGORY: '9', SODTYPE: '51', CODE: 'NEA', NAME: 'Νέα', ISACTIVE: '1' }));
-    const c = await createCategory({ sodtype: 51, shortCode: 'NEA', name: 'Νέα' });
+    const c = await createCategory({ sodtype: 51, shortCode: 'NEA', name: 'Νέα', sohCode: null });
     expect(softone.softoneCall.mock.calls[0]).toEqual(['setData', {
       OBJECT: 'ITECATEGORY', KEY: '', data: { ITECATEGORY: [{ MTRCATEGORY: 9, CODE: 'NEA', NAME: 'Νέα' }] },
     }]);
@@ -46,7 +46,7 @@ describe('createCategory', () => {
       .mockResolvedValueOnce({ success: false, error: 'Το πεδίο "Κωδ." υπάρχει ήδη στο αρχείο.' })
       .mockResolvedValueOnce({ success: true, id: '10' })
       .mockResolvedValueOnce(readBack({ MTRCATEGORY: '10', SODTYPE: '51', CODE: 'NEA', NAME: 'Νέα', ISACTIVE: '1' }));
-    const c = await createCategory({ sodtype: 51, shortCode: 'NEA', name: 'Νέα' });
+    const c = await createCategory({ sodtype: 51, shortCode: 'NEA', name: 'Νέα', sohCode: null });
     expect(softone.softoneCall.mock.calls[1][1].data.ITECATEGORY[0].MTRCATEGORY).toBe(10);
     expect(c.code).toBe(10);
   });
@@ -54,7 +54,7 @@ describe('createCategory', () => {
   it('success:true χωρίς εγγραφή ⇒ σφάλμα, τίποτα στον καθρέφτη', async () => {
     db.softoneClassification.aggregate.mockResolvedValue({ _max: { code: 8 } });
     softone.softoneCall.mockResolvedValueOnce({ success: true }).mockResolvedValueOnce({ success: true, data: {} });
-    await expect(createCategory({ sodtype: 51, shortCode: 'NEA', name: 'Νέα' })).rejects.toThrow(/δεν βρέθηκε μετά την εγγραφή/);
+    await expect(createCategory({ sodtype: 51, shortCode: 'NEA', name: 'Νέα', sohCode: null })).rejects.toThrow(/δεν βρέθηκε μετά την εγγραφή/);
     expect(db.softoneClassification.upsert).not.toHaveBeenCalled();
   });
 

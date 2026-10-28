@@ -15,6 +15,8 @@ export type ProductDataRow = {
   /** Ο αριθμός του SoftOne (MTRMARK/MTRMANFCTR/MTRCATEGORY/MTRGROUP). */
   code: number;
   shortCode: string | null;
+  /** SOHCODE — «Κωδικός ιεραρχίας», π.χ. «1.01». Κενό = επίπεδη εγγραφή. */
+  sohCode: string | null;
   name: string;
   isActive: boolean;
   /** 51 = είδη, 52 = υπηρεσίες· κενό στις μάρκες/κατασκευαστές (μία αρίθμηση). */

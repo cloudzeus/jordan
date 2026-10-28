@@ -54,7 +54,7 @@ export async function listProductData(): Promise<ProductData> {
 
   const fromClass = (tab: 'categories' | 'groups', kind: 'CATEGORY' | 'GROUP'): ProductDataRow[] =>
     classes.filter((r) => r.kind === kind).map((r) => ({
-      code: r.code, shortCode: r.shortCode, name: r.name, isActive: r.isActive, sodtype: r.sodtype,
+      code: r.code, shortCode: r.shortCode, sohCode: r.sohCode, name: r.name, isActive: r.isActive, sodtype: r.sodtype,
       itemCount: counted(tab, r.sodtype, r.code),
     }));
   const fromLookup = (tab: 'brands' | 'manufacturers', kind: 'MTRMARK' | 'MTRMANFCTR'): ProductDataRow[] => {
@@ -64,7 +64,7 @@ export async function listProductData(): Promise<ProductData> {
       return rows.map((r) => {
         const code = Number(r[idField]);
         return {
-          code, shortCode: r.CODE?.trim() || null, name: (r.NAME || r.CODE || '').trim(),
+          code, shortCode: r.CODE?.trim() || null, sohCode: null, name: (r.NAME || r.CODE || '').trim(),
           isActive: r.ISACTIVE !== '0', sodtype: null,
           itemCount: Number.isInteger(code) ? counted(tab, null, code) : null,
         };
@@ -73,7 +73,7 @@ export async function listProductData(): Promise<ProductData> {
     return lookups.filter((r) => r.kind === kind).map((r) => {
       const code = Number(r.code);
       return {
-        code, shortCode: null, name: r.name, isActive: true, sodtype: null,
+        code, shortCode: null, sohCode: null, name: r.name, isActive: true, sodtype: null,
         itemCount: Number.isInteger(code) ? counted(tab, null, code) : null,
       };
     });

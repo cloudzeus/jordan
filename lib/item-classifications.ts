@@ -33,12 +33,12 @@ export async function syncClassifications() {
   let updated = 0;
   for (const kind of ['CATEGORY', 'GROUP'] as const) {
     const table = KIND_TABLE[kind];
-    const rows = await softoneGetTable(table, [table, 'SODTYPE', 'CODE', 'NAME'], 'SODTYPE IN (51,52)');
+    const rows = await softoneGetTable(table, [table, 'SODTYPE', 'CODE', 'NAME', 'SOHCODE'], 'SODTYPE IN (51,52)');
     for (const r of rows) {
       const code = Number(r[table]);
       const sodtype = Number(r.SODTYPE);
       if (!Number.isInteger(code) || !(sodtype in CATEGORY_OBJECT)) continue;
-      const data = { shortCode: r.CODE || null, name: String(r.NAME || r.CODE || code).trim(), isActive: true, syncedAt: now };
+      const data = { shortCode: r.CODE || null, name: String(r.NAME || r.CODE || code).trim(), sohCode: (r.SOHCODE || '').trim() || null, isActive: true, syncedAt: now };
       const prev = await prisma.softoneClassification.findUnique({ where: { kind_sodtype_code: { kind, sodtype, code } }, select: { id: true } });
       await prisma.softoneClassification.upsert({ where: { kind_sodtype_code: { kind, sodtype, code } }, create: { kind, sodtype, code, ...data }, update: data });
       if (prev) updated++; else created++;
@@ -56,7 +56,7 @@ export async function syncClassifications() {
       const hidden = await readCategory(sodtype, code).catch(() => null);
       if (!hidden || hidden.sodtype !== sodtype) break;
       await prisma.softoneClassification.create({
-        data: { kind: 'CATEGORY', sodtype, code, shortCode: hidden.shortCode, name: hidden.name, isActive: hidden.isActive, syncedAt: now },
+        data: { kind: 'CATEGORY', sodtype, code, shortCode: hidden.shortCode, name: hidden.name, sohCode: hidden.sohCode, isActive: hidden.isActive, syncedAt: now },
       });
       created++;
     }
@@ -123,16 +123,25 @@ export async function membersOf(kind: ClassKind, sodtype: number, code: number) 
 
 // ── Εγγραφή κατηγοριών ─────────────────────────────────────────────────────────────────────
 
+/** «Κωδικός ιεραρχίας» SoftOne (SOHCODE): αριθμοί χωρισμένοι με τελείες, π.χ. «1.01.03». */
+export const sohCodeInput = z.string().trim().max(32)
+  .refine((v) => !v || /^\d+(\.\d+)*$/.test(v), 'Μορφή κωδικού ιεραρχίας: αριθμοί με τελείες, π.χ. 1.01')
+  .transform((v) => v || null)
+  .nullable()
+  .optional();
+
 export const categoryCreateInput = z.object({
   sodtype: z.union([z.literal(51), z.literal(52)]),
   shortCode: z.string().trim().min(1, 'Η σύντμηση είναι υποχρεωτική').max(10, 'Έως 10 χαρακτήρες'),
   name: z.string().trim().min(1, 'Η ονομασία είναι υποχρεωτική').max(100),
+  sohCode: sohCodeInput,
 });
 export const categoryUpdateInput = z.object({
   shortCode: z.string().trim().min(1, 'Η σύντμηση είναι υποχρεωτική').max(10, 'Έως 10 χαρακτήρες').optional(),
   name: z.string().trim().min(1, 'Η ονομασία είναι υποχρεωτική').max(100).optional(),
   isActive: z.boolean().optional(),
-}).refine((v) => v.shortCode !== undefined || v.name !== undefined || v.isActive !== undefined, 'Καμία αλλαγή');
+  sohCode: sohCodeInput,
+}).refine((v) => v.shortCode !== undefined || v.name !== undefined || v.isActive !== undefined || v.sohCode !== undefined, 'Καμία αλλαγή');
 
 type S1Result = { success?: boolean; error?: string; errorcode?: number; id?: string; data?: Record<string, Record<string, unknown>[]> };
 
@@ -142,7 +151,7 @@ async function readCategory(sodtype: number, code: number) {
   if (res.success === false) throw new SoftoneError(res.error ?? `getData ${object} ${code} απέτυχε`);
   const row = res.data?.[object]?.[0];
   if (!row || Number(row.MTRCATEGORY) !== code) return null;
-  return { shortCode: (row.CODE as string) || null, name: String(row.NAME ?? ''), isActive: String(row.ISACTIVE) === '1', sodtype: Number(row.SODTYPE) };
+  return { shortCode: (row.CODE as string) || null, name: String(row.NAME ?? ''), sohCode: String(row.SOHCODE ?? '').trim() || null, isActive: String(row.ISACTIVE) === '1', sodtype: Number(row.SODTYPE) };
 }
 
 const shortCodeTaken = async (sodtype: number, shortCode: string, exceptCode?: number) =>
@@ -156,13 +165,13 @@ const shortCodeTaken = async (sodtype: number, shortCode: string, exceptCode?: n
  * δεν είδαμε ποτέ), το SoftOne απαντά «υπάρχει ήδη» και δοκιμάζουμε τον επόμενο. Επαλήθευση με getData.
  */
 export async function createCategory(input: z.infer<typeof categoryCreateInput>) {
-  const { sodtype, shortCode, name } = input;
+  const { sodtype, shortCode, name, sohCode } = input;
   if (await shortCodeTaken(sodtype, shortCode)) throw new ClassificationError(`Η σύντμηση «${shortCode}» υπάρχει ήδη`);
   const max = await prisma.softoneClassification.aggregate({ where: { kind: 'CATEGORY', sodtype }, _max: { code: true } });
   let code = (max._max.code ?? 0) + 1;
   for (let attempt = 0; attempt < 5; attempt++, code++) {
     const res = await softoneCall<S1Result>('setData', {
-      OBJECT: CATEGORY_OBJECT[sodtype], KEY: '', data: { [CATEGORY_OBJECT[sodtype]]: [{ MTRCATEGORY: code, CODE: shortCode, NAME: name }] },
+      OBJECT: CATEGORY_OBJECT[sodtype], KEY: '', data: { [CATEGORY_OBJECT[sodtype]]: [{ MTRCATEGORY: code, CODE: shortCode, NAME: name, ...(sohCode ? { SOHCODE: sohCode } : {}) }] },
     });
     if (res.success === false) {
       if (/υπάρχει ήδη/i.test(res.error ?? '') && attempt < 4) continue;
@@ -175,8 +184,8 @@ export async function createCategory(input: z.infer<typeof categoryCreateInput>)
     memberCache = null;
     return prisma.softoneClassification.upsert({
       where: { kind_sodtype_code: { kind: 'CATEGORY', sodtype, code } },
-      create: { kind: 'CATEGORY', sodtype, code, shortCode: saved.shortCode, name: saved.name, isActive: true },
-      update: { shortCode: saved.shortCode, name: saved.name, isActive: true, syncedAt: new Date() },
+      create: { kind: 'CATEGORY', sodtype, code, shortCode: saved.shortCode, name: saved.name, sohCode: saved.sohCode, isActive: true },
+      update: { shortCode: saved.shortCode, name: saved.name, sohCode: saved.sohCode, isActive: true, syncedAt: new Date() },
     });
   }
   throw new ClassificationError('Δεν βρέθηκε ελεύθερος αριθμός κατηγορίας', 409);
@@ -197,6 +206,8 @@ export async function updateCategory(sodtype: number, code: number, input: z.inf
   if (input.name !== undefined) row.NAME = input.name;
   if (input.shortCode !== undefined) row.CODE = input.shortCode;
   if (input.isActive !== undefined) row.ISACTIVE = input.isActive ? 1 : 0;
+  // Κενός κωδικός ιεραρχίας = καθάρισμα του πεδίου στο SoftOne.
+  if (input.sohCode !== undefined) row.SOHCODE = input.sohCode ?? '';
   const object = CATEGORY_OBJECT[sodtype];
   const res = await softoneCall<S1Result>('setData', { OBJECT: object, KEY: String(code), data: { [object]: [row] } });
   if (res.success === false) throw new ClassificationError(`SoftOne: ${res.error ?? 'η αποθήκευση απέτυχε'}`, 502);
@@ -205,13 +216,14 @@ export async function updateCategory(sodtype: number, code: number, input: z.inf
   if (!saved
     || (input.name !== undefined && saved.name !== input.name)
     || (input.shortCode !== undefined && saved.shortCode !== input.shortCode)
-    || (input.isActive !== undefined && saved.isActive !== input.isActive)) {
+    || (input.isActive !== undefined && saved.isActive !== input.isActive)
+    || (input.sohCode !== undefined && (saved.sohCode ?? null) !== input.sohCode)) {
     throw new ClassificationError('Το SoftOne απάντησε «επιτυχία» αλλά η αλλαγή δεν φαίνεται μετά την εγγραφή', 502);
   }
   memberCache = null;
   return prisma.softoneClassification.update({
     where: { id: current.id },
-    data: { shortCode: saved.shortCode, name: saved.name, isActive: saved.isActive, syncedAt: new Date() },
+    data: { shortCode: saved.shortCode, name: saved.name, sohCode: saved.sohCode, isActive: saved.isActive, syncedAt: new Date() },
   });
 }
 

@@ -2827,6 +2827,8 @@ model SoftoneClassification {
   code      Int // MTRCATEGORY / MTRGROUP (αριθμητικό κλειδί)
   shortCode String? // CODE («Σύντμηση»)
   name      String
+  /// SOHCODE — «Κωδικός ιεραρχίας» SoftOne, π.χ. «1.01». Κενό = επίπεδη λίστα (έτσι είναι σήμερα).
+  sohCode   String?
   isActive  Boolean  @default(true)
   syncedAt  DateTime @default(now())
 

@@ -4,7 +4,7 @@ import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import {
-  FiAlertTriangle, FiAward, FiEdit2, FiLoader, FiMoreVertical, FiPackage, FiPlus, FiRefreshCw, FiSearch, FiTag, FiTool, FiTrash2,
+  FiAlertTriangle, FiAward, FiEdit2, FiLoader, FiMoreVertical, FiPackage, FiPlus, FiRefreshCw, FiEye, FiEyeOff, FiSearch, FiTag, FiTool, FiTrash2,
 } from 'react-icons/fi';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,7 +13,7 @@ import {
   Dialog, DialogBody, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
 import {
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Field, fieldCls, RowHint } from '@/components/admin/form-kit';
 import { cn } from '@/lib/utils';
@@ -114,9 +114,21 @@ function RegistryTable({ tab, table, rows, canManage, readOnlyWhy }: {
   const registry = REGISTRY_OF[tab] ?? null;
   const router = useRouter();
 
+  /** (Απ)ενεργοποίηση — αναστρέψιμη και ΔΕΝ θέλει δικαίωμα διαγραφής στο SoftOne. */
+  const toggleActive = async (r: ProductDataRow) => {
+    if (!registry) return;
+    const off = r.isActive;
+    if (off && !(await confirmAction(`Απενεργοποίηση «${r.name}»;\nΠαύει να προτείνεται σε νέα είδη. Τα υπάρχοντα είδη δεν αλλάζουν και μπορείτε να την ενεργοποιήσετε ξανά.`))) return;
+    const res = await updateRegistryRowAction(registry, r.code, { code: r.shortCode ?? String(r.code), name: r.name, isActive: !off });
+    if (!res.ok) { toast.error(res.message); return; }
+    toast.success(off ? 'Απενεργοποιήθηκε' : 'Ενεργοποιήθηκε');
+    router.refresh();
+  };
+
+  /** Οριστική διαγραφή — απαιτεί δικαίωμα διαγραφής στο SoftOne, γι' αυτό είναι δεύτερη επιλογή. */
   const remove = async (r: ProductDataRow) => {
     if (!registry) return;
-    if (!(await confirmAction(`Διαγραφή «${r.name}» από το SoftOne;\nΗ γραμμή αφαιρείται από το μητρώο ${table}.`))) return;
+    if (!(await confirmAction(`Οριστική διαγραφή «${r.name}» από το SoftOne;\nΑν ο λογαριασμός σας δεν έχει δικαίωμα διαγραφής, η ενέργεια θα απορριφθεί — προτιμήστε την απενεργοποίηση.`))) return;
     const res = await deleteRegistryRowAction(registry, r.code);
     if (!res.ok) { toast.error(res.message); return; }
     toast.success('Διαγράφηκε από το SoftOne');
@@ -127,10 +139,20 @@ function RegistryTable({ tab, table, rows, canManage, readOnlyWhy }: {
   const isOrphan = (r: ProductDataRow) => !r.isActive && (r.itemCount ?? 0) > 0;
   const orphans = rows.filter(isOrphan);
 
+  /** Βάθος από τον κωδικό ιεραρχίας: «1» = 0, «1.01» = 1, «1.01.03» = 2. */
+  const depthOf = (r: ProductDataRow) => (r.sohCode ? r.sohCode.split('.').length - 1 : 0);
+  const hasTree = rows.some((r) => r.sohCode);
+
   const s = q.trim().toLowerCase();
   const shown = rows
     .filter((r) => sodtype == null || r.sodtype === sodtype)
-    .filter((r) => !s || [r.name, r.shortCode, String(r.code)].some((v) => v?.toLowerCase().includes(s)));
+    .filter((r) => !s || [r.name, r.shortCode, r.sohCode, String(r.code)].some((v) => v?.toLowerCase().includes(s)));
+  // Με κωδικούς ιεραρχίας η λίστα διαβάζεται σαν δέντρο: ταξινόμηση κατά SOHCODE, τα ασύνδετα στο τέλος.
+  if (hasTree) {
+    shown.sort((a, b) => (a.sohCode && b.sohCode
+      ? a.sohCode.localeCompare(b.sohCode, 'el', { numeric: true })
+      : a.sohCode ? -1 : b.sohCode ? 1 : a.code - b.code));
+  }
   const used = shown.reduce((n, r) => n + (r.itemCount ?? 0), 0);
 
   return (
@@ -179,6 +201,7 @@ function RegistryTable({ tab, table, rows, canManage, readOnlyWhy }: {
           <li className="hidden items-center gap-3 bg-muted/50 px-3 py-1.5 text-(length:--fs-11) font-medium text-muted-foreground sm:flex" aria-hidden>
             <span className="w-12 text-right">Κωδ.</span>
             <span className="w-24">Σύντμηση</span>
+            {hasTree && <span className="w-20">Ιεραρχία</span>}
             <span className="min-w-0 flex-1">Ονομασία</span>
             {hasSodtype && <span className="w-20">Τύπος</span>}
             <span className="w-16 text-right">Είδη</span>
@@ -188,7 +211,8 @@ function RegistryTable({ tab, table, rows, canManage, readOnlyWhy }: {
             <li key={`${r.sodtype ?? ''}:${r.code}`} className={cn('flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-1.5 hover:bg-muted/40', !r.isActive && 'opacity-60')}>
               <span className="w-12 shrink-0 text-right font-mono text-(length:--fs-12) text-muted-foreground tabular-nums">{r.code}</span>
               <span className="w-24 shrink-0 truncate font-mono text-(length:--fs-12)" title={r.shortCode ?? undefined}>{r.shortCode ?? '—'}</span>
-              <span className="min-w-0 flex-1 basis-40 truncate text-(length:--fs-12)" title={r.name}>
+              {hasTree && <span className="w-20 shrink-0 truncate font-mono text-(length:--fs-11) text-muted-foreground" title="Κωδικός ιεραρχίας">{r.sohCode ?? '—'}</span>}
+              <span className="min-w-0 flex-1 basis-40 truncate text-(length:--fs-12)" style={hasTree ? { paddingInlineStart: `${depthOf(r) * 14}px` } : undefined} title={r.name}>
                 {r.name}
                 {isOrphan(r)
                   ? <span className="ml-1.5 rounded bg-destructive/10 px-1 text-(length:--fs-11) font-medium text-destructive">λείπει από το SoftOne</span>
@@ -207,10 +231,16 @@ function RegistryTable({ tab, table, rows, canManage, readOnlyWhy }: {
                       <FiEdit2 className="size-3.5" aria-hidden /> {registry ? 'Κωδικός, ονομασία & κατάσταση…' : 'Ονομασία & κατάσταση…'}
                     </DropdownMenuItem>
                     {registry && (
-                      <DropdownMenuItem variant="destructive" className="cursor-pointer gap-2 text-(length:--fs-12)" disabled={!!r.itemCount}
-                        title={r.itemCount ? `Τη χρησιμοποιούν ${r.itemCount} είδη` : undefined} onSelect={() => void remove(r)}>
-                        <FiTrash2 className="size-3.5" aria-hidden /> Διαγραφή{r.itemCount ? ` (σε χρήση)` : ''}
-                      </DropdownMenuItem>
+                      <>
+                        <DropdownMenuItem className="cursor-pointer gap-2 text-(length:--fs-12)" onSelect={() => void toggleActive(r)}>
+                          {r.isActive ? <><FiEyeOff className="size-3.5" aria-hidden /> Απενεργοποίηση</> : <><FiEye className="size-3.5" aria-hidden /> Ενεργοποίηση</>}
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem variant="destructive" className="cursor-pointer gap-2 text-(length:--fs-12)" disabled={!!r.itemCount}
+                          title={r.itemCount ? `Τη χρησιμοποιούν ${r.itemCount} είδη` : 'Χρειάζεται δικαίωμα διαγραφής στο SoftOne'} onSelect={() => void remove(r)}>
+                          <FiTrash2 className="size-3.5" aria-hidden /> Οριστική διαγραφή{r.itemCount ? ' (σε χρήση)' : ''}
+                        </DropdownMenuItem>
+                      </>
                     )}
                   </DropdownMenuContent>
                 </DropdownMenu>
@@ -258,6 +288,7 @@ function CategoryDialog({ open, onOpenChange, row }: { open: boolean; onOpenChan
   const [sodtype, setSodtype] = React.useState(51);
   const [shortCode, setShortCode] = React.useState('');
   const [name, setName] = React.useState('');
+  const [sohCode, setSohCode] = React.useState('');
   const [isActive, setIsActive] = React.useState(true);
   const [busy, setBusy] = React.useState(false);
   const [err, setErr] = React.useState<string | null>(null);
@@ -269,6 +300,7 @@ function CategoryDialog({ open, onOpenChange, row }: { open: boolean; onOpenChan
       setSodtype(row?.sodtype ?? 51);
       setShortCode(row?.shortCode ?? '');
       setName(row?.name ?? '');
+      setSohCode(row?.sohCode ?? '');
       setIsActive(row?.isActive ?? true);
     }
   }
@@ -277,8 +309,8 @@ function CategoryDialog({ open, onOpenChange, row }: { open: boolean; onOpenChan
     e.preventDefault();
     setBusy(true); setErr(null);
     const r = edit && row
-      ? await updateCategoryAction(row.sodtype ?? 51, row.code, { shortCode, name, isActive })
-      : await createCategoryAction({ sodtype, shortCode, name });
+      ? await updateCategoryAction(row.sodtype ?? 51, row.code, { shortCode, name, isActive, sohCode: sohCode.trim() || null })
+      : await createCategoryAction({ sodtype, shortCode, name, sohCode: sohCode.trim() || null });
     setBusy(false);
     if (!r.ok) { setErr(r.message); return; }
     toast.success(edit ? 'Η κατηγορία ενημερώθηκε στο SoftOne' : 'Η κατηγορία δημιουργήθηκε στο SoftOne');
@@ -316,6 +348,10 @@ function CategoryDialog({ open, onOpenChange, row }: { open: boolean; onOpenChan
             <Field label="Ονομασία" required htmlFor="pd-name">
               <Input id="pd-name" value={name} onChange={(e) => setName(e.target.value)} className={fieldCls} maxLength={100} />
             </Field>
+            <Field label="Κωδικός ιεραρχίας" htmlFor="pd-soh">
+              <Input id="pd-soh" value={sohCode} onChange={(e) => setSohCode(e.target.value)} className={`${fieldCls} font-mono`} maxLength={32} placeholder="π.χ. 1.01" inputMode="decimal" />
+            </Field>
+            <RowHint>Αριθμοί με τελείες: «1» ρίζα, «1.01» παιδί της 1, «1.01.03» εγγόνι. Κενό = χωρίς ιεραρχία. Ορίζει μόνο την ταξινόμηση — δεν μετακινεί είδη.</RowHint>
             {edit && (
               <label className="flex cursor-pointer items-center gap-2 text-(length:--fs-13)">
                 <input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} className="accent-(--primary)" />
