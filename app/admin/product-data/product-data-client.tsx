@@ -135,7 +135,7 @@ function RegistryTable({ tab, table, rows, canManage, readOnlyWhy }: {
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative min-w-48 flex-1 sm:max-w-xs">
           <FiSearch className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" aria-hidden />
-          <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Ονομασία, σύντμηση ή κωδικός…" aria-label={`Αναζήτηση — ${table}`} className="h-8 pl-8 text-(length:--fs-13)" />
+          <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Ονομασία, σύντμηση ή κωδικός…" aria-label={`Αναζήτηση — ${table}`} className="h-8 pl-8 text-(length:--fs-12)" />
         </div>
         {hasSodtype && (
           <div role="radiogroup" aria-label="Είδη ή υπηρεσίες" className="inline-flex gap-1 rounded-lg bg-muted p-1">
@@ -148,8 +148,8 @@ function RegistryTable({ tab, table, rows, canManage, readOnlyWhy }: {
             ))}
           </div>
         )}
-        <span className="text-(length:--fs-12) tabular-nums text-muted-foreground" aria-live="polite">
-          {shown.length} εγγραφές{used > 0 ? ` · ${used} είδη` : ''}
+        <span className="text-(length:--fs-11) tabular-nums text-muted-foreground" aria-live="polite">
+          {shown.length === rows.length ? `${rows.length} εγγραφές` : `${shown.length} από ${rows.length}`}
         </span>
         {canManage && (
           <Button size="sm" className="ml-auto h-8 gap-1.5" onClick={() => setCreating(true)}><FiPlus className="size-3.5" aria-hidden /> {NEW_LABEL[tab]}</Button>
@@ -157,7 +157,7 @@ function RegistryTable({ tab, table, rows, canManage, readOnlyWhy }: {
       </div>
 
       {shown.length === 0 ? (
-        <p className="rounded-lg border border-dashed border-border px-4 py-8 text-center text-(length:--fs-13) text-muted-foreground">
+        <p className="rounded-lg border border-dashed border-border px-4 py-8 text-center text-(length:--fs-12) text-muted-foreground">
           {rows.length ? 'Καμία εγγραφή με αυτά τα κριτήρια.' : `Το μητρώο ${table} είναι άδειο — πατήστε «Συγχρονισμός από SoftOne».`}
         </p>
       ) : (
@@ -174,7 +174,7 @@ function RegistryTable({ tab, table, rows, canManage, readOnlyWhy }: {
             <li key={`${r.sodtype ?? ''}:${r.code}`} className={cn('flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-1.5 hover:bg-muted/40', !r.isActive && 'opacity-60')}>
               <span className="w-12 shrink-0 text-right font-mono text-(length:--fs-12) text-muted-foreground tabular-nums">{r.code}</span>
               <span className="w-24 shrink-0 truncate font-mono text-(length:--fs-12)" title={r.shortCode ?? undefined}>{r.shortCode ?? '—'}</span>
-              <span className="min-w-0 flex-1 basis-40 truncate text-(length:--fs-13) font-medium" title={r.name}>
+              <span className="min-w-0 flex-1 basis-40 truncate text-(length:--fs-12)" title={r.name}>
                 {r.name}
                 {!r.isActive && <span className="ml-1.5 rounded bg-muted px-1 text-(length:--fs-11) font-normal text-muted-foreground">ανενεργή</span>}
               </span>
@@ -202,6 +202,19 @@ function RegistryTable({ tab, table, rows, canManage, readOnlyWhy }: {
             </li>
           ))}
         </ul>
+      )}
+
+      {shown.length > 0 && (
+        <dl className="ml-auto grid w-full max-w-xs grid-cols-2 items-baseline gap-y-1 border-t border-foreground/80 pt-1.5 text-(length:--fs-11)">
+          <dt className="text-muted-foreground">Εγγραφές</dt>
+          <dd className="text-right text-(length:--fs-14) font-bold tabular-nums">{shown.length}</dd>
+          {used > 0 && (
+            <>
+              <dt className="text-muted-foreground">Είδη που τα χρησιμοποιούν</dt>
+              <dd className="text-right text-(length:--fs-14) font-bold tabular-nums">{used}</dd>
+            </>
+          )}
+        </dl>
       )}
 
       {tab === 'categories' && (
