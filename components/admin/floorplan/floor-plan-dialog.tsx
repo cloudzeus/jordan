@@ -1155,7 +1155,7 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
             view3d={view3d} onView={(v) => { setView3d(v); setDraft([]); }} canUse3d={!!mPerPx}
             wallTypes={wallTypes}
             status={{ selection: selected ? '1 χώρος' : undefined }}
-            onSave={() => void savePlan()} saving={planSaving}
+            onSave={() => { if (!calib) { toast.error('Όρισε πρώτα κλίμακα με το εργαλείο «Κλίμακα».'); return; } void savePlan(); }} saving={planSaving}
           >
             <div className="relative size-full" {...dz.getRootProps()}>
               <input {...dz.getInputProps()} />

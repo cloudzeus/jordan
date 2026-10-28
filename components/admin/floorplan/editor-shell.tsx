@@ -68,6 +68,15 @@ export function EditorShell(props: EditorShellProps) {
     try { localStorage.setItem(TB_KEY, JSON.stringify(np)); } catch { /* ignore */ }
   };
   const onUp = (e: React.PointerEvent) => { drag.current = null; try { (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId); } catch { /* ignore */ } };
+  // Αποθηκευμένη θέση σε μεγαλύτερη οθόνη μπορεί να πέφτει εκτός καμβά: την κουμπώνουμε στο mount.
+  React.useLayoutEffect(() => {
+    const el = paletteRef.current; if (!pos || !el) return;
+    const parent = el.offsetParent as HTMLElement | null; if (!parent) return;
+    const c = clampToolbarPos(pos, { w: parent.clientWidth, h: parent.clientHeight }, { w: el.offsetWidth, h: el.offsetHeight }, 8);
+    if (c.x !== pos.x || c.y !== pos.y) setPos(c);
+    // μία φορά στο mount· σκόπιμα χωρίς dependency στο pos.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const chip = 'inline-flex h-6 items-center gap-1.5 rounded-md border border-white/10 bg-[#111a2e] px-2 text-(length:--fs-11) text-slate-400';
 
@@ -140,9 +149,9 @@ export function EditorShell(props: EditorShellProps) {
             </div>
           )}
 
-          {props.status && (
+          {props.takeoff && (
             <div className="pointer-events-none absolute bottom-2 left-2 rounded-lg border border-white/15 px-2.5 py-1.5 text-(length:--fs-11) tabular-nums text-slate-300" style={{ background: 'rgba(15,23,42,.92)' }}>
-              {props.takeoff && <div className="flex gap-3"><span>Δάπεδο <b className="text-white">{props.takeoff.floorM2}</b></span><span>Τοίχοι <b className="text-white">{props.takeoff.wallsM2}</b></span></div>}
+              <div className="flex gap-3"><span>Δάπεδο <b className="text-white">{props.takeoff.floorM2}</b></span><span>Τοίχοι <b className="text-white">{props.takeoff.wallsM2}</b></span></div>
             </div>
           )}
         </div>
