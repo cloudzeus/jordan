@@ -12,18 +12,12 @@ import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { WALL_TYPE_CATEGORIES, WALL_TYPE_CATEGORY_LABEL, MEASURE_FACES, wallTypeInput, type WallTypeInput } from '@/lib/floorplan/wall-types';
+import { metersToCmField, wallTypeFormToRaw } from '@/lib/floorplan/wall-type-form';
 import { saveWallTypeAction } from './actions';
 
 export type WallTypeRow = WallTypeInput & { id: string };
 
 const MEASURE_LABEL: Record<(typeof MEASURE_FACES)[number], string> = { none: 'Καμία όψη', one: 'Μία όψη', both: 'Δύο όψεις' };
-
-const num = (v: string): number | null => {
-  const s = v.trim().replace(',', '.');
-  if (!s) return null;
-  const n = Number(s);
-  return Number.isFinite(n) ? n : null;
-};
 
 export function WallTypeEditor({ open, onOpenChange, initial, existingHotkeys }: {
   open: boolean;
@@ -37,7 +31,7 @@ export function WallTypeEditor({ open, onOpenChange, initial, existingHotkeys }:
   const [code, setCode] = React.useState(() => initial?.code ?? '');
   const [name, setName] = React.useState(() => initial?.name ?? '');
   const [category, setCategory] = React.useState<(typeof WALL_TYPE_CATEGORIES)[number]>(() => initial?.category ?? 'DRYWALL');
-  const [thicknessCm, setThicknessCm] = React.useState(() => (initial ? String(Math.round(initial.thicknessM * 100)) : '10'));
+  const [thicknessCm, setThicknessCm] = React.useState(() => (initial ? metersToCmField(initial.thicknessM) : '10'));
   const [bottomM, setBottomM] = React.useState(() => String(initial?.bottomM ?? 0));
   const [topM, setTopM] = React.useState(() => (initial?.topM != null ? String(initial.topM) : ''));
   const [color, setColor] = React.useState(() => initial?.color ?? '#94a3b8');
@@ -54,19 +48,7 @@ export function WallTypeEditor({ open, onOpenChange, initial, existingHotkeys }:
 
   const submit = async () => {
     setError(null);
-    const thicknessCmNum = num(thicknessCm);
-    const raw = {
-      code, name, category,
-      thicknessM: thicknessCmNum == null ? NaN : thicknessCmNum / 100,
-      bottomM: num(bottomM) ?? 0,
-      topM: num(topM),
-      color,
-      measureFaces,
-      hotkey: hotkey.trim() || null,
-      sortOrder: Math.round(num(sortOrder) ?? 0),
-      cadLayerHints: cadHints.split(',').map((s) => s.trim()).filter(Boolean),
-      active,
-    };
+    const raw = wallTypeFormToRaw({ code, name, category, thicknessCm, bottomM, topM, color, measureFaces, hotkey, sortOrder, cadHints, active }, initial);
     const parsed = wallTypeInput.safeParse(raw);
     if (!parsed.success) {
       setError(parsed.error.issues[0]?.message ?? 'Μη έγκυρα στοιχεία');

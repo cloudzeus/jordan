@@ -12,6 +12,7 @@ import { DataTable } from '@/components/ui/data-table';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { confirmAction } from '@/components/ui/confirm-dialog';
 import { WALL_TYPE_CATEGORY_LABEL, MEASURE_FACES, type WallTypeInput } from '@/lib/floorplan/wall-types';
+import { cmLabel } from '@/lib/floorplan/wall-type-form';
 import { WallTypeEditor, type WallTypeRow } from './wall-type-editor';
 import { setWallTypeActiveAction, deleteWallTypeAction } from './actions';
 
@@ -20,7 +21,6 @@ export type WallTypeData = WallTypeInput & { id: string };
 
 const ITEM = 'flex items-center gap-2 text-(length:--fs-13)';
 const MEASURE_LABEL: Record<(typeof MEASURE_FACES)[number], string> = { none: 'καμία', one: 'μία', both: 'δύο' };
-const cm = (m: number) => `${Math.round(m * 100)} cm`;
 
 export function WallTypesTableClient({ rows, canManage }: { rows: WallTypeData[]; canManage: boolean }) {
   const router = useRouter();
@@ -56,7 +56,7 @@ export function WallTypesTableClient({ rows, canManage }: { rows: WallTypeData[]
       ),
     },
     { accessorKey: 'category', header: 'Κατηγορία', size: 180, cell: ({ row }) => <span className="text-(length:--fs-12)">{WALL_TYPE_CATEGORY_LABEL[row.original.category]}</span> },
-    { accessorKey: 'thicknessM', header: 'Πάχος', size: 90, cell: ({ row }) => <span className="text-(length:--fs-12) tabular-nums">{cm(row.original.thicknessM)}</span> },
+    { accessorKey: 'thicknessM', header: 'Πάχος', size: 90, cell: ({ row }) => <span className="text-(length:--fs-12) tabular-nums">{cmLabel(row.original.thicknessM)}</span> },
     {
       id: 'height', header: 'Ύψος', size: 130,
       cell: ({ row }) => <span className="text-(length:--fs-12) tabular-nums text-foreground/80">{row.original.topM == null ? 'ως ταβάνι' : `${row.original.bottomM}–${row.original.topM} m`}</span>,
