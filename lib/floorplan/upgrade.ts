@@ -39,7 +39,9 @@ export function upgradePlanData(raw: unknown, opts: { wallTypes?: WallType[] } =
   const v1 = planData.parse(raw);
   // Κλίμακα ΜΟΝΟ από το calib — όπως ακριβώς το v1 `roomSheet`/`mPerPxOf`. Κάτοψη με μόνο `pxPerM`
   // (κενός κάναβος) δίνει 0 m² στο v1, άρα μένει «χωρίς κλίμακα» κι εδώ, για πιστή διατήρηση m².
-  const mpp = mPerPxOf(v1);
+  // Εκφυλισμένο calib (a==b → Infinity) αντιμετωπίζεται ως «χωρίς κλίμακα», ώστε να μη σκάει το parse.
+  const mpp0 = mPerPxOf(v1);
+  const mpp = mpp0 != null && Number.isFinite(mpp0) && mpp0 > 0 ? mpp0 : null;
   const m = (p: P): P => (mpp ? { x: p.x * mpp, y: p.y * mpp } : { x: p.x, y: p.y });
   const types = opts.wallTypes ?? [];
 
@@ -63,7 +65,9 @@ export function upgradePlanData(raw: unknown, opts: { wallTypes?: WallType[] } =
       const t0raw = project(a, hit.wall.a, hit.wall.b).t;
       const t1raw = project(b, hit.wall.a, hit.wall.b).t;
       openings.push({
-        id: o.id || uid(), wallId: hit.wall.id,
+        // Τα v1 opening ids είναι μοναδικά μόνο μέσα στον χώρο· εδώ «πλακώνονται» σε έναν πίνακα,
+        // οπότε τα namespacάρουμε με το id του χώρου για να μη συγκρούονται.
+        id: `${r.id}:${o.id || uid()}`, wallId: hit.wall.id,
         t0: Math.min(t0raw, t1raw), t1: Math.max(t0raw, t1raw),
         modelId: null, kind: o.kind, sillM: Math.max(0, o.sill ?? 0), heightM: Math.max(0, o.h), swing: null,
       });

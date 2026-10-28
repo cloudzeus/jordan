@@ -49,6 +49,26 @@ describe('upgradePlanData', () => {
     expect(v2.walls[0].typeId).toBeNull();
   });
 
+  it('does not throw on a degenerate calib (a==b); degrades to no scale', () => {
+    const v2 = upgradePlanData({ ...base, calib: { a: { x: 0, y: 0 }, b: { x: 0, y: 0 }, meters: 1 } });
+    expect(v2.underlay?.mPerPx).toBeNull();
+    expect(roomTakeoffV2(v2).floorM2).toBe(0);
+  });
+
+  it('gives projected openings room-namespaced, collision-free ids', () => {
+    const op = (id: string) => ({ id, kind: 'door' as const, w: 0.9, h: 2.1, count: 1, at: [{ x: 100, y: 0 }, { x: 200, y: 0 }] });
+    const two = planData.parse({
+      ...base,
+      rooms: [
+        { ...base.rooms[0], id: 'r1', walls: { on: true, heightM: 2.4, openings: [op('d')] } },
+        { ...base.rooms[0], id: 'r2', walls: { on: true, heightM: 2.4, openings: [op('d')] } },
+      ],
+    });
+    const v2 = upgradePlanData(two, { wallTypes: TYPES });
+    expect(v2.openings).toHaveLength(2);
+    expect(new Set(v2.openings.map((o) => o.id)).size).toBe(2);
+  });
+
   it('projects an opening on a wall to wallId+t0/t1, and drops one far from any wall', () => {
     const withOpenings = planData.parse({
       ...base,
