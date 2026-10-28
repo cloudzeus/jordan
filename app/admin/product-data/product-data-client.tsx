@@ -123,6 +123,10 @@ function RegistryTable({ tab, table, rows, canManage, readOnlyWhy }: {
     router.refresh();
   };
 
+  /** Λείπει από το SoftOne (δεν την επέστρεψε ο συγχρονισμός) αλλά είδη δείχνουν ακόμη σε αυτήν. */
+  const isOrphan = (r: ProductDataRow) => !r.isActive && (r.itemCount ?? 0) > 0;
+  const orphans = rows.filter(isOrphan);
+
   const s = q.trim().toLowerCase();
   const shown = rows
     .filter((r) => sodtype == null || r.sodtype === sodtype)
@@ -131,6 +135,16 @@ function RegistryTable({ tab, table, rows, canManage, readOnlyWhy }: {
 
   return (
     <div className="space-y-2">
+      {orphans.length > 0 && (
+        <p role="alert" className="flex items-start gap-2 rounded-lg border border-destructive/40 bg-destructive/5 px-3 py-2 text-(length:--fs-11) text-destructive">
+          <FiAlertTriangle className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+          <span>
+            <strong className="font-semibold">{orphans.length === 1 ? 'Μία εγγραφή λείπει' : `${orphans.length} εγγραφές λείπουν`} από το SoftOne</strong>, ενώ{' '}
+            <strong className="font-semibold tabular-nums">{orphans.reduce((n, r) => n + (r.itemCount ?? 0), 0)}</strong> είδη δείχνουν ακόμη σε αυτές
+            ({orphans.map((r) => `${r.code} ${r.name}`).join(', ')}). Η διόρθωση γίνεται μέσα από το SoftOne — δείτε τη βοήθεια της σελίδας.
+          </span>
+        </p>
+      )}
       {readOnlyWhy && <RowHint tone="warn">{readOnlyWhy}</RowHint>}
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative min-w-48 flex-1 sm:max-w-xs">
@@ -176,7 +190,9 @@ function RegistryTable({ tab, table, rows, canManage, readOnlyWhy }: {
               <span className="w-24 shrink-0 truncate font-mono text-(length:--fs-12)" title={r.shortCode ?? undefined}>{r.shortCode ?? '—'}</span>
               <span className="min-w-0 flex-1 basis-40 truncate text-(length:--fs-12)" title={r.name}>
                 {r.name}
-                {!r.isActive && <span className="ml-1.5 rounded bg-muted px-1 text-(length:--fs-11) font-normal text-muted-foreground">ανενεργή</span>}
+                {isOrphan(r)
+                  ? <span className="ml-1.5 rounded bg-destructive/10 px-1 text-(length:--fs-11) font-medium text-destructive">λείπει από το SoftOne</span>
+                  : !r.isActive && <span className="ml-1.5 rounded bg-muted px-1 text-(length:--fs-11) font-normal text-muted-foreground">ανενεργή</span>}
               </span>
               {hasSodtype && <span className="w-20 shrink-0 text-(length:--fs-12) text-muted-foreground">{r.sodtype != null ? SODTYPE_LABEL[r.sodtype] ?? r.sodtype : '—'}</span>}
               <span className="w-16 shrink-0 text-right text-(length:--fs-12) tabular-nums">{r.itemCount == null ? '—' : r.itemCount || <span className="text-muted-foreground">0</span>}</span>
