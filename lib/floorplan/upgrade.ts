@@ -37,7 +37,9 @@ function nearestWall(walls: WallEntity[], p: P, tolM: number): { wall: WallEntit
 export function upgradePlanData(raw: unknown, opts: { wallTypes?: WallType[] } = {}): PlanDataV2 {
   if ((raw as { v?: number })?.v === 2) return planDataV2.parse(raw);
   const v1 = planData.parse(raw);
-  const mpp = mPerPxOf(v1) ?? (v1.pxPerM ? 1 / v1.pxPerM : null);
+  // Κλίμακα ΜΟΝΟ από το calib — όπως ακριβώς το v1 `roomSheet`/`mPerPxOf`. Κάτοψη με μόνο `pxPerM`
+  // (κενός κάναβος) δίνει 0 m² στο v1, άρα μένει «χωρίς κλίμακα» κι εδώ, για πιστή διατήρηση m².
+  const mpp = mPerPxOf(v1);
   const m = (p: P): P => (mpp ? { x: p.x * mpp, y: p.y * mpp } : { x: p.x, y: p.y });
   const types = opts.wallTypes ?? [];
 
