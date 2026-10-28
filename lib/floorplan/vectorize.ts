@@ -240,3 +240,58 @@ export function snapNodes(segs: Seg[], tolPx: number): Seg[] {
   const node = (p: Pt): Pt => { const c = map.get(p)!; return c.pts.length > 1 ? { x: c.cx, y: c.cy } : { x: p.x, y: p.y }; };
   return segs.map((s) => ({ a: node(s.a), b: node(s.b) }));
 }
+
+export type VectorWall = { a: Pt; b: Pt; thicknessPx: number };
+
+const median = (xs: number[]): number => {
+  if (!xs.length) return 0;
+  const s = [...xs].sort((p, q) => p - q);
+  const m = s.length >> 1;
+  return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+};
+
+/** Πάχος ενός τμήματος: διάμεσος της απόστασης-προς-φόντο στα pixels κατά μήκος του, ×2 − 1. */
+function segThickness(s: Seg, dt: Int32Array, w: number, h: number): number {
+  const len = Math.hypot(s.b.x - s.a.x, s.b.y - s.a.y);
+  const steps = Math.max(1, Math.round(len));
+  const vals: number[] = [];
+  for (let i = 0; i <= steps; i++) {
+    const t = i / steps, px = Math.round(s.a.x + (s.b.x - s.a.x) * t), py = Math.round(s.a.y + (s.b.y - s.a.y) * t);
+    let best = 0;
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+      const x = px + dx, y = py + dy;
+      if (x >= 0 && y >= 0 && x < w && y < h) best = Math.max(best, dt[y * w + x]);
+    }
+    if (best > 0) vals.push(best);
+  }
+  return Math.max(1, 2 * median(vals) - 1);
+}
+
+/**
+ * Μάσκα τοίχων → διανυσματικοί τοίχοι (pixels). Αγωγός: λέπτυνση → απόσταση → ιχνηλάτηση → κλάδεμα →
+ * απλοποίηση → τμήματα → συγχώνευση → ίσιωμα αξόνων → κούμπωμα κόμβων → πάχος ανά τμήμα.
+ */
+export function vectorizeWalls(mask: Mask, w: number, h: number, opts: {
+  minBranchPx?: number; simplifyEps?: number; mergeAngleDeg?: number; snapTolPx?: number; axisDeg?: number;
+} = {}): VectorWall[] {
+  const skel = thinZhangSuen(mask, w, h);
+  const dt = distanceToBackground(mask, w, h);
+  const skelDt: number[] = [];
+  for (let i = 0; i < skel.length; i++) if (skel[i]) skelDt.push(dt[i]);
+  const avgTh = Math.max(2, 2 * median(skelDt) - 1); // μέσο πάχος τοίχου (px)
+
+  const minBranch = opts.minBranchPx ?? Math.max(4, avgTh);
+  const eps = opts.simplifyEps ?? 1.5;
+  const snapTol = opts.snapTolPx ?? Math.max(4, avgTh);
+
+  const polys = pruneShort(tracePolylines(skel, w, h), minBranch);
+  const segs: Seg[] = [];
+  for (const p of polys) {
+    const sp = simplifyOpen(p, eps);
+    for (let i = 1; i < sp.length; i++) segs.push({ a: sp[i - 1], b: sp[i] });
+  }
+  let merged = mergeCollinear(segs, { maxAngleDeg: opts.mergeAngleDeg ?? 3, maxGapPx: snapTol * 1.5 });
+  merged = merged.map((s) => snapAxisAligned(s, opts.axisDeg ?? 2));
+  merged = snapNodes(merged, snapTol);
+  return merged.map((s) => ({ a: s.a, b: s.b, thicknessPx: segThickness(s, dt, w, h) }));
+}

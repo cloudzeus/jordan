@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { thinZhangSuen, distanceToBackground, tracePolylines, simplifyOpen, pruneShort, mergeCollinear, snapAxisAligned, snapNodes, type Seg } from '../vectorize';
+import { thinZhangSuen, distanceToBackground, tracePolylines, simplifyOpen, pruneShort, mergeCollinear, snapAxisAligned, snapNodes, vectorizeWalls, type Seg, type VectorWall } from '../vectorize';
 import type { Pt } from '../core';
 
 type M = Uint8Array;
@@ -143,5 +143,37 @@ describe('snapNodes', () => {
     const out = snapNodes(segs, 1);
     expect(out[0].b).toEqual({ x: 100, y: 100 });
     expect(out[1].a).toEqual({ x: 102, y: 101 });
+  });
+});
+
+describe('vectorizeWalls', () => {
+  // Δωμάτιο: ορθογώνιος δακτύλιος από 4 μπάρες πάχους 6.
+  const roomMask = (extraSpur = false) => {
+    const w = 90, h = 70, m = blank(w, h);
+    fillRect(m, w, 12, 12, 76, 17); // πάνω
+    fillRect(m, w, 12, 52, 76, 57); // κάτω
+    fillRect(m, w, 12, 12, 17, 57); // αριστερά
+    fillRect(m, w, 71, 12, 76, 57); // δεξιά
+    if (extraSpur) fillRect(m, w, 77, 13, 80, 15); // μικρό spur
+    return { m, w, h };
+  };
+  const nodeKey = (p: Pt) => `${Math.round(p.x)},${Math.round(p.y)}`;
+
+  it('returns four walls with measured thickness and closed corners', () => {
+    const { m, w, h } = roomMask();
+    const walls = vectorizeWalls(m, w, h);
+    expect(walls).toHaveLength(4);
+    for (const wl of walls) {
+      expect(wl.thicknessPx).toBeGreaterThanOrEqual(4);
+      expect(wl.thicknessPx).toBeLessThanOrEqual(8);
+    }
+    // 4 μοναδικοί κόμβοι, ο καθένας μοιρασμένος από 2 τοίχους (κλειστό περίγραμμα).
+    const nodes = new Set(walls.flatMap((wl) => [nodeKey(wl.a), nodeKey(wl.b)]));
+    expect(nodes.size).toBe(4);
+  });
+
+  it('prunes a short spur (still four walls)', () => {
+    const { m, w, h } = roomMask(true);
+    expect(vectorizeWalls(m, w, h)).toHaveLength(4);
   });
 });
