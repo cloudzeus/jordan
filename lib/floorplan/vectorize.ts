@@ -149,3 +149,36 @@ export function tracePolylines(skel: Mask, w: number, h: number): Pt[][] {
   }
   return polys;
 }
+
+/** Απόσταση σημείου p από το ευθύγραμμο τμήμα a–b. */
+function segDist(p: Pt, a: Pt, b: Pt): number {
+  const dx = b.x - a.x, dy = b.y - a.y, L2 = dx * dx + dy * dy;
+  if (L2 === 0) return Math.hypot(p.x - a.x, p.y - a.y);
+  const t = Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / L2));
+  return Math.hypot(p.x - (a.x + t * dx), p.y - (a.y + t * dy));
+}
+
+/** Douglas–Peucker για ΑΝΟΙΧΤΗ πολυγραμμή: κρατά τα άκρα και τα σημεία που αποκλίνουν > eps. */
+export function simplifyOpen(pts: Pt[], eps: number): Pt[] {
+  if (pts.length < 3) return pts.slice();
+  const a = pts[0], b = pts[pts.length - 1];
+  let idx = -1, max = 0;
+  for (let i = 1; i < pts.length - 1; i++) {
+    const d = segDist(pts[i], a, b);
+    if (d > max) { max = d; idx = i; }
+  }
+  if (max <= eps) return [a, b];
+  return [...simplifyOpen(pts.slice(0, idx + 1), eps).slice(0, -1), ...simplifyOpen(pts.slice(idx), eps)];
+}
+
+/** Μήκος μιας πολυγραμμής (άθροισμα τμημάτων). */
+export function polylineLength(pts: Pt[]): number {
+  let s = 0;
+  for (let i = 1; i < pts.length; i++) s += Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y);
+  return s;
+}
+
+/** Πετά πολυγραμμές κοντύτερες από minLenPx (spurs/θόρυβος). */
+export function pruneShort(polylines: Pt[][], minLenPx: number): Pt[][] {
+  return polylines.filter((p) => polylineLength(p) >= minLenPx);
+}

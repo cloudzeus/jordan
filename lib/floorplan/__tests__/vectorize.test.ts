@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { thinZhangSuen, distanceToBackground, tracePolylines } from '../vectorize';
+import { thinZhangSuen, distanceToBackground, tracePolylines, simplifyOpen, pruneShort } from '../vectorize';
 import type { Pt } from '../core';
 
 type M = Uint8Array;
@@ -81,5 +81,28 @@ describe('tracePolylines', () => {
     fillRect(m, w, 2, 2, 10, 2);
     fillRect(m, w, 18, 2, 27, 2);
     expect(tracePolylines(m, w, h)).toHaveLength(2);
+  });
+});
+
+describe('simplifyOpen', () => {
+  it('collapses a near-straight polyline to its endpoints', () => {
+    const pts: Pt[] = Array.from({ length: 10 }, (_, i) => ({ x: i, y: 0 }));
+    expect(simplifyOpen(pts, 1)).toEqual([{ x: 0, y: 0 }, { x: 9, y: 0 }]);
+  });
+  it('keeps a corner that deviates more than eps', () => {
+    const pts: Pt[] = [{ x: 0, y: 0 }, { x: 5, y: 0 }, { x: 5, y: 5 }];
+    const s = simplifyOpen(pts, 1);
+    expect(s).toHaveLength(3);
+    expect(s[1]).toEqual({ x: 5, y: 0 });
+  });
+});
+
+describe('pruneShort', () => {
+  it('drops polylines shorter than minLenPx, keeps longer', () => {
+    const short: Pt[] = [{ x: 0, y: 0 }, { x: 2, y: 0 }];
+    const long: Pt[] = [{ x: 0, y: 0 }, { x: 50, y: 0 }];
+    const out = pruneShort([short, long], 8);
+    expect(out).toHaveLength(1);
+    expect(out[0]).toBe(long);
   });
 });
