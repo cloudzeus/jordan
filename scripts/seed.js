@@ -52,6 +52,7 @@ const PERMISSIONS = [
   { key: 'units.read', resource: 'units', action: 'read', description: 'Προβολή μονάδων μέτρησης' },
   { key: 'units.manage', resource: 'units', action: 'manage', description: 'Δημιουργία/επεξεργασία μονάδων μέτρησης στο SoftOne' },
   { key: 'items.unit2_override', resource: 'items', action: 'unit2_override', description: 'Αλλαγή Μ.Μ.2 μέσω script σε είδος με παραστατικά (παράκαμψη ελέγχου SoftOne)' },
+  { key: 'floorplans.catalog', resource: 'floorplans', action: 'catalog', description: 'Διαχείριση καταλόγου τύπων τοίχου & στοιχείων κατόψεων' },
   // Air Jordan — βοηθός AI (μόνο ADMIN / SUPER_ADMIN: ο ρόλος ελέγχεται ΚΑΙ στον server, όποιος κι αν πάρει το δικαίωμα)
   { key: 'files.read', resource: 'files', action: 'read', description: 'Προβολή και λήψη αρχείων πελατών, προμηθευτών και έργων' },
   { key: 'files.manage', resource: 'files', action: 'manage', description: 'Ανέβασμα, μετονομασία, μετακίνηση, διαγραφή αρχείων και φακέλων' },
@@ -122,7 +123,7 @@ const SYSTEM_ROLES = [
 
 const ROLE_DEFAULTS = {
   SUPER_ADMIN: PERMISSIONS.map((p) => p.key),
-  ADMIN: ['users.read', 'users.create', 'users.update', 'users.assign_role', 'users.softone_link', 'roles.read', 'permissions.read', 'companies.read', 'companies.create', 'companies.update', 'companies.delete', 'companies.manage_types', 'kad.read', 'kad.manage', 'metadata.read', 'metadata.manage', 'ocr.read', 'ocr.create', 'ocr.delete', 'ocr.categorize', 'ocr.post', 'projects.read', 'projects.manage', 'projects.financials', 'dynamic_offers.read', 'dynamic_offers.manage', 'dynamic_offers.reservations', 'payments.read', 'payments.manage', 'payments.refund', 'order_requests.read', 'order_requests.manage', 'appointments.read', 'appointments.manage', 'appointments.schedule', 'leads.read', 'leads.manage', 'partners.read', 'partners.manage', 'partners.access', 'classifications.read', 'classifications.manage', 'units.read', 'units.manage', 'items.unit2_override', 'files.read', 'files.manage', 'assistant.use', 'assistant.memory'],
+  ADMIN: ['users.read', 'users.create', 'users.update', 'users.assign_role', 'users.softone_link', 'roles.read', 'permissions.read', 'companies.read', 'companies.create', 'companies.update', 'companies.delete', 'companies.manage_types', 'kad.read', 'kad.manage', 'metadata.read', 'metadata.manage', 'ocr.read', 'ocr.create', 'ocr.delete', 'ocr.categorize', 'ocr.post', 'projects.read', 'projects.manage', 'projects.financials', 'dynamic_offers.read', 'dynamic_offers.manage', 'dynamic_offers.reservations', 'payments.read', 'payments.manage', 'payments.refund', 'order_requests.read', 'order_requests.manage', 'appointments.read', 'appointments.manage', 'appointments.schedule', 'leads.read', 'leads.manage', 'partners.read', 'partners.manage', 'partners.access', 'classifications.read', 'classifications.manage', 'units.read', 'units.manage', 'items.unit2_override', 'floorplans.catalog', 'files.read', 'files.manage', 'assistant.use', 'assistant.memory'],
   EMPLOYEE: ['users.read', 'appointments.read', 'appointments.manage', 'appointments.schedule', 'leads.read'],
   COLLABORATOR: ['users.read'],
   SUPPLIER: [],
@@ -237,6 +238,27 @@ async function seedVatCategories() {
   console.log(`✓ Seeded ${VAT_CATEGORIES.length} VAT categories`);
 }
 
+// Βασικός κατάλογος τύπων κατασκευής (WallType). Keep in sync με lib/floorplan/wall-types.ts → WALL_TYPE_SEED.
+const WALL_TYPES = [
+  { code: 'GB10', name: 'Γυψοσανίδα μονή 10 cm', category: 'DRYWALL', thicknessM: 0.1, color: '#f59e0b', pattern: null, measureFaces: 'both', cadLayerHints: ['γυψοσανιδα', 'drywall', 'gypsum'], hotkey: '1', sortOrder: 10 },
+  { code: 'GB125', name: 'Γυψοσανίδα διπλή 12,5 cm', category: 'DRYWALL', thicknessM: 0.125, color: '#f97316', pattern: null, measureFaces: 'both', cadLayerHints: ['γυψοσανιδα', 'drywall'], hotkey: '2', sortOrder: 20 },
+  { code: 'BRICK20', name: 'Τοιχοποιία 20 cm', category: 'MASONRY', thicknessM: 0.2, color: '#b45309', pattern: null, measureFaces: 'both', cadLayerHints: ['τοιχοποιια', 'wall', 'brick'], hotkey: '3', sortOrder: 30 },
+  { code: 'RC25', name: 'Φέρων τοίχος 25 cm', category: 'BEARING', thicknessM: 0.25, color: '#6b7280', pattern: null, measureFaces: 'both', cadLayerHints: ['φερων', 'concrete', 'rc', 'struct'], hotkey: '4', sortOrder: 40 },
+  { code: 'GLASS', name: 'Υαλοπάνελ 2 cm', category: 'GLASS', thicknessM: 0.02, color: '#38bdf8', pattern: null, measureFaces: 'both', cadLayerHints: ['υαλοπανελ', 'glass'], hotkey: '5', sortOrder: 50 },
+  { code: 'IND5', name: 'Ενδεικτικό χώρισμα 5 cm', category: 'INDICATIVE', thicknessM: 0.05, color: '#94a3b8', pattern: 'dashed', measureFaces: 'none', cadLayerHints: [], hotkey: '6', sortOrder: 60 },
+];
+
+async function seedWallTypes() {
+  for (const w of WALL_TYPES) {
+    await prisma.wallType.upsert({
+      where: { code: w.code },
+      update: { name: w.name, category: w.category, thicknessM: w.thicknessM, color: w.color, pattern: w.pattern, measureFaces: w.measureFaces, cadLayerHints: w.cadLayerHints, hotkey: w.hotkey, sortOrder: w.sortOrder },
+      create: { code: w.code, name: w.name, category: w.category, thicknessM: w.thicknessM, color: w.color, pattern: w.pattern, measureFaces: w.measureFaces, cadLayerHints: w.cadLayerHints, hotkey: w.hotkey, sortOrder: w.sortOrder, active: true },
+    });
+  }
+  console.log(`✓ Seeded ${WALL_TYPES.length} wall types`);
+}
+
 async function main() {
   await seedPermissions();
   await seedRoles();
@@ -245,6 +267,7 @@ async function main() {
   await seedCompanyTypes();
   await seedVatCategories();
   await seedBusinessTypes();
+  await seedWallTypes();
 }
 
 main()

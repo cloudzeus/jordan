@@ -70,6 +70,8 @@ export const PERMISSIONS: PermissionDef[] = [
   // Συνταγές τοποθέτησης (υλικά/m², φύρα, εργατικά/m²) — δικά μας δεδομένα
   { key: 'recipes.read', resource: 'recipes', action: 'read', description: 'Προβολή συνταγών τοποθέτησης' },
   { key: 'recipes.manage', resource: 'recipes', action: 'manage', description: 'Δημιουργία, επεξεργασία, αντιγραφή και διαγραφή συνταγών τοποθέτησης' },
+  // Κατόψεις: κατάλογος τύπων τοίχου & στοιχείων (global) — δικά μας δεδομένα
+  { key: 'floorplans.catalog', resource: 'floorplans', action: 'catalog', description: 'Διαχείριση καταλόγου τύπων τοίχου & στοιχείων κατόψεων' },
   // Δυναμικές προσφορές (κοινό container, PRICEW01–08)
   { key: 'dynamic_offers.read', resource: 'dynamic_offers', action: 'read', description: 'Προβολή δυναμικών προσφορών' },
   { key: 'dynamic_offers.manage', resource: 'dynamic_offers', action: 'manage', description: 'Δημιουργία/επεξεργασία, δημοσίευση, παραλήπτες, email, τιμές στο SoftOne' },
@@ -125,6 +127,7 @@ export const ROLE_DEFAULTS: Record<string, string[]> = {
     'ocr.read', 'ocr.create', 'ocr.delete', 'ocr.categorize', 'ocr.post',
     'projects.read', 'projects.manage', 'projects.financials',
     'recipes.read', 'recipes.manage',
+    'floorplans.catalog',
     'dynamic_offers.read', 'dynamic_offers.manage', 'dynamic_offers.reservations',
     'payments.read', 'payments.manage', 'payments.refund',
     'order_requests.read', 'order_requests.manage',
@@ -146,7 +149,7 @@ export const ROLE_DEFAULTS: Record<string, string[]> = {
 export const RESOURCE_LABELS: Record<string, string> = {
   users: 'Χρήστες', roles: 'Ρόλοι', permissions: 'Δικαιώματα', media: 'Media', companies: 'Εταιρείες',
   kad: 'ΚΑΔ', metadata: 'Μητρώα αναφοράς', ocr: 'OCR / Έγγραφα', system: 'Σύστημα',
-  projects: 'Έργα', recipes: 'Συνταγές τοποθέτησης', dynamic_offers: 'Δυναμικές προσφορές', payments: 'Πληρωμές (Viva)', order_requests: 'Αιτήματα παραγγελίας', appointments: 'Ραντεβού', leads: 'Leads & newsletter', partners: 'Συνεργάτες', portal: 'Portal πελατών & συνεργατών',
+  projects: 'Έργα', recipes: 'Συνταγές τοποθέτησης', floorplans: 'Κατόψεις', dynamic_offers: 'Δυναμικές προσφορές', payments: 'Πληρωμές (Viva)', order_requests: 'Αιτήματα παραγγελίας', appointments: 'Ραντεβού', leads: 'Leads & newsletter', partners: 'Συνεργάτες', portal: 'Portal πελατών & συνεργατών',
   classifications: 'Κατηγορίες & ομάδες', units: 'Μονάδες μέτρησης', items: 'Είδη', files: 'Αρχεία πελατών & έργων', assistant: 'Air Jordan (βοηθός AI)',
 };
 
