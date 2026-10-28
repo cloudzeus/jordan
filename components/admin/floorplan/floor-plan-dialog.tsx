@@ -21,6 +21,7 @@ import { BrickWall, DoorOpen, Eraser, RectangleHorizontal, Ruler, RulerDimension
 import { eraseHit, type EraseHit } from '@/lib/floorplan/erase';
 import { angleTo, cameraWedge, CABLE_META, DEVICE_META, nearestDevice, networkLines, newDevice, type NetworkLine, type PlanCable, type PlanDevice } from '@/lib/floorplan/network';
 import { DEVICE_ICON, NetworkMenu, NetworkPanel, type NetPick } from './network-ui';
+import { EditorShell, type EditorShellWallType } from './editor-shell';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -210,7 +211,7 @@ function Range({ label, value, min, max, step = 1, display, onChange, disabled }
 /** Σε ποιον ανήκει η χαρτογράφηση: έργο, πελάτης (προσφορά πριν από το έργο) ή δυνητικός πελάτης (πριν υπάρξει στο SoftOne). */
 export type FloorPlanOwner = { prjc: number } | { trdr: number } | { prospect: number };
 
-export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSave = false, canOffer = false, onApply, initialPlanId = null }: {
+export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSave = false, canOffer = false, onApply, initialPlanId = null, editorV2 = false, wallTypes = [] }: {
   owner: FloorPlanOwner; projectLabel: string; open: boolean; onOpenChange: (o: boolean) => void;
   /** files.manage: «Αποθήκευση στο έργο» ανεβάζει PNG + CSV στον φάκελο «Κατόψεις». */
   canSave?: boolean;
@@ -220,6 +221,10 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
   onApply?: (r: { floorPlanId: string; title: string; rooms: PlanRoom[]; pins: PlanPin[]; network: NetworkLine[] }) => void;
   /** Χαρτογράφηση που ανοίγει κατευθείαν (η ήδη συνδεδεμένη με την προσφορά). */
   initialPlanId?: string | null;
+  /** Feature flag: νέο κέλυφος editor v2 (beta). Off ⇒ ο σημερινός editor. */
+  editorV2?: boolean;
+  /** Κατάλογος τύπων τοίχου για την παλέτα του v2 (από listWallTypes). */
+  wallTypes?: EditorShellWallType[];
 }) {
   const ownerId = 'prjc' in owner ? owner.prjc : 'trdr' in owner ? owner.trdr : owner.prospect;
   // API της χαρτογράφησης ανά ιδιοκτήτη· αρχεία στον φάκελο του έργου ή του πελάτη.
@@ -1035,6 +1040,23 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
     : TOOLS.find((t) => t.key === tool)!;
   const thickCm = walls && mPerPx ? walls.minThickness * mPerPx * 100 : null;
 
+  // Ο καμβάς (3D ή 2D) — κοινός για τον σημερινό editor και το κέλυφος v2. null όσο δεν υπάρχει σχέδιο.
+  const viewer = !plan ? null : view3d && mPerPx ? (
+    <Plan3d ref={plan3dRef} image={plan.display} w={w} h={h} mPerPx={mPerPx} rooms={rooms} selectedId={selected} devices={devices} cables={cables} selectedDeviceId={devSel} />
+  ) : (
+    <PlanViewer
+      image={plan.display} w={w} h={h}
+      wallsOverlay={overlay} showWalls={showWalls} wallThicknessPx={wallPx}
+      rooms={viewerRooms} selectedId={selected} dividers={dividers}
+      openings={viewerOpenings} openingKind={openingKind} dimensions={dims}
+      pins={pins.map((p, i) => ({ id: p.id, x: p.x, y: p.y, n: i + 1, selected: p.id === pinSel, hasPhoto: p.photoFileIds.length > 0 }))}
+      calibration={calibLine ?? (calib && !blankScale ? [calib.a, calib.b] : null)}
+      draft={draft} tool={tool} formatLength={fmtLen}
+      onPick={onPick} onFinish={finish} onEdit={onEdit} fitKey={fitKey} ortho={ortho}
+      netDevices={viewerDevices} netCables={viewerCables} cableColor={netPick.tool === 'cable' ? CABLE_META[netPick.kind].color : undefined}
+    />
+  );
+
   return (
     <TooltipProvider delayDuration={250}>
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -1124,6 +1146,22 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
               </button>
             </div>
           </div>
+        ) : editorV2 ? (
+          /* ── Κέλυφος v2 (beta, πίσω από flag) — chrome mockup γύρω από τον ίδιο PlanViewer ── */
+          <EditorShell
+            title="Διαστασιολόγηση κάτοψης" subtitle={projectLabel}
+            tools={TOOLS} activeTool={tool} onTool={(k) => changeTool(k as ViewerTool)}
+            ortho={ortho} onToggleOrtho={toggleOrtho}
+            view3d={view3d} onView={(v) => { setView3d(v); setDraft([]); }} canUse3d={!!mPerPx}
+            wallTypes={wallTypes}
+            status={{ selection: selected ? '1 χώρος' : undefined }}
+            onSave={() => void savePlan()} saving={planSaving}
+          >
+            <div className="relative size-full" {...dz.getRootProps()}>
+              <input {...dz.getInputProps()} />
+              {viewer}
+            </div>
+          </EditorShell>
         ) : (
           <div className="grid min-h-0 flex-1 grid-cols-1 grid-rows-[minmax(0,1fr)_auto] md:grid-cols-[20rem_minmax(0,1fr)] md:grid-rows-1">
             {/* ── Πάνελ βημάτων ── */}
@@ -1511,21 +1549,7 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
             {/* ── Προβολή ── */}
             <div className="relative order-1 min-h-[45dvh] md:order-2 md:min-h-0" {...dz.getRootProps()}>
               <input {...dz.getInputProps()} />
-              {view3d && mPerPx ? (
-                <Plan3d ref={plan3dRef} image={plan.display} w={w} h={h} mPerPx={mPerPx} rooms={rooms} selectedId={selected} devices={devices} cables={cables} selectedDeviceId={devSel} />
-              ) : (
-                <PlanViewer
-                  image={plan.display} w={w} h={h}
-                  wallsOverlay={overlay} showWalls={showWalls} wallThicknessPx={wallPx}
-                  rooms={viewerRooms} selectedId={selected} dividers={dividers}
-                  openings={viewerOpenings} openingKind={openingKind} dimensions={dims}
-                  pins={pins.map((p, i) => ({ id: p.id, x: p.x, y: p.y, n: i + 1, selected: p.id === pinSel, hasPhoto: p.photoFileIds.length > 0 }))}
-                  calibration={calibLine ?? (calib && !blankScale ? [calib.a, calib.b] : null)}
-                  draft={draft} tool={tool} formatLength={fmtLen}
-                  onPick={onPick} onFinish={finish} onEdit={onEdit} fitKey={fitKey} ortho={ortho}
-                  netDevices={viewerDevices} netCables={viewerCables} cableColor={netPick.tool === 'cable' ? CABLE_META[netPick.kind].color : undefined}
-                />
-              )}
+              {viewer}
 
               {/* Εργαλειοθήκη (αριστερά), σε ομάδες — tooltip με το τι κάνει κάθε εργαλείο */}
               {!view3d && (

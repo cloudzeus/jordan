@@ -13,8 +13,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { toast } from 'sonner';
 import type { FloorPlanCard } from '@/lib/floorplan/plans';
 import type { FloorPlanOwner } from '@/components/admin/floorplan/floor-plan-dialog';
+import { setFloorplanV2Action } from './flag-actions';
 
 // three.js + pdfjs φορτώνονται μόνο όταν ανοίξει το εργαλείο.
 const FloorPlanDialog = dynamic(() => import('@/components/admin/floorplan/floor-plan-dialog').then((m) => m.FloorPlanDialog), { ssr: false });
@@ -28,12 +30,23 @@ const ITEM = 'cursor-pointer gap-2 text-(length:--fs-12)';
 const fmt = (n: number) => n.toLocaleString('el-GR', { maximumFractionDigits: 1 });
 const imgUrl = (p: FloorPlanCard, v: 'annotated' | 'plan' | '3d' | 'source') => `/api/admin/floorplans/${p.id}/image?v=${v}&t=${encodeURIComponent(p.updatedAt)}`;
 
-export function FloorPlansGallery({ plans, canSave, canOffer }: { plans: FloorPlanCard[]; canSave: boolean; canOffer: boolean }) {
+type WallTypeLite = { id: string; code: string; name: string; color: string; thicknessM: number; hotkey: string | null };
+
+export function FloorPlansGallery({ plans, canSave, canOffer, editorV2 = false, canToggleV2 = false, wallTypes = [] }: {
+  plans: FloorPlanCard[]; canSave: boolean; canOffer: boolean;
+  editorV2?: boolean; canToggleV2?: boolean; wallTypes?: WallTypeLite[];
+}) {
   const router = useRouter();
   const [q, setQ] = React.useState('');
   const [filter, setFilter] = React.useState<Filter>('all');
   const [sort, setSort] = React.useState<Sort>('recent');
   const [editing, setEditing] = React.useState<FloorPlanCard | null>(null);
+  const [togglingV2, startToggleV2] = React.useTransition();
+  const toggleV2 = () => startToggleV2(async () => {
+    const r = await setFloorplanV2Action({ all: !editorV2 });
+    if (r.ok) { toast.success(editorV2 ? 'Editor v2: ανενεργό' : 'Editor v2 (beta): ενεργό για όλους'); router.refresh(); }
+    else toast.error(r.message);
+  });
 
   const needle = q.trim().toLowerCase();
   const shown = plans
@@ -67,6 +80,14 @@ export function FloorPlansGallery({ plans, canSave, canOffer }: { plans: FloorPl
             <SelectItem value="title">Αλφαβητικά</SelectItem>
           </SelectContent>
         </Select>
+        {canToggleV2 && (
+          <button type="button" onClick={toggleV2} disabled={togglingV2} aria-pressed={editorV2}
+            title="Νέος editor κατόψεων (beta) — για όλους τους χρήστες"
+            className={cn('inline-flex min-h-8 cursor-pointer items-center gap-1.5 rounded-md border px-2.5 text-(length:--fs-12) font-medium transition-colors disabled:opacity-60',
+              editorV2 ? 'border-violet-500 bg-violet-500/10 text-violet-700' : 'border-border text-muted-foreground hover:text-foreground')}>
+            <span className={cn('size-2 rounded-full', editorV2 ? 'bg-violet-500' : 'bg-muted-foreground/40')} aria-hidden /> Editor v2 (beta)
+          </button>
+        )}
         <span className="ml-auto text-(length:--fs-12) tabular-nums text-muted-foreground" aria-live="polite">{shown.length} από {plans.length}</span>
       </div>
 
@@ -88,6 +109,7 @@ export function FloorPlansGallery({ plans, canSave, canOffer }: { plans: FloorPl
         <FloorPlanDialog
           owner={owner} projectLabel={editing.projectLabel ?? editing.customerName ?? editing.title}
           canSave={canSave} canOffer={canOffer} initialPlanId={editing.id}
+          editorV2={editorV2} wallTypes={wallTypes}
           open onOpenChange={(o) => { if (!o) { setEditing(null); router.refresh(); } }}
         />
       )}
