@@ -81,11 +81,12 @@ export function wallsInRect(walls: WallEntity[], a: Pt, b: Pt): string[] {
   return out;
 }
 
-/** Store walls (μέτρα) → CanvasWall[] (px) με χρώμα τύπου, πάχος και επιλογή. */
+/** Store walls (μέτρα) → CanvasWall[] (px) με χρώμα τύπου, πάχος και επιλογή (σύνολο επιλεγμένων ids). */
 export function wallsForCanvas(
-  walls: WallEntity[], mPerPx: number, selectedId: string | null, wallTypes: EditorShellWallType[],
+  walls: WallEntity[], mPerPx: number, selectedIds: string[], wallTypes: EditorShellWallType[],
 ): CanvasWall[] {
   const byId = new Map(wallTypes.map((t) => [t.id, t]));
+  const sel = new Set(selectedIds);
   return walls.map((w) => {
     const t = w.typeId ? byId.get(w.typeId) : undefined;
     return {
@@ -94,7 +95,7 @@ export function wallsForCanvas(
       b: { x: w.b.x / mPerPx, y: w.b.y / mPerPx },
       thicknessPx: t ? Math.max(1, t.thicknessM / mPerPx) : 2,
       color: t ? t.color : UNTYPED,
-      selected: w.id === selectedId,
+      selected: sel.has(w.id),
     };
   });
 }

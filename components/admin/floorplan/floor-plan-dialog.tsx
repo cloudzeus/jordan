@@ -1190,7 +1190,7 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
       calibration={calibLine ?? (calib && !blankScale ? [calib.a, calib.b] : null)}
       draft={draft} tool={tool} formatLength={fmtLen}
       vectorWalls={v2Active ? [
-        ...wallsForCanvas(v2.data.walls, mPerPx!, v2.selection.id, wallTypes),
+        ...wallsForCanvas(v2.data.walls, mPerPx!, v2.selectedWallIds, wallTypes),
         ...(wallPreview ?? []).map((vp, i) => ({ id: `prev-${i}`, a: vp.a, b: vp.b, thicknessPx: vp.thicknessPx, color: '#22D3EE', selected: false })),
       ] : undefined}
       onPick={onPick} onFinish={finish} onEdit={onEdit} fitKey={fitKey} ortho={ortho}

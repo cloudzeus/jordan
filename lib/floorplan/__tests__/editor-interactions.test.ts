@@ -73,7 +73,7 @@ describe('clampAcceptCount', () => {
 describe('wallsForCanvas', () => {
   it('maps a typed wall to px with type color and selection', () => {
     const types = [wt('t', '1', 0.2, '#abc')];
-    const out: CanvasWall[] = wallsForCanvas([wall('w1', [0, 0], [1, 0], 't')], 0.01, 'w1', types);
+    const out: CanvasWall[] = wallsForCanvas([wall('w1', [0, 0], [1, 0], 't')], 0.01, ['w1'], types);
     expect(out[0].color).toBe('#abc');
     expect(out[0].thicknessPx).toBe(20);
     expect(out[0].selected).toBe(true);
@@ -81,7 +81,7 @@ describe('wallsForCanvas', () => {
     expect(out[0].b).toEqual({ x: 100, y: 0 });
   });
   it('uses neutral grey for an untyped wall', () => {
-    const out = wallsForCanvas([wall('w1', [0, 0], [1, 0], null)], 0.01, null, []);
+    const out = wallsForCanvas([wall('w1', [0, 0], [1, 0], null)], 0.01, [], []);
     expect(out[0].color).toBe('#94A3B8');
     expect(out[0].selected).toBe(false);
   });
