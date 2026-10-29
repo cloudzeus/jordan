@@ -37,6 +37,7 @@ import { segmentsByRole, layerRole } from '@/lib/floorplan/cad/recognize-walls';
 import { recognizeColumns, recognizeStairs } from '@/lib/floorplan/cad/recognize-elements';
 import { cadWallsToNew } from '@/lib/floorplan/cad/import';
 import type { NewWall } from '@/lib/floorplan/editor/reducers';
+import { roomsFromWalls, type DerivedRoom } from '@/lib/floorplan/editor/rooms';
 import { LINE_TOOLS, OPENING_COLOR, PlanViewer, WALL_DRAW, type EditPhase, type ViewerOpening, type ViewerRoom, type ViewerTool } from './plan-viewer';
 import { Plan3d, type Plan3dHandle } from './plan-3d';
 import { annotatedPng, download, fmtM, fmtM2, roomsCsv, roomsText, type ExportRoom } from './export';
@@ -343,6 +344,8 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
   // Ενοποιημένο preview τοίχων (AI ΚΑΙ CAD/PDF): μπαίνει σε draft, όχι απευθείας στο store· «Αποδοχή» το περνά, «Άκυρο» το πετά.
   const [wallDraft, setWallDraft] = React.useState<NewWall[] | null>(null);
   const [cadInfo, setCadInfo] = React.useState<{ cols: number; stairs: number; layers: number } | null>(null);
+  // v2 (beta): χώροι υπολογισμένοι από τους τοίχους (μέτρα)· οι τοίχοι ορίζουν τους χώρους.
+  const [v2Rooms, setV2Rooms] = React.useState<DerivedRoom[] | null>(null);
   const [cadBusy, setCadBusy] = React.useState(false);
   const [aiRegionMode, setAiRegionMode] = React.useState(false);
 
@@ -968,7 +971,7 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
     const sig = plan.display;
     if (seededRef.current === sig) return;
     seededRef.current = sig;
-    setWallDraft(null); setCadInfo(null);
+    setWallDraft(null); setCadInfo(null); setV2Rooms(null);
     storeRef.current!.getState().load(
       upgradePlanData(planDataNow(), { wallTypes: wallTypes.map((t) => ({ id: t.id, thicknessM: t.thicknessM, active: true })) }),
     );
@@ -1008,6 +1011,15 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
     setWallDraft(null); setCadInfo(null);
   };
   const cancelWallDraft = () => { setWallDraft(null); setCadInfo(null); };
+  // v2 (beta): οι τοίχοι ορίζουν τους χώρους — planar faces από τα τμήματα τοίχων (μέτρα).
+  const computeRooms = () => {
+    if (!v2Active) return;
+    if (!v2.data.walls.length) { toast.message('Σχεδίασε ή ανίχνευσε πρώτα τοίχους.'); return; }
+    const rs = roomsFromWalls(v2.data.walls);
+    setV2Rooms(rs);
+    if (rs.length) toast.success(`${rs.length} χώρ${rs.length === 1 ? 'ος' : 'οι'} · ${fmtM2(rs.reduce((s, r) => s + r.areaM2, 0))}`);
+    else toast.message('Δεν βρέθηκαν κλειστοί χώροι — κλείσε τα περιγράμματα των τοίχων.');
+  };
 
   // v2 (beta): AI ανίχνευση τοίχων (OpenRouter/Claude). Προαιρετικά σε ΠΕΡΙΟΧΗ (crop) του σχεδίου·
   // οι τοίχοι επιστρέφουν ως centerlines → μέτρα → store (οι τοίχοι ορίζουν και τους χώρους).
@@ -1202,6 +1214,15 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
     sub: mPerPx ? fmtM2(toM2(r.areaPx, mPerPx)) : `${nf.format(r.areaPx)} px²`,
   })), [rooms, mPerPx]);
 
+  // v2 (beta): οι υπολογισμένοι από τοίχους χώροι ως ViewerRoom (px) — εμφανίζονται στο room layer του v2.
+  const v2ViewerRooms: ViewerRoom[] = React.useMemo(() => {
+    if (!v2Active || !mPerPx || !v2Rooms) return [];
+    return v2Rooms.map((r, i) => {
+      const polygon = r.polygon.map((p) => ({ x: p.x / mPerPx!, y: p.y / mPerPx! }));
+      return { id: `v2room-${i}`, color: PALETTE[i % PALETTE.length], polygon, label: `Χώρος ${i + 1}`, sub: fmtM2(r.areaM2), anchor: labelPoint(polygon) };
+    });
+  }, [v2Active, mPerPx, v2Rooms]);
+
   const viewerOpenings: ViewerOpening[] = React.useMemo(() => rooms.flatMap((r) => (r.walls?.openings ?? [])
     .filter((o) => o.at).map((o) => ({ id: o.id, kind: o.kind, a: o.at![0], b: o.at![1], selected: r.id === selected }))), [rooms, selected]);
 
@@ -1235,7 +1256,7 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
     <PlanViewer
       image={plan.display} w={w} h={h}
       wallsOverlay={overlay} showWalls={showWalls} wallThicknessPx={wallPx}
-      rooms={viewerRooms} selectedId={selected} dividers={dividers}
+      rooms={v2Active ? v2ViewerRooms : viewerRooms} selectedId={selected} dividers={dividers}
       openings={viewerOpenings} openingKind={openingKind} dimensions={dims}
       pins={pins.map((p, i) => ({ id: p.id, x: p.x, y: p.y, n: i + 1, selected: p.id === pinSel, hasPhoto: p.photoFileIds.length > 0 }))}
       calibration={calibLine ?? (calib && !blankScale ? [calib.a, calib.b] : null)}
@@ -1433,6 +1454,20 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
                     </div>
                   </div>
                 )}
+                {/* ── Υπολογισμός χώρων: οι τοίχοι ορίζουν τους χώρους (planar faces) ── */}
+                <div className="flex flex-col gap-1.5 border-t border-white/10 pt-2">
+                  <h3 className="text-(length:--fs-11) font-semibold uppercase tracking-wider text-slate-500">Χώροι</h3>
+                  <button type="button" onClick={computeRooms} disabled={!mPerPx}
+                    title={!mPerPx ? 'Όρισε πρώτα κλίμακα.' : undefined}
+                    className="inline-flex h-7 cursor-pointer items-center justify-center rounded-md border border-white/15 px-2.5 text-(length:--fs-12) text-slate-200 transition-colors hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-60">
+                    Υπολογισμός χώρων
+                  </button>
+                  {v2Rooms && (
+                    <div className="text-(length:--fs-11) text-slate-400">
+                      {v2Rooms.length ? `${v2Rooms.length} χώρ${v2Rooms.length === 1 ? 'ος' : 'οι'} · ${fmtM2(v2Rooms.reduce((s, r) => s + r.areaM2, 0))}` : 'Κανένας κλειστός χώρος — κλείσε τα περιγράμματα.'}
+                    </div>
+                  )}
+                </div>
                 {/* ── Δευτερεύον: εισαγωγή από διανυσματικά layers PDF (CAD) ── */}
                 {file && isPdf(file) && !wallDraft && (
                   <div className="mt-1 flex flex-col gap-1.5 border-t border-white/10 pt-2">
