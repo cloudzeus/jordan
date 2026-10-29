@@ -34,6 +34,7 @@ export type EditorActions = {
   select(s: Selection): void;
   setActiveWallType(id: string | null): void;
   addWall(w: NewWall): void;
+  addWalls(ws: NewWall[]): void;
   updateWall(id: string, patch: Partial<Pick<WallEntity, 'a' | 'b' | 'typeId' | 'locked'>>): void;
   setWallType(id: string, typeId: string | null): void;
   moveWallEnd(id: string, end: 'a' | 'b', pt: Pt): void;
@@ -78,6 +79,7 @@ export function createEditorStore(initial: PlanDataV2): StoreApi<EditorStore> {
       setActiveWallType: (id) => set({ activeWallTypeId: id }),
 
       addWall: (w) => commit((d) => addWallRecipe(d, w)),
+      addWalls: (ws) => commit((d) => { for (const w of ws) addWallRecipe(d, w); }),
       updateWall: (id, patch) => commit((d) => updateWallRecipe(d, id, patch)),
       setWallType: (id, typeId) => commit((d) => setWallTypeRecipe(d, id, typeId)),
       moveWallEnd: (id, end, pt) => commit((d) => moveWallEndRecipe(d, id, end, pt)),

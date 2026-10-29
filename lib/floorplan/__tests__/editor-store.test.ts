@@ -71,6 +71,22 @@ describe('editor store', () => {
     expect(TOOL_KEYS).toContain('wall');
   });
 
+  it('addWalls adds many walls as ONE undoable step', () => {
+    const s = createEditorStore(base());
+    s.getState().addWalls([seg(0), seg(2), seg(4)]);
+    expect(s.getState().data.walls).toHaveLength(3);
+    expect(s.getState().canUndo).toBe(true);
+    s.getState().undo();
+    expect(s.getState().data.walls).toHaveLength(0); // single undo removes all three
+  });
+
+  it('addWalls with an empty array is a no-op (no undo step)', () => {
+    const s = createEditorStore(base());
+    s.getState().addWalls([]);
+    expect(s.getState().data.walls).toHaveLength(0);
+    expect(s.getState().canUndo).toBe(false);
+  });
+
   it('deleteWall removes wall and its openings as one undoable step', () => {
     const s = createEditorStore(base());
     s.getState().addWall(seg(0));

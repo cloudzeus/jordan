@@ -949,7 +949,7 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
     const st = storeRef.current!.getState();
     const incoming = vectorWallsToNew(wallPreview, mPerPx, wallTypes);
     const n = clampAcceptCount(st.data.walls.length, incoming.length);
-    for (let i = 0; i < n; i++) st.addWall(incoming[i]);
+    st.addWalls(incoming.slice(0, n)); // ένα undo step για όλη την αποδοχή
     if (n < incoming.length) toast.warning(`Προστέθηκαν ${n} τοίχοι · ${incoming.length - n} αγνοήθηκαν (όριο ${20_000}).`);
     else toast.success(`Προστέθηκαν ${n} τοίχοι.`);
     setWallPreview(null);
