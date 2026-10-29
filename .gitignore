@@ -58,3 +58,4 @@ next-env.d.ts
 
 # macOS metadata σε exFAT
 ._*
+/floorplan-samples/
