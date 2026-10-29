@@ -37,6 +37,19 @@ shippable, testable κομμάτι», σπάει σε **7 plans** που βγα�
 Snapping & Web Workers (Φάση 4 του spec) εντάσσονται στο 04 (snapping engine, αριθμητική είσοδος)
 και σταδιακά στα 03/06 (workers για vectorize/DXF/PDF), όχι ως χωριστό plan.
 
+### Νέα κατεύθυνση (χρήστης, 2026-10-29) — 3 input paths + reusable trace
+
+Ο πελάτης ανεβάζει και **ΕΙΚΟΝΑ** (όχι μόνο PDF/DXF). Τα 3 input paths καταλήγουν σε **ένα ουδέτερο
+FloorPlan model** (γεωμετρία μόνο): εικόνα → **AI vision trace**· vector PDF → 06· DXF → 06b.
+
+| # | Plan | Παραδοτέο | Εξαρτάται |
+|---|------|-----------|----------|
+| 06i | **AI vision trace (εικόνες)** | Βελτιωμένο `FLOORPLAN_AI_PROMPT` + schema ώστε το vision μοντέλο να **ιχνηλατεί ΣΤΟΙΧΕΙΑ** (τοίχους-polylines, πόρτες/παράθυρα, κολόνες, σκάλες), όχι μόνο χώρους· ίδιος αγωγός → store (parity με 06). **Μέσω OpenRouter** (gateway· επιλογή vision μοντέλου, π.χ. Claude). Κλίμακα: **χειροκίνητη** (όπως τώρα — ΟΧΙ auto). | 02, 04 |
+| R | **Reusable `blueprint-trace` component** | Εξαγωγή trace+editor σε app-agnostic boundary (ουδέτερο FloorPlan model, generic markers)· ΧΩΡΙΣ WallType/materials/offers/SoftOne. Για property-mgmt / IoT placement / site survey / CV camera mgmt. jordan = thin consumer. | 06, 06i |
+
+Βλ. memory `blueprint-trace-reusable`. Το `lib/floorplan/{cad,vectorize,snapping,editor}` είναι ήδη
+~80% καθαρή γεωμετρία· το coupling είναι `EditorShellWallType`/materials + offers + ο dialog.
+
 ## Γιατί το 01 (WallType) προηγείται του editor-split
 
 Το spec βάζει πρώτο το σπάσιμο του editor «γιατί οι Φάσεις 1–3 δεν χωράνε στο dialog». Ισχύει —
