@@ -42,7 +42,8 @@ import type { RecipeView } from '@/lib/install-recipes';
 import { planData, planDataV2, planPins, planRooms, scalePlanData, type PlanData, type PlanPin, type PlanRoom } from '@/lib/floorplan/saved';
 import { upgradePlanData } from '@/lib/floorplan/upgrade';
 import { createEditorStore, type EditorStore } from '@/lib/floorplan/editor/store';
-import { hotkeyToWallTypeId, pickWallAt, wallsForCanvas } from '@/lib/floorplan/editor/interactions';
+import { clampAcceptCount, hotkeyToWallTypeId, pickWallAt, vectorWallsToNew, wallsForCanvas } from '@/lib/floorplan/editor/interactions';
+import { vectorizeWalls, type VectorWall } from '@/lib/floorplan/vectorize';
 import { useStore } from 'zustand';
 import type { StoreApi } from 'zustand/vanilla';
 import { aiResponse, chooseScale, fallbackPolygon, pickCandidate, roomsInPx } from '@/lib/floorplan/ai-core';
@@ -318,6 +319,7 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
   const v2 = useStore(storeRef.current, (s) => s);
   const v2Active = editorV2 && !!mPerPx;
   const seededRef = React.useRef<unknown>(null);
+  const [wallPreview, setWallPreview] = React.useState<VectorWall[] | null>(null);
 
   // ── Φόρτωση ──────────────────────────────────────────────────────────────────────────
   const reset = () => {
@@ -926,12 +928,32 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
     const sig = plan.display;
     if (seededRef.current === sig) return;
     seededRef.current = sig;
+    setWallPreview(null);
     storeRef.current!.getState().load(
       upgradePlanData(planDataNow(), { wallTypes: wallTypes.map((t) => ({ id: t.id, thicknessM: t.thicknessM, active: true })) }),
     );
     // μία φορά ανά σχέδιο· σκόπιμα χωρίς dep στο planDataNow (αλλάζει κάθε render).
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [v2Active, plan, wallTypes]);
+
+  // v2 (beta): προεπισκόπηση των διανυσματικών τοίχων από τη συνδυασμένη μάσκα (auto + σχεδιασμένοι)·
+  // «Αποδοχή» → μετατροπή px→μέτρα + τύπος από πάχος → store.addWall (με όριο cap).
+  const previewVectorWalls = () => {
+    if (!v2Active || !plan) return;
+    const m = drawnMask.slice();
+    if (autoMask) for (let i = 0; i < m.length; i++) if (autoMask[i]) m[i] = 1;
+    setWallPreview(vectorizeWalls(m, w, h));
+  };
+  const acceptVectorWalls = () => {
+    if (!v2Active || !mPerPx || !wallPreview) return;
+    const st = storeRef.current!.getState();
+    const incoming = vectorWallsToNew(wallPreview, mPerPx, wallTypes);
+    const n = clampAcceptCount(st.data.walls.length, incoming.length);
+    for (let i = 0; i < n; i++) st.addWall(incoming[i]);
+    if (n < incoming.length) toast.warning(`Προστέθηκαν ${n} τοίχοι · ${incoming.length - n} αγνοήθηκαν (όριο ${20_000}).`);
+    else toast.success(`Προστέθηκαν ${n} τοίχοι.`);
+    setWallPreview(null);
+  };
   const canvasPng = (c: HTMLCanvasElement) => new Promise<Blob>((res, rej) => c.toBlob((b) => (b ? res(b) : rej(new Error('PNG export failed'))), 'image/png'));
   /** Νέα ή ενημέρωση της χαρτογράφησης στο έργο· επιστρέφει το id (null σε αποτυχία). */
   const savePlan = async (quiet = false): Promise<string | null> => {
@@ -1112,7 +1134,10 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
       pins={pins.map((p, i) => ({ id: p.id, x: p.x, y: p.y, n: i + 1, selected: p.id === pinSel, hasPhoto: p.photoFileIds.length > 0 }))}
       calibration={calibLine ?? (calib && !blankScale ? [calib.a, calib.b] : null)}
       draft={draft} tool={tool} formatLength={fmtLen}
-      vectorWalls={v2Active ? wallsForCanvas(v2.data.walls, mPerPx!, v2.selection.id, wallTypes) : undefined}
+      vectorWalls={v2Active ? [
+        ...wallsForCanvas(v2.data.walls, mPerPx!, v2.selection.id, wallTypes),
+        ...(wallPreview ?? []).map((vp, i) => ({ id: `prev-${i}`, a: vp.a, b: vp.b, thicknessPx: vp.thicknessPx, color: '#22D3EE', selected: false })),
+      ] : undefined}
       onPick={onPick} onFinish={finish} onEdit={onEdit} fitKey={fitKey} ortho={ortho}
       netDevices={viewerDevices} netCables={viewerCables} cableColor={netPick.tool === 'cable' ? CABLE_META[netPick.kind].color : undefined}
     />
@@ -1218,6 +1243,28 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
             activeWallTypeId={v2.activeWallTypeId}
             onWallType={(id) => { if (v2.selection.kind === 'wall' && v2.selection.id) v2.setWallType(v2.selection.id, id); else v2.setActiveWallType(id); }}
             status={{ selection: v2.selection.kind === 'wall' ? 'τοίχος' : (selected ? '1 χώρος' : undefined) }}
+            rightExtra={
+              <div className="flex flex-col gap-2">
+                <h3 className="text-(length:--fs-11) font-semibold uppercase tracking-wider text-slate-500">Διανυσματικοί τοίχοι</h3>
+                {!wallPreview ? (
+                  <button type="button" onClick={previewVectorWalls}
+                    className="inline-flex h-7 cursor-pointer items-center justify-center rounded-md border border-white/15 px-2.5 text-(length:--fs-12) text-slate-200 transition-colors hover:bg-white/5">
+                    Προεπισκόπηση τοίχων
+                  </button>
+                ) : (
+                  <div className="flex gap-2">
+                    <button type="button" onClick={acceptVectorWalls}
+                      className="inline-flex h-7 flex-1 cursor-pointer items-center justify-center gap-1 rounded-md px-2.5 text-(length:--fs-12) font-semibold text-white" style={{ background: '#7C3AED' }}>
+                      Αποδοχή ({wallPreview.length})
+                    </button>
+                    <button type="button" onClick={() => setWallPreview(null)}
+                      className="inline-flex h-7 cursor-pointer items-center justify-center rounded-md border border-white/15 px-2.5 text-(length:--fs-12) text-slate-300 transition-colors hover:bg-white/5">
+                      Άκυρο
+                    </button>
+                  </div>
+                )}
+              </div>
+            }
             onSave={() => { if (!calib) { toast.error('Όρισε πρώτα κλίμακα με το εργαλείο «Κλίμακα».'); return; } void savePlan(); }} saving={planSaving}
           >
             <div className="relative size-full" {...dz.getRootProps()}>
