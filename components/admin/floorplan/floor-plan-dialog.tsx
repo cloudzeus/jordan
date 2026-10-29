@@ -226,7 +226,7 @@ function Range({ label, value, min, max, step = 1, display, onChange, disabled }
 /** Σε ποιον ανήκει η χαρτογράφηση: έργο, πελάτης (προσφορά πριν από το έργο) ή δυνητικός πελάτης (πριν υπάρξει στο SoftOne). */
 export type FloorPlanOwner = { prjc: number } | { trdr: number } | { prospect: number };
 
-export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSave = false, canOffer = false, onApply, initialPlanId = null, editorV2 = false, wallTypes = [] }: {
+export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSave = false, canOffer = false, onApply, initialPlanId = null, editorV2: editorV2Prop = false, wallTypes: wallTypesProp = [] }: {
   owner: FloorPlanOwner; projectLabel: string; open: boolean; onOpenChange: (o: boolean) => void;
   /** files.manage: «Αποθήκευση στο έργο» ανεβάζει PNG + CSV στον φάκελο «Κατόψεις». */
   canSave?: boolean;
@@ -246,6 +246,19 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
   const ownerPath = 'prjc' in owner ? `projects/${owner.prjc}` : 'trdr' in owner ? `traders/${owner.trdr}` : `prospects/${owner.prospect}`;
   const apiBase = `/api/admin/${ownerPath}`;
   const filesUrl = `/api/admin/entity-files/${ownerPath}`;
+  // Ο v2 editor + AI είναι διαθέσιμα ΑΠΟ ΠΑΝΤΟΥ: αν ο caller δεν περάσει το config (π.χ. από προσφορά/
+  // σύμβαση/prospect), το φέρνουμε ανά χρήστη στο άνοιγμα. Η σελίδα «Κατόψεις» το περνά ήδη (χωρίς flash).
+  const [editorV2, setEditorV2] = React.useState(editorV2Prop);
+  const [wallTypes, setWallTypes] = React.useState(wallTypesProp);
+  React.useEffect(() => {
+    if (!open) return;
+    let alive = true;
+    fetch('/api/admin/floorplan-config', { cache: 'no-store' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((c) => { if (alive && c) { setEditorV2(!!c.editorV2); if (Array.isArray(c.wallTypes)) setWallTypes(c.wallTypes); } })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, [open]);
   const [file, setFile] = React.useState<File | null>(null);
   const [plan, setPlan] = React.useState<LoadedPlan | null>(null);
   const [loading, setLoading] = React.useState(false);
