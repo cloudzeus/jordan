@@ -55,6 +55,32 @@ export function clampAcceptCount(existing: number, incoming: number, cap = WALL_
   return Math.max(0, Math.min(incoming, cap - existing));
 }
 
+const pointInRect = (p: Pt, minX: number, minY: number, maxX: number, maxY: number): boolean =>
+  p.x >= minX && p.x <= maxX && p.y >= minY && p.y <= maxY;
+
+/** Τέμνονται τα τμήματα p1–p2 και p3–p4; */
+function segsIntersect(p1: Pt, p2: Pt, p3: Pt, p4: Pt): boolean {
+  const d = (a: Pt, b: Pt, c: Pt) => (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
+  const d1 = d(p3, p4, p1), d2 = d(p3, p4, p2), d3 = d(p1, p2, p3), d4 = d(p1, p2, p4);
+  return ((d1 > 0 && d2 < 0) || (d1 < 0 && d2 > 0)) && ((d3 > 0 && d4 < 0) || (d3 < 0 && d4 > 0));
+}
+
+/** ids τοίχων των οποίων το τμήμα τέμνει (ή βρίσκεται μέσα) στο ευθυγραμμισμένο ορθογώνιο a–b. */
+export function wallsInRect(walls: WallEntity[], a: Pt, b: Pt): string[] {
+  const minX = Math.min(a.x, b.x), maxX = Math.max(a.x, b.x);
+  const minY = Math.min(a.y, b.y), maxY = Math.max(a.y, b.y);
+  if (maxX - minX <= 0 || maxY - minY <= 0) return []; // μηδενικό εμβαδόν
+  const corners: Pt[] = [{ x: minX, y: minY }, { x: maxX, y: minY }, { x: maxX, y: maxY }, { x: minX, y: maxY }];
+  const out: string[] = [];
+  for (const w of walls) {
+    if (pointInRect(w.a, minX, minY, maxX, maxY) || pointInRect(w.b, minX, minY, maxX, maxY)) { out.push(w.id); continue; }
+    let hit = false;
+    for (let i = 0; i < 4 && !hit; i++) if (segsIntersect(w.a, w.b, corners[i], corners[(i + 1) % 4])) hit = true;
+    if (hit) out.push(w.id);
+  }
+  return out;
+}
+
 /** Store walls (μέτρα) → CanvasWall[] (px) με χρώμα τύπου, πάχος και επιλογή. */
 export function wallsForCanvas(
   walls: WallEntity[], mPerPx: number, selectedId: string | null, wallTypes: EditorShellWallType[],

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  hotkeyToWallTypeId, pickWallAt, vectorWallsToNew, clampAcceptCount, wallsForCanvas,
+  hotkeyToWallTypeId, pickWallAt, vectorWallsToNew, clampAcceptCount, wallsForCanvas, wallsInRect,
   type CanvasWall,
 } from '@/lib/floorplan/editor/interactions';
 import type { WallEntity } from '@/lib/floorplan/editor/reducers';
@@ -84,5 +84,28 @@ describe('wallsForCanvas', () => {
     const out = wallsForCanvas([wall('w1', [0, 0], [1, 0], null)], 0.01, null, []);
     expect(out[0].color).toBe('#94A3B8');
     expect(out[0].selected).toBe(false);
+  });
+});
+
+describe('wallsInRect', () => {
+  const walls = [
+    wall('inside', [1, 1], [2, 2]),
+    wall('crossing', [-1, 1.5], [1.5, 1.5]),
+    wall('outside', [10, 10], [12, 12]),
+  ];
+  it('includes a wall fully inside the rect', () => {
+    expect(wallsInRect(walls, { x: 0, y: 0 }, { x: 3, y: 3 })).toContain('inside');
+  });
+  it('includes a wall crossing a rect edge', () => {
+    expect(wallsInRect(walls, { x: 0, y: 0 }, { x: 3, y: 3 })).toContain('crossing');
+  });
+  it('excludes a wall fully outside', () => {
+    expect(wallsInRect(walls, { x: 0, y: 0 }, { x: 3, y: 3 })).not.toContain('outside');
+  });
+  it('normalizes corner order', () => {
+    expect(wallsInRect(walls, { x: 3, y: 3 }, { x: 0, y: 0 })).toContain('inside');
+  });
+  it('returns [] for a zero-area rect', () => {
+    expect(wallsInRect(walls, { x: 1, y: 1 }, { x: 1, y: 1 })).toEqual([]);
   });
 });
