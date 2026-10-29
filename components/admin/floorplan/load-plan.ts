@@ -5,6 +5,8 @@
 // pixels στη μεγάλη πλευρά) όπου τρέχουν ανίχνευση τοίχων/flood fill. Οι συντεταγμένες όλου του
 // εργαλείου είναι σε pixels της `analysis`.
 
+import { flattenPath, pdfOpsToRaw, type CadSegment, type Matrix } from '@/lib/floorplan/cad/pdf-vectors';
+
 const ANALYSIS_MAX = 1600;
 const DISPLAY_MAX = 4096;
 
@@ -52,8 +54,10 @@ async function loadImage(file: File): Promise<LoadedPlan> {
 
 type PdfDoc = { numPages: number; getPage: (n: number) => Promise<PdfPage> };
 type PdfPage = {
-  getViewport: (o: { scale: number }) => { width: number; height: number };
+  getViewport: (o: { scale: number }) => { width: number; height: number; transform: number[] };
   render: (o: { canvasContext: CanvasRenderingContext2D; canvas: HTMLCanvasElement; viewport: unknown }) => { promise: Promise<void> };
+  getOperatorList: () => Promise<{ fnArray: number[]; argsArray: unknown[] }>;
+  getOptionalContentConfig: () => Promise<{ getGroup: (id: string) => { name?: string } | null } | null>;
 };
 
 // Το legacy build: το «modern» της 5.x θέλει πολύ νέα JS API (π.χ. Map#getOrInsertComputed)
@@ -96,6 +100,43 @@ async function loadPdf(file: File, page: number): Promise<LoadedPlan> {
 
 export function loadPlan(file: File, page = 1): Promise<LoadedPlan> {
   return isPdf(file) ? loadPdf(file, page) : loadImage(file);
+}
+
+/**
+ * Διανυσματική εξαγωγή μιας σελίδας PDF σε px της `analysis` (ίδιο coordinate space με το εργαλείο):
+ * OCG layers + operator-list → `CadSegment[]`. I/O glue — επαληθεύεται με manual QA (Plan 06, Task 5).
+ */
+export async function pageVectors(
+  file: File, page: number, targetW: number,
+): Promise<{ segments: CadSegment[]; layers: { id: string; name: string }[]; w: number; h: number }> {
+  const m = await pdfjs();
+  let docP = docs.get(file);
+  if (!docP) {
+    docP = file.arrayBuffer().then(async (buf) => (await pdfjs()).getDocument({ data: new Uint8Array(buf) }).promise as unknown as PdfDoc);
+    docs.set(file, docP);
+  }
+  const doc = await docP;
+  const n = Math.min(Math.max(1, page), doc.numPages);
+  const p = await doc.getPage(n);
+  const base = p.getViewport({ scale: 1 });
+  const vp = p.getViewport({ scale: targetW / base.width });
+  const oc = await p.getOptionalContentConfig().catch(() => null);
+  const layerName = (args: unknown): string | null => {
+    const a = args as unknown[];
+    if (!Array.isArray(a) || a[0] !== 'OC') return null;
+    const props = a[1] as { id?: string } | string | null;
+    const id = typeof props === 'string' ? props : props?.id;
+    if (!id) return null;
+    return oc?.getGroup(id)?.name ?? String(id);
+  };
+  const opList = await p.getOperatorList();
+  const OPS = (m as unknown as { OPS: Record<string, number> }).OPS;
+  const raw = pdfOpsToRaw(opList.fnArray, opList.argsArray, OPS, layerName);
+  const segments = flattenPath(raw, vp.transform as Matrix);
+  const layers: { id: string; name: string }[] = [];
+  const seen = new Set<string>();
+  for (const s of segments) if (s.layer && !seen.has(s.layer)) { seen.add(s.layer); layers.push({ id: s.layer, name: s.layer }); }
+  return { segments, layers, w: Math.round(vp.width), h: Math.round(vp.height) };
 }
 
 /**
