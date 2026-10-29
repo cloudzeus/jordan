@@ -1035,14 +1035,14 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
       const parsed = aiWallsResponse.parse(body);
       const segsPx = aiWallsToSegments(parsed, rw, rh); // px μέσα στην περιοχή
       const st = storeRef.current!.getState();
-      const incoming = segsPx.map((s) => ({
+      // offset (rx0,ry0) πίσω στο πλήρες σχέδιο → μέτρα. Μπαίνει σε preview (wallDraft), ΟΧΙ απευθείας στο store.
+      const incoming: NewWall[] = segsPx.map((s) => ({
         a: { x: (rx0 + s.a.x) * mPerPx, y: (ry0 + s.a.y) * mPerPx },
         b: { x: (rx0 + s.b.x) * mPerPx, y: (ry0 + s.b.y) * mPerPx },
         typeId: st.activeWallTypeId, source: 'auto' as const,
       }));
-      const n = clampAcceptCount(st.data.walls.length, incoming.length);
-      st.addWalls(incoming.slice(0, n));
-      toast.success(`AI: ${n} τοίχοι${n < incoming.length ? ` (${incoming.length - n} αγνοήθηκαν, όριο)` : ''}.`);
+      setWallDraft(incoming); setCadInfo(null);
+      toast.success(incoming.length ? `AI: ${incoming.length} τοίχοι σε προεπισκόπηση — έλεγξε και «Αποδοχή».` : 'AI: δεν εντοπίστηκαν τοίχοι στην περιοχή.');
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Η ανίχνευση τοίχων απέτυχε.');
     } finally {
