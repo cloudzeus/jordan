@@ -3,7 +3,7 @@ import { hasPermission, requirePermission } from '@/lib/rbac';
 import { logAudit } from '@/lib/audit';
 import { listFloorPlans, saveFloorPlan, type PlanOwner } from '@/lib/floorplan/plans';
 import { createFloorPlanOffer, floorPlanOfferDefaults, floorPlanOfferInput } from '@/lib/floorplan/offer';
-import { FloorPlanAiError, detectRooms } from '@/lib/floorplan/ai';
+import { FloorPlanAiError, detectRooms, detectStructure } from '@/lib/floorplan/ai';
 import { fail } from '../contracts/_shared';
 import { planFail } from './_shared';
 
@@ -80,8 +80,11 @@ export async function aiDetect(req: Request, params: Promise<Record<string, stri
   const owner = await ownerFromParams(params);
   if (!owner) return invalid();
   try {
-    const image = (await req.formData()).get('image');
+    const fd = await req.formData();
+    const image = fd.get('image');
     if (!(image instanceof File)) return NextResponse.json({ error: 'invalid_input', message: 'Λείπει η εικόνα' }, { status: 400 });
+    // mode=walls → ανίχνευση τοίχων (οι τοίχοι ορίζουν τους χώρους)· αλλιώς ανίχνευση χώρων.
+    if (fd.get('mode') === 'walls') return NextResponse.json(await detectStructure(image, u, refOf(owner)));
     return NextResponse.json(await detectRooms(image, u, refOf(owner)));
   } catch (e) {
     if (e instanceof FloorPlanAiError) return NextResponse.json({ error: 'floorplan_ai', message: e.message }, { status: e.status });

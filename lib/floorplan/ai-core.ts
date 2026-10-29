@@ -15,6 +15,16 @@ export const FLOORPLAN_AI_PROMPT = `Είσαι αρχιτέκτονας. Στη�
 Επίσης scale: η ΜΕΓΑΛΥΤΕΡΗ ευανάγνωστη οριζόντια ή κάθετη διάσταση του σχεδίου — τα δύο άκρα της γραμμής διάστασης a, b ως [y, x] 0-1000 και η τιμή της σε cm (αν το σχέδιο είναι σε m, μετάτρεψε σε cm). Αν δεν υπάρχει, null.
 Απάντησε ΜΟΝΟ με JSON: {"rooms":[{"name":"","seed":[0,0],"box_2d":[0,0,0,0],"dims_cm":null}],"scale":{"a":[0,0],"b":[0,0],"cm":0}}`;
 
+// ── Ανίχνευση ΤΟΙΧΩΝ με vision (οι τοίχοι ορίζουν και τους χώρους) ───────────────────────────
+export const FLOORPLAN_WALLS_PROMPT = `Είσαι αρχιτέκτονας. Στην εικόνα υπάρχει κάτοψη κτιρίου (σχέδιο ή φωτογραφία/σκαναρισμένο σχέδιο).
+Ιχνηλάτησε τους ΤΟΙΧΟΥΣ (φέροντες + εσωτερικούς) ως ΠΟΛΥΓΡΑΜΜΕΣ πάνω στον ΑΞΟΝΑ (centerline) κάθε τοίχου — όχι τις δύο πλευρές, τη μέση γραμμή. Οι τοίχοι σχηματίζουν κλειστά περιγράμματα που ορίζουν τους χώρους· φρόντισε οι γραμμές να ΕΝΩΝΟΝΤΑΙ στις γωνίες.
+Αγνόησε: διαστάσεις, κείμενα, διαγραμμίσεις δαπέδου, έπιπλα, θέσεις parking, οικόπεδο/δρόμους.
+Δώσε:
+- walls: πίνακας από polylines· κάθε polyline = πίνακας σημείων [y, x] κανονικοποιημένα 0-1000, στη σειρά κατά μήκος του άξονα του τοίχου (συνεχόμενοι τοίχοι = συνεχόμενα σημεία).
+- openings: πόρτες/παράθυρα ως δύο άκρα a=[y,x], b=[y,x] πάνω στον τοίχο, με kind ("door"|"window").
+- scale: η ΜΕΓΑΛΥΤΕΡΗ ευανάγνωστη διάσταση — άκρα a,b [y,x] 0-1000 και τιμή σε cm (m→cm). null αν δεν υπάρχει.
+Απάντησε ΜΟΝΟ με JSON: {"walls":[{"points":[[y,x],[y,x]]}],"openings":[{"a":[y,x],"b":[y,x],"kind":"door"}],"scale":{"a":[y,x],"b":[y,x],"cm":0}}`;
+
 const pair = z.tuple([z.coerce.number(), z.coerce.number()]);
 const room = z.object({
   name: z.coerce.string().trim().max(120).default(''),
@@ -43,6 +53,37 @@ export function parseAiResponse(text: string): AiResponse {
 const clamp = (v: number) => Math.max(0, Math.min(1000, v));
 /** [y, x] 0–1000 → pixels ανάλυσης. */
 export const toPx = ([y, x]: [number, number], w: number, h: number): Pt => ({ x: (clamp(x) / 1000) * w, y: (clamp(y) / 1000) * h });
+
+// ── Σχήμα + ανάγνωση απάντησης τοίχων ──
+const aiWall = z.object({ points: z.array(pair).min(2).max(2000) });
+const aiOpening = z.object({ a: pair, b: pair, kind: z.enum(['door', 'window']).catch('door') });
+export const aiWallsResponse = z.object({
+  walls: z.array(z.unknown()).max(5000).transform((ws) => ws.flatMap((w) => { const p = aiWall.safeParse(w); return p.success ? [p.data] : []; })),
+  openings: z.array(z.unknown()).max(2000).default([]).transform((os) => os.flatMap((o) => { const p = aiOpening.safeParse(o); return p.success ? [p.data] : []; })),
+  scale: z.object({ a: pair, b: pair, cm: z.coerce.number() }).nullish().catch(null).transform((v) => v ?? null),
+});
+export type AiWallsResponse = z.infer<typeof aiWallsResponse>;
+
+export function parseAiWallsResponse(text: string): AiWallsResponse {
+  const t = text.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
+  let raw: unknown;
+  try { raw = JSON.parse(t); } catch {
+    const a = t.indexOf('{'), b = t.lastIndexOf('}');
+    if (a < 0 || b <= a) throw new Error('Η απάντηση του μοντέλου δεν είναι JSON');
+    raw = JSON.parse(t.slice(a, b + 1));
+  }
+  return aiWallsResponse.parse(raw);
+}
+
+/** Οι polylines τοίχων (0–1000) → ευθύγραμμα τμήματα σε pixels ανάλυσης (διαδοχικά σημεία). */
+export function aiWallsToSegments(r: AiWallsResponse, w: number, h: number): { a: Pt; b: Pt }[] {
+  const segs: { a: Pt; b: Pt }[] = [];
+  for (const wall of r.walls) {
+    const px = wall.points.map((p) => toPx(p as [number, number], w, h));
+    for (let i = 1; i < px.length; i++) segs.push({ a: px[i - 1], b: px[i] });
+  }
+  return segs;
+}
 
 export type AiRoom = { name: string; seed: Pt; box: { x0: number; y0: number; x1: number; y1: number }; dims: [number, number] | null };
 

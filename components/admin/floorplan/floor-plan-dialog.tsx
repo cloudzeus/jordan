@@ -51,7 +51,7 @@ import { snapPoint, applyLength, type SnapKind } from '@/lib/floorplan/editor/sn
 import { vectorizeWalls, type VectorWall } from '@/lib/floorplan/vectorize';
 import { useStore } from 'zustand';
 import type { StoreApi } from 'zustand/vanilla';
-import { aiResponse, chooseScale, fallbackPolygon, pickCandidate, roomsInPx } from '@/lib/floorplan/ai-core';
+import { aiResponse, aiWallsResponse, aiWallsToSegments, chooseScale, fallbackPolygon, pickCandidate, roomsInPx } from '@/lib/floorplan/ai-core';
 import { Sparkles } from 'lucide-react';
 import type { FloorPlanListRow } from '@/lib/floorplan/plans';
 import { MetersInput, RoomWallsPanel, WallsToggle } from './room-walls';
@@ -333,6 +333,7 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
   const [cadWalls, setCadWalls] = React.useState<NewWall[] | null>(null);
   const [cadInfo, setCadInfo] = React.useState<{ cols: number; stairs: number; layers: number } | null>(null);
   const [cadBusy, setCadBusy] = React.useState(false);
+  const [aiRegionMode, setAiRegionMode] = React.useState(false);
 
   // ── Φόρτωση ──────────────────────────────────────────────────────────────────────────
   const reset = () => {
@@ -1037,6 +1038,47 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
     setCadWalls(null); setCadInfo(null);
   };
 
+  // v2 (beta): AI ανίχνευση τοίχων (OpenRouter/Claude). Προαιρετικά σε ΠΕΡΙΟΧΗ (crop) του σχεδίου·
+  // οι τοίχοι επιστρέφουν ως centerlines → μέτρα → store (οι τοίχοι ορίζουν και τους χώρους).
+  const aiScanWalls = async (region: { x0: number; y0: number; x1: number; y1: number } | null) => {
+    if (!v2Active || !mPerPx || !plan) return;
+    setAiBusy(true);
+    try {
+      const d = plan.display, f = d.width / w; // display px ανά analysis px
+      const rx0 = region ? Math.max(0, Math.min(w, Math.min(region.x0, region.x1))) : 0;
+      const ry0 = region ? Math.max(0, Math.min(h, Math.min(region.y0, region.y1))) : 0;
+      const rx1 = region ? Math.max(0, Math.min(w, Math.max(region.x0, region.x1))) : w;
+      const ry1 = region ? Math.max(0, Math.min(h, Math.max(region.y0, region.y1))) : h;
+      const rw = rx1 - rx0, rh = ry1 - ry0;
+      if (rw < 10 || rh < 10) { setAiBusy(false); return; }
+      const c = document.createElement('canvas');
+      c.width = Math.round(rw * f); c.height = Math.round(rh * f);
+      c.getContext('2d')!.drawImage(d, rx0 * f, ry0 * f, rw * f, rh * f, 0, 0, c.width, c.height);
+      const blob = await new Promise<Blob>((res, rej) => c.toBlob((b) => (b ? res(b) : rej(new Error('JPEG export failed'))), 'image/jpeg', 0.9));
+      const fd = new FormData();
+      fd.append('image', new File([blob], 'scan.jpg', { type: 'image/jpeg' }));
+      fd.append('mode', 'walls');
+      const res = await fetch(`${apiBase}/floorplan-ai`, { method: 'POST', body: fd });
+      const body = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(body?.message ?? 'Η ανίχνευση τοίχων απέτυχε.');
+      const parsed = aiWallsResponse.parse(body);
+      const segsPx = aiWallsToSegments(parsed, rw, rh); // px μέσα στην περιοχή
+      const st = storeRef.current!.getState();
+      const incoming = segsPx.map((s) => ({
+        a: { x: (rx0 + s.a.x) * mPerPx, y: (ry0 + s.a.y) * mPerPx },
+        b: { x: (rx0 + s.b.x) * mPerPx, y: (ry0 + s.b.y) * mPerPx },
+        typeId: st.activeWallTypeId, source: 'auto' as const,
+      }));
+      const n = clampAcceptCount(st.data.walls.length, incoming.length);
+      st.addWalls(incoming.slice(0, n));
+      toast.success(`AI: ${n} τοίχοι${n < incoming.length ? ` (${incoming.length - n} αγνοήθηκαν, όριο)` : ''}.`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Η ανίχνευση τοίχων απέτυχε.');
+    } finally {
+      setAiBusy(false);
+    }
+  };
+
   // v2 (beta): αριθμητική αλλαγή μήκους — ο επιλεγμένος τοίχος αλλάζει μήκος κατά τον άξονα a→b.
   const applyLengthToSelection = () => {
     const st = storeRef.current!.getState();
@@ -1233,7 +1275,10 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
         ...(cadWalls ?? []).map((nw, i) => ({ id: `cad-${i}`, a: { x: nw.a.x / mPerPx!, y: nw.a.y / mPerPx! }, b: { x: nw.b.x / mPerPx!, y: nw.b.y / mPerPx! }, thicknessPx: 3, color: '#22D3EE', selected: false })),
       ] : undefined}
       onPick={onPick} onFinish={finish} onEdit={onEdit} fitKey={fitKey} ortho={ortho}
-      onMarquee={v2Active && mPerPx ? (a, b) => { const ids = marqueeIds(v2.data.walls, { x: a.x * mPerPx, y: a.y * mPerPx }, { x: b.x * mPerPx, y: b.y * mPerPx }); if (ids) v2.selectWalls(ids); } : undefined}
+      onMarquee={v2Active && mPerPx ? (a, b) => {
+        if (aiRegionMode) { setAiRegionMode(false); void aiScanWalls({ x0: a.x, y0: a.y, x1: b.x, y1: b.y }); return; }
+        const ids = marqueeIds(v2.data.walls, { x: a.x * mPerPx, y: a.y * mPerPx }, { x: b.x * mPerPx, y: b.y * mPerPx }); if (ids) v2.selectWalls(ids);
+      } : undefined}
       netDevices={viewerDevices} netCables={viewerCables} cableColor={netPick.tool === 'cable' ? CABLE_META[netPick.kind].color : undefined}
     />
   );
@@ -1354,6 +1399,20 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
                       className="h-7 w-full rounded-md border border-white/15 bg-[#0d1526] px-2 text-(length:--fs-12) text-slate-100 outline-hidden focus:border-cyan-400/60" />
                   </label>
                 )}
+                {/* ── AI ανίχνευση τοίχων (OpenRouter/Claude) — vector/scan/εικόνα ── */}
+                <div className="flex flex-col gap-1.5">
+                  <h3 className="text-(length:--fs-11) font-semibold uppercase tracking-wider text-slate-500">AI ανίχνευση τοίχων</h3>
+                  <button type="button" onClick={() => void aiScanWalls(null)} disabled={aiBusy || !mPerPx}
+                    title={!mPerPx ? 'Όρισε πρώτα κλίμακα.' : undefined}
+                    className="inline-flex h-7 cursor-pointer items-center justify-center gap-1.5 rounded-md px-2.5 text-(length:--fs-12) font-semibold text-white transition-colors disabled:cursor-not-allowed disabled:opacity-60" style={{ background: '#7C3AED' }}>
+                    {aiBusy ? <FiLoader className="size-3.5 animate-spin" aria-hidden /> : null} Σκανάρισμα όλου
+                  </button>
+                  <button type="button" onClick={() => { setAiRegionMode(true); changeTool('pan'); toast.message('Shift+σύρσιμο πάνω στην περιοχή που θες να σκαναριστεί.'); }} disabled={aiBusy || !mPerPx}
+                    className="inline-flex h-7 cursor-pointer items-center justify-center rounded-md border border-white/15 px-2.5 text-(length:--fs-12) text-slate-200 transition-colors hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-60"
+                    style={aiRegionMode ? { borderColor: '#22D3EE', background: 'rgba(34,211,238,.12)' } : undefined}>
+                    {aiRegionMode ? 'Shift+σύρσιμο στην περιοχή…' : 'Επίλεξε περιοχή…'}
+                  </button>
+                </div>
                 <h3 className="text-(length:--fs-11) font-semibold uppercase tracking-wider text-slate-500">Διανυσματικοί τοίχοι</h3>
                 {!wallPreview ? (
                   <button type="button" onClick={previewVectorWalls}
