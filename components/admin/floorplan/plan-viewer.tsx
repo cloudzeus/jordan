@@ -16,6 +16,7 @@ import { Line2 } from 'three/examples/jsm/lines/Line2.js';
 import { LineGeometry } from 'three/examples/jsm/lines/LineGeometry.js';
 import { LineMaterial } from 'three/examples/jsm/lines/LineMaterial.js';
 import type { Pt } from '@/lib/floorplan/core';
+import type { CanvasWall } from '@/lib/floorplan/editor/interactions';
 
 export type ViewerRoom = { id: string; color: string; polygon: Pt[]; label: string; sub: string; anchor: Pt };
 export type ViewerTool = 'room' | 'rect' | 'polygon' | 'wall' | 'divider' | 'opening' | 'calibrate' | 'measure' | 'pin' | 'pan' | 'edit' | 'erase' | 'device' | 'cable';
@@ -49,6 +50,8 @@ export type PlanViewerProps = {
   dimensions?: Array<{ id: string; a: Pt; b: Pt }>;
   /** Είδος ανοίγματος που σχεδιάζεται τώρα (χρώμα του «λάστιχου»). */
   openingKind?: ViewerOpening['kind'];
+  /** Layer v2 (beta): διανυσματικοί τοίχοι ως επιλέξιμες οντότητες (px), με χρώμα τύπου. */
+  vectorWalls?: CanvasWall[];
   draft: Pt[];
   tool: ViewerTool;
   /** Μήκος σε px → κείμενο (π.χ. «3,42 m») για τη ζωντανή ένδειξη στο σχέδιο. */
@@ -105,7 +108,7 @@ function inside(p: Pt, pts: Pt[]) {
 }
 
 export function PlanViewer(props: PlanViewerProps) {
-  const { image, w, h, wallsOverlay, showWalls, rooms, selectedId, dividers, calibration, openings, dimensions, pins, draft, tool, fitKey, formatLength, netDevices, netCables } = props;
+  const { image, w, h, wallsOverlay, showWalls, rooms, selectedId, dividers, calibration, openings, dimensions, pins, draft, tool, fitKey, formatLength, netDevices, netCables, vectorWalls } = props;
   const host = React.useRef<HTMLDivElement | null>(null);
   const labelsEl = React.useRef<HTMLDivElement | null>(null);
   const tipEl = React.useRef<HTMLDivElement | null>(null);
@@ -561,7 +564,13 @@ export function PlanViewer(props: PlanViewerProps) {
       c.layers.lines.add(line(calibration, Z.divider, '#F59E0B', 3));
       c.layers.lines.add(dots(calibration, Z.divider + 0.1, 10));
     }
-  }, [dividers, calibration, openings, dimensions, image, w, h, toWorld, clear, line, dots]);
+    // Layer v2 (beta): διανυσματικοί τοίχοι — λωρίδα στο χρώμα του τύπου (πραγματικό πάχος, world units),
+    // με κυανή κεντρική γραμμή (screen units) όταν είναι επιλεγμένος ώστε να φαίνεται σε κάθε zoom.
+    for (const vw of vectorWalls ?? []) {
+      c.layers.lines.add(line([vw.a, vw.b], Z.divider + 0.06, vw.color, Math.max(1, vw.thicknessPx), { world: true }));
+      if (vw.selected) c.layers.lines.add(line([vw.a, vw.b], Z.divider + 0.08, '#22D3EE', 3));
+    }
+  }, [dividers, calibration, openings, dimensions, vectorWalls, image, w, h, toWorld, clear, line, dots]);
 
   // Ηλεκτρολογικά & δίκτυο: κάλυψη AP / κάμερας (ημιδιαφανής) και διαδρομές καλωδίων.
   React.useEffect(() => {
