@@ -1376,8 +1376,9 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
                   <div className="mt-2 flex flex-col gap-1.5 border-t border-white/10 pt-2">
                     <h3 className="text-(length:--fs-11) font-semibold uppercase tracking-wider text-slate-500">CAD / PDF layers</h3>
                     {!cadWalls ? (
-                      <button type="button" onClick={() => void importCad()} disabled={cadBusy}
-                        className="inline-flex h-7 cursor-pointer items-center justify-center gap-1.5 rounded-md border border-white/15 px-2.5 text-(length:--fs-12) text-slate-200 transition-colors hover:bg-white/5 disabled:opacity-60">
+                      <button type="button" onClick={() => void importCad()} disabled={cadBusy || !mPerPx}
+                        title={!mPerPx ? 'Όρισε πρώτα κλίμακα με το εργαλείο «Κλίμακα».' : undefined}
+                        className="inline-flex h-7 cursor-pointer items-center justify-center gap-1.5 rounded-md border border-white/15 px-2.5 text-(length:--fs-12) text-slate-200 transition-colors hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-60">
                         {cadBusy ? <FiLoader className="size-3.5 animate-spin" aria-hidden /> : null} Εισαγωγή από CAD/PDF
                       </button>
                     ) : (

@@ -43,19 +43,32 @@ export function recognizeWalls(segs: CadSegment[], opts: RecognizeWallOpts): Vec
   const tol = opts.angleTolDeg ?? 3;
   const long = segs.filter((s) => norm(sub(s.b, s.a)) >= minLen);
 
-  // Bucket κατά γωνία (bin 5°, mod 180) — ζεύγη μόνο στο ίδιο + γειτονικά bins (O(n·k)).
+  // Bucket κατά γωνία (bin 5°) ΚΑΙ κάθετη θέση (bin = maxThicknessPx) — ζεύγη μόνο σε κοντινά bins.
+  // Έτσι σε axis-aligned A0 δεν καταρρέουν όλα σε 2 bins (αποφυγή O(n²) → O(n·k)).
   const BIN = 5, BINS = Math.ceil(180 / BIN);
-  const buckets: number[][] = Array.from({ length: BINS }, () => []);
-  long.forEach((s, i) => buckets[Math.floor(angleMod180(s) / BIN) % BINS].push(i));
+  const index = new Map<string, number[]>();
+  const binOf = new Map<number, { abin: number; obin: number }>();
+  long.forEach((s, i) => {
+    const deg = angleMod180(s), th = (deg * Math.PI) / 180;
+    const off = ((s.a.x + s.b.x) / 2) * -Math.sin(th) + ((s.a.y + s.b.y) / 2) * Math.cos(th);
+    const abin = Math.floor(deg / BIN) % BINS, obin = Math.round(off / opts.maxThicknessPx);
+    binOf.set(i, { abin, obin });
+    const k = `${abin}:${obin}`;
+    (index.get(k) ?? index.set(k, []).get(k)!).push(i);
+  });
 
   const cands: VectorWall[] = [];
   const paired = new Set<number>();
-  for (let bi = 0; bi < BINS; bi++) {
-    const cand = [...buckets[bi], ...buckets[(bi + 1) % BINS], ...buckets[(bi - 1 + BINS) % BINS]];
-    for (let x = 0; x < buckets[bi].length; x++) {
-      const i = buckets[bi][x];
-      if (paired.has(i)) continue;
-      const A = long[i];
+  for (let i = 0; i < long.length; i++) {
+    if (paired.has(i)) continue;
+    const A = long[i];
+    const { abin, obin } = binOf.get(i)!;
+    const cand: number[] = [];
+    for (let da = -1; da <= 1; da++) for (let d0 = -1; d0 <= 1; d0++) {
+      const arr = index.get(`${(abin + da + BINS) % BINS}:${obin + d0}`);
+      if (arr) cand.push(...arr);
+    }
+    {
       for (const j of cand) {
         if (j === i || paired.has(j)) continue;
         const B = long[j];

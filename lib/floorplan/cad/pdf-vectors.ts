@@ -24,9 +24,14 @@ function compose(a: Matrix, b: Matrix): Matrix {
 
 const dist = (a: Pt, b: Pt) => Math.hypot(a.x - b.x, a.y - b.y);
 
+/** DrawOPS του pdfjs (≥ v6): τα opcodes μέσα στο flat buffer του `constructPath`. */
+const DRAW = { moveTo: 0, lineTo: 1, curveTo: 2, quadraticCurveTo: 3, closePath: 4 } as const;
+
 /**
- * Adapter: operator-list του pdfjs (fnArray/argsArray + OPS) → `RawOp[]`. `layerName(args)` επιστρέφει
- * το όνομα OCG layer για ένα `beginMarkedContentProps` (ή null). I/O glue — ελέγχεται με manual QA.
+ * Adapter: operator-list του pdfjs (fnArray/argsArray + OPS) → `RawOp[]`. Για pdfjs ≥ 6: το
+ * `constructPath` έχει args `[paintFn, [Float32Array], minMax]` και το buffer είναι flat με DrawOPS
+ * opcodes + coords. `layerName(args)` επιστρέφει το OCG όνομα για `beginMarkedContentProps` (ή null).
+ * I/O glue — ο πυρήνας (flat-buffer walk) ελέγχεται με synthetic tests· η pdfjs ροή με manual QA.
  */
 export function pdfOpsToRaw(
   fnArray: number[], argsArray: unknown[], OPS: Record<string, number>, layerName: (args: unknown) => string | null,
@@ -42,14 +47,27 @@ export function pdfOpsToRaw(
     else if (fn === OPS.beginMarkedContent) out.push({ op: 'beginLayer', args: [] });
     else if (fn === OPS.endMarkedContent) out.push({ op: 'endLayer', args: [] });
     else if (fn === OPS.constructPath) {
-      const [subOps, coords] = args as [number[], number[]];
-      let k = 0, sx = 0, sy = 0;
-      for (const s of subOps) {
-        if (s === OPS.moveTo) { sx = coords[k++]; sy = coords[k++]; out.push({ op: 'move', args: [sx, sy] }); }
-        else if (s === OPS.lineTo) out.push({ op: 'line', args: [coords[k++], coords[k++]] });
-        else if (s === OPS.curveTo) out.push({ op: 'cubic', args: [coords[k++], coords[k++], coords[k++], coords[k++], coords[k++], coords[k++]] });
-        else if (s === OPS.rectangle) out.push({ op: 'rect', args: [coords[k++], coords[k++], coords[k++], coords[k++]] });
-        else if (s === OPS.closePath) out.push({ op: 'line', args: [sx, sy] });
+      // args = [paintFn, [buffer], minMax]· buffer flat: [op, coords…, op, coords…], DrawOPS opcodes.
+      const buf = (args as unknown[])?.[1] as ArrayLike<number> | null | undefined;
+      const b = Array.isArray(buf) ? buf[0] : buf;
+      if (!b || typeof (b as ArrayLike<number>).length !== 'number') continue;
+      const a = b as ArrayLike<number>;
+      let k = 0, cx = 0, cy = 0, sx = 0, sy = 0;
+      while (k < a.length) {
+        const s = a[k++];
+        if (s === DRAW.moveTo) { cx = a[k++]; cy = a[k++]; sx = cx; sy = cy; out.push({ op: 'move', args: [cx, cy] }); }
+        else if (s === DRAW.lineTo) { cx = a[k++]; cy = a[k++]; out.push({ op: 'line', args: [cx, cy] }); }
+        else if (s === DRAW.curveTo) {
+          const c1x = a[k++], c1y = a[k++], c2x = a[k++], c2y = a[k++], x = a[k++], y = a[k++];
+          out.push({ op: 'cubic', args: [c1x, c1y, c2x, c2y, x, y] }); cx = x; cy = y;
+        } else if (s === DRAW.quadraticCurveTo) {
+          // Μετατροπή τετραγωνικής (cur, q, p) σε κυβική.
+          const qx = a[k++], qy = a[k++], x = a[k++], y = a[k++];
+          const c1x = cx + (2 / 3) * (qx - cx), c1y = cy + (2 / 3) * (qy - cy);
+          const c2x = x + (2 / 3) * (qx - x), c2y = y + (2 / 3) * (qy - y);
+          out.push({ op: 'cubic', args: [c1x, c1y, c2x, c2y, x, y] }); cx = x; cy = y;
+        } else if (s === DRAW.closePath) { out.push({ op: 'line', args: [sx, sy] }); cx = sx; cy = sy; }
+        else break; // άγνωστο opcode — σταμάτα την ανάγνωση αυτού του buffer
       }
     }
   }
