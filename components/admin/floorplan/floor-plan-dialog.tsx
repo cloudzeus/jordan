@@ -1249,6 +1249,15 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
         if (aiRegionMode) { setAiRegionMode(false); void aiScanWalls({ x0: a.x, y0: a.y, x1: b.x, y1: b.y }); return; }
         const ids = marqueeIds(v2.data.walls, { x: a.x * mPerPx, y: a.y * mPerPx }, { x: b.x * mPerPx, y: b.y * mPerPx }); if (ids) v2.selectWalls(ids);
       } : undefined}
+      editWalls={v2Active && mPerPx ? v2.data.walls.filter((wl) => v2.selectedWallIds.includes(wl.id)).map((wl) => ({
+        id: wl.id, a: { x: wl.a.x / mPerPx!, y: wl.a.y / mPerPx! }, b: { x: wl.b.x / mPerPx!, y: wl.b.y / mPerPx! },
+      })) : undefined}
+      onWallEnd={v2Active && mPerPx ? (id, end, pt) => {
+        const st = storeRef.current!.getState();
+        const wl = st.data.walls.find((x) => x.id === id);
+        const snapped = snapPoint(st.data.walls, { x: pt.x * mPerPx, y: pt.y * mPerPx }, { tolM: 12 * mPerPx, ortho, anchor: wl ? (end === 'a' ? wl.b : wl.a) : null, excludeId: id });
+        st.moveWallEnd(id, end, snapped.point);
+      } : undefined}
       netDevices={viewerDevices} netCables={viewerCables} cableColor={netPick.tool === 'cable' ? CABLE_META[netPick.kind].color : undefined}
     />
   );

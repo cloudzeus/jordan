@@ -69,6 +69,10 @@ export type PlanViewerProps = {
   onEdit?: (id: string, polygon: Pt[], phase: EditPhase) => void;
   /** v2 (beta): ορθογώνια επιλογή — Shift+σύρσιμο· καλείται με τις δύο γωνίες (px) στο τέλος. */
   onMarquee?: (a: Pt, b: Pt) => void;
+  /** v2 (beta): επιλεγμένοι τοίχοι (px) με λαβές στα άκρα a/b για σύρσιμο. */
+  editWalls?: { id: string; a: Pt; b: Pt }[];
+  /** v2 (beta): σύρσιμο λαβής άκρου — νέα θέση (px)· το snapping/commit γίνεται στο dialog. */
+  onWallEnd?: (id: string, end: 'a' | 'b', pt: Pt) => void;
   fitKey: number;
 };
 
@@ -110,7 +114,7 @@ function inside(p: Pt, pts: Pt[]) {
 }
 
 export function PlanViewer(props: PlanViewerProps) {
-  const { image, w, h, wallsOverlay, showWalls, rooms, selectedId, dividers, calibration, openings, dimensions, pins, draft, tool, fitKey, formatLength, netDevices, netCables, vectorWalls } = props;
+  const { image, w, h, wallsOverlay, showWalls, rooms, selectedId, dividers, calibration, openings, dimensions, pins, draft, tool, fitKey, formatLength, netDevices, netCables, vectorWalls, editWalls } = props;
   const host = React.useRef<HTMLDivElement | null>(null);
   const labelsEl = React.useRef<HTMLDivElement | null>(null);
   const tipEl = React.useRef<HTMLDivElement | null>(null);
@@ -130,6 +134,8 @@ export function PlanViewer(props: PlanViewerProps) {
     drag: { id: string; kind: 'vertex' | 'move'; i: number; base: Pt[]; from: Pt; moved: boolean } | null;
     /** v2: τρέχον ορθογώνιο επιλογής (Shift+σύρσιμο) — px σημείο + client coords για το overlay. */
     marquee: { from: Pt; fromClient: { x: number; y: number } } | null;
+    /** v2: τρέχον σύρσιμο λαβής άκρου τοίχου — σταθερό άκρο + ζωντανή θέση (px). */
+    wdrag: { id: string; end: 'a' | 'b'; fixed: Pt; cur: Pt } | null;
   };
   const ctx = React.useRef<Ctx | null>(null);
   const toWorld = React.useCallback((p: Pt, z: number) => new THREE.Vector3(p.x - w / 2, h / 2 - p.y, z), [w, h]);
@@ -240,7 +246,7 @@ export function PlanViewer(props: PlanViewerProps) {
 
     const c: Ctx = {
       renderer, scene, camera, controls, plane, layers, lineMats: new Set(), dot: circleTexture(), vdot: circleTexture('#22D3EE'), plus: plusTexture(),
-      hover: null, shift: false, drag: null, marquee: null,
+      hover: null, shift: false, drag: null, marquee: null, wdrag: null,
     };
     ctx.current = c;
 
@@ -312,6 +318,25 @@ export function PlanViewer(props: PlanViewerProps) {
     };
     const clampPt = (p: Pt): Pt => ({ x: Math.max(0, Math.min(w, p.x)), y: Math.max(0, Math.min(h, p.y)) });
 
+    // v2: λαβή άκρου τοίχου κάτω από τον δείκτη (από τους editWalls) — πιο κοντινό άκρο εντός 11px οθόνης.
+    const wallHandleHit = (e: PointerEvent | MouseEvent): { id: string; end: 'a' | 'b'; fixed: Pt } | null => {
+      for (const ew of cbs.current.editWalls ?? []) {
+        for (const end of ['a', 'b'] as const) {
+          const s = screen(ew[end]);
+          if (Math.hypot(s.x - e.clientX, s.y - e.clientY) <= 11) return { id: ew.id, end, fixed: end === 'a' ? ew.b : ew.a };
+        }
+      }
+      return null;
+    };
+    // v2: ζωντανή προεπισκόπηση σύρσιμου άκρου (το snapping/commit γίνεται στο dialog στο pointerup).
+    const drawWallDrag = () => {
+      const wd = c.wdrag;
+      clear(c.layers.draft);
+      if (!wd) return;
+      c.layers.draft.add(line([wd.fixed, wd.cur], Z.draft, '#22D3EE', 3, { dashed: true }));
+      c.layers.draft.add(dots([wd.cur], Z.draft + 0.1, 12, c.vdot));
+    };
+
     let down: { x: number; y: number; button: number } | null = null;
     let skipClick = false;
     // Κοινό κλείσιμο marquee — καλείται σε pointerup ΚΑΙ σε pointercancel/lostpointercapture, ώστε μια
@@ -323,7 +348,10 @@ export function PlanViewer(props: PlanViewerProps) {
       const mq = marqueeEl.current; if (mq) mq.style.display = 'none';
       if (e && renderer.domElement.hasPointerCapture(e.pointerId)) renderer.domElement.releasePointerCapture(e.pointerId);
     };
-    const onMarqueeCancel = (e: PointerEvent) => { endMarquee(e); };
+    const onMarqueeCancel = (e: PointerEvent) => {
+      endMarquee(e);
+      if (c.wdrag) { c.wdrag = null; controls.enabled = true; clear(c.layers.draft); }
+    };
     const onDown = (e: PointerEvent) => {
       down = { x: e.clientX, y: e.clientY, button: e.button };
       skipClick = false;
@@ -338,6 +366,18 @@ export function PlanViewer(props: PlanViewerProps) {
           const hr = host.current?.getBoundingClientRect();
           const mq = marqueeEl.current;
           if (mq && hr) { mq.style.display = 'block'; mq.style.left = `${e.clientX - hr.left}px`; mq.style.top = `${e.clientY - hr.top}px`; mq.style.width = '0px'; mq.style.height = '0px'; }
+          return;
+        }
+      }
+      // v2 (beta): σύρσιμο λαβής άκρου επιλεγμένου τοίχου (εργαλείο «Μετακίνηση»/pan· χωρίς Shift = marquee).
+      if (e.button === 0 && !e.shiftKey && cbs.current.tool === 'pan' && cbs.current.onWallEnd) {
+        const wh = wallHandleHit(e);
+        if (wh) {
+          const p0 = pick(e);
+          c.wdrag = { id: wh.id, end: wh.end, fixed: wh.fixed, cur: clampPt(p0 ?? wh.fixed) };
+          controls.enabled = false;
+          renderer.domElement.setPointerCapture(e.pointerId);
+          drawWallDrag();
           return;
         }
       }
@@ -389,6 +429,17 @@ export function PlanViewer(props: PlanViewerProps) {
       return d.moved;
     };
     const onUp = (e: PointerEvent) => {
+      if (c.wdrag) {
+        const wd = c.wdrag;
+        const p = pick(e); if (p) wd.cur = clampPt(p);
+        c.wdrag = null;
+        controls.enabled = true;
+        if (renderer.domElement.hasPointerCapture(e.pointerId)) renderer.domElement.releasePointerCapture(e.pointerId);
+        clear(c.layers.draft);
+        cbs.current.onWallEnd?.(wd.id, wd.end, wd.cur); // snapping + commit στο dialog
+        skipClick = true; down = null;
+        return;
+      }
       if (c.marquee) {
         const from = c.marquee.from;
         const to = pick(e) ?? from;
@@ -419,10 +470,13 @@ export function PlanViewer(props: PlanViewerProps) {
         }
         return;
       }
+      if (c.wdrag) { const p = pick(e); if (p) { c.wdrag.cur = clampPt(p); drawWallDrag(); } return; }
       if (c.drag) { dragTo(e); return; }
       if (cbs.current.tool === 'edit') {
         const hit = editHit(e);
         renderer.domElement.style.cursor = !hit ? '' : hit.kind === 'inside' ? 'move' : hit.kind === 'mid' ? 'copy' : 'grab';
+      } else if (cbs.current.tool === 'pan' && cbs.current.onWallEnd) {
+        renderer.domElement.style.cursor = wallHandleHit(e) ? 'grab' : '';
       } else renderer.domElement.style.cursor = '';
       const p = pick(e);
       c.hover = p ? constrain(p, e.shiftKey) : null;
@@ -622,7 +676,9 @@ export function PlanViewer(props: PlanViewerProps) {
       c.layers.lines.add(line([vw.a, vw.b], Z.divider + 0.06, vw.color, Math.max(1, vw.thicknessPx), { world: true }));
       if (vw.selected) c.layers.lines.add(line([vw.a, vw.b], Z.divider + 0.08, '#22D3EE', 3));
     }
-  }, [dividers, calibration, openings, dimensions, vectorWalls, image, w, h, toWorld, clear, line, dots]);
+    // v2 (beta): λαβές στα άκρα των επιλεγμένων τοίχων (σύρσιμο → onWallEnd).
+    for (const ew of editWalls ?? []) c.layers.lines.add(dots([ew.a, ew.b], Z.divider + 0.12, 12, c.vdot));
+  }, [dividers, calibration, openings, dimensions, vectorWalls, editWalls, image, w, h, toWorld, clear, line, dots]);
 
   // Ηλεκτρολογικά & δίκτυο: κάλυψη AP / κάμερας (ημιδιαφανής) και διαδρομές καλωδίων.
   React.useEffect(() => {
