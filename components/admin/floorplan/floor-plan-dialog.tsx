@@ -42,7 +42,7 @@ import type { RecipeView } from '@/lib/install-recipes';
 import { planData, planDataV2, planPins, planRooms, scalePlanData, type PlanData, type PlanPin, type PlanRoom } from '@/lib/floorplan/saved';
 import { upgradePlanData } from '@/lib/floorplan/upgrade';
 import { createEditorStore, type EditorStore } from '@/lib/floorplan/editor/store';
-import { clampAcceptCount, hotkeyToWallTypeId, pickWallAt, vectorWallsToNew, wallsForCanvas } from '@/lib/floorplan/editor/interactions';
+import { clampAcceptCount, hotkeyToWallTypeId, pickWallAt, vectorWallsToNew, wallsForCanvas, wallsInRect } from '@/lib/floorplan/editor/interactions';
 import { snapPoint, applyLength, type SnapKind } from '@/lib/floorplan/editor/snapping';
 import { vectorizeWalls, type VectorWall } from '@/lib/floorplan/vectorize';
 import { useStore } from 'zustand';
@@ -858,7 +858,8 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
         if (!e.metaKey && !e.ctrlKey && /^[1-9]$/.test(e.key)) {
           const id = hotkeyToWallTypeId(wallTypes, e.key);
           if (id) {
-            if (st.selection.kind === 'wall' && st.selection.id) st.setWallType(st.selection.id, id);
+            if (st.selectedWallIds.length > 1) st.setWallTypeMany(st.selectedWallIds, id);
+            else if (st.selection.kind === 'wall' && st.selection.id) st.setWallType(st.selection.id, id);
             else st.setActiveWallType(id);
             e.preventDefault();
           }
@@ -1194,6 +1195,7 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
         ...(wallPreview ?? []).map((vp, i) => ({ id: `prev-${i}`, a: vp.a, b: vp.b, thicknessPx: vp.thicknessPx, color: '#22D3EE', selected: false })),
       ] : undefined}
       onPick={onPick} onFinish={finish} onEdit={onEdit} fitKey={fitKey} ortho={ortho}
+      onMarquee={v2Active && mPerPx ? (a, b) => v2.selectWalls(wallsInRect(v2.data.walls, { x: a.x * mPerPx, y: a.y * mPerPx }, { x: b.x * mPerPx, y: b.y * mPerPx })) : undefined}
       netDevices={viewerDevices} netCables={viewerCables} cableColor={netPick.tool === 'cable' ? CABLE_META[netPick.kind].color : undefined}
     />
   );
@@ -1296,7 +1298,7 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
             view3d={view3d} onView={(v) => { setView3d(v); setDraft([]); }} canUse3d={!!mPerPx}
             wallTypes={wallTypes}
             activeWallTypeId={v2.activeWallTypeId}
-            onWallType={(id) => { if (v2.selection.kind === 'wall' && v2.selection.id) v2.setWallType(v2.selection.id, id); else v2.setActiveWallType(id); }}
+            onWallType={(id) => { if (v2.selectedWallIds.length > 1) v2.setWallTypeMany(v2.selectedWallIds, id); else if (v2.selection.kind === 'wall' && v2.selection.id) v2.setWallType(v2.selection.id, id); else v2.setActiveWallType(id); }}
             status={{
               snap: snapKind && SNAP_LABEL[snapKind] ? SNAP_LABEL[snapKind] : undefined,
               selection: v2.selectedWallIds.length > 1 ? `${v2.selectedWallIds.length} τοίχοι`

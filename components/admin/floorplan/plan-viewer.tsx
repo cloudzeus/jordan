@@ -67,6 +67,8 @@ export type PlanViewerProps = {
   onFinish: () => void;
   /** Αλλαγή περιγράμματος με το εργαλείο «edit». */
   onEdit?: (id: string, polygon: Pt[], phase: EditPhase) => void;
+  /** v2 (beta): ορθογώνια επιλογή — Shift+σύρσιμο· καλείται με τις δύο γωνίες (px) στο τέλος. */
+  onMarquee?: (a: Pt, b: Pt) => void;
   fitKey: number;
 };
 
@@ -112,6 +114,7 @@ export function PlanViewer(props: PlanViewerProps) {
   const host = React.useRef<HTMLDivElement | null>(null);
   const labelsEl = React.useRef<HTMLDivElement | null>(null);
   const tipEl = React.useRef<HTMLDivElement | null>(null);
+  const marqueeEl = React.useRef<HTMLDivElement | null>(null);
   const cbs = React.useRef(props);
   // «Latest ref»: ενημέρωση μετά το commit (layout effect, πριν από τα passive effects που το διαβάζουν).
   React.useLayoutEffect(() => { cbs.current = props; });
@@ -125,6 +128,8 @@ export function PlanViewer(props: PlanViewerProps) {
     lineMats: Set<LineMaterial>; dot: THREE.Texture; vdot: THREE.Texture; plus: THREE.Texture; hover: Pt | null; shift: boolean;
     /** Τρέχον σύρσιμο επεξεργασίας (κορυφή ή ολόκληρος χώρος). */
     drag: { id: string; kind: 'vertex' | 'move'; i: number; base: Pt[]; from: Pt; moved: boolean } | null;
+    /** v2: τρέχον ορθογώνιο επιλογής (Shift+σύρσιμο) — px σημείο + client coords για το overlay. */
+    marquee: { from: Pt; fromClient: { x: number; y: number } } | null;
   };
   const ctx = React.useRef<Ctx | null>(null);
   const toWorld = React.useCallback((p: Pt, z: number) => new THREE.Vector3(p.x - w / 2, h / 2 - p.y, z), [w, h]);
@@ -235,7 +240,7 @@ export function PlanViewer(props: PlanViewerProps) {
 
     const c: Ctx = {
       renderer, scene, camera, controls, plane, layers, lineMats: new Set(), dot: circleTexture(), vdot: circleTexture('#22D3EE'), plus: plusTexture(),
-      hover: null, shift: false, drag: null,
+      hover: null, shift: false, drag: null, marquee: null,
     };
     ctx.current = c;
 
@@ -312,6 +317,19 @@ export function PlanViewer(props: PlanViewerProps) {
     const onDown = (e: PointerEvent) => {
       down = { x: e.clientX, y: e.clientY, button: e.button };
       skipClick = false;
+      // v2 (beta): Shift+σύρσιμο = ορθογώνια επιλογή (απενεργοποιεί προσωρινά το pan).
+      if (e.button === 0 && e.shiftKey && cbs.current.onMarquee) {
+        const p = pick(e);
+        if (p) {
+          c.marquee = { from: p, fromClient: { x: e.clientX, y: e.clientY } };
+          controls.enabled = false;
+          renderer.domElement.setPointerCapture(e.pointerId);
+          const hr = host.current?.getBoundingClientRect();
+          const mq = marqueeEl.current;
+          if (mq && hr) { mq.style.display = 'block'; mq.style.left = `${e.clientX - hr.left}px`; mq.style.top = `${e.clientY - hr.top}px`; mq.style.width = '0px'; mq.style.height = '0px'; }
+          return;
+        }
+      }
       if (cbs.current.tool !== 'edit' || e.button !== 0) return;
       const hit = editHit(e);
       const r = selectedRoom();
@@ -360,6 +378,17 @@ export function PlanViewer(props: PlanViewerProps) {
       return d.moved;
     };
     const onUp = (e: PointerEvent) => {
+      if (c.marquee) {
+        const from = c.marquee.from;
+        const to = pick(e) ?? from;
+        c.marquee = null;
+        controls.enabled = true;
+        if (renderer.domElement.hasPointerCapture(e.pointerId)) renderer.domElement.releasePointerCapture(e.pointerId);
+        const mq = marqueeEl.current; if (mq) mq.style.display = 'none';
+        skipClick = true; down = null;
+        cbs.current.onMarquee?.(from, to);
+        return;
+      }
       // Πάτημα σε λαβή/μέσα στον επιλεγμένο χώρο δεν είναι «κλικ επιλογής» — αλλιώς το πρώτο κλικ του
       // διπλού κλικ σε κορυφή (που είναι στο όριο) θα επέλεγε τον γειτονικό χώρο.
       const hadDrag = !!c.drag;
@@ -371,6 +400,17 @@ export function PlanViewer(props: PlanViewerProps) {
       if (p && p.x >= 0 && p.y >= 0 && p.x <= w && p.y <= h) cbs.current.onPick(constrain(p, e.shiftKey));
     };
     const onMove = (e: PointerEvent) => {
+      if (c.marquee) {
+        const hr = host.current?.getBoundingClientRect();
+        const mq = marqueeEl.current;
+        if (hr && mq) {
+          const x0 = c.marquee.fromClient.x - hr.left, y0 = c.marquee.fromClient.y - hr.top;
+          const x1 = e.clientX - hr.left, y1 = e.clientY - hr.top;
+          mq.style.left = `${Math.min(x0, x1)}px`; mq.style.top = `${Math.min(y0, y1)}px`;
+          mq.style.width = `${Math.abs(x1 - x0)}px`; mq.style.height = `${Math.abs(y1 - y0)}px`;
+        }
+        return;
+      }
       if (c.drag) { dragTo(e); return; }
       if (cbs.current.tool === 'edit') {
         const hit = editHit(e);
@@ -666,6 +706,12 @@ export function PlanViewer(props: PlanViewerProps) {
         ref={tipEl}
         className="pointer-events-none absolute left-0 top-0 rounded bg-amber-400 px-1.5 py-0.5 font-mono text-(length:--fs-11) font-semibold text-slate-900 shadow-sm transition-opacity"
         style={{ opacity: 0 }}
+        aria-hidden
+      />
+      <div
+        ref={marqueeEl}
+        className="pointer-events-none absolute left-0 top-0 border border-cyan-400 bg-cyan-400/15"
+        style={{ display: 'none' }}
         aria-hidden
       />
     </div>
