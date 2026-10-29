@@ -32,7 +32,11 @@ import {
   burnLine, detectWalls, labelPoint, measureRoom, otsu, pointInPolygon, polygonArea, polygonPerimeter, threshold, toGray, toM2,
   type Mask, type Pt, type WallResult,
 } from '@/lib/floorplan/core';
-import { blankPlan, loadPlan, type LoadedPlan } from './load-plan';
+import { blankPlan, isPdf, loadPlan, pageVectors, type LoadedPlan } from './load-plan';
+import { segmentsByRole, layerRole } from '@/lib/floorplan/cad/recognize-walls';
+import { recognizeColumns, recognizeStairs } from '@/lib/floorplan/cad/recognize-elements';
+import { cadWallsToNew } from '@/lib/floorplan/cad/import';
+import type { NewWall } from '@/lib/floorplan/editor/reducers';
 import { LINE_TOOLS, OPENING_COLOR, PlanViewer, WALL_DRAW, type EditPhase, type ViewerOpening, type ViewerRoom, type ViewerTool } from './plan-viewer';
 import { Plan3d, type Plan3dHandle } from './plan-3d';
 import { annotatedPng, download, fmtM, fmtM2, roomsCsv, roomsText, type ExportRoom } from './export';
@@ -326,6 +330,9 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
   const [wallPreview, setWallPreview] = React.useState<VectorWall[] | null>(null);
   const [snapKind, setSnapKind] = React.useState<SnapKind | null>(null);
   const [lengthStr, setLengthStr] = React.useState('');
+  const [cadWalls, setCadWalls] = React.useState<NewWall[] | null>(null);
+  const [cadInfo, setCadInfo] = React.useState<{ cols: number; stairs: number; layers: number } | null>(null);
+  const [cadBusy, setCadBusy] = React.useState(false);
 
   // ── Φόρτωση ──────────────────────────────────────────────────────────────────────────
   const reset = () => {
@@ -949,7 +956,7 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
     const sig = plan.display;
     if (seededRef.current === sig) return;
     seededRef.current = sig;
-    setWallPreview(null);
+    setWallPreview(null); setCadWalls(null); setCadInfo(null);
     storeRef.current!.getState().load(
       upgradePlanData(planDataNow(), { wallTypes: wallTypes.map((t) => ({ id: t.id, thicknessM: t.thicknessM, active: true })) }),
     );
@@ -999,6 +1006,36 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
     const n = clampAcceptCount(0, incoming.length);
     if (n > 0) st.addWalls(incoming.slice(0, n));
   }, [v2Active, mPerPx, plan, combinedWallMask, w, h, wallTypes]);
+
+  // v2 (beta): εισαγωγή τοίχων από τα διανύσματα/layers του PDF (CAD/PDF layers, στυλ Hamina).
+  const importCad = async () => {
+    if (!v2Active || !mPerPx || !file || !isPdf(file) || !plan) return;
+    setCadBusy(true);
+    try {
+      const { segments, layers } = await pageVectors(file, plan.page, w);
+      const by = segmentsByRole(segments, (l) => layerRole(l ?? ''));
+      const wallSegs = by.wall.length ? by.wall : segments; // fallback χωρίς layers
+      const walls = cadWallsToNew(wallSegs, mPerPx, wallTypes);
+      const cols = recognizeColumns(segments, { minPx: 0.1 / mPerPx, maxPx: 0.6 / mPerPx });
+      const stairs = recognizeStairs(segments, {});
+      setCadWalls(walls);
+      setCadInfo({ cols: cols.length, stairs: stairs.length, layers: layers.length });
+      if (!walls.length) toast.message('Δεν αναγνωρίστηκαν τοίχοι — έλεγξε αν το PDF έχει διανυσματικά layers.');
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Η εισαγωγή CAD/PDF απέτυχε.');
+    } finally {
+      setCadBusy(false);
+    }
+  };
+  const acceptCad = () => {
+    if (!cadWalls) return;
+    const st = storeRef.current!.getState();
+    const n = clampAcceptCount(st.data.walls.length, cadWalls.length);
+    st.addWalls(cadWalls.slice(0, n));
+    if (n < cadWalls.length) toast.warning(`Προστέθηκαν ${n} τοίχοι · ${cadWalls.length - n} αγνοήθηκαν (όριο ${20_000}).`);
+    else toast.success(`Προστέθηκαν ${n} τοίχοι από CAD/PDF.`);
+    setCadWalls(null); setCadInfo(null);
+  };
 
   // v2 (beta): αριθμητική αλλαγή μήκους — ο επιλεγμένος τοίχος αλλάζει μήκος κατά τον άξονα a→b.
   const applyLengthToSelection = () => {
@@ -1193,6 +1230,7 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
       vectorWalls={v2Active ? [
         ...wallsForCanvas(v2.data.walls, mPerPx!, v2.selectedWallIds, wallTypes),
         ...(wallPreview ?? []).map((vp, i) => ({ id: `prev-${i}`, a: vp.a, b: vp.b, thicknessPx: vp.thicknessPx, color: '#22D3EE', selected: false })),
+        ...(cadWalls ?? []).map((nw, i) => ({ id: `cad-${i}`, a: { x: nw.a.x / mPerPx!, y: nw.a.y / mPerPx! }, b: { x: nw.b.x / mPerPx!, y: nw.b.y / mPerPx! }, thicknessPx: 3, color: '#22D3EE', selected: false })),
       ] : undefined}
       onPick={onPick} onFinish={finish} onEdit={onEdit} fitKey={fitKey} ortho={ortho}
       onMarquee={v2Active && mPerPx ? (a, b) => { const ids = marqueeIds(v2.data.walls, { x: a.x * mPerPx, y: a.y * mPerPx }, { x: b.x * mPerPx, y: b.y * mPerPx }); if (ids) v2.selectWalls(ids); } : undefined}
@@ -1332,6 +1370,33 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
                       className="inline-flex h-7 cursor-pointer items-center justify-center rounded-md border border-white/15 px-2.5 text-(length:--fs-12) text-slate-300 transition-colors hover:bg-white/5">
                       Άκυρο
                     </button>
+                  </div>
+                )}
+                {file && isPdf(file) && (
+                  <div className="mt-2 flex flex-col gap-1.5 border-t border-white/10 pt-2">
+                    <h3 className="text-(length:--fs-11) font-semibold uppercase tracking-wider text-slate-500">CAD / PDF layers</h3>
+                    {!cadWalls ? (
+                      <button type="button" onClick={() => void importCad()} disabled={cadBusy}
+                        className="inline-flex h-7 cursor-pointer items-center justify-center gap-1.5 rounded-md border border-white/15 px-2.5 text-(length:--fs-12) text-slate-200 transition-colors hover:bg-white/5 disabled:opacity-60">
+                        {cadBusy ? <FiLoader className="size-3.5 animate-spin" aria-hidden /> : null} Εισαγωγή από CAD/PDF
+                      </button>
+                    ) : (
+                      <>
+                        <div className="text-(length:--fs-11) text-slate-400">
+                          {cadWalls.length} τοίχοι{cadInfo ? ` · ${cadInfo.cols} κολόνες · ${cadInfo.stairs} σκάλες · ${cadInfo.layers} layers` : ''}
+                        </div>
+                        <div className="flex gap-2">
+                          <button type="button" onClick={acceptCad}
+                            className="inline-flex h-7 flex-1 cursor-pointer items-center justify-center rounded-md px-2.5 text-(length:--fs-12) font-semibold text-white" style={{ background: '#7C3AED' }}>
+                            Αποδοχή ({cadWalls.length})
+                          </button>
+                          <button type="button" onClick={() => { setCadWalls(null); setCadInfo(null); }}
+                            className="inline-flex h-7 cursor-pointer items-center justify-center rounded-md border border-white/15 px-2.5 text-(length:--fs-12) text-slate-300 transition-colors hover:bg-white/5">
+                            Άκυρο
+                          </button>
+                        </div>
+                      </>
+                    )}
                   </div>
                 )}
               </div>
