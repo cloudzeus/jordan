@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Αντί να ισοπεδώνουμε το σχέδιο σε raster (που πιάνει ~0,9% και χάνει τοίχους/κολόνες/σκάλες), **διαβάζουμε τα πραγματικά διανύσματα του PDF** και αναγνωρίζουμε τα στοιχεία από τις **αρχιτεκτονικές τους συμβάσεις**: τοίχοι = ζεύγη παράλληλων γραμμών, κολόνες = μικρά κλειστά ορθογώνια, σκάλες = ισαπέχουσες παράλληλες. Οι τοίχοι γίνονται v2 οντότητες στο store· κολόνες/σκάλες προβάλλονται ως candidates.
+**Goal:** Αντί να ισοπεδώνουμε το σχέδιο σε raster (που πιάνει ~0,9% και χάνει τοίχους/κολόνες/σκάλες), **διαβάζουμε τα πραγματικά διανύσματα του PDF**. **Πρωτίστως** αξιοποιούμε τα **layers (OCG)** του αρχείου — τα CAD PDF φέρουν ονοματισμένα layers (π.χ. `KTISMA`=τοιχοποιία, `DOK`=δοκάρια, `DOOR`=πόρτες), οπότε **layer name → τύπος/υλικό** (η προσέγγιση του Hamina, επιβεβαιωμένη στα docs: «a material is automatically assigned based on the name of the layer»). **Εφεδρικά** (χωρίς layers, ή πολλά στοιχεία σε ένα layer) πέφτουμε σε αναγνώριση από **αρχιτεκτονικές συμβάσεις** (τοίχοι = παράλληλα ζεύγη, κολόνες = μικρά κλειστά ορθογώνια, σκάλες = ισαπέχουσες παράλληλες). Οι τοίχοι γίνονται v2 οντότητες στο store· κολόνες/δοκάρια/σκάλες προβάλλονται ως candidates.
 
 **Architecture:** Όλη η γεωμετρία/αναγνώριση **καθαρή** σε `lib/floorplan/cad/` (flatten operator-list → segments· parallel-pair walls· element matchers), με vitest σε συνθετικά segment sets. Η εξαγωγή από το pdfjs (`page.getOperatorList`) είναι λεπτό I/O adapter στο `load-plan.ts`, στο **ίδιο px-space με το `analysis`** ώστε η υπάρχουσα κλίμακα (`mPerPx`) να μετατρέπει σε μέτρα. Η ενσωμάτωση τοίχων επαναχρησιμοποιεί `vectorWallsToNew` (04c) και helpers του Plan 03 (`mergeCollinear`/`snapNodes`/`snapAxisAligned`). DOM = νέα λειτουργία «CAD/PDF layers» στον v2 editor, πίσω από το flag, manual QA.
 
@@ -24,6 +24,8 @@
 3. **Κλίμακα από την υπάρχουσα calibration** (`mPerPx`): τα segments εξάγονται σε px του `analysis` (viewport στο μέγεθος του analysis), άρα ευθυγραμμίζονται με το σχέδιο και το `mPerPx` τα κάνει μέτρα. Χωρίς κλίμακα → η εισαγωγή είναι ανενεργή (ίδιο pattern με 04c/04d).
 4. **Flatten σε δική μας μορφή op** (`RawOp`) ώστε η γεωμετρία να ελέγχεται χωρίς τα numeric `OPS` του pdfjs· ένας λεπτός adapter μεταφράζει pdfjs → `RawOp`.
 5. **Αναγνώριση τοίχων = parallel-pair:** segments ομαδοποιούνται κατά διεύθυνση· ζεύγη παράλληλων σε απόσταση [min..max] πάχους τοίχου δίνουν centerline + πάχος· μετά `mergeCollinear`+`snapNodes` (Plan 03). Μονές γραμμές χωρίς ζεύγος → αγνοούνται (διαστάσεις/κείμενο/διαγράμμιση).
+6. **Layer-first (κύριο μονοπάτι, ανάλυση Hamina 2026-10-29):** κάθε segment φέρει το OCG layer του· η αντιστοίχιση **layer name → ρόλος** (wall/beam/door/opening/ignore) γίνεται με configurable name-matching (π.χ. `KTISMA|τοιχ|WALL`→wall, `DOK|BEAM|δοκ`→beam, `DOOR|πορτ`→door). Η parallel-pair τρέχει **μέσα στο wall-layer** (καθαρό input: χωρίς κείμενο/διαστάσεις/διαγράμμιση) → πολύ πιο αξιόπιστα. Χωρίς layers → fallback σε όλα τα segments (Decision 5).
+7. **Per-layer υλικά στο UI (όπως Hamina):** το «CAD/PDF layers» δείχνει τα layers με dropdown υλικού ανά layer (default από το όνομα)· «Import Walls» = όλα τα wall-layers μαζί (ένα layer τη φορά αφήνει κενά στο skeleton — docs Hamina).
 
 ## Review Focus
 
@@ -32,6 +34,8 @@
 - **Παράλληλες που ΔΕΝ είναι τοίχος** (διαγράμμιση parking, κείμενο): ζεύγη εκτός εύρους πάχους ή πολύ κοντά/μακριά απορρίπτονται· δεν παράγονται ψευδοτοίχοι (Task 2).
 - **Χωρίς κλίμακα:** η εισαγωγή είναι ανενεργή, κανένα crash (Task 4/5 guard).
 - **Τεράστιο N segments (A0):** η parallel-pair είναι O(n·k) με bucket κατά διεύθυνση/θέση· τεκμηριωμένη απόδοση, όχι O(n²) (Task 2 — grid/bucket).
+- **Χωρίς layers / όλα σε ένα layer:** `pageVectors` επιστρέφει `layers:[]`/ένα· `segmentsByRole` ρίχνει τα πάντα στο fallback (όλα τα segments → geometry-only), χωρίς crash (Task 1/2 + Task 5 fallback). Η ίδια αδυναμία που παραδέχεται το Hamina («many parallel lines»), αλλά με layers (η περίπτωση του χρήστη: `KTISMA`/`DOK`/`DOOR`) είναι αξιόπιστο.
+- **Layer name σε άλλη γλώσσα/σύμβαση:** `layerRole` default rules καλύπτουν EL+EN· άγνωστο όνομα → `ignore`, ο χρήστης το διορθώνει στο UI (Task 5) — καμία σιωπηλή απώλεια (Task 2).
 
 ---
 
@@ -41,18 +45,19 @@
 
 **Interfaces:**
 - Produces:
-  - `type CadSegment = { a: Pt; b: Pt }` (px, analysis-space)
+  - `type CadSegment = { a: Pt; b: Pt; layer: string | null }` (px, analysis-space· `layer` = OCG id/όνομα ή null)
   - `type Matrix = [number, number, number, number, number, number]`
-  - `type RawOp = { op: 'move' | 'line' | 'cubic' | 'rect' | 'save' | 'restore' | 'transform'; args: number[] }`
-  - `flattenPath(ops: RawOp[], base: Matrix, curveTolPx?: number): CadSegment[]` (καθαρό: εφαρμόζει CTM με save/restore stack, κόβει cubics σε segments ≤ tol, `rect`/`Z` κλείνουν)
-  - (I/O, στο load-plan) `pageVectors(file: File, page: number, targetW: number): Promise<{ segments: CadSegment[]; w: number; h: number }>` — `getOperatorList()` → adapter `pdfOpsToRaw` → `flattenPath` με `base = viewport({scale: targetW/basewidth}).transform`.
+  - `type RawOp = { op: 'move' | 'line' | 'cubic' | 'rect' | 'save' | 'restore' | 'transform' | 'beginLayer' | 'endLayer'; args: number[]; layer?: string }`
+  - `flattenPath(ops: RawOp[], base: Matrix, curveTolPx?: number): CadSegment[]` (καθαρό: εφαρμόζει CTM με save/restore stack, κόβει cubics σε segments ≤ tol, `rect`/`Z` κλείνουν· `beginLayer`/`endLayer` δίνουν stack layer — κάθε segment παίρνει το τρέχον layer)
+  - (I/O, στο load-plan) `pageVectors(file: File, page: number, targetW: number): Promise<{ segments: CadSegment[]; layers: { id: string; name: string }[]; w: number; h: number }>` — `getOptionalContentConfig()` (OCG id→name) + `getOperatorList()` → adapter `pdfOpsToRaw` (τα `beginMarkedContentProps`/`endMarkedContent` με OCG ref → `beginLayer`/`endLayer`) → `flattenPath` με `base = viewport({scale: targetW/basewidth}).transform`.
 - Consumes: `Pt` (reducers/core).
 
 - [ ] **Step 1: Failing test** `cad-pdf-vectors.test.ts` (συνθετικά `RawOp[]`, χωρίς pdfjs):
-  - ευθεία: `[move 0,0][line 10,0]` με identity base → 1 segment (0,0)-(10,0).
+  - ευθεία: `[move 0,0][line 10,0]` με identity base → 1 segment (0,0)-(10,0), `layer:null`.
   - rect: `[rect 0,0,4,2]` → 4 segments (κλειστό ορθογώνιο).
   - transform: `[save][transform 2,0,0,2,0,0][move 0,0][line 5,0][restore][move 0,0][line 1,0]` → πρώτο segment μήκους 10, δεύτερο μήκους 1 (restore επανέφερε το CTM).
   - cubic: μία κυβική κόβεται σε ≥2 segments που ακολουθούν την καμπύλη (έλεγχος αρχή/τέλος + ότι το πλήθος > 1).
+  - layer: `[beginLayer "KTISMA"][move 0,0][line 3,0][endLayer][move 0,0][line 1,0]` → πρώτο segment `layer:"KTISMA"`, δεύτερο `layer:null`.
 - [ ] **Step 2: Run** `npx vitest run lib/floorplan/__tests__/cad-pdf-vectors.test.ts` → FAIL. **Step 3: Implement** `flattenPath` + `pdfOpsToRaw` + `pageVectors` (τελευταίο = I/O, χωρίς unit test· manual QA στο Task 5). **Step 4: Run** → PASS. **Step 5: Commit** `git commit -m "Κατόψεις v2: εξαγωγή διανυσμάτων PDF (flatten operator-list) 06"`.
 
 ---
@@ -63,9 +68,15 @@
 
 **Interfaces:**
 - Consumes: `CadSegment` (Task 1)· `VectorWall` (`lib/floorplan/vectorize.ts`, `{a,b,thicknessPx}`)· `mergeCollinear`, `snapNodes`, `snapAxisAligned`, `type Seg` (vectorize.ts).
-- Produces: `recognizeWalls(segs: CadSegment[], opts: { minThicknessPx: number; maxThicknessPx: number; minLenPx?: number; angleTolDeg?: number }): VectorWall[]` — ομαδοποίηση κατά διεύθυνση (bucket γωνίας) & θέση· για κάθε ζεύγος παράλληλων σε κάθετη απόσταση ∈ [min,max] και με επικάλυψη κατά μήκος → centerline (μέση) + `thicknessPx = απόσταση`· `mergeCollinear` + `snapAxisAligned` + `snapNodes` στο τέλος. Μονές/εκτός εύρους → αγνοούνται.
+- Produces:
+  - `type LayerRole = 'wall' | 'beam' | 'door' | 'opening' | 'ignore'`
+  - `layerRole(name: string): LayerRole` — configurable name-matching (default rules: `/ktisma|τοιχ|wall|ext|int/i`→wall, `/dok|beam|δοκ/i`→beam, `/door|πορτ/i`→door, `/wind|παραθ|opening/i`→opening, αλλιώς ignore).
+  - `segmentsByRole(segs: CadSegment[], roleOf: (layer: string | null) => LayerRole): Record<LayerRole, CadSegment[]>` — ομαδοποίηση segments ανά ρόλο layer.
+  - `recognizeWalls(segs: CadSegment[], opts: { minThicknessPx: number; maxThicknessPx: number; minLenPx?: number; angleTolDeg?: number }): VectorWall[]` — καλείται με τα segments του **wall ρόλου** (ή όλα, fallback)· ομαδοποίηση κατά διεύθυνση (bucket γωνίας) & θέση· ζεύγη παράλληλων σε κάθετη απόσταση ∈ [min,max] με επικάλυψη → centerline + `thicknessPx = απόσταση`· `mergeCollinear` + `snapAxisAligned` + `snapNodes`. Μονές/εκτός εύρους → αγνοούνται.
 
 - [ ] **Step 1: Failing test** `cad-recognize-walls.test.ts`:
+  - `layerRole('KTISMA')==='wall'`, `layerRole('DOK')==='beam'`, `layerRole('DOOR')==='door'`, `layerRole('5')==='ignore'`.
+  - `segmentsByRole` χωρίζει σωστά segments δύο layers (KTISMA, 5).
   - δύο οριζόντιες παράλληλες y=0 και y=20 (px), ίδιο x-span → 1 wall, centerline y=10, `thicknessPx≈20`.
   - δύο παράλληλες σε απόσταση 200px (πολύ χοντρό, > max) → κανένας τοίχος.
   - δύο μη-παράλληλες → κανένας τοίχος.
@@ -116,9 +127,10 @@
 **Interfaces:**
 - Consumes: `pageVectors` (Task 1)· `cadWallsToNew` (Task 4)· `recognizeColumns`/`recognizeStairs` (Task 3)· store `addWalls` (04c)· η πηγή `File` της κάτοψης (ο dialog κρατά τον `File` — αν όχι, πρόσθεσε `useRef<File>` στο `load`).
 - Produces (μόνο `v2Active`):
-  - κουμπί «Εισαγωγή από CAD/PDF» (rightExtra) → `pageVectors(file, page, analysisW)` → `cadWallsToNew` (walls) + `recognizeColumns/Stairs` (elements) → **preview** (τοίχοι cyan + κολόνες/σκάλες ως markers) χωρίς να μπουν στο store.
-  - «Αποδοχή τοίχων» → `store.addWalls` (με `clampAcceptCount`, 04c)· οι κολόνες/σκάλες μένουν preview (Decision 2) με σημείωση «μοντελοποίηση στο Plan 05».
-  - guard χωρίς `mPerPx` (ανενεργό + tooltip «Όρισε κλίμακα»).
+  - κουμπί «Εισαγωγή από CAD/PDF» → `pageVectors(file, page, analysisW)` → **λίστα layers με dropdown ρόλου/υλικού ανά layer** (default από `layerRole`+όνομα, όπως Hamina)· ο χρήστης διορθώνει αν χρειαστεί.
+  - preview: `segmentsByRole` → wall-layers → `cadWallsToNew` (walls cyan)· beam/door layers + `recognizeColumns/Stairs` → markers. Χωρίς να μπουν στο store.
+  - «Αποδοχή τοίχων» → `store.addWalls` (με `clampAcceptCount`, 04c)· κολόνες/δοκάρια/σκάλες μένουν preview (Decision 2) με σημείωση «μοντελοποίηση στο Plan 05».
+  - guard χωρίς `mPerPx` (ανενεργό + tooltip «Όρισε κλίμακα»)· χωρίς layers → fallback σε geometry-only σε όλα τα segments.
 - [ ] **Step 1:** Κράτημα `File` + κουμπί/ροή εξαγωγής. **Step 2:** Preview τοίχων (reuse `vectorWalls` prop) + markers στοιχείων (νέο optional prop στο PlanViewer ή reuse pins). **Step 3:** «Αποδοχή» → store. **Step 4:** `npx tsc --noEmit` + `npm run lint` 0 errors/no new warnings· manual QA behind flag στο PDF του χρήστη: περίμετρος+εσωτερικοί τοίχοι αναγνωρίζονται, κολόνες/σκάλες φαίνονται ως candidates· flag-off ανέπαφο. **Step 5: Commit** `git commit -m "Κατόψεις v2: λειτουργία CAD/PDF layers — εισαγωγή τοίχων από vectors 06"`.
 
 > Χωρίς DOM test infra· επαλήθευση tsc+lint+manual QA (roadmap). Η αναγνώριση/γεωμετρία καλύπτεται από Tasks 1-4.
