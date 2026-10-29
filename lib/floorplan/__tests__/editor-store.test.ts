@@ -87,6 +87,44 @@ describe('editor store', () => {
     expect(s.getState().canUndo).toBe(false);
   });
 
+  it('selectWalls sets selectedWallIds; a single id also sets selection', () => {
+    const s = createEditorStore(base());
+    s.getState().selectWalls(['a', 'b']);
+    expect(s.getState().selectedWallIds).toEqual(['a', 'b']);
+    expect(s.getState().selection).toEqual({ kind: null, id: null });
+    s.getState().selectWalls(['a']);
+    expect(s.getState().selection).toEqual({ kind: 'wall', id: 'a' });
+  });
+
+  it('single select syncs selectedWallIds', () => {
+    const s = createEditorStore(base());
+    s.getState().select({ kind: 'wall', id: 'x' });
+    expect(s.getState().selectedWallIds).toEqual(['x']);
+    s.getState().select({ kind: null, id: null });
+    expect(s.getState().selectedWallIds).toEqual([]);
+  });
+
+  it('setWallTypeMany changes all given walls in ONE undo step', () => {
+    const s = createEditorStore(base());
+    s.getState().addWalls([seg(0), seg(2)]);
+    const [id1, id2] = s.getState().data.walls.map((w) => w.id);
+    s.getState().setWallTypeMany([id1, id2], 't');
+    expect(s.getState().data.walls.every((w) => w.typeId === 't')).toBe(true);
+    s.getState().undo();
+    expect(s.getState().data.walls.every((w) => w.typeId === null)).toBe(true);
+  });
+
+  it('setWallTypeMany with an empty list is a no-op', () => {
+    const s = createEditorStore(base());
+    s.getState().addWall(seg(0));
+    const before = s.getState().canUndo;
+    s.getState().setWallTypeMany([], 't');
+    // the only undo step is the addWall; no new step was pushed
+    s.getState().undo();
+    expect(before).toBe(true);
+    expect(s.getState().data.walls).toHaveLength(0);
+  });
+
   it('deleteWall removes wall and its openings as one undoable step', () => {
     const s = createEditorStore(base());
     s.getState().addWall(seg(0));

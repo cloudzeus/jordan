@@ -24,6 +24,8 @@ export type EditorState = {
   data: PlanDataV2;
   activeTool: ToolKey;
   selection: Selection;
+  /** Πολλαπλή επιλογή τοίχων (ορθογώνια επιλογή)· μονή επιλογή → [id]. */
+  selectedWallIds: string[];
   activeWallTypeId: string | null;
   canUndo: boolean;
   canRedo: boolean;
@@ -32,6 +34,8 @@ export type EditorState = {
 export type EditorActions = {
   setTool(t: ToolKey): void;
   select(s: Selection): void;
+  selectWalls(ids: string[]): void;
+  setWallTypeMany(ids: string[], typeId: string | null): void;
   setActiveWallType(id: string | null): void;
   addWall(w: NewWall): void;
   addWalls(ws: NewWall[]): void;
@@ -70,12 +74,18 @@ export function createEditorStore(initial: PlanDataV2): StoreApi<EditorStore> {
       data: initial,
       activeTool: 'select',
       selection: { kind: null, id: null },
+      selectedWallIds: [],
       activeWallTypeId: null,
       canUndo: false,
       canRedo: false,
 
       setTool: (t) => set({ activeTool: t }),
-      select: (s) => set({ selection: s }),
+      select: (s) => set({ selection: s, selectedWallIds: s.kind === 'wall' && s.id ? [s.id] : [] }),
+      selectWalls: (ids) => set({
+        selectedWallIds: ids,
+        selection: ids.length === 1 ? { kind: 'wall', id: ids[0] } : { kind: null, id: null },
+      }),
+      setWallTypeMany: (ids, typeId) => commit((d) => { for (const id of ids) setWallTypeRecipe(d, id, typeId); }),
       setActiveWallType: (id) => set({ activeWallTypeId: id }),
 
       addWall: (w) => commit((d) => addWallRecipe(d, w)),
@@ -90,7 +100,7 @@ export function createEditorStore(initial: PlanDataV2): StoreApi<EditorStore> {
       load: (d) => {
         past.length = 0;
         future.length = 0;
-        set({ data: d, canUndo: false, canRedo: false, selection: { kind: null, id: null } });
+        set({ data: d, canUndo: false, canRedo: false, selection: { kind: null, id: null }, selectedWallIds: [] });
       },
 
       undo: () => {
