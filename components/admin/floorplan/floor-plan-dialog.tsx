@@ -43,6 +43,7 @@ import { planData, planDataV2, planPins, planRooms, scalePlanData, type PlanData
 import { upgradePlanData } from '@/lib/floorplan/upgrade';
 import { createEditorStore, type EditorStore } from '@/lib/floorplan/editor/store';
 import { clampAcceptCount, hotkeyToWallTypeId, pickWallAt, vectorWallsToNew, wallsForCanvas } from '@/lib/floorplan/editor/interactions';
+import { snapPoint, applyLength, type SnapKind } from '@/lib/floorplan/editor/snapping';
 import { vectorizeWalls, type VectorWall } from '@/lib/floorplan/vectorize';
 import { useStore } from 'zustand';
 import type { StoreApi } from 'zustand/vanilla';
@@ -75,6 +76,8 @@ const nf = new Intl.NumberFormat('el-GR', { maximumFractionDigits: 1 });
 const uid = () => Math.random().toString(36).slice(2, 10);
 /** Κενό v2 — αρχική κατάσταση του store πριν το seed (editorV2). */
 const EMPTY_V2 = planDataV2.parse({ v: 2, underlay: null, rooms: [] });
+/** Ετικέτες κουμπώματος για το status bar του v2 editor. */
+const SNAP_LABEL: Record<string, string> = { endpoint: 'άκρο', segment: 'τοίχος', axis: 'άξονας', grid: 'κάναβος', none: '' };
 
 type ToolGroup = 'Πλοήγηση' | 'Χώροι' | 'Τοίχοι & ανοίγματα' | 'Μετρήσεις' | 'Σημειώσεις';
 /**
@@ -321,6 +324,8 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
   const seededRef = React.useRef<unknown>(null);
   const autoPopRef = React.useRef<unknown>(null);
   const [wallPreview, setWallPreview] = React.useState<VectorWall[] | null>(null);
+  const [snapKind, setSnapKind] = React.useState<SnapKind | null>(null);
+  const [lengthStr, setLengthStr] = React.useState('');
 
   // ── Φόρτωση ──────────────────────────────────────────────────────────────────────────
   const reset = () => {
@@ -719,6 +724,20 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
       setDraft((d) => [...d, p]);
       return;
     }
+    if (tool === 'wall' && v2Active && mPerPx) {
+      // v2 (beta): σχεδίαση τοίχου στο store με κούμπωμα σε άκρα/τμήματα/άξονες.
+      const st = storeRef.current!.getState();
+      const anchorM = draft.length ? { x: draft[0].x * mPerPx, y: draft[0].y * mPerPx } : null;
+      const s = snapPoint(st.data.walls, { x: p.x * mPerPx, y: p.y * mPerPx }, { tolM: 10 * mPerPx, ortho, anchor: anchorM });
+      setSnapKind(s.kind);
+      const qPx = { x: s.point.x / mPerPx, y: s.point.y / mPerPx };
+      const last = draft[draft.length - 1];
+      if (!last) { setDraft([qPx]); return; }
+      if (Math.hypot(qPx.x - last.x, qPx.y - last.y) < 2) return;
+      st.addWall({ a: { x: last.x * mPerPx, y: last.y * mPerPx }, b: s.point, typeId: st.activeWallTypeId });
+      setDraft([qPx]); // συνέχισε την αλυσίδα από το νέο άκρο (Enter/διπλό κλικ τελειώνει)
+      return;
+    }
     if (tool === 'wall') {
       const q = snap(p);
       const last = draft[draft.length - 1];
@@ -980,6 +999,16 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
     if (n > 0) st.addWalls(incoming.slice(0, n));
   }, [v2Active, mPerPx, plan, combinedWallMask, w, h, wallTypes]);
 
+  // v2 (beta): αριθμητική αλλαγή μήκους — ο επιλεγμένος τοίχος αλλάζει μήκος κατά τον άξονα a→b.
+  const applyLengthToSelection = () => {
+    const st = storeRef.current!.getState();
+    const L = Number(lengthStr.replace(',', '.'));
+    if (!v2Active || st.selection.kind !== 'wall' || !st.selection.id || !(L > 0)) return;
+    const wll = st.data.walls.find((x) => x.id === st.selection.id);
+    if (!wll) return;
+    st.moveWallEnd(wll.id, 'b', applyLength(wll.a, wll.b, L));
+    setLengthStr('');
+  };
   const canvasPng = (c: HTMLCanvasElement) => new Promise<Blob>((res, rej) => c.toBlob((b) => (b ? res(b) : rej(new Error('PNG export failed'))), 'image/png'));
   /** Νέα ή ενημέρωση της χαρτογράφησης στο έργο· επιστρέφει το id (null σε αποτυχία). */
   const savePlan = async (quiet = false): Promise<string | null> => {
@@ -1268,9 +1297,23 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
             wallTypes={wallTypes}
             activeWallTypeId={v2.activeWallTypeId}
             onWallType={(id) => { if (v2.selection.kind === 'wall' && v2.selection.id) v2.setWallType(v2.selection.id, id); else v2.setActiveWallType(id); }}
-            status={{ selection: v2.selection.kind === 'wall' ? 'τοίχος' : (selected ? '1 χώρος' : undefined) }}
+            status={{
+              snap: snapKind && SNAP_LABEL[snapKind] ? SNAP_LABEL[snapKind] : undefined,
+              selection: v2.selectedWallIds.length > 1 ? `${v2.selectedWallIds.length} τοίχοι`
+                : v2.selection.kind === 'wall' ? 'τοίχος' : (selected ? '1 χώρος' : undefined),
+            }}
             rightExtra={
               <div className="flex flex-col gap-2">
+                {v2.selection.kind === 'wall' && v2.selection.id && (
+                  <label className="flex items-center gap-2 text-(length:--fs-11) text-slate-400">
+                    <span className="shrink-0">Μήκος (m)</span>
+                    <input type="text" inputMode="decimal" value={lengthStr}
+                      onChange={(e) => setLengthStr(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); applyLengthToSelection(); } }}
+                      placeholder="π.χ. 3.45"
+                      className="h-7 w-full rounded-md border border-white/15 bg-[#0d1526] px-2 text-(length:--fs-12) text-slate-100 outline-hidden focus:border-cyan-400/60" />
+                  </label>
+                )}
                 <h3 className="text-(length:--fs-11) font-semibold uppercase tracking-wider text-slate-500">Διανυσματικοί τοίχοι</h3>
                 {!wallPreview ? (
                   <button type="button" onClick={previewVectorWalls}
