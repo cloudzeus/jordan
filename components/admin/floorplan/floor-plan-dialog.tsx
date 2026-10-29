@@ -1402,6 +1402,29 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
             }}
             rightExtra={
               <div className="flex flex-col gap-2">
+                {/* ── Κλίμακα: προαπαιτούμενο για AI / τοίχους / επιλογή περιοχής ── */}
+                <div className="flex flex-col gap-1.5">
+                  <h3 className="text-(length:--fs-11) font-semibold uppercase tracking-wider text-slate-500">
+                    Κλίμακα {mPerPx ? <span className="text-emerald-400">✓</span> : <span className="text-amber-400">— απαιτείται</span>}
+                  </h3>
+                  {!mPerPx && <p className="text-(length:--fs-11) text-slate-400">Με το εργαλείο «Κλίμακα» (Κ) σχεδίασε μια γνωστή απόσταση, μετά δώσε το μήκος της και «Εφαρμογή».</p>}
+                  <div className="flex items-center gap-1.5">
+                    <button type="button" onClick={() => changeTool('calibrate')}
+                      className="inline-flex h-7 shrink-0 cursor-pointer items-center justify-center rounded-md border border-white/15 px-2.5 text-(length:--fs-12) text-slate-200 transition-colors hover:bg-white/5"
+                      style={tool === 'calibrate' ? { borderColor: '#F59E0B', background: 'rgba(245,158,11,.12)' } : undefined}>
+                      {mPerPx ? 'Αλλαγή' : 'Σχεδίασε'}
+                    </button>
+                    <input ref={metersRef} type="text" inputMode="decimal" value={meters}
+                      onChange={(e) => setMeters(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); applyCalib(); } }}
+                      placeholder="μέτρα" aria-label="Πραγματικό μήκος σε μέτρα"
+                      className="h-7 w-full min-w-0 rounded-md border border-white/15 bg-[#0d1526] px-2 text-(length:--fs-12) text-slate-100 outline-hidden focus:border-amber-400/60" />
+                    <button type="button" onClick={applyCalib}
+                      className="inline-flex h-7 shrink-0 cursor-pointer items-center justify-center rounded-md px-2.5 text-(length:--fs-12) font-semibold" style={{ background: '#F59E0B', color: '#0B1220' }}>
+                      Εφαρμογή
+                    </button>
+                  </div>
+                </div>
                 {v2.selection.kind === 'wall' && v2.selection.id && (
                   <label className="flex items-center gap-2 text-(length:--fs-11) text-slate-400">
                     <span className="shrink-0">Μήκος (m)</span>
