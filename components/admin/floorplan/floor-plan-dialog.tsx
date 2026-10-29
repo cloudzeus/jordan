@@ -39,7 +39,12 @@ import { annotatedPng, download, fmtM, fmtM2, roomsCsv, roomsText, type ExportRo
 import { MaterialChip, OfferStepBody, RoomMaterialEditor, type RoomMaterial } from './offer-panel';
 import { FloorPlanOfferDialog, type OfferRoom, type OfferSubmit } from './offer-dialog';
 import type { RecipeView } from '@/lib/install-recipes';
-import { planData, planPins, planRooms, scalePlanData, type PlanData, type PlanPin, type PlanRoom } from '@/lib/floorplan/saved';
+import { planData, planDataV2, planPins, planRooms, scalePlanData, type PlanData, type PlanPin, type PlanRoom } from '@/lib/floorplan/saved';
+import { upgradePlanData } from '@/lib/floorplan/upgrade';
+import { createEditorStore, type EditorStore } from '@/lib/floorplan/editor/store';
+import { hotkeyToWallTypeId, pickWallAt, wallsForCanvas } from '@/lib/floorplan/editor/interactions';
+import { useStore } from 'zustand';
+import type { StoreApi } from 'zustand/vanilla';
 import { aiResponse, chooseScale, fallbackPolygon, pickCandidate, roomsInPx } from '@/lib/floorplan/ai-core';
 import { Sparkles } from 'lucide-react';
 import type { FloorPlanListRow } from '@/lib/floorplan/plans';
@@ -67,6 +72,8 @@ const DRAWN_RGB = [251, 146, 60]; // = WALL_DRAW
 
 const nf = new Intl.NumberFormat('el-GR', { maximumFractionDigits: 1 });
 const uid = () => Math.random().toString(36).slice(2, 10);
+/** Κενό v2 — αρχική κατάσταση του store πριν το seed (editorV2). */
+const EMPTY_V2 = planDataV2.parse({ v: 2, underlay: null, rooms: [] });
 
 type ToolGroup = 'Πλοήγηση' | 'Χώροι' | 'Τοίχοι & ανοίγματα' | 'Μετρήσεις' | 'Σημειώσεις';
 /**
@@ -303,6 +310,14 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
   const maxDim = Math.max(w, h);
   const gray = React.useMemo(() => (plan ? toGray(plan.analysis.data, w, h) : null), [plan, w, h]);
   const mPerPx = calib ? calib.meters / Math.hypot(calib.b.x - calib.a.x, calib.b.y - calib.a.y) : null;
+
+  // ── v2 store (beta, πίσω από flag floorplanV2) — source-of-truth για τους επιλέξιμους τοίχους v2.
+  // Δημιουργείται πάντα (σταθερή σειρά hooks)· χρησιμοποιείται μόνο στο μονοπάτι editorV2. ──
+  const storeRef = React.useRef<StoreApi<EditorStore> | null>(null);
+  if (!storeRef.current) storeRef.current = createEditorStore(EMPTY_V2);
+  const v2 = useStore(storeRef.current, (s) => s);
+  const v2Active = editorV2 && !!mPerPx;
+  const seededRef = React.useRef<unknown>(null);
 
   // ── Φόρτωση ──────────────────────────────────────────────────────────────────────────
   const reset = () => {
@@ -599,6 +614,13 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
   };
 
   const onPick = (p: Pt) => {
+    // v2 (beta): με το εργαλείο «Μετακίνηση» (pan), κλικ κοντά σε τοίχο τον επιλέγει· αλλιώς αποεπιλογή.
+    if (v2Active && tool === 'pan' && mPerPx) {
+      const st = storeRef.current!.getState();
+      const id = pickWallAt(st.data.walls, { x: p.x * mPerPx, y: p.y * mPerPx }, 10 * mPerPx);
+      st.select({ kind: id ? 'wall' : null, id });
+      return;
+    }
     if (tool === 'edit') {
       const hit = [...rooms].reverse().find((r) => pointInPolygon(p, r.polygon));
       setSelected(hit?.id ?? null);
@@ -803,6 +825,30 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
     const onKey = (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement | null)?.tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+      // v2 (beta): undo/redo, τύπος τοίχου (1–9), διαγραφή επιλεγμένου τοίχου — πριν τους v1 χειριστές.
+      if (v2Active) {
+        const st = storeRef.current!.getState();
+        if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z') {
+          e.preventDefault();
+          if (e.shiftKey) st.redo(); else st.undo();
+          return;
+        }
+        if (!e.metaKey && !e.ctrlKey && /^[1-9]$/.test(e.key)) {
+          const id = hotkeyToWallTypeId(wallTypes, e.key);
+          if (id) {
+            if (st.selection.kind === 'wall' && st.selection.id) st.setWallType(st.selection.id, id);
+            else st.setActiveWallType(id);
+            e.preventDefault();
+          }
+          return;
+        }
+        if ((e.key === 'Delete' || e.key === 'Backspace') && st.selection.kind === 'wall' && st.selection.id && !draft.length) {
+          st.deleteWall(st.selection.id);
+          st.select({ kind: null, id: null });
+          e.preventDefault();
+          return;
+        }
+      }
       if (e.key === 'Escape' && draft.length) { e.preventDefault(); e.stopPropagation(); setDraft([]); return; }
       if (e.key === 'Enter') { finish(); return; }
       if (e.key === 'Backspace' && draft.length) { e.preventDefault(); setDraft((d) => d.slice(0, -1)); return; }
@@ -872,6 +918,20 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
     dividers, drawnWalls, dims, pins, devices, cables, render3dFileId: null,
     rooms: rooms.map((r) => ({ id: r.id, name: r.name, color: r.color, polygon: r.polygon, areaPx: r.areaPx, perimeterPx: r.perimeterPx, manual: r.manual, walls: r.walls, material: r.material, materialB: r.material ? r.materialB ?? null : null })),
   });
+  // Seed του v2 store μία φορά ανά «σύνοδο σχεδίου» (νέο plan/restore): οι drawnWalls (px) γίνονται
+  // walls[] (μέτρα) μέσω upgradePlanData. Ο seededRef φρουρεί ώστε οι επόμενες επεξεργασίες να μη
+  // ξαναγράφουν το store (δεν χάνονται αλλαγές του χρήστη).
+  React.useEffect(() => {
+    if (!v2Active || !plan) return;
+    const sig = plan.display;
+    if (seededRef.current === sig) return;
+    seededRef.current = sig;
+    storeRef.current!.getState().load(
+      upgradePlanData(planDataNow(), { wallTypes: wallTypes.map((t) => ({ id: t.id, thicknessM: t.thicknessM, active: true })) }),
+    );
+    // μία φορά ανά σχέδιο· σκόπιμα χωρίς dep στο planDataNow (αλλάζει κάθε render).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [v2Active, plan, wallTypes]);
   const canvasPng = (c: HTMLCanvasElement) => new Promise<Blob>((res, rej) => c.toBlob((b) => (b ? res(b) : rej(new Error('PNG export failed'))), 'image/png'));
   /** Νέα ή ενημέρωση της χαρτογράφησης στο έργο· επιστρέφει το id (null σε αποτυχία). */
   const savePlan = async (quiet = false): Promise<string | null> => {
@@ -1052,6 +1112,7 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
       pins={pins.map((p, i) => ({ id: p.id, x: p.x, y: p.y, n: i + 1, selected: p.id === pinSel, hasPhoto: p.photoFileIds.length > 0 }))}
       calibration={calibLine ?? (calib && !blankScale ? [calib.a, calib.b] : null)}
       draft={draft} tool={tool} formatLength={fmtLen}
+      vectorWalls={v2Active ? wallsForCanvas(v2.data.walls, mPerPx!, v2.selection.id, wallTypes) : undefined}
       onPick={onPick} onFinish={finish} onEdit={onEdit} fitKey={fitKey} ortho={ortho}
       netDevices={viewerDevices} netCables={viewerCables} cableColor={netPick.tool === 'cable' ? CABLE_META[netPick.kind].color : undefined}
     />
@@ -1154,7 +1215,9 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
             ortho={ortho} onToggleOrtho={toggleOrtho}
             view3d={view3d} onView={(v) => { setView3d(v); setDraft([]); }} canUse3d={!!mPerPx}
             wallTypes={wallTypes}
-            status={{ selection: selected ? '1 χώρος' : undefined }}
+            activeWallTypeId={v2.activeWallTypeId}
+            onWallType={(id) => { if (v2.selection.kind === 'wall' && v2.selection.id) v2.setWallType(v2.selection.id, id); else v2.setActiveWallType(id); }}
+            status={{ selection: v2.selection.kind === 'wall' ? 'τοίχος' : (selected ? '1 χώρος' : undefined) }}
             onSave={() => { if (!calib) { toast.error('Όρισε πρώτα κλίμακα με το εργαλείο «Κλίμακα».'); return; } void savePlan(); }} saving={planSaving}
           >
             <div className="relative size-full" {...dz.getRootProps()}>
