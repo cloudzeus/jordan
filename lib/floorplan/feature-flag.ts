@@ -11,8 +11,8 @@ export const floorplanV2Config = z.object({
 /** `all`: ενεργό για όλους· `userIds`: μόνο για συγκεκριμένους χρήστες. */
 export type FloorplanV2Config = z.infer<typeof floorplanV2Config>;
 
-/** Είναι το v2 editor ενεργό για αυτόν τον χρήστη; (default: όχι). */
-export function floorplanV2Enabled(cfg: FloorplanV2Config | null | undefined, userId: string | null): boolean {
-  if (cfg?.all === true) return true;
-  return !!userId && (cfg?.userIds ?? []).includes(userId);
+/** Είναι το v2 editor ενεργό για αυτόν τον χρήστη; Default: ΝΑΙ (ο v2 είναι ο κύριος editor)·
+ *  μόνο ρητό `all: false` τον κλείνει. */
+export function floorplanV2Enabled(cfg: FloorplanV2Config | null | undefined, _userId: string | null): boolean {
+  return cfg?.all !== false;
 }
