@@ -1,10 +1,10 @@
 import { createStore, type StoreApi } from 'zustand/vanilla';
-import { enablePatches, produceWithPatches, applyPatches, type Patch } from 'immer';
+import { enablePatches, produceWithPatches, applyPatches, type Patch, type Draft } from 'immer';
 import type { PlanDataV2 } from '@/lib/floorplan/saved';
 import {
-  addWall as rAddWall, updateWall as rUpdateWall, setWallType as rSetWallType,
-  moveWallEnd as rMoveWallEnd, deleteWall as rDeleteWall,
-  addOpening as rAddOpening, deleteOpening as rDeleteOpening,
+  addWallRecipe, updateWallRecipe, setWallTypeRecipe,
+  moveWallEndRecipe, deleteWallRecipe,
+  addOpeningRecipe, deleteOpeningRecipe,
   type NewWall, type NewOpening, type Pt, type WallEntity,
 } from './reducers';
 
@@ -55,17 +55,14 @@ export function createEditorStore(initial: PlanDataV2): StoreApi<EditorStore> {
   const future: HistoryEntry[] = [];
 
   return createStore<EditorStore>((set, get) => {
-    /** Τρέχει έναν reducer του Task 2, καταγράφει patches για undo/redo. */
-    const commit = (reducer: (d: PlanDataV2) => PlanDataV2) => {
-      const [next, patches, inverse] = produceWithPatches(get().data, (draft) => {
-        // Οι reducers είναι καθαροί (επιστρέφουν νέο αντικείμενο)· ο producer υιοθετεί το αποτέλεσμα.
-        return reducer(draft as PlanDataV2) as PlanDataV2;
-      });
+    /** Τρέχει ένα mutating recipe επί του draft· το immer παράγει κοκκώδη patches για undo/redo. */
+    const commit = (recipe: (draft: Draft<PlanDataV2>) => void) => {
+      const [next, patches, inverse] = produceWithPatches(get().data, recipe);
       if (patches.length === 0) return; // no-op: καμία αλλαγή, κανένα βήμα
       past.push({ patches, inverse });
       if (past.length > HISTORY_LIMIT) past.shift();
       future.length = 0;
-      set({ data: next as PlanDataV2, canUndo: past.length > 0, canRedo: false });
+      set({ data: next, canUndo: past.length > 0, canRedo: false });
     };
 
     return {
@@ -80,13 +77,13 @@ export function createEditorStore(initial: PlanDataV2): StoreApi<EditorStore> {
       select: (s) => set({ selection: s }),
       setActiveWallType: (id) => set({ activeWallTypeId: id }),
 
-      addWall: (w) => commit((d) => rAddWall(d, w)),
-      updateWall: (id, patch) => commit((d) => rUpdateWall(d, id, patch)),
-      setWallType: (id, typeId) => commit((d) => rSetWallType(d, id, typeId)),
-      moveWallEnd: (id, end, pt) => commit((d) => rMoveWallEnd(d, id, end, pt)),
-      deleteWall: (id) => commit((d) => rDeleteWall(d, id)),
-      addOpening: (o) => commit((d) => rAddOpening(d, o)),
-      deleteOpening: (id) => commit((d) => rDeleteOpening(d, id)),
+      addWall: (w) => commit((d) => addWallRecipe(d, w)),
+      updateWall: (id, patch) => commit((d) => updateWallRecipe(d, id, patch)),
+      setWallType: (id, typeId) => commit((d) => setWallTypeRecipe(d, id, typeId)),
+      moveWallEnd: (id, end, pt) => commit((d) => moveWallEndRecipe(d, id, end, pt)),
+      deleteWall: (id) => commit((d) => deleteWallRecipe(d, id)),
+      addOpening: (o) => commit((d) => addOpeningRecipe(d, o)),
+      deleteOpening: (id) => commit((d) => deleteOpeningRecipe(d, id)),
 
       load: (d) => {
         past.length = 0;
