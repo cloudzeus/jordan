@@ -3,8 +3,11 @@
 import * as React from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { type ColumnDef } from '@tanstack/react-table';
-import { FiRefreshCw, FiGlobe, FiUsers, FiFileText, FiMoreVertical, FiEdit3, FiShield, FiEye, FiFolder, FiFilePlus, FiRepeat, FiMessageSquare, FiClock } from 'react-icons/fi';
+import { FiRefreshCw, FiGlobe, FiUsers, FiFileText, FiMoreVertical, FiEdit3, FiShield, FiEye, FiFolder, FiFilePlus, FiRepeat, FiMessageSquare, FiClock, FiMap } from 'react-icons/fi';
+import dynamic from 'next/dynamic';
 import { CustomerOfferWizard } from '@/components/admin/floorplan/customer-offer-wizard';
+
+const FloorPlanDialog = dynamic(() => import('@/components/admin/floorplan/floor-plan-dialog').then((m) => m.FloorPlanDialog), { ssr: false });
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
@@ -85,6 +88,7 @@ export function TradersView({
   /** Wizard «Νέα προσφορά» — μένει στη θέση του μετά το κλείσιμο, ώστε το εργαλείο κάτοψης να κρατά την κατάσταση. */
   const [offerFor, setOfferFor] = React.useState<{ trdr: number; code: string; name: string } | null>(null);
   const [offerOpen, setOfferOpen] = React.useState(false);
+  const [planFor, setPlanFor] = React.useState<{ trdr: number; label: string } | null>(null);
   /** Καρτέλα για «Μετατροπή σε προμηθευτή/πιστωτή» (νέα καρτέλα του άλλου τύπου). */
   const [converting, setConverting] = React.useState<number | null>(null);
   const [messaging, setMessaging] = React.useState<{ trdr: number; label: string } | null>(null);
@@ -174,6 +178,9 @@ export function TradersView({
                     <DropdownMenuSeparator />
                     <DropdownMenuItem onSelect={() => { setOfferFor({ trdr: c.trdr, code: c.code, name: c.name }); setOfferOpen(true); }} className="text-(length:--fs-13)">
                       <FiFilePlus aria-hidden className="mr-2 size-3.5" style={{ color: '#0E7490' }} /> Νέα προσφορά…
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onSelect={() => setPlanFor({ trdr: c.trdr, label: `${c.code} · ${c.name}` })} className="text-(length:--fs-13)">
+                      <FiMap aria-hidden className="mr-2 size-3.5" style={{ color: '#7C3AED' }} /> Προσθήκη κάτοψης…
                     </DropdownMenuItem>
                   </>
                 )}
@@ -360,6 +367,13 @@ export function TradersView({
         />
       )}
       {offerFor && <CustomerOfferWizard key={offerFor.trdr} customer={offerFor} open={offerOpen} onOpenChange={setOfferOpen} />}
+      {planFor && (
+        <FloorPlanDialog
+          key={planFor.trdr} owner={{ trdr: planFor.trdr }} projectLabel={planFor.label}
+          open onOpenChange={(o) => { if (!o) setPlanFor(null); }}
+          canSave={canFiles} canOffer={canManage}
+        />
+      )}
       {converting != null && (
         <TraderConvertDialog key={converting} trdr={converting} open onOpenChange={(o) => { if (!o) setConverting(null); }} />
       )}
