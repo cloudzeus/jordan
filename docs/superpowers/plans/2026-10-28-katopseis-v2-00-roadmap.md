@@ -29,7 +29,9 @@ shippable, testable κομμάτι», σπάει σε **7 plans** που βγα�
 | 04d | **Snapping + αριθμητική είσοδος + ορθογώνια επιλογή** | snap engine (γραμμικό· flatbush/rbush αναβάλλεται ως βελτιστοποίηση), αριθμητική είσοδος μήκους («3.45»+Enter), ορθογώνια επιλογή + μαζική αλλαγή τύπου. | 04b, 04c |
 | 04e | **Autosave IndexedDB** | debounced persist του v2 store σε IndexedDB ανά κάτοψη + restore-on-open· ανεξάρτητο υποσύστημα persistence (βγήκε από το 04d). | 04b |
 | 05 | **3D ανά τοίχο + ElementModel + χωρίσματα** | Νέο `walls3d.ts` με κόμβους (miter/T), R3F σκηνή, πίνακας `ElementModel` + 8 procedural μοντέλα + glb upload, πάνελ Στοιχείων, εργαλείο χωρίσματος. | 02, 04 |
-| 06 | **CAD import** | DXF worker, DWG→DXF service (container), PDF paths, οθόνη αντιστοίχισης layers + προφίλ CAD, `cad-walls.ts` με tests σε 3 πραγματικά σχέδια. | 02, 04 |
+| 06 | **CAD import — PDF διανύσματα** | `page.getOperatorList()` → segments· αναγνώριση με αρχιτεκτονικές συμβάσεις (τοίχοι=παράλληλα ζεύγη, κολόνες=μικρά κλειστά ορθογώνια, σκάλες=ισαπέχουσες παράλληλες)· λειτουργία «CAD/PDF layers» στον v2 editor. Λύνει τα διανυσματικά PDF (ο raster `detectWalls` πιάνει ~0,9%). | 02, 03, 04 |
+| 06b | **CAD import — DXF** | DXF parser (worker), layer-mapping UI + προφίλ CAD, ίδιος αγωγός αναγνώρισης με το 06. | 06 |
+| 06c | **CAD import — DWG** | DWG→DXF service (container, LibreDWG/ODA) → τροφοδοτεί το 06b. Ανεξάρτητο infra. | 06b |
 | 07 | **Takeoff + offer + export** | Καθαρό `takeoff(planData, types, models)` → `lib/floorplan/takeoff.ts`· επέκταση `floorPlanOffer` (γραμμές ανά τύπο τοίχου & μοντέλο)· XLSX/PDF επιμέτρησης. | 02, 05 |
 
 Snapping & Web Workers (Φάση 4 του spec) εντάσσονται στο 04 (snapping engine, αριθμητική είσοδος)
