@@ -319,6 +319,7 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
   const v2 = useStore(storeRef.current, (s) => s);
   const v2Active = editorV2 && !!mPerPx;
   const seededRef = React.useRef<unknown>(null);
+  const autoPopRef = React.useRef<unknown>(null);
   const [wallPreview, setWallPreview] = React.useState<VectorWall[] | null>(null);
 
   // ── Φόρτωση ──────────────────────────────────────────────────────────────────────────
@@ -936,12 +937,19 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [v2Active, plan, wallTypes]);
 
-  // v2 (beta): προεπισκόπηση των διανυσματικών τοίχων από τη συνδυασμένη μάσκα (auto + σχεδιασμένοι)·
-  // «Αποδοχή» → μετατροπή px→μέτρα + τύπος από πάχος → store.addWall (με όριο cap).
-  const previewVectorWalls = () => {
-    if (!v2Active || !plan) return;
+  // Συνδυασμένη μάσκα τοίχων (σχεδιασμένοι ∪ αυτόματοι) — τροφή για το vectorize· null χωρίς σχέδιο.
+  const combinedWallMask = React.useCallback((): Uint8Array | null => {
+    if (!plan) return null;
     const m = drawnMask.slice();
     if (autoMask) for (let i = 0; i < m.length; i++) if (autoMask[i]) m[i] = 1;
+    return m;
+  }, [plan, drawnMask, autoMask]);
+
+  // v2 (beta): προεπισκόπηση των διανυσματικών τοίχων από τη συνδυασμένη μάσκα (auto + σχεδιασμένοι)·
+  // «Αποδοχή» → μετατροπή px→μέτρα + τύπος από πάχος → store.addWalls (με όριο cap).
+  const previewVectorWalls = () => {
+    const m = combinedWallMask();
+    if (!v2Active || !m) return;
     setWallPreview(vectorizeWalls(m, w, h));
   };
   const acceptVectorWalls = () => {
@@ -954,6 +962,24 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
     else toast.success(`Προστέθηκαν ${n} τοίχοι.`);
     setWallPreview(null);
   };
+
+  // v2 (beta): παλιά έργα χωρίς σχεδιασμένους τοίχους (μόνο αυτόματη ανίχνευση) δεν έχουν v2 οντότητες
+  // μετά το upgrade. Μία φορά ανά σχέδιο, μόλις η μάσκα είναι έτοιμη, τη διανυσματοποιούμε αυτόματα
+  // ώστε οι τοίχοι να εμφανιστούν άμεσα (ένα undo step· αναιρείται από τον χρήστη).
+  React.useEffect(() => {
+    if (!v2Active || !mPerPx || !plan) return;
+    const sig = plan.display;
+    if (seededRef.current !== sig || autoPopRef.current === sig) return; // seed πρώτα· μία φορά
+    const st = storeRef.current!.getState();
+    if (st.data.walls.length > 0) { autoPopRef.current = sig; return; } // έχει ήδη τοίχους (σχεδιασμένους)
+    const mask = combinedWallMask();
+    if (!mask || !mask.some((v) => v)) return; // η μάσκα δεν είναι έτοιμη ακόμη — ξαναπροσπάθησε
+    autoPopRef.current = sig;
+    const incoming = vectorWallsToNew(vectorizeWalls(mask, w, h), mPerPx, wallTypes);
+    const n = clampAcceptCount(0, incoming.length);
+    if (n > 0) st.addWalls(incoming.slice(0, n));
+  }, [v2Active, mPerPx, plan, combinedWallMask, w, h, wallTypes]);
+
   const canvasPng = (c: HTMLCanvasElement) => new Promise<Blob>((res, rej) => c.toBlob((b) => (b ? res(b) : rej(new Error('PNG export failed'))), 'image/png'));
   /** Νέα ή ενημέρωση της χαρτογράφησης στο έργο· επιστρέφει το id (null σε αποτυχία). */
   const savePlan = async (quiet = false): Promise<string | null> => {
