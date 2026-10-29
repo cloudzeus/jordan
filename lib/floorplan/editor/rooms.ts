@@ -4,6 +4,22 @@ export type DerivedRoom = { polygon: Pt[]; areaM2: number };
 
 const dist = (a: Pt, b: Pt) => Math.hypot(a.x - b.x, a.y - b.y);
 
+const centroid = (poly: Pt[]): Pt => {
+  let x = 0, y = 0;
+  for (const p of poly) { x += p.x; y += p.y; }
+  return { x: x / poly.length, y: y / poly.length };
+};
+
+/** Point-in-polygon (ray casting). */
+function pointInPoly(p: Pt, poly: Pt[]): boolean {
+  let inside = false;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const a = poly[i], b = poly[j];
+    if ((a.y > p.y) !== (b.y > p.y) && p.x < ((b.x - a.x) * (p.y - a.y)) / (b.y - a.y) + a.x) inside = !inside;
+  }
+  return inside;
+}
+
 /** Τομή τμημάτων p1p2 × p3p4 (και T-junctions)· null αν δεν τέμνονται ή είναι παράλληλα. */
 function segInt(p1: Pt, p2: Pt, p3: Pt, p4: Pt): Pt | null {
   const d1x = p2.x - p1.x, d1y = p2.y - p1.y, d2x = p4.x - p3.x, d2y = p4.y - p3.y;
@@ -92,5 +108,20 @@ export function roomsFromWalls(walls: WallEntity[], opts: { weldTolM?: number } 
     // Τα εσωτερικά (bounded) faces βγαίνουν θετικά με αυτόν τον κανόνα· το εξωτερικό (unbounded) αρνητικό (το απορρίπτουμε).
     if (ar > tol * tol) rooms.push({ polygon: face.map((i) => ({ x: nodes[i].x, y: nodes[i].y })), areaM2: ar });
   }
-  return rooms;
+
+  // Φωλιασμένα ανεξάρτητα περιγράμματα (π.χ. αυλή/χώρισμα χωρίς κοινό τοίχο): κάθε face αφαιρεί το
+  // εμβαδό των ΑΜΕΣΩΝ παιδιών του (ο μικρότερος face που το περικλείει) ώστε το δάπεδο να μη
+  // διπλομετρά την περιοχή του εσωτερικού χώρου. (Faces της ίδιας συνιστώσας δεν περικλείουν αλλήλους.)
+  const net = rooms.map((r) => r.areaM2);
+  const cents = rooms.map((r) => centroid(r.polygon));
+  for (let j = 0; j < rooms.length; j++) {
+    let parent = -1;
+    for (let i = 0; i < rooms.length; i++) {
+      if (i === j || rooms[i].areaM2 <= rooms[j].areaM2) continue;
+      if (!pointInPoly(cents[j], rooms[i].polygon)) continue;
+      if (parent < 0 || rooms[i].areaM2 < rooms[parent].areaM2) parent = i; // πιο στενός περικλείων
+    }
+    if (parent >= 0) net[parent] -= rooms[j].areaM2;
+  }
+  return rooms.map((r, i) => ({ ...r, areaM2: net[i] }));
 }

@@ -50,4 +50,14 @@ describe('roomsFromWalls', () => {
     expect(rooms).toHaveLength(1); // μόνο το εσωτερικό, όχι το εξωτερικό
     expect(rooms[0].areaM2).toBeCloseTo(100, 0);
   });
+
+  it('nested disjoint loops (courtyard) → outer area excludes the inner hole, no double-count', () => {
+    // Εξωτερικό 10×10 + εσωτερικό 4×4 ΧΩΡΙΣ κοινό τοίχο (δύο ανεξάρτητα κλειστά περιγράμματα).
+    const rooms = roomsFromWalls([...rect(0, 0, 10, 10), ...rect(3, 3, 7, 7)]);
+    expect(rooms).toHaveLength(2);
+    const areas = rooms.map((r) => r.areaM2).sort((a, b) => a - b);
+    expect(areas[0]).toBeCloseTo(16, 1); // η εσωτερική αυλή/χώρος
+    expect(areas[1]).toBeCloseTo(84, 1); // το δάπεδο = 100 − 16 (όχι 100)
+    expect(areas[0] + areas[1]).toBeCloseTo(100, 1); // σύνολο = κτίσμα, χωρίς διπλομέτρηση
+  });
 });

@@ -134,8 +134,8 @@ export function PlanViewer(props: PlanViewerProps) {
     drag: { id: string; kind: 'vertex' | 'move'; i: number; base: Pt[]; from: Pt; moved: boolean } | null;
     /** v2: τρέχον ορθογώνιο επιλογής (Shift+σύρσιμο) — px σημείο + client coords για το overlay. */
     marquee: { from: Pt; fromClient: { x: number; y: number } } | null;
-    /** v2: τρέχον σύρσιμο λαβής άκρου τοίχου — σταθερό άκρο + ζωντανή θέση (px). */
-    wdrag: { id: string; end: 'a' | 'b'; fixed: Pt; cur: Pt } | null;
+    /** v2: τρέχον σύρσιμο λαβής άκρου τοίχου — σταθερό άκρο + ζωντανή θέση (px)· `moved` = έγινε πραγματικό σύρσιμο. */
+    wdrag: { id: string; end: 'a' | 'b'; fixed: Pt; cur: Pt; from: { x: number; y: number }; moved: boolean } | null;
   };
   const ctx = React.useRef<Ctx | null>(null);
   const toWorld = React.useCallback((p: Pt, z: number) => new THREE.Vector3(p.x - w / 2, h / 2 - p.y, z), [w, h]);
@@ -374,7 +374,7 @@ export function PlanViewer(props: PlanViewerProps) {
         const wh = wallHandleHit(e);
         if (wh) {
           const p0 = pick(e);
-          c.wdrag = { id: wh.id, end: wh.end, fixed: wh.fixed, cur: clampPt(p0 ?? wh.fixed) };
+          c.wdrag = { id: wh.id, end: wh.end, fixed: wh.fixed, cur: clampPt(p0 ?? wh.fixed), from: { x: e.clientX, y: e.clientY }, moved: false };
           controls.enabled = false;
           renderer.domElement.setPointerCapture(e.pointerId);
           drawWallDrag();
@@ -436,7 +436,8 @@ export function PlanViewer(props: PlanViewerProps) {
         controls.enabled = true;
         if (renderer.domElement.hasPointerCapture(e.pointerId)) renderer.domElement.releasePointerCapture(e.pointerId);
         clear(c.layers.draft);
-        cbs.current.onWallEnd?.(wd.id, wd.end, wd.cur); // snapping + commit στο dialog
+        // Μόνο πραγματικό σύρσιμο μετακινεί το άκρο· σκέτο κλικ στη λαβή δεν αλλάζει τον τοίχο.
+        if (wd.moved) cbs.current.onWallEnd?.(wd.id, wd.end, wd.cur); // snapping + commit στο dialog
         skipClick = true; down = null;
         return;
       }
@@ -470,7 +471,11 @@ export function PlanViewer(props: PlanViewerProps) {
         }
         return;
       }
-      if (c.wdrag) { const p = pick(e); if (p) { c.wdrag.cur = clampPt(p); drawWallDrag(); } return; }
+      if (c.wdrag) {
+        if (!c.wdrag.moved && Math.hypot(e.clientX - c.wdrag.from.x, e.clientY - c.wdrag.from.y) > 3) c.wdrag.moved = true;
+        const p = pick(e); if (p) { c.wdrag.cur = clampPt(p); drawWallDrag(); }
+        return;
+      }
       if (c.drag) { dragTo(e); return; }
       if (cbs.current.tool === 'edit') {
         const hit = editHit(e);
