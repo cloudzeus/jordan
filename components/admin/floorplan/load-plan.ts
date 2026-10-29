@@ -52,12 +52,16 @@ async function loadImage(file: File): Promise<LoadedPlan> {
   return { name: file.name, display, analysis, pages: 1, page: 1 };
 }
 
-type PdfDoc = { numPages: number; getPage: (n: number) => Promise<PdfPage> };
+type PdfDoc = {
+  numPages: number;
+  getPage: (n: number) => Promise<PdfPage>;
+  // Τα OCG (layers) ζουν στο ΕΓΓΡΑΦΟ, όχι στη σελίδα.
+  getOptionalContentConfig: () => Promise<{ getGroup: (id: string) => { name?: string } | null } | null>;
+};
 type PdfPage = {
   getViewport: (o: { scale: number }) => { width: number; height: number; transform: number[] };
   render: (o: { canvasContext: CanvasRenderingContext2D; canvas: HTMLCanvasElement; viewport: unknown }) => { promise: Promise<void> };
   getOperatorList: () => Promise<{ fnArray: number[]; argsArray: unknown[] }>;
-  getOptionalContentConfig: () => Promise<{ getGroup: (id: string) => { name?: string } | null } | null>;
 };
 
 // Το legacy build: το «modern» της 5.x θέλει πολύ νέα JS API (π.χ. Map#getOrInsertComputed)
@@ -120,7 +124,7 @@ export async function pageVectors(
   const p = await doc.getPage(n);
   const base = p.getViewport({ scale: 1 });
   const vp = p.getViewport({ scale: targetW / base.width });
-  const oc = await p.getOptionalContentConfig().catch(() => null);
+  const oc = await doc.getOptionalContentConfig().catch(() => null);
   const layerName = (args: unknown): string | null => {
     const a = args as unknown[];
     if (!Array.isArray(a) || a[0] !== 'OC') return null;
