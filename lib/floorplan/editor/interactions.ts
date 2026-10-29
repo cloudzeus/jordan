@@ -81,6 +81,12 @@ export function wallsInRect(walls: WallEntity[], a: Pt, b: Pt): string[] {
   return out;
 }
 
+/** Επιλογή από ορθογώνιο (μέτρα): `null` όταν a==b (κλικ χωρίς σύρσιμο → αγνοείται)· αλλιώς τα ids εντός. */
+export function marqueeIds(walls: WallEntity[], a: Pt, b: Pt): string[] | null {
+  if (a.x === b.x && a.y === b.y) return null;
+  return wallsInRect(walls, a, b);
+}
+
 /** Store walls (μέτρα) → CanvasWall[] (px) με χρώμα τύπου, πάχος και επιλογή (σύνολο επιλεγμένων ids). */
 export function wallsForCanvas(
   walls: WallEntity[], mPerPx: number, selectedIds: string[], wallTypes: EditorShellWallType[],

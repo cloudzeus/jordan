@@ -42,7 +42,7 @@ import type { RecipeView } from '@/lib/install-recipes';
 import { planData, planDataV2, planPins, planRooms, scalePlanData, type PlanData, type PlanPin, type PlanRoom } from '@/lib/floorplan/saved';
 import { upgradePlanData } from '@/lib/floorplan/upgrade';
 import { createEditorStore, type EditorStore } from '@/lib/floorplan/editor/store';
-import { clampAcceptCount, hotkeyToWallTypeId, pickWallAt, vectorWallsToNew, wallsForCanvas, wallsInRect } from '@/lib/floorplan/editor/interactions';
+import { clampAcceptCount, hotkeyToWallTypeId, marqueeIds, pickWallAt, vectorWallsToNew, wallsForCanvas } from '@/lib/floorplan/editor/interactions';
 import { snapPoint, applyLength, type SnapKind } from '@/lib/floorplan/editor/snapping';
 import { vectorizeWalls, type VectorWall } from '@/lib/floorplan/vectorize';
 import { useStore } from 'zustand';
@@ -1195,7 +1195,7 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
         ...(wallPreview ?? []).map((vp, i) => ({ id: `prev-${i}`, a: vp.a, b: vp.b, thicknessPx: vp.thicknessPx, color: '#22D3EE', selected: false })),
       ] : undefined}
       onPick={onPick} onFinish={finish} onEdit={onEdit} fitKey={fitKey} ortho={ortho}
-      onMarquee={v2Active && mPerPx ? (a, b) => v2.selectWalls(wallsInRect(v2.data.walls, { x: a.x * mPerPx, y: a.y * mPerPx }, { x: b.x * mPerPx, y: b.y * mPerPx })) : undefined}
+      onMarquee={v2Active && mPerPx ? (a, b) => { const ids = marqueeIds(v2.data.walls, { x: a.x * mPerPx, y: a.y * mPerPx }, { x: b.x * mPerPx, y: b.y * mPerPx }); if (ids) v2.selectWalls(ids); } : undefined}
       netDevices={viewerDevices} netCables={viewerCables} cableColor={netPick.tool === 'cable' ? CABLE_META[netPick.kind].color : undefined}
     />
   );

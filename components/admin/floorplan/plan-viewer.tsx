@@ -314,11 +314,22 @@ export function PlanViewer(props: PlanViewerProps) {
 
     let down: { x: number; y: number; button: number } | null = null;
     let skipClick = false;
+    // Κοινό κλείσιμο marquee — καλείται σε pointerup ΚΑΙ σε pointercancel/lostpointercapture, ώστε μια
+    // διακοπή (π.χ. palm-rejection στο trackpad) να μην αφήνει το pan μόνιμα απενεργοποιημένο.
+    const endMarquee = (e?: PointerEvent) => {
+      if (!c.marquee) return;
+      c.marquee = null;
+      controls.enabled = true;
+      const mq = marqueeEl.current; if (mq) mq.style.display = 'none';
+      if (e && renderer.domElement.hasPointerCapture(e.pointerId)) renderer.domElement.releasePointerCapture(e.pointerId);
+    };
+    const onMarqueeCancel = (e: PointerEvent) => { endMarquee(e); };
     const onDown = (e: PointerEvent) => {
       down = { x: e.clientX, y: e.clientY, button: e.button };
       skipClick = false;
-      // v2 (beta): Shift+σύρσιμο = ορθογώνια επιλογή (απενεργοποιεί προσωρινά το pan).
-      if (e.button === 0 && e.shiftKey && cbs.current.onMarquee) {
+      // v2 (beta): Shift+σύρσιμο = ορθογώνια επιλογή (μόνο στο εργαλείο «Μετακίνηση», απενεργοποιεί
+      // προσωρινά το pan). Σε άλλα εργαλεία το Shift μένει για τη σχεδίαση.
+      if (e.button === 0 && e.shiftKey && cbs.current.onMarquee && cbs.current.tool === 'pan') {
         const p = pick(e);
         if (p) {
           c.marquee = { from: p, fromClient: { x: e.clientX, y: e.clientY } };
@@ -381,10 +392,7 @@ export function PlanViewer(props: PlanViewerProps) {
       if (c.marquee) {
         const from = c.marquee.from;
         const to = pick(e) ?? from;
-        c.marquee = null;
-        controls.enabled = true;
-        if (renderer.domElement.hasPointerCapture(e.pointerId)) renderer.domElement.releasePointerCapture(e.pointerId);
-        const mq = marqueeEl.current; if (mq) mq.style.display = 'none';
+        endMarquee(e);
         skipClick = true; down = null;
         cbs.current.onMarquee?.(from, to);
         return;
@@ -442,6 +450,8 @@ export function PlanViewer(props: PlanViewerProps) {
     el2.addEventListener('pointerup', onUp);
     el2.addEventListener('pointermove', onMove);
     el2.addEventListener('pointerleave', onLeave);
+    el2.addEventListener('pointercancel', onMarqueeCancel);
+    el2.addEventListener('lostpointercapture', onMarqueeCancel);
     el2.addEventListener('dblclick', onDbl);
 
     // ── Βρόχος: ετικέτες ακολουθούν την κάμερα ──────────────────────────────────────────
@@ -522,6 +532,8 @@ export function PlanViewer(props: PlanViewerProps) {
       el2.removeEventListener('pointerup', onUp);
       el2.removeEventListener('pointermove', onMove);
       el2.removeEventListener('pointerleave', onLeave);
+      el2.removeEventListener('pointercancel', onMarqueeCancel);
+      el2.removeEventListener('lostpointercapture', onMarqueeCancel);
       el2.removeEventListener('dblclick', onDbl);
       controls.dispose();
       scene.traverse((o) => {

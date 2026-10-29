@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  hotkeyToWallTypeId, pickWallAt, vectorWallsToNew, clampAcceptCount, wallsForCanvas, wallsInRect,
+  hotkeyToWallTypeId, pickWallAt, vectorWallsToNew, clampAcceptCount, wallsForCanvas, wallsInRect, marqueeIds,
   type CanvasWall,
 } from '@/lib/floorplan/editor/interactions';
 import type { WallEntity } from '@/lib/floorplan/editor/reducers';
@@ -107,5 +107,18 @@ describe('wallsInRect', () => {
   });
   it('returns [] for a zero-area rect', () => {
     expect(wallsInRect(walls, { x: 1, y: 1 }, { x: 1, y: 1 })).toEqual([]);
+  });
+});
+
+describe('marqueeIds', () => {
+  const walls = [wall('inside', [1, 1], [2, 2])];
+  it('returns null for a click with no drag (a==b) — gesture ignored', () => {
+    expect(marqueeIds(walls, { x: 1, y: 1 }, { x: 1, y: 1 })).toBeNull();
+  });
+  it('returns the ids inside a real drag rect', () => {
+    expect(marqueeIds(walls, { x: 0, y: 0 }, { x: 3, y: 3 })).toEqual(['inside']);
+  });
+  it('returns [] (not null) for a real drag over empty space', () => {
+    expect(marqueeIds(walls, { x: 10, y: 10 }, { x: 12, y: 12 })).toEqual([]);
   });
 });
