@@ -46,9 +46,8 @@ import type { RecipeView } from '@/lib/install-recipes';
 import { planData, planDataV2, planPins, planRooms, scalePlanData, type PlanData, type PlanPin, type PlanRoom } from '@/lib/floorplan/saved';
 import { upgradePlanData } from '@/lib/floorplan/upgrade';
 import { createEditorStore, type EditorStore } from '@/lib/floorplan/editor/store';
-import { clampAcceptCount, hotkeyToWallTypeId, marqueeIds, pickWallAt, vectorWallsToNew, wallsForCanvas } from '@/lib/floorplan/editor/interactions';
+import { clampAcceptCount, hotkeyToWallTypeId, marqueeIds, pickWallAt, wallsForCanvas } from '@/lib/floorplan/editor/interactions';
 import { snapPoint, applyLength, type SnapKind } from '@/lib/floorplan/editor/snapping';
-import { vectorizeWalls, type VectorWall } from '@/lib/floorplan/vectorize';
 import { useStore } from 'zustand';
 import type { StoreApi } from 'zustand/vanilla';
 import { aiResponse, aiWallsResponse, aiWallsToSegments, chooseScale, fallbackPolygon, pickCandidate, roomsInPx } from '@/lib/floorplan/ai-core';
@@ -339,11 +338,10 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
   const v2 = useStore(storeRef.current, (s) => s);
   const v2Active = editorV2 && !!mPerPx;
   const seededRef = React.useRef<unknown>(null);
-  const autoPopRef = React.useRef<unknown>(null);
-  const [wallPreview, setWallPreview] = React.useState<VectorWall[] | null>(null);
   const [snapKind, setSnapKind] = React.useState<SnapKind | null>(null);
   const [lengthStr, setLengthStr] = React.useState('');
-  const [cadWalls, setCadWalls] = React.useState<NewWall[] | null>(null);
+  // Ενοποιημένο preview τοίχων (AI ΚΑΙ CAD/PDF): μπαίνει σε draft, όχι απευθείας στο store· «Αποδοχή» το περνά, «Άκυρο» το πετά.
+  const [wallDraft, setWallDraft] = React.useState<NewWall[] | null>(null);
   const [cadInfo, setCadInfo] = React.useState<{ cols: number; stairs: number; layers: number } | null>(null);
   const [cadBusy, setCadBusy] = React.useState(false);
   const [aiRegionMode, setAiRegionMode] = React.useState(false);
@@ -970,7 +968,7 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
     const sig = plan.display;
     if (seededRef.current === sig) return;
     seededRef.current = sig;
-    setWallPreview(null); setCadWalls(null); setCadInfo(null);
+    setWallDraft(null); setCadInfo(null);
     storeRef.current!.getState().load(
       upgradePlanData(planDataNow(), { wallTypes: wallTypes.map((t) => ({ id: t.id, thicknessM: t.thicknessM, active: true })) }),
     );
@@ -978,48 +976,6 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [v2Active, plan, wallTypes]);
 
-  // Συνδυασμένη μάσκα τοίχων (σχεδιασμένοι ∪ αυτόματοι) — τροφή για το vectorize· null χωρίς σχέδιο.
-  const combinedWallMask = React.useCallback((): Uint8Array | null => {
-    if (!plan) return null;
-    const m = drawnMask.slice();
-    if (autoMask) for (let i = 0; i < m.length; i++) if (autoMask[i]) m[i] = 1;
-    return m;
-  }, [plan, drawnMask, autoMask]);
-
-  // v2 (beta): προεπισκόπηση των διανυσματικών τοίχων από τη συνδυασμένη μάσκα (auto + σχεδιασμένοι)·
-  // «Αποδοχή» → μετατροπή px→μέτρα + τύπος από πάχος → store.addWalls (με όριο cap).
-  const previewVectorWalls = () => {
-    const m = combinedWallMask();
-    if (!v2Active || !m) return;
-    setWallPreview(vectorizeWalls(m, w, h));
-  };
-  const acceptVectorWalls = () => {
-    if (!v2Active || !mPerPx || !wallPreview) return;
-    const st = storeRef.current!.getState();
-    const incoming = vectorWallsToNew(wallPreview, mPerPx, wallTypes);
-    const n = clampAcceptCount(st.data.walls.length, incoming.length);
-    st.addWalls(incoming.slice(0, n)); // ένα undo step για όλη την αποδοχή
-    if (n < incoming.length) toast.warning(`Προστέθηκαν ${n} τοίχοι · ${incoming.length - n} αγνοήθηκαν (όριο ${20_000}).`);
-    else toast.success(`Προστέθηκαν ${n} τοίχοι.`);
-    setWallPreview(null);
-  };
-
-  // v2 (beta): παλιά έργα χωρίς σχεδιασμένους τοίχους (μόνο αυτόματη ανίχνευση) δεν έχουν v2 οντότητες
-  // μετά το upgrade. Μία φορά ανά σχέδιο, μόλις η μάσκα είναι έτοιμη, τη διανυσματοποιούμε αυτόματα
-  // ώστε οι τοίχοι να εμφανιστούν άμεσα (ένα undo step· αναιρείται από τον χρήστη).
-  React.useEffect(() => {
-    if (!v2Active || !mPerPx || !plan) return;
-    const sig = plan.display;
-    if (seededRef.current !== sig || autoPopRef.current === sig) return; // seed πρώτα· μία φορά
-    const st = storeRef.current!.getState();
-    if (st.data.walls.length > 0) { autoPopRef.current = sig; return; } // έχει ήδη τοίχους (σχεδιασμένους)
-    const mask = combinedWallMask();
-    if (!mask || !mask.some((v) => v)) return; // η μάσκα δεν είναι έτοιμη ακόμη — ξαναπροσπάθησε
-    autoPopRef.current = sig;
-    const incoming = vectorWallsToNew(vectorizeWalls(mask, w, h), mPerPx, wallTypes);
-    const n = clampAcceptCount(0, incoming.length);
-    if (n > 0) st.addWalls(incoming.slice(0, n));
-  }, [v2Active, mPerPx, plan, combinedWallMask, w, h, wallTypes]);
 
   // v2 (beta): εισαγωγή τοίχων από τα διανύσματα/layers του PDF (CAD/PDF layers, στυλ Hamina).
   const importCad = async () => {
@@ -1032,7 +988,7 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
       const walls = cadWallsToNew(wallSegs, mPerPx, wallTypes);
       const cols = recognizeColumns(segments, { minPx: 0.1 / mPerPx, maxPx: 0.6 / mPerPx });
       const stairs = recognizeStairs(segments, {});
-      setCadWalls(walls);
+      setWallDraft(walls);
       setCadInfo({ cols: cols.length, stairs: stairs.length, layers: layers.length });
       if (!walls.length) toast.message('Δεν αναγνωρίστηκαν τοίχοι — έλεγξε αν το PDF έχει διανυσματικά layers.');
     } catch (e) {
@@ -1041,15 +997,17 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
       setCadBusy(false);
     }
   };
-  const acceptCad = () => {
-    if (!cadWalls) return;
+  // Ενοποιημένη αποδοχή/ακύρωση του preview (AI ή CAD/PDF): «Αποδοχή» → store (ένα undo step)· «Άκυρο» → πέτα το draft.
+  const acceptWallDraft = () => {
+    if (!wallDraft) return;
     const st = storeRef.current!.getState();
-    const n = clampAcceptCount(st.data.walls.length, cadWalls.length);
-    st.addWalls(cadWalls.slice(0, n));
-    if (n < cadWalls.length) toast.warning(`Προστέθηκαν ${n} τοίχοι · ${cadWalls.length - n} αγνοήθηκαν (όριο ${20_000}).`);
-    else toast.success(`Προστέθηκαν ${n} τοίχοι από CAD/PDF.`);
-    setCadWalls(null); setCadInfo(null);
+    const n = clampAcceptCount(st.data.walls.length, wallDraft.length);
+    st.addWalls(wallDraft.slice(0, n));
+    if (n < wallDraft.length) toast.warning(`Προστέθηκαν ${n} τοίχοι · ${wallDraft.length - n} αγνοήθηκαν (όριο ${20_000}).`);
+    else toast.success(`Προστέθηκαν ${n} τοίχοι.`);
+    setWallDraft(null); setCadInfo(null);
   };
+  const cancelWallDraft = () => { setWallDraft(null); setCadInfo(null); };
 
   // v2 (beta): AI ανίχνευση τοίχων (OpenRouter/Claude). Προαιρετικά σε ΠΕΡΙΟΧΗ (crop) του σχεδίου·
   // οι τοίχοι επιστρέφουν ως centerlines → μέτρα → store (οι τοίχοι ορίζουν και τους χώρους).
@@ -1284,8 +1242,7 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
       draft={draft} tool={tool} formatLength={fmtLen}
       vectorWalls={v2Active ? [
         ...wallsForCanvas(v2.data.walls, mPerPx!, v2.selectedWallIds, wallTypes),
-        ...(wallPreview ?? []).map((vp, i) => ({ id: `prev-${i}`, a: vp.a, b: vp.b, thicknessPx: vp.thicknessPx, color: '#22D3EE', selected: false })),
-        ...(cadWalls ?? []).map((nw, i) => ({ id: `cad-${i}`, a: { x: nw.a.x / mPerPx!, y: nw.a.y / mPerPx! }, b: { x: nw.b.x / mPerPx!, y: nw.b.y / mPerPx! }, thicknessPx: 3, color: '#22D3EE', selected: false })),
+        ...(wallDraft ?? []).map((nw, i) => ({ id: `draft-${i}`, a: { x: nw.a.x / mPerPx!, y: nw.a.y / mPerPx! }, b: { x: nw.b.x / mPerPx!, y: nw.b.y / mPerPx! }, thicknessPx: 3, color: '#22D3EE', selected: false })),
       ] : undefined}
       onPick={onPick} onFinish={finish} onEdit={onEdit} fitKey={fitKey} ortho={ortho}
       onMarquee={v2Active && mPerPx ? (a, b) => {
@@ -1449,50 +1406,33 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
                     {aiRegionMode ? 'Shift+σύρσιμο στην περιοχή…' : 'Επίλεξε περιοχή…'}
                   </button>
                 </div>
-                <h3 className="text-(length:--fs-11) font-semibold uppercase tracking-wider text-slate-500">Διανυσματικοί τοίχοι</h3>
-                {!wallPreview ? (
-                  <button type="button" onClick={previewVectorWalls}
-                    className="inline-flex h-7 cursor-pointer items-center justify-center rounded-md border border-white/15 px-2.5 text-(length:--fs-12) text-slate-200 transition-colors hover:bg-white/5">
-                    Προεπισκόπηση τοίχων
-                  </button>
-                ) : (
-                  <div className="flex gap-2">
-                    <button type="button" onClick={acceptVectorWalls}
-                      className="inline-flex h-7 flex-1 cursor-pointer items-center justify-center gap-1 rounded-md px-2.5 text-(length:--fs-12) font-semibold text-white" style={{ background: '#7C3AED' }}>
-                      Αποδοχή ({wallPreview.length})
-                    </button>
-                    <button type="button" onClick={() => setWallPreview(null)}
-                      className="inline-flex h-7 cursor-pointer items-center justify-center rounded-md border border-white/15 px-2.5 text-(length:--fs-12) text-slate-300 transition-colors hover:bg-white/5">
-                      Άκυρο
-                    </button>
+                {/* ── Ενοποιημένο preview τοίχων (AI ή CAD/PDF): Αποδοχή/Άκυρο — ΟΧΙ gated σε isPdf ── */}
+                {wallDraft && (
+                  <div className="flex flex-col gap-1.5 rounded-md border border-cyan-400/30 bg-cyan-400/5 p-2">
+                    <div className="text-(length:--fs-11) text-slate-300">
+                      Προεπισκόπηση: {wallDraft.length} τοίχοι{cadInfo ? ` · ${cadInfo.cols} κολόνες · ${cadInfo.stairs} σκάλες · ${cadInfo.layers} layers` : ''}
+                    </div>
+                    <div className="flex gap-2">
+                      <button type="button" onClick={acceptWallDraft}
+                        className="inline-flex h-7 flex-1 cursor-pointer items-center justify-center rounded-md px-2.5 text-(length:--fs-12) font-semibold text-white" style={{ background: '#7C3AED' }}>
+                        Αποδοχή ({wallDraft.length})
+                      </button>
+                      <button type="button" onClick={cancelWallDraft}
+                        className="inline-flex h-7 cursor-pointer items-center justify-center rounded-md border border-white/15 px-2.5 text-(length:--fs-12) text-slate-300 transition-colors hover:bg-white/5">
+                        Άκυρο
+                      </button>
+                    </div>
                   </div>
                 )}
-                {file && isPdf(file) && (
-                  <div className="mt-2 flex flex-col gap-1.5 border-t border-white/10 pt-2">
+                {/* ── Δευτερεύον: εισαγωγή από διανυσματικά layers PDF (CAD) ── */}
+                {file && isPdf(file) && !wallDraft && (
+                  <div className="mt-1 flex flex-col gap-1.5 border-t border-white/10 pt-2">
                     <h3 className="text-(length:--fs-11) font-semibold uppercase tracking-wider text-slate-500">CAD / PDF layers</h3>
-                    {!cadWalls ? (
-                      <button type="button" onClick={() => void importCad()} disabled={cadBusy || !mPerPx}
-                        title={!mPerPx ? 'Όρισε πρώτα κλίμακα με το εργαλείο «Κλίμακα».' : undefined}
-                        className="inline-flex h-7 cursor-pointer items-center justify-center gap-1.5 rounded-md border border-white/15 px-2.5 text-(length:--fs-12) text-slate-200 transition-colors hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-60">
-                        {cadBusy ? <FiLoader className="size-3.5 animate-spin" aria-hidden /> : null} Εισαγωγή από CAD/PDF
-                      </button>
-                    ) : (
-                      <>
-                        <div className="text-(length:--fs-11) text-slate-400">
-                          {cadWalls.length} τοίχοι{cadInfo ? ` · ${cadInfo.cols} κολόνες · ${cadInfo.stairs} σκάλες · ${cadInfo.layers} layers` : ''}
-                        </div>
-                        <div className="flex gap-2">
-                          <button type="button" onClick={acceptCad}
-                            className="inline-flex h-7 flex-1 cursor-pointer items-center justify-center rounded-md px-2.5 text-(length:--fs-12) font-semibold text-white" style={{ background: '#7C3AED' }}>
-                            Αποδοχή ({cadWalls.length})
-                          </button>
-                          <button type="button" onClick={() => { setCadWalls(null); setCadInfo(null); }}
-                            className="inline-flex h-7 cursor-pointer items-center justify-center rounded-md border border-white/15 px-2.5 text-(length:--fs-12) text-slate-300 transition-colors hover:bg-white/5">
-                            Άκυρο
-                          </button>
-                        </div>
-                      </>
-                    )}
+                    <button type="button" onClick={() => void importCad()} disabled={cadBusy || !mPerPx}
+                      title={!mPerPx ? 'Όρισε πρώτα κλίμακα με το εργαλείο «Κλίμακα».' : undefined}
+                      className="inline-flex h-7 cursor-pointer items-center justify-center gap-1.5 rounded-md border border-white/15 px-2.5 text-(length:--fs-12) text-slate-200 transition-colors hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-60">
+                      {cadBusy ? <FiLoader className="size-3.5 animate-spin" aria-hidden /> : null} Εισαγωγή από CAD/PDF
+                    </button>
                   </div>
                 )}
               </div>
