@@ -12,7 +12,6 @@ import { StatusBadge } from '../status-badge';
 import { ContractActions, CreateProjectBanner } from './contract-actions';
 import { DocumentsPanel } from './documents-panel';
 import { MilestonesProgress } from './milestones-progress';
-import { FloorPlanPanel } from './floor-plan-panel';
 import { RfpPanel } from './rfp-panel';
 import { contractRfps } from '@/lib/rfp/service';
 import { rfpDefaults } from '@/lib/rfp/core';
@@ -58,14 +57,13 @@ export default async function ContractPage({ params }: { params: Promise<{ id: s
       </div>
       <div className="space-y-4">
         {canManage && <CreateProjectBanner contract={c} />}
+        <ContractEditor templates={templates} notes={notes} today={zonedParts(new Date()).date} initial={c} staff={staff} readOnly={!canManage || closed} />
         <DocumentsPanel contract={c} canManage={canManage} />
-        {c.floorPlanId && <FloorPlanPanel floorPlanId={c.floorPlanId} canEdit={canManage} />}
         {c.kind !== 'PRODUCT' && <RfpPanel contractId={c.id} title={rfpDefaults(c).title} summary={rfpDefaults(c).scope} rfps={rfps} canManage={canManage && c.status !== 'COMPLETED' && c.status !== 'CANCELLED'} />}
         {['ACCEPTED', 'ACTIVE', 'COMPLETED'].includes(c.status) ? <MilestonesProgress contract={c} canManage={canManage && c.status !== 'COMPLETED'} /> : null}
         {c.prjc && c.stage !== 'OFFER' && (c.status === 'ACTIVE' || c.status === 'COMPLETED' || budget.lines > 0) ? <BudgetPanel contractId={c.id} prjc={c.prjc} state={budget} canManage={canManage && !closed} /> : null}
         <HistoryPanel entries={history} fileName={c.ref} />
         <RevisionsPanel contractId={c.id} current={c.revision} currentGross={c.totals.gross} revisions={revisions} canManage={canManage && !closed} canRestore={c.stage === 'OFFER' && ['DRAFT', 'SENT'].includes(c.status)} />
-        <ContractEditor templates={templates} notes={notes} today={zonedParts(new Date()).date} initial={c} staff={staff} readOnly={!canManage || closed} />
       </div>
     </div>
   );

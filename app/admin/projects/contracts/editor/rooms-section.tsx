@@ -27,8 +27,10 @@ export type EditorRoom = PlanRoom;
 
 export function RoomsSection({
   owner, ownerHint, projectLabel, floorPlan, rooms, costOf, recipes, recipesError, markupPct, mode, readOnly,
-  onApplyPlan, onMaterial, onMaterialB, costOfB, onApplyToEmpty, onMarkup, onMode, onRecalc, onUnlink, extra, pins = [], pinIsTask, onPinToTask,
+  onApplyPlan, onMaterial, onMaterialB, costOfB, onApplyToEmpty, onMarkup, onMode, onRecalc, onUnlink, extra, pins = [], pinIsTask, onPinToTask, linesOf,
 }: {
+  /** Οι γραμμές (υλικά, εργασίες) του χώρου — ανοίγουν κάτω από τη γραμμή του. Αριθμός + περιεχόμενο. */
+  linesOf?: (roomId: string) => { count: number; node: React.ReactNode } | null;
   owner: FloorPlanOwner | null;
   /** Γιατί δεν ανοίγει ακόμη το εργαλείο (π.χ. «Επιλέξτε πρώτα πελάτη»). */
   ownerHint: string | null;
@@ -61,11 +63,18 @@ export function RoomsSection({
   // Το εργαλείο μένει mounted μετά το πρώτο άνοιγμα: κλείσιμο/άνοιγμα δεν χάνει την κάτοψη.
   const [tool, setTool] = React.useState<'closed' | 'open' | 'hidden'>('closed');
   const [editing, setEditing] = React.useState<string | null>(null);
+  const [openLines, setOpenLines] = React.useState<Set<string>>(() => new Set());
+  const [showAll, setShowAll] = React.useState(false);
+  const toggleLines = (id: string) => setOpenLines((x) => { const n = new Set(x); if (n.has(id)) n.delete(id); else n.add(id); return n; });
   const [markupText, setMarkupText] = React.useState(markupPct ? String(markupPct).replace('.', ',') : '');
   const floor = rooms.reduce((s, r) => s + r.floorM2, 0);
   const walls = rooms.reduce((s, r) => s + r.wallsM2, 0);
   const priced = rooms.filter((r) => r.material).length;
   const total = rooms.reduce((s, r) => s + costOf(r.id), 0);
+  // Πολλοί χώροι: πρώτα όσοι θέλουν ακόμη υλικό (αυτό είναι η δουλειά), οι υπόλοιποι πίσω από «Όλοι οι χώροι».
+  const FEW = 8;
+  const ordered = rooms.length > FEW ? [...rooms.filter((r) => !r.material), ...rooms.filter((r) => r.material)] : rooms;
+  const shown = showAll ? ordered : ordered.slice(0, FEW);
 
   const openTool = () => setTool('open');
   const toolEl = owner && tool !== 'closed' && (
@@ -103,7 +112,15 @@ export function RoomsSection({
     <>
       {/* Σύνοψη + ρυθμίσεις τιμολόγησης */}
       <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
-        <dl className="flex flex-wrap gap-x-5 gap-y-1 text-(length:--fs-12)">
+        {floorPlan && (
+          <a href={`/api/admin/floorplans/${floorPlan.id}/image`} target="_blank" rel="noopener noreferrer" title={`Κάτοψη «${floorPlan.title}» — άνοιγμα σε μεγάλο μέγεθος`}
+            className="block h-12 w-20 shrink-0 overflow-hidden rounded-md border border-border bg-white">
+            {/* Απλό <img>: ιδιωτικό αρχείο μέσω API. Αν δεν υπάρχει εικόνα, η μικρογραφία κρύβεται. */}
+            <img src={`/api/admin/floorplans/${floorPlan.id}/image`} alt={`Κάτοψη ${floorPlan.title}`} loading="lazy" className="size-full object-cover object-top"
+              onError={(e) => { (e.currentTarget.parentElement as HTMLElement).style.display = 'none'; }} />
+          </a>
+        )}
+        <dl className="flex flex-1 flex-wrap gap-x-5 gap-y-1 text-(length:--fs-12)">
           <div><dt className="text-muted-foreground">Χώροι</dt><dd className="text-(length:--fs-14) font-semibold tabular-nums">{rooms.length}</dd></div>
           <div><dt className="text-muted-foreground">Δάπεδο</dt><dd className="text-(length:--fs-14) font-semibold tabular-nums">{m2(floor)}</dd></div>
           {walls > 0 && <div><dt className="text-muted-foreground">Τοίχοι</dt><dd className="text-(length:--fs-14) font-semibold tabular-nums">{m2(walls)}</dd></div>}
@@ -133,6 +150,9 @@ export function RoomsSection({
             <Button type="button" variant="outline" size="sm" className="h-9 gap-1.5" onClick={onRecalc} disabled={!priced} title="Ξαναϋπολογίζει τις γραμμές όλων των χώρων με τις τρέχουσες τιμές">
               <FiRefreshCw className="size-3.5" aria-hidden /> Επανυπολογισμός
             </Button>
+            <Button type="button" variant="outline" size="sm" className="h-9 gap-1.5" onClick={openTool} disabled={!owner} title="Άνοιγμα της κάτοψης για αλλαγές σε χώρους και τοίχους">
+              <FiEdit3 className="size-3.5" aria-hidden /> Κάτοψη
+            </Button>
           </div>
         )}
       </div>
@@ -144,18 +164,26 @@ export function RoomsSection({
       )}
 
       <ul className="divide-y divide-border overflow-hidden rounded-lg border border-border">
-        {rooms.map((r) => {
+        {shown.map((r) => {
           const cost = costOf(r.id);
+          const rl = linesOf?.(r.id) ?? null;
+          const linesOpen = !!rl && openLines.has(r.id);
           const open = editing === r.id;
           const openB = editing === `${r.id}:B`;
           return (
             <li key={r.id} className={cn((open || openB) && 'bg-muted/30')}>
               <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 px-3 py-1">
+                {/* Οι γραμμές του χώρου ανοίγουν εδώ: ο χώρος υπάρχει ΜΙΑ φορά στη σελίδα. */}
+                <button type="button" onClick={() => toggleLines(r.id)} disabled={!rl} aria-expanded={linesOpen}
+                  aria-label={rl ? `${linesOpen ? 'Κλείσιμο' : 'Άνοιγμα'} των ${rl.count} γραμμών του χώρου ${r.name}` : `Ο χώρος ${r.name} δεν έχει γραμμές`}
+                  className="inline-flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-default disabled:opacity-30 disabled:hover:bg-transparent">
+                  <FiChevronDown className={cn('size-3.5 transition-transform', !linesOpen && '-rotate-90')} aria-hidden />
+                </button>
                 <span className="size-3 shrink-0 rounded-sm" style={{ background: r.color }} aria-hidden />
                 {/* Όνομα και επιφάνεια σε μία γραμμή. */}
                 <p className="min-w-0 flex-1 basis-40 truncate text-(length:--fs-12)" title={`${r.name} · δάπεδο ${m2(r.floorM2)}${r.wallsM2 > 0 ? ` · τοίχοι ${m2(r.wallsM2)}` : ''}`}>
                   <span className="font-medium">{r.name}</span>
-                  <span className="tabular-nums text-muted-foreground"> · {m2(r.floorM2)}{r.wallsM2 > 0 ? ` + τοίχοι ${m2(r.wallsM2)}` : ''}</span>
+                  <span className="tabular-nums text-muted-foreground"> · {m2(r.floorM2)}{r.wallsM2 > 0 ? ` + τοίχοι ${m2(r.wallsM2)}` : ''}{rl ? ` · ${rl.count} γραμμ${rl.count === 1 ? 'ή' : 'ές'}` : ''}</span>
                 </p>
                 <div className="min-w-0 basis-48">
                   {readOnly ? <MaterialChip material={r.material} /> : (
@@ -212,6 +240,7 @@ export function RoomsSection({
                   />
                 </div>
               )}
+              {linesOpen && <div className="border-t border-border bg-muted/20 px-3 pb-1 pl-10">{rl.node}</div>}
               {open && !readOnly && (
                 <div className="px-3 pb-3">
                   <RoomMaterialEditor
@@ -226,6 +255,12 @@ export function RoomsSection({
           );
         })}
       </ul>
+      {ordered.length > FEW && (
+        <button type="button" onClick={() => setShowAll((x) => !x)} aria-expanded={showAll}
+          className="mt-1 min-h-8 cursor-pointer rounded-md px-2 text-(length:--fs-12) font-medium text-primary hover:bg-muted">
+          {showAll ? 'Λιγότεροι χώροι' : `Όλοι οι χώροι (${ordered.length}) — άλλοι ${ordered.length - FEW} με υλικό`}
+        </button>
+      )}
 
       {pins.length > 0 && (
         <div className="mt-3 rounded-lg border border-border">
@@ -257,7 +292,6 @@ export function RoomsSection({
         <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
           <p className="text-(length:--fs-11) text-muted-foreground">{floorPlan ? `Χαρτογράφηση «${floorPlan.title}»` : ''} · τα εμβαδά είναι από την κάτοψη.</p>
           <span className="flex gap-1">
-            <Button type="button" variant="outline" size="sm" className="gap-1.5" onClick={openTool} disabled={!owner}><FiEdit3 className="size-3.5" aria-hidden /> Άνοιγμα κάτοψης</Button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button type="button" variant="ghost" size="sm" aria-label="Περισσότερα για την κάτοψη"><FiMoreVertical className="size-4" aria-hidden /></Button>

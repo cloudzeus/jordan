@@ -21,7 +21,7 @@ import { RegistrySearch, type RegistryPick } from '@/components/admin/registry-s
 import type { RoomMaterial } from '@/components/admin/floorplan/offer-panel';
 import type { FloorPlanOwner } from '@/components/admin/floorplan/floor-plan-dialog';
 import { cn } from '@/lib/utils';
-import {
+import { dayEl,
   CONTRACT_KINDS, KIND_HINT, KIND_LABEL, allowsCrews, crewTotal, eur, lineNet, milestoneCoverage, round2, totals, type ContractKind,
 } from '@/lib/contracts/core';
 import { roomLines, roomNet } from '@/lib/contracts/room-lines';
@@ -436,8 +436,7 @@ export function ContractEditor({ initial, staff, readOnly = false, customer = nu
   // ── Πρόοδος (δεξιά στήλη) ──
   const steps = [
     { id: 'c-basics', label: 'Έργο & πελάτης', done: !!s.title.trim() && !!(s.trdr || s.prospectId || s.customerName) && hasSite },
-    { id: 'c-rooms', label: 'Κάτοψη & χώροι', done: s.rooms.length > 0 && s.rooms.every((r) => r.material), optional: true },
-    { id: 'c-lines', label: 'Υλικά & εργασίες', done: s.lines.length > 0 },
+    { id: 'c-rooms', label: 'Χώροι & υλικά', done: s.lines.length > 0 },
     { id: 'c-text', label: 'Περιγραφή για τον πελάτη', done: !!(s.customerText?.trim() || s.summary.trim()) },
     { id: 'c-pay', label: 'Πληρωμές', done: s.milestones.some((m) => !m.partyKey) && customerMs.ok },
     { id: 'c-plan', label: 'Χρονοδιάγραμμα', done: s.tasks.length > 0, optional: true },
@@ -445,16 +444,23 @@ export function ContractEditor({ initial, staff, readOnly = false, customer = nu
   ];
   const stepNo = (id: string) => steps.findIndex((x) => x.id === id) + 1;
   const stepDone = (id: string) => steps.find((x) => x.id === id)?.done ?? false;
+  // Τι μένει: τα υποχρεωτικά βήματα που λείπουν, και οι χώροι χωρίς υλικό (δεν μπλοκάρουν, αλλά είναι δουλειά).
+  const todo = steps.filter((x) => !x.optional && !x.done);
+  const roomsNoMaterial = s.rooms.filter((r) => !r.material).length;
+  // Τα βασικά στοιχεία ανοίγουν κλειστά ΜΟΝΟ αν ήταν πλήρη στο άνοιγμα — όχι ενώ πληκτρολογείς (θα έχανες το focus).
+  const [basicsFolded] = React.useState(() => !!initial && steps[0].done);
 
   // ── Γραμμές ομαδοποιημένες ανά χώρο ──
   const groups = [
-    ...s.rooms.map((r) => ({ key: r.id, room: r, lines: s.lines.filter((l) => l.roomId === r.id) })).filter((g) => g.lines.length),
     { key: 'net', room: null as PlanRoom | null, lines: s.lines.filter((l) => isNetworkKey(l.roomId)) },
     { key: 'other', room: null as PlanRoom | null, lines: s.lines.filter((l) => !isNetworkKey(l.roomId) && (!l.roomId || !roomName.has(l.roomId))) },
   ].filter((g) => g.lines.length);
 
-  // Ομάδες γραμμών: null = αυτόματα (ανοιχτές αν είναι λίγες), true/false = όλες ανοιχτές/κλειστές.
-  const [expandAll, setExpandAll] = React.useState<boolean | null>(null);
+  const lineHead = (
+    <div className="ml-10 mr-[7.5rem] hidden grid-cols-[minmax(0,1fr)_4.5rem_4rem_5rem_3.5rem] gap-1.5 pt-1.5 text-(length:--fs-11) font-medium text-muted-foreground @2xl:grid" aria-hidden>
+      <span>Περιγραφή</span><span>Ποσότητα</span><span>Μονάδα</span><span>Τιμή €</span><span>Έκπ. %</span>
+    </div>
+  );
   const lineRow = (l: Line) => {
     const i = s.lines.indexOf(l);
     // Η σημείωση φαίνεται ως κείμενο· πεδίο μόνο όταν ο χρήστης θέλει να τη γράψει/αλλάξει.
@@ -597,6 +603,15 @@ export function ContractEditor({ initial, staff, readOnly = false, customer = nu
     <NotesProvider value={notesCtx}>
     <div className="items-start gap-5 lg:grid lg:grid-cols-[minmax(0,1fr)_17.5rem]">
       <div className="min-w-0 space-y-3">
+        {!ro && (todo.length > 0 || roomsNoMaterial > 0) && (
+          <nav aria-label="Τι μένει" className={cn('flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-xl border px-4 py-2.5 text-(length:--fs-12)',
+            todo.length ? 'border-amber-300 bg-amber-50 text-amber-950' : 'border-sky-200 bg-sky-50 text-sky-950')}>
+            <FiAlertTriangle className="size-4 shrink-0" aria-hidden />
+            <span className="font-semibold">{todo.length ? (todo.length === 1 ? 'Μένει 1 βήμα' : `Μένουν ${todo.length} βήματα`) : 'Τα υποχρεωτικά βήματα έγιναν'}</span>
+            {todo.map((x) => <a key={x.id} href={`#${x.id}`} className="inline-flex min-h-7 items-center rounded-md bg-white/70 px-2 font-medium underline-offset-2 ring-1 ring-black/10 hover:underline">{x.label}</a>)}
+            {roomsNoMaterial > 0 && <a href="#c-rooms" className="inline-flex min-h-7 items-center rounded-md bg-white/70 px-2 font-medium underline-offset-2 ring-1 ring-black/10 hover:underline">{roomsNoMaterial} χώρ{roomsNoMaterial === 1 ? 'ος' : 'οι'} χωρίς υλικό</a>}
+          </nav>
+        )}
         {/* ── Αιτήματα πελάτη (portal) ── */}
         {initial?.id && customerRequests.length > 0 && (
           <Section id="c-requests" n={null} collapsible title="Αιτήματα πελάτη"
@@ -618,7 +633,10 @@ export function ContractEditor({ initial, staff, readOnly = false, customer = nu
         )}
 
         {/* ── 1. Έργο & πελάτης ── */}
-        <Section id="c-basics" n={stepNo('c-basics')} done={stepDone('c-basics')} title="Έργο & πελάτης" hint="Για ποιον είναι, τι είδους δουλειά, πού και πότε">
+        <Section id="c-basics" n={stepNo('c-basics')} done={stepDone('c-basics')} title="Έργο & πελάτης" collapsible={basicsFolded}
+          hint={basicsFolded
+            ? [s.customerName, KIND_LABEL[s.kind], s.site ? siteLine(s.site) : siteFallback, s.startDate && s.endDate ? `${dayEl(s.startDate)} έως ${dayEl(s.endDate)}` : null, s.validUntil ? `ισχύει ως ${dayEl(s.validUntil)}` : null, `ΦΠΑ ${s.vatRate}%`].filter(Boolean).join(' · ')
+            : 'Για ποιον είναι, τι είδους δουλειά, πού και πότε'}>
           <div className="grid gap-x-4 gap-y-2.5 md:grid-cols-2">
             <div className="space-y-1 md:col-span-2">
               <Label className={lbl} htmlFor="c-title">Τίτλος έργου <span className="text-destructive" aria-hidden>*</span></Label>
@@ -681,9 +699,22 @@ export function ContractEditor({ initial, staff, readOnly = false, customer = nu
         </Section>
         <ProjectSiteDialog open={siteOpen} onOpenChange={setSiteOpen} prjc={null} projectLabel={s.title || 'Νέο έργο'} value={s.site} onSave={(site) => up({ site })} />
 
-        {/* ── 2. Κάτοψη & χώροι ── */}
-        <Section id="c-rooms" n={stepNo('c-rooms')} done={stepDone('c-rooms')} optional title="Κάτοψη & χώροι"
-          hint="Ανεβάστε το σχέδιο, διαλέξτε υλικό ανά χώρο — οι γραμμές και το ποσό βγαίνουν μόνα τους">
+        {/* ── 2. Χώροι & υλικά: ο χώρος, το υλικό του και οι γραμμές του σε ΕΝΑ σημείο ── */}
+        <Section id="c-rooms" n={stepNo('c-rooms')} done={stepDone('c-rooms')} title="Χώροι & υλικά"
+          hint={s.rooms.length ? 'Υλικό ανά χώρο — το ποσό βγαίνει μόνο του. Το βελάκι ανοίγει τις γραμμές του χώρου' : crews ? 'Ποιο συνεργείο εκτελεί κάθε γραμμή και η αμοιβή του φαίνονται ΜΟΝΟ στη δική του σύμβαση' : 'Από κάτοψη, από το μητρώο, από συνταγή ή ελεύθερη γραμμή'}
+          actions={!ro ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild><Button type="button" size="sm" variant="outline" className="gap-1.5"><FiPlus className="size-3.5" />Προσθήκη</Button></DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="min-w-52">
+                <DropdownMenuItem className={ITEM} onSelect={() => setAdding('product')}><FiPackage className="size-3.5" />Υλικό από το μητρώο</DropdownMenuItem>
+                <DropdownMenuItem className={ITEM} onSelect={() => setAdding('service')}><FiTool className="size-3.5" />Υπηρεσία από το μητρώο</DropdownMenuItem>
+                <DropdownMenuItem className={ITEM} onSelect={() => setFromRecipe(true)}><FiLayers className="size-3.5" />Από συνταγή τοποθέτησης…</DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem className={ITEM} onSelect={() => addFree('MATERIAL')}><FiPlus className="size-3.5" />Ελεύθερη γραμμή υλικού</DropdownMenuItem>
+                <DropdownMenuItem className={ITEM} onSelect={() => addFree('SERVICE')}><FiPlus className="size-3.5" />Ελεύθερη γραμμή εργασίας</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : undefined}>
           <RoomsSection
             owner={owner} ownerHint={owner ? null : 'Επιλέξτε πρώτα πελάτη — η κάτοψη αποθηκεύεται στον φάκελό του.'}
             projectLabel={s.title || s.customerName || 'Νέα προσφορά'}
@@ -692,6 +723,10 @@ export function ContractEditor({ initial, staff, readOnly = false, customer = nu
             markupPct={markupPct} mode={lineMode} readOnly={ro}
             onApplyPlan={applyPlan} onMaterial={setRoomMaterial} onMaterialB={setRoomMaterialB} onApplyToEmpty={applyToEmpty}
             extra={(r) => noteBtn('ROOM', r.id, `Χώρος: ${r.name}`)}
+            linesOf={(id) => {
+              const ls = s.lines.filter((l) => l.roomId === id);
+              return ls.length ? { count: ls.length, node: <div className="@container">{lineHead}<ul className="divide-y divide-border">{ls.map(lineRow)}</ul></div> } : null;
+            }}
             pins={s.pins} pinIsTask={(id) => s.tasks.some((t) => t.key === `pin-${id}`)}
             onPinToTask={(p) => {
               // Σταθερό key «pin-<id>»: η ίδια σημείωση δεν γίνεται δεύτερη εργασία.
@@ -709,24 +744,6 @@ export function ContractEditor({ initial, staff, readOnly = false, customer = nu
               void recalcRooms(s.rooms, null).then(() => toast.success('Οι γραμμές των χώρων ξαναϋπολογίστηκαν με τις τρέχουσες συνταγές και τιμές'));
             }}
           />
-        </Section>
-
-        {/* ── 3. Υλικά & εργασίες ── */}
-        <Section id="c-lines" n={stepNo('c-lines')} done={stepDone('c-lines')} title="Υλικά & εργασίες"
-          hint={crews ? 'Ποιο συνεργείο εκτελεί κάθε γραμμή και η αμοιβή του φαίνονται ΜΟΝΟ στη δική του σύμβαση' : 'Από το μητρώο, από συνταγή ή ελεύθερη γραμμή · δίπλα στα υλικά φαίνεται το απόθεμα'}
-          actions={!ro ? (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild><Button type="button" size="sm" variant="outline" className="gap-1.5"><FiPlus className="size-3.5" />Προσθήκη</Button></DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="min-w-52">
-                <DropdownMenuItem className={ITEM} onSelect={() => setAdding('product')}><FiPackage className="size-3.5" />Υλικό από το μητρώο</DropdownMenuItem>
-                <DropdownMenuItem className={ITEM} onSelect={() => setAdding('service')}><FiTool className="size-3.5" />Υπηρεσία από το μητρώο</DropdownMenuItem>
-                <DropdownMenuItem className={ITEM} onSelect={() => setFromRecipe(true)}><FiLayers className="size-3.5" />Από συνταγή τοποθέτησης…</DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem className={ITEM} onSelect={() => addFree('MATERIAL')}><FiPlus className="size-3.5" />Ελεύθερη γραμμή υλικού</DropdownMenuItem>
-                <DropdownMenuItem className={ITEM} onSelect={() => addFree('SERVICE')}><FiPlus className="size-3.5" />Ελεύθερη γραμμή εργασίας</DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          ) : undefined}>
           {altFor && (() => {
             const src = s.lines.find((x) => x.uid === altFor);
             return src ? (
@@ -747,25 +764,13 @@ export function ContractEditor({ initial, staff, readOnly = false, customer = nu
             </div>
           )}
           {s.lines.length === 0 ? (
-            <div className="rounded-lg border border-dashed border-border px-4 py-6 text-center text-(length:--fs-13) text-muted-foreground">
-              {s.rooms.length ? 'Διαλέξτε υλικό στους χώρους παραπάνω — ή πατήστε «Προσθήκη» για άλλες γραμμές.' : 'Δεν υπάρχουν γραμμές ακόμη. Πατήστε «Προσθήκη» ή ανεβάστε κάτοψη.'}
-            </div>
+            s.rooms.length ? null : <p className="mt-2 text-center text-(length:--fs-12) text-muted-foreground">Χωρίς κάτοψη: πατήστε «Προσθήκη» για υλικά και εργασίες.</p>
           ) : (
-            <div className="@container space-y-2">
-              {groups.length > 3 && (
-                <div className="flex items-center justify-between gap-2 text-(length:--fs-12) text-muted-foreground">
-                  <span>{groups.length} ομάδες · {s.lines.length} γραμμές</span>
-                  <button type="button" onClick={() => setExpandAll((x) => !(x ?? false))} className="min-h-7 cursor-pointer rounded-md px-2 font-medium text-foreground hover:bg-muted">
-                    {expandAll ? 'Κλείσιμο όλων' : 'Άνοιγμα όλων'}
-                  </button>
-                </div>
-              )}
-              <div className="ml-10 mr-[7.5rem] hidden grid-cols-[minmax(0,1fr)_4.5rem_4rem_5rem_3.5rem] gap-1.5 text-(length:--fs-11) font-medium text-muted-foreground @2xl:grid" aria-hidden>
-                <span>Περιγραφή</span><span>Ποσότητα</span><span>Μονάδα</span><span>Τιμή €</span><span>Έκπ. %</span>
-              </div>
+            <div id="c-lines" className="@container mt-3 scroll-mt-20 space-y-2">
+              {groups.length > 0 && lineHead}
               {groups.map((g) => (
-                // Πολλές ομάδες (π.χ. 14 χώροι): κλειστές, με σύνολο στην κεφαλίδα — ανοίγουν όσες χρειάζεσαι.
-                <details key={`${g.key}-${String(expandAll)}`} open={expandAll ?? groups.length <= 3} className="group rounded-lg border border-border">
+                // Μόνο ό,τι ΔΕΝ ανήκει σε χώρο (δίκτυο, λοιπά) — οι γραμμές των χώρων ανοίγουν στη γραμμή του χώρου.
+                <details key={g.key} open className="group rounded-lg border border-border">
                   <summary className="flex cursor-pointer list-none items-center justify-between gap-2 rounded-lg px-3 py-1 hover:bg-muted/40 [&::-webkit-details-marker]:hidden">
                     <span className="flex min-w-0 items-center gap-2 text-(length:--fs-12) font-medium">
                       <FiChevronDown className="size-3.5 shrink-0 text-muted-foreground transition-transform group-open:rotate-0 -rotate-90" aria-hidden />
@@ -797,21 +802,13 @@ export function ContractEditor({ initial, staff, readOnly = false, customer = nu
 
         {/* ── BOM: λίστα υλικών ανά είδος / χώρο ── */}
         {s.lines.length > 0 && (
-          <Section id="c-bom" n={null} title="Λίστα υλικών (BOM)" hint="Τι χρειάζεται ανά είδος και ανά χώρο, τι έχουμε και τι πρέπει να παραγγελθεί">
-            {/* Βοηθητική προβολή: κλειστή — ανοίγει όταν τη χρειάζεσαι (το «Απόθεμα & παραγγελία» δείχνει ήδη τα ελλείμματα). */}
-            <details className="group">
-              <summary className="flex min-h-8 cursor-pointer list-none items-center gap-1.5 text-(length:--fs-12) font-medium text-primary [&::-webkit-details-marker]:hidden">
-                <FiChevronDown className="size-3.5 -rotate-90 transition-transform group-open:rotate-0" aria-hidden />
-                <span className="group-open:hidden">Εμφάνιση λίστας ({new Set(bomLines.filter((l) => l.kind === 'MATERIAL').map((l) => l.mtrl ?? l.name)).size} είδη)</span>
-                <span className="hidden group-open:inline">Απόκρυψη λίστας</span>
-              </summary>
-              <div className="mt-2">
-                <BomSection
-                  lines={bomLines} rooms={s.rooms} stock={stock.stock} loading={stock.loading}
-                  fileName={s.title.trim() || 'προσφορά'}
-                />
-              </div>
-            </details>
+          <Section id="c-bom" n={null} collapsible title="Λίστα υλικών (BOM)"
+            badge={<span className="text-(length:--fs-12) font-normal text-muted-foreground">· {new Set(bomLines.filter((l) => l.kind === 'MATERIAL').map((l) => l.mtrl ?? l.name)).size} είδη</span>}
+            hint="Τι χρειάζεται ανά είδος και ανά χώρο, τι έχουμε και τι πρέπει να παραγγελθεί">
+            <BomSection
+              lines={bomLines} rooms={s.rooms} stock={stock.stock} loading={stock.loading}
+              fileName={s.title.trim() || 'προσφορά'}
+            />
           </Section>
         )}
 
