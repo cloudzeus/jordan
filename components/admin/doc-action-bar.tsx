@@ -170,7 +170,7 @@ export function DocActionBar({
   const families = [...new Set(series.map((s) => s.family))];
 
   return (
-    <div className="sticky bottom-0 z-30 -mx-6 border-t border-border bg-card/95 px-6 py-2.5 shadow-[0_-2px_10px_rgba(0,0,0,0.06)] backdrop-blur-sm">
+    <div className="sticky bottom-0 z-30 -mx-6 border-t border-border bg-card/95 py-2.5 pl-6 pr-20 shadow-[0_-2px_10px_rgba(0,0,0,0.06)] backdrop-blur-sm">
       <div className="flex flex-wrap items-end gap-x-3 gap-y-2">
         <div className="flex min-w-56 flex-2 flex-col gap-0.5">
           <span className={cn(LABEL, 'flex items-center gap-1')}><label htmlFor={DOC_SECTION.series}>Είδος παραστατικού στο SoftOne</label> <Term k="seira"><span className="sr-only">Τι είναι;</span></Term></span>
@@ -261,7 +261,11 @@ export function DocActionBar({
                 </button>
               </PopoverTrigger>
               <PopoverContent align="start" className="w-[32rem] max-w-[92vw] p-0">
-                <p className="border-b border-border px-3 py-2 text-(length:--fs-12) font-semibold text-foreground">Τι μένει πριν την καταχώριση</p>
+                <p className="flex items-baseline justify-between gap-3 border-b border-border px-3 py-2 text-(length:--fs-12) font-semibold text-foreground">
+                  Τι μένει πριν την καταχώριση
+                  <a href="/wiki/ocr/posting-guide" target="_blank" rel="noreferrer" className="font-normal text-sisyphus-600 underline decoration-dotted underline-offset-2 hover:text-sisyphus-700">Οδηγός βήμα-βήμα &amp; βίντεο</a>
+                </p>
+                <p className="border-b border-border bg-muted/40 px-3 py-1.5 text-(length:--fs-11) text-muted-foreground">Το «Λύσε» σε πηγαίνει στο σημείο που διορθώνει κάθε βήμα. Τίποτα δεν γράφεται στη SoftOne πριν το επιβεβαιώσεις.</p>
                 <ol className="max-h-[60dvh] divide-y divide-border overflow-auto text-(length:--fs-12) text-foreground">
                   {blockers.map((b, i) => {
                     const fix = blockerFix(b.code);
@@ -325,7 +329,7 @@ export function DocActionBar({
               </button>
             )}
             <button type="button" disabled={!canPost || !ready || posting || dupBusy} onClick={askConfirm} className={BTN_POST}
-              title={!canPost ? 'Δεν έχεις δικαίωμα καταχώρισης' : posted ? 'Έχει ήδη καταχωρηθεί' : !ready ? 'Λύσε πρώτα τα βήματα που μένουν' : undefined}>
+              title={!canPost ? 'Δεν έχεις δικαίωμα καταχώρισης' : posted ? 'Έχει ήδη καταχωρηθεί' : !ready ? 'Λύσε πρώτα τα βήματα που μένουν' : 'Ελέγχει πρώτα για διπλότυπο και ζητά επιβεβαίωση — τίποτα δεν γράφεται πριν πατήσεις «Ναι»'}>
               {dupBusy ? <FiLoader className="size-3.5 animate-spin" /> : <FiSend className="size-3.5" />}
               {posted ? 'Καταχωρήθηκε' : dupBusy ? `Έλεγχος διπλοτύπου…${elapsedSuffix(dupFor)}` : 'Καταχώριση στο SoftOne'}
             </button>

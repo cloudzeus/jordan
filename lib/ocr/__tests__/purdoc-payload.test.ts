@@ -78,7 +78,8 @@ describe('buildPurdocPayload', () => {
           SomyDataUID: 'ABC',
         }],
         ITELINES: [{ LINENUM: 9000001, MTRL: 555, QTY: 2, PRICE: 50, VAT: 1, COMMENTS: 'Είδος Α' }],
-        SRVLINES: [{ LINENUM: 9000001, MTRL: 666, QTY: 1, PRICE: 100, VAT: 1, COMMENTS: 'Υπηρεσία Β' }],
+        // Υπηρεσίες με QTY1 (βασική μονάδα): με QTY η SoftOne μηδένιζε την αξία (καμία σχέση μονάδας αγορών).
+        SRVLINES: [{ LINENUM: 9000001, MTRL: 666, QTY1: 1, PRICE: 100, VAT: 1, COMMENTS: 'Υπηρεσία Β' }],
       },
     });
   });
@@ -882,5 +883,24 @@ describe('buildPurdocPayload — μετασχηματισμός από δελτ�
       lines: [{ rowIndex: 0, mtrl: 555, expn: null, isService: false, buyRatio: 100, sourceLinks: [{ findoc: 9, mtrlines: 1, qty1: 200 }] }],
     }));
     expect(p.DATA.ITELINES?.[0]).toMatchObject({ QTY: 2, PRICE: 50, FINDOCS: 9 });
+  });
+});
+
+describe('postingWarnings — χώρα εγκατάστασης χωρίς myDATA (Κύπρος)', () => {
+  const ctx = {
+    lines: [{ rowIndex: 0, lin: 777, noClassification: true } as never],
+    target: { object: 'LINCREDOC', lines: 'LINLINES' } as never,
+  };
+
+  it('Ελλάδα (προεπιλογή): οι παρατηρήσεις myDATA εμφανίζονται', () => {
+    const w = postingWarnings(ctx);
+    expect(w).toContain('no_mydata_classification');
+    expect(w).toContain('mydata_from_master');
+  });
+
+  it('Κύπρος: ΚΑΜΙΑ παρατήρηση myDATA — δεν υπάρχει myDATA στη χώρα', () => {
+    const w = postingWarnings(ctx, null, null, false);
+    expect(w).not.toContain('no_mydata_classification');
+    expect(w).not.toContain('mydata_from_master');
   });
 });

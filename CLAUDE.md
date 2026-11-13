@@ -24,7 +24,7 @@
 
 ## Συγχρονισμός με το postgres-boilerplate
 
-Το jordan ξεκίνησε από το https://github.com/cloudzeus/postgres-boilerplate (χωρίς κοινό git ιστορικό). **Τελευταίο ενταγμένο commit του boilerplate: `e7aa12e` (2026-10-22).** Για νέες αλλαγές: διαφορά `e7aa12e..master` του boilerplate, εφαρμογή 3-way, και:
+Το jordan ξεκίνησε από το https://github.com/cloudzeus/postgres-boilerplate (χωρίς κοινό git ιστορικό). **Τελευταίο ενταγμένο commit του boilerplate: `0b954e4` (2026-10-28· χωρίς το «Κύπρος χωρίς myDATA»).** Για νέες αλλαγές: διαφορά `0b954e4..master` του boilerplate, εφαρμογή 3-way, και:
 - οι κλάσεις του boilerplate είναι Tailwind 3 → μετατροπή σε v4 (`text-[length:var(--fs-12)]` → `text-(length:--fs-12)`, `shadow-sm` → `shadow-xs`, `outline-none` → `outline-hidden` κ.λπ.)·
 - migrations μετονομάζονται ώστε να έρχονται ΜΕΤΑ τα δικά μας· `ADD COLUMN IF NOT EXISTS` όπου η στήλη μπορεί να υπάρχει ήδη·
 - lint 0 (το boilerplate δεν έχει τους ίδιους κανόνες) και ενημέρωση αυτής της γραμμής με το νέο commit.
@@ -34,7 +34,7 @@
 Κάθε οθόνη ακολουθεί τους κανόνες σχεδίασης. Ο χρήστης δεν πρέπει να μπερδεύεται: τα δεδομένα είναι οργανωμένα, η οθόνη πυκνή και το κύλισμα ελάχιστο.
 
 - **Διαχείριση (`app/admin/**`):** [docs/design/admin.md](docs/design/admin.md).
-  - Ρίζα 15px.
+  - Σώμα κειμένου 13.5px (ρίζα 96.43%).
   - Μία γραμμή ανά στοιχείο.
   - Τα σύνολα με έμφαση.
   - Accordion κλειστά με σύνοψη και προβλήματα στην κεφαλίδα.

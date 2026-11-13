@@ -166,7 +166,7 @@ export function FieldCorrection({ docId, mimeType, fileUrl, initialData, fields 
                   παραστατικό, οπότε σταθερά πλάτη δεν θα έκλειναν ποτέ σωστά. */}
               <div className="flex flex-wrap gap-x-3 gap-y-2">
                 {keys.map((f) => (
-                  <div key={f} className={`flex min-w-40 flex-1 basis-44 items-end gap-1 rounded ${activeField === f ? 'ring-2 ring-sisyphus-500 ring-offset-2' : ''}`}>
+                  <div key={f} className={`flex min-w-36 flex-1 basis-40 items-end gap-1 rounded ${activeField === f ? 'ring-2 ring-sisyphus-500 ring-offset-2' : ''}`}>
                     {/* Ετικέτα ΠΑΝΩ από το πεδίο αλλά μικροσκοπική και κολλητά: μένει ορατή
                         (δεν γίνεται placeholder) χωρίς να κοστίζει δική της σειρά 14px. */}
                     <label className="flex min-w-0 flex-1 flex-col">
@@ -199,7 +199,7 @@ export function FieldCorrection({ docId, mimeType, fileUrl, initialData, fields 
               <h3 className="pt-1 text-(length:--fs-11) font-bold uppercase tracking-wide text-foreground sm:pt-6">Λοιπά</h3>
               <div className="flex flex-wrap gap-x-3 gap-y-2">
                 {rest.map((f) => (
-                  <label key={f} className="flex min-w-40 flex-1 basis-44 flex-col gap-0.5">
+                  <label key={f} className="flex min-w-36 flex-1 basis-40 flex-col gap-0.5">
                     <span className={LABEL}>{FIELD_LABELS[f] ?? f}</span>
                     <input value={(data[f] ?? '') as string | number}
                       onChange={(e) => setData((d) => ({ ...d, [f]: e.target.value }))}

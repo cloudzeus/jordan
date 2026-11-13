@@ -171,9 +171,9 @@ function LinesTable({ doc, data, match }: { doc: DocWithItems; data: ExtractedVi
                   </td>
                   <td className="px-3 py-2 text-right text-(length:--fs-12)">{fmtNum(it.quantity)}</td>
                   <td className="px-3 py-2 text-(length:--fs-12) text-muted-foreground">{(line.unit ?? '') || '—'}</td>
-                  <td className="px-3 py-2 text-right text-(length:--fs-12)">{fmtMoney(it.price)}</td>
+                  <td className="px-3 py-2 text-right whitespace-nowrap text-(length:--fs-12)">{fmtMoney(it.price)}</td>
                   <td className="px-3 py-2 text-right text-(length:--fs-12) text-destructive">{fmtNum(it.discount)}</td>
-                  <td className="px-3 py-2 text-right text-(length:--fs-12) font-semibold">{fmtMoney(it.total)}</td>
+                  <td className="px-3 py-2 text-right whitespace-nowrap text-(length:--fs-12) font-semibold">{fmtMoney(it.total)}</td>
                   <td className="px-3 py-2 min-w-[260px] align-top">
                     <LineMatchCell
                       lineId={it.id}

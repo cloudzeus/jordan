@@ -1,7 +1,7 @@
 import { withFeesFromDocument } from '@/lib/ocr/canonical';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { FiArrowLeft, FiDownload, FiChevronRight } from 'react-icons/fi';
+import { FiArrowLeft, FiDownload, FiChevronRight, FiHelpCircle } from 'react-icons/fi';
 import { prisma } from '@/lib/db';
 import { requirePermission, hasPermission } from '@/lib/rbac';
 import { Badge } from '@/components/ui/badge';
@@ -193,11 +193,15 @@ export default async function OcrDetailPage({ params }: { params: Promise<{ id: 
 
   return (
     <div className="p-6 space-y-5">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <Link href="/admin/ocr" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
           <FiArrowLeft className="size-4" /> Πίσω στη λίστα
         </Link>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <Link href="/wiki/ocr/posting-guide" target="_blank" title="Τα βήματα μέχρι την καταχώριση, με βίντεο"
+            className="inline-flex h-8 items-center gap-1.5 rounded-md px-2 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground">
+            <FiHelpCircle className="size-3.5" aria-hidden /> <span className="max-sm:sr-only">Οδηγός καταχώρισης</span>
+          </Link>
           {doc.status === 'COMPLETED' && (
             <DocActionsMenu docId={doc.id} canManage={canManage} canRescan={canRescan} posted={doc.postStatus === 'POSTED'} isCredit={isCredit} />
           )}

@@ -653,12 +653,12 @@ html.lenis, html.lenis body { height: auto; }
 .site.portal .font-num, .site.portal .font-num * { font-family: var(--font-site), system-ui, sans-serif !important; font-weight: 600; letter-spacing: -0.01em; font-variant-numeric: tabular-nums lining-nums; }
 
 /*
- * Διαχείριση: πυκνότερη κλίμακα σε tablet/υπολογιστή — η ρίζα 15px αντί για 16px μικραίνει αναλογικά
+ * Διαχείριση: πυκνότερη κλίμακα σε tablet/υπολογιστή — η ρίζα 96.43% (≈15.43px) δίνει σώμα κειμένου (--fs-14) ακριβώς 13.5px και μικραίνει αναλογικά
  * όλα τα rem (γράμματα από τα --fs-* tokens, κενά, ύψη πεδίων). Εκτός @layer ώστε να υπερισχύει.
  * Όχι στα κινητά: εκεί τα πεδία μένουν ≥16px για να μη μεγεθύνει το iOS στο focus.
  */
 @media (min-width: 768px) {
-  html:has(.admin-root) { font-size: 93.75%; }
+  html:has(.admin-root) { font-size: 96.43%; }
 }
 
 /* Editor μορφοποιημένου κειμένου (components/admin/rich-text-editor.tsx) — το preflight σβήνει λίστες/κενά. */
