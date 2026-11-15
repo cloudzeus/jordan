@@ -180,7 +180,7 @@ function defaultUnit(units: UnitOption[]): string {
 export function ItemPanel({
   group, category, onCategory, suggestions, hiddenSuggestions, loadingSuggestions,
   suggestionsFailed, onRetrySuggestions, canManage, busy, onMatch, onCreate, onSkip, vats, units,
-  itemGroups = [], itemCategories = [], onCategoryCreated,
+  itemGroups = [], itemCategories = [], groupDefaultCategory = {}, onCategoryCreated,
   lineCategories = [], lineCategory, onLineCategory, analytics, onAnalytics, analyticsSupported,
 }: {
   group: ItemQueueGroup;
@@ -217,6 +217,8 @@ export function ItemPanel({
   itemGroups?: ClassOption[];
   /** Εμπορικές κατηγορίες (`MTRCATEGORY`) — με inline δημιουργία (object `ITECATEGORY`). */
   itemCategories?: ClassOption[];
+  /** MTRGROUP → MTRCATEGORY: προεπιλογή εμπορικής κατηγορίας από τη σύνδεση της ομάδας («Κατηγορίες & ομάδες»). */
+  groupDefaultCategory?: Record<string, string>;
   /** Μια νέα κατηγορία δημιουργήθηκε: ο γονέας την προσθέτει στη λίστα. */
   onCategoryCreated?: (option: ClassOption) => void;
   /** Κατηγορίες δαπανών (LINCATEGORY) για το φίλτρο των χρεοπιστώσεων. */
@@ -270,6 +272,8 @@ export function ItemPanel({
     ...initialAlt(group.sample),
     /** Η τελευταία πρόταση που γράψαμε ΕΜΕΙΣ — για να ξέρουμε τι επιτρέπεται να αντικατασταθεί. */
     lastProposal: '',
+    /** Η τελευταία εμπορική κατηγορία που βάλαμε ΕΜΕΙΣ από τη σύνδεση της ομάδας. */
+    lastCatDefault: '',
   }));
   const [dryPayload, setDryPayload] = React.useState<unknown>(null);
   const [dryLoading, setDryLoading] = React.useState(false);
@@ -298,6 +302,7 @@ export function ItemPanel({
       itemCategory: '',
       ...initialAlt(group.sample),
       lastProposal: '',
+      lastCatDefault: '',
     });
   }
 
@@ -349,6 +354,14 @@ export function ItemPanel({
   }, [group.key, group.code, category]);
 
   const set = (k: keyof typeof form, v: string) => setForm((s) => ({ ...s, [k]: v }));
+  // Αλλαγή ομάδας: αν η ομάδα είναι συνδεδεμένη με εμπορική κατηγορία, προσυμπλήρωσέ την — εκτός αν ο
+  // χρήστης έχει ήδη διαλέξει δική του (ό,τι βάλαμε εμείς το αντικαθιστούμε, ό,τι έβαλε ο χρήστης μένει).
+  const setGroup = (code: string) => setForm((s) => {
+    const def = groupDefaultCategory[code] ?? '';
+    const userPicked = s.itemCategory !== '' && s.itemCategory !== s.lastCatDefault;
+    if (!def || userPicked) return { ...s, itemGroup: code };
+    return { ...s, itemGroup: code, itemCategory: def, lastCatDefault: def };
+  });
   // Ρυθμίσεις → «Αρχικοποίηση εφαρμογής»: μόνο είδη/υπηρεσίες (όχι έξοδα).
   const naming = useItemNaming();
   const namingApplies = category === 'product' || category === 'service';
@@ -936,7 +949,7 @@ export function ItemPanel({
                 >
                   <select
                     id="ni-group" value={form.itemGroup} disabled={locked}
-                    onChange={(e) => set('itemGroup', e.target.value)}
+                    onChange={(e) => setGroup(e.target.value)}
                     className="h-9 w-full cursor-pointer rounded-md border border-border bg-background px-2 text-(length:--fs-13) outline-hidden focus-visible:border-sisyphus-500 focus-visible:ring-2 focus-visible:ring-sisyphus-100"
                   >
                     <option value="">— καμία —</option>

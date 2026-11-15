@@ -19,7 +19,7 @@ const SUGGEST_FOR = 50;
 export default async function NewItemsPage() {
   await requirePermission('ocr.read');
 
-  const [queue, canManage, vats, units, groups, categories, lineCategories] = await Promise.all([
+  const [queue, canManage, vats, units, groups, categories, lineCategories, groupLinks] = await Promise.all([
     loadItemQueue({ suggestFor: SUGGEST_FOR }),
     // Χωρίς `ocr.categorize` η σελίδα είναι μόνο για ανάγνωση (ίδιο με «Νέοι συναλλασσόμενοι»).
     hasPermission('ocr.categorize'),
@@ -49,7 +49,16 @@ export default async function NewItemsPage() {
       orderBy: { name: 'asc' },
       select: { mtrCategory: true, code: true, name: true },
     }),
+    // Σύνδεση ομάδας → εμπορική κατηγορία από τη σελίδα «Κατηγορίες & ομάδες»: προεπιλογή στη φόρμα.
+    prisma.itemGroup.findMany({
+      where: { isActive: true, softoneId: { not: null }, categoryCode: { not: null } },
+      select: { softoneId: true, categoryCode: true },
+    }),
   ]);
+
+  // MTRGROUP (κωδικός ομάδας) → MTRCATEGORY (κωδικός εμπορικής κατηγορίας).
+  const groupDefaultCategory: Record<string, string> = {};
+  for (const g of groupLinks) if (g.softoneId != null && g.categoryCode != null) groupDefaultCategory[String(g.softoneId)] = String(g.categoryCode);
 
   const vatOpts = disambiguateLabels(vats.map((v) => ({
     code: v.code, label: v.rate != null ? `${v.descr} (${v.rate}%)` : v.descr, rate: v.rate,
@@ -100,6 +109,7 @@ export default async function NewItemsPage() {
       units={unitOpts}
       itemGroups={disambiguateLabels(groups.map((g) => ({ code: g.code, label: g.name })))}
       itemCategories={disambiguateLabels(categories.map((c) => ({ code: c.code, label: c.name })))}
+      groupDefaultCategory={groupDefaultCategory}
       lineCategories={lineCategories.map((c) => ({ id: c.mtrCategory, label: c.name || c.code }))}
     />
   );

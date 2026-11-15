@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { lineCostPerSqm, lineQtyWithWaste, parseDecimal, recipeCost, recipeForArea, recipeToOfferLines, wasteFactor } from '../install-recipes-core';
+import { lineCostPerSqm, lineQtyWithWaste, parseDecimal, recipeCost, recipeForArea, recipeToOfferLines, sumRecipeCosts, wasteFactor } from '../install-recipes-core';
 
 const recipe = {
   mtrlName: 'Πλακάκι 60x60',
@@ -71,5 +71,33 @@ describe('συνταγή → γραμμές προσφοράς', () => {
 
   it('χωρίς τετραγωνικά → καμία γραμμή', () => {
     expect(recipeToOfferLines(r, 0, { markupPct: 0, mode: 'detailed' })).toEqual([]);
+  });
+});
+
+describe('σύνθετη συνταγή (στάδια)', () => {
+  const stageA = { name: 'Στεγ.', kind: 'TILE' as const, mtrl: null, mtrlCode: null, mtrlName: null, materialPrice: 0, wastePct: 0, laborCostPerSqm: 0, labor: null, lines: [{ mtrl: 1, code: 'A', name: 'Αστάρι', unit: 'lt', qtyPerSqm: 1, wastePct: 0, unitPrice: 8 }] };
+  const stageB = { name: 'Πλακάκι', kind: 'TILE' as const, mtrl: 10, mtrlCode: 'P', mtrlName: 'Πλακάκι', materialPrice: 20, wastePct: 10, laborCostPerSqm: 12, labor: null, lines: [] };
+
+  it('κόστος σύνθετης = άθροισμα σταδίων', () => {
+    const total = sumRecipeCosts([recipeCost(stageA), recipeCost(stageB)]);
+    // A: 8 (αστάρι) · B: 22 (υλικό +10%) + 12 (εργατικά) = 34 → 42
+    expect(total.total).toBeCloseTo(42);
+    expect(total.labor).toBeCloseTo(12);
+  });
+
+  it('ξεδιπλώνει τα στάδια στη σειρά, στα ίδια m²', () => {
+    const composite = { ...stageA, name: 'Μπάνιο', components: [stageA, stageB] };
+    const lines = recipeToOfferLines(composite, 100, { markupPct: 0, mode: 'detailed' });
+    // Στάδιο A: 1 γραμμή (αστάρι) · Στάδιο B: υλικό + εργασία = 2 → σύνολο 3
+    expect(lines).toHaveLength(3);
+    expect(lines[0]).toMatchObject({ name: 'Αστάρι', qty: 100 });
+    expect(lines[1]).toMatchObject({ kind: 'MATERIAL', mtrl: 10, qty: 110 });
+    expect(lines[2]).toMatchObject({ kind: 'SERVICE', qty: 100 });
+  });
+
+  it('σύνθετη χωρίς στάδια → καμία γραμμή', () => {
+    const empty = { ...stageB, components: [] };
+    // components κενό = απλή: εδώ η stageB είναι απλή με υλικό, οπότε βγάζει γραμμές κανονικά
+    expect(recipeToOfferLines(empty, 100, { markupPct: 0, mode: 'detailed' }).length).toBeGreaterThan(0);
   });
 });

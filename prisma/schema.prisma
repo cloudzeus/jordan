@@ -3586,6 +3586,9 @@ model ItemGroup {
   parent      ItemGroup?  @relation("ItemGroupTree", fields: [parentId], references: [id], onDelete: SetNull)
   children    ItemGroup[] @relation("ItemGroupTree")
   softoneId   Int? // MTRGROUP στο SoftOne (null = δεν υπάρχει ακόμα)
+  // Σύνδεση με εμπορική κατηγορία (SoftoneClassification.code, kind=CATEGORY, ίδιο sodtype) — ΤΟΠΙΚΟ:
+  // προσυμπληρώνει την εμπορική κατηγορία στα νέα είδη της ομάδας. ΔΕΝ γράφεται ποτέ στο SoftOne.
+  categoryCode Int?
   order       Int         @default(0)
   isActive    Boolean     @default(true)
   createdAt   DateTime    @default(now())
@@ -4235,9 +4238,27 @@ model InstallRecipe {
   createdAt       DateTime            @default(now())
   updatedAt       DateTime            @updatedAt
   lines           InstallRecipeLine[]
+  // Σύνθετη συνταγή: αριθμημένα στάδια (1..6) που είναι ΑΝΑΦΟΡΕΣ σε άλλες (απλές) συνταγές.
+  components      InstallRecipeComponent[] @relation("RecipeParent")
+  // Πού χρησιμοποιείται ΑΥΤΗ ως στάδιο — εμποδίζει τη διαγραφή όσο είναι σε χρήση.
+  usedIn          InstallRecipeComponent[] @relation("RecipeChild")
 
   @@index([kind, name])
   @@index([mtrl])
+}
+
+// Στάδιο σύνθετης συνταγής: parent (κεντρική) → child (υποσυνταγή-αναφορά), με σειρά 1..6.
+model InstallRecipeComponent {
+  id        String        @id @default(cuid())
+  parentId  String
+  parent    InstallRecipe @relation("RecipeParent", fields: [parentId], references: [id], onDelete: Cascade)
+  childId   String
+  child     InstallRecipe @relation("RecipeChild", fields: [childId], references: [id], onDelete: Restrict)
+  sortOrder Int           @default(0)
+
+  @@unique([parentId, childId])
+  @@index([parentId, sortOrder])
+  @@index([childId])
 }
 
 model InstallRecipeLine {

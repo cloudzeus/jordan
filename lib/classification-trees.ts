@@ -4,6 +4,7 @@
 // Πλήθη με groupBy (δείκτες σε leafId/groupId + status) — ένα ερώτημα ανά πίνακα, όχι ανά κόμβο.
 import 'server-only';
 import { prisma } from '@/lib/db';
+import { itemGroupColor } from '@/lib/item-groups';
 
 export interface TreeMember { code: string; name: string; status: string; review: boolean }
 
@@ -34,12 +35,41 @@ const bump = (m: Map<number, TreeNode['counts']>, id: number | null, status: str
 const bySoh = (a: { soh: string }, b: { soh: string }) =>
   a.soh.split('.').map(Number).reduce((r, n, i) => r || n - (Number(b.soh.split('.')[i]) || 0), 0) || a.soh.length - b.soh.length;
 
-export async function loadItemGroupTrees(): Promise<ClassTree[]> {
-  const [groups, assigns] = await Promise.all([
+// ── Ομάδες ειδών/υπηρεσιών: πίνακας drag-drop με σύνδεση εμπορικής κατηγορίας (ΤΟΠΙΚΟ, όχι SoftOne) ──
+
+/** Κόμβος ομάδας για τον επεξεργαστή: id ως string (απαίτηση του dnd), κωδικός ιεραρχίας, σύνδεση κατηγορίας. */
+export interface ItemGroupBoardNode {
+  id: string;
+  sodtype: number;
+  sohCode: string;
+  code: string;
+  name: string;
+  description: string | null;
+  color: string;
+  softoneId: number | null;
+  categoryCode: number | null;
+  categoryName: string | null;
+  counts: { applied: number; proposed: number; review: number };
+  members: TreeMember[];
+}
+
+export interface CategoryOption { code: number; name: string }
+
+export interface ItemGroupBoard {
+  sodtype: number;
+  label: string;
+  nodes: ItemGroupBoardNode[];
+  /** Εμπορικές κατηγορίες του ίδιου sodtype — επιλογές για τη σύνδεση. */
+  categoryOptions: CategoryOption[];
+}
+
+export async function loadItemGroupBoards(): Promise<ItemGroupBoard[]> {
+  const [groups, assigns, categories] = await Promise.all([
     prisma.itemGroup.findMany({ where: { isActive: true } }),
     prisma.itemGroupAssignment.findMany({ select: { groupId: true, status: true, needsReview: true, code: true, name: true } }),
+    prisma.softoneClassification.findMany({ where: { kind: 'CATEGORY', isActive: true }, select: { sodtype: true, code: true, name: true } }),
   ]);
-  const counts = new Map<number, TreeNode['counts']>();
+  const counts = new Map<number, ItemGroupBoardNode['counts']>();
   const members = new Map<number, TreeMember[]>();
   for (const a of assigns) {
     bump(counts, a.groupId, a.status, a.needsReview);
@@ -49,15 +79,20 @@ export async function loadItemGroupTrees(): Promise<ClassTree[]> {
       members.set(a.groupId, l);
     }
   }
-  const tree = (sodtype: number, title: string, subtitle: string): ClassTree => ({
-    key: `items-${sodtype}`, title, subtitle, softoneField: 'MTRGROUP',
+  const catName = new Map(categories.map((c) => [`${c.sodtype}:${c.code}`, c.name]));
+  const board = (sodtype: number, label: string): ItemGroupBoard => ({
+    sodtype, label,
+    categoryOptions: categories.filter((c) => c.sodtype === sodtype).map((c) => ({ code: c.code, name: c.name }))
+      .sort((a, b) => a.name.localeCompare(b.name, 'el')),
     nodes: groups.filter((g) => g.sodtype === sodtype).map((g) => ({
-      id: g.id, parentId: g.parentId, soh: g.sohCode, code: g.code, name: g.name, description: g.description, softoneId: g.softoneId,
+      id: String(g.id), sodtype: g.sodtype, sohCode: g.sohCode, code: g.code, name: g.name, description: g.description,
+      color: itemGroupColor(g.key), softoneId: g.softoneId,
+      categoryCode: g.categoryCode, categoryName: g.categoryCode != null ? catName.get(`${sodtype}:${g.categoryCode}`) ?? null : null,
       counts: counts.get(g.id) ?? { applied: 0, proposed: 0, review: 0 },
       members: (members.get(g.id) ?? []).sort((x, y) => x.name.localeCompare(y.name, 'el')),
-    })).sort(bySoh),
+    })).sort((a, b) => bySoh({ soh: a.sohCode }, { soh: b.sohCode })),
   });
-  return [tree(51, 'Είδη', 'Ομάδες ειδών'), tree(52, 'Υπηρεσίες', 'Ομάδες υπηρεσιών')];
+  return [board(51, 'Είδη'), board(52, 'Υπηρεσίες')];
 }
 
 export async function loadTraderClassTrees(): Promise<ClassTree[]> {

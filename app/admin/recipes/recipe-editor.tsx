@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RegistrySearch, type RegistryPick } from '@/components/admin/registry-search';
 import {
-  RECIPE_KINDS, RECIPE_KIND_META, lineCostPerSqm, parseDecimal, recipeCost, recipeForArea, toInput, type RecipeKind,
+  RECIPE_KINDS, RECIPE_KIND_META, lineCostPerSqm, parseDecimal, recipeCost, recipeForArea, sumRecipeCosts, toInput, type RecipeCost, type RecipeKind,
 } from '@/lib/install-recipes-core';
 import type { RecipeView } from '@/lib/install-recipes';
 import { KindBadge, PickedItem, eur, fetchItemInfo, num } from './recipe-ui';
@@ -32,10 +32,11 @@ const optNum = (v: string) => (v.trim() === '' ? 0 : parseDecimal(v));
 
 const field = 'h-9 tabular-nums text-(length:--fs-13)';
 
-type StepId = 'start' | 'material' | 'lines' | 'labor' | 'summary';
+type StepId = 'start' | 'material' | 'lines' | 'labor' | 'stages' | 'summary';
 const STEP_LABEL: Record<StepId, string> = {
-  start: 'Αφετηρία', material: 'Υλικό', lines: 'Υλικά/m²', labor: 'Εργατικά', summary: 'Σύνοψη',
+  start: 'Αφετηρία', material: 'Υλικό', lines: 'Υλικά/m²', labor: 'Εργατικά', stages: 'Στάδια', summary: 'Σύνοψη',
 };
+type Stage = { id: string; name: string; kind: RecipeKind; cost: RecipeCost };
 
 /** Έγχρωμο πλαίσιο επεξήγησης/παραδείγματος πάνω από κάθε βήμα. */
 function Callout({ tone, icon, children }: { tone: 'info' | 'example' | 'warn'; icon: React.ReactNode; children: React.ReactNode }) {
@@ -74,16 +75,27 @@ export function RecipeEditor({ initial, templates = [], readOnly = false }: { in
   const [area, setArea] = React.useState('100');
   const [source, setSource] = React.useState('');
   const [startMode, setStartMode] = React.useState<'blank' | 'copy'>('blank');
+  const [mode, setMode] = React.useState<'simple' | 'composite'>(initial?.components.length ? 'composite' : 'simple');
+  const [stages, setStages] = React.useState<Stage[]>(() => (initial?.components ?? []).map((c) => ({ id: c.id, name: c.name, kind: c.kind, cost: c.cost })));
   const [touched, setTouched] = React.useState(false);
   const [busy, setBusy] = React.useState(false);
   const [serverError, setServerError] = React.useState<string | null>(null);
 
-  const steps: StepId[] = initial ? ['material', 'lines', 'labor', 'summary'] : ['start', 'material', 'lines', 'labor', 'summary'];
+  const steps: StepId[] = mode === 'composite'
+    ? (initial ? ['stages', 'summary'] : ['start', 'stages', 'summary'])
+    : (initial ? ['material', 'lines', 'labor', 'summary'] : ['start', 'material', 'lines', 'labor', 'summary']);
   const [cur, setCur] = React.useState(0);
-  const step = steps[cur];
+  // Αλλαγή τύπου (απλή↔σύνθετη) αλλάζει τα βήματα — μένουμε στην αρχή για να μη δείχνει βήμα εκτός ορίων.
+  const step = steps[Math.min(cur, steps.length - 1)];
 
   const tone = RECIPE_KIND_META[kind].color;
-  const sameKind = templates.filter((t) => t.kind === kind && t.id !== initial?.id);
+  const sameKind = templates.filter((t) => t.kind === kind && t.id !== initial?.id && t.components.length === 0);
+  // Διαθέσιμες υποσυνταγές για στάδια: ΑΠΛΕΣ (όχι σύνθετες), όχι ο εαυτός, όχι ήδη επιλεγμένες.
+  const stagePool = templates.filter((t) => t.components.length === 0 && t.id !== initial?.id && !stages.some((s) => s.id === t.id));
+  const addStage = (id: string) => { const t = templates.find((x) => x.id === id); if (t && stages.length < 6) setStages((s) => [...s, { id: t.id, name: t.name, kind: t.kind, cost: t.cost }]); };
+  const removeStage = (id: string) => setStages((s) => s.filter((x) => x.id !== id));
+  const moveStage = (id: string, dir: -1 | 1) => setStages((s) => { const i = s.findIndex((x) => x.id === id); const j = i + dir; if (i < 0 || j < 0 || j >= s.length) return s; const n = [...s]; [n[i], n[j]] = [n[j], n[i]]; return n; });
+  const compositeCost = sumRecipeCosts(stages.map((s) => s.cost));
 
   const pickMain = async (p: RegistryPick) => {
     setMain({ mtrl: p.id, code: p.code, name: p.name, unit: null });
@@ -145,13 +157,16 @@ export function RecipeEditor({ initial, templates = [], readOnly = false }: { in
         : !Number.isFinite(p) || p < 0 ? 'Τιμή ≥ 0' : null;
     return { l, qty, w, p, err };
   });
-  const valid = !Object.keys(errors).length && parsedLines.every((x) => !x.err);
+  const simpleValid = !Object.keys(errors).length && parsedLines.every((x) => !x.err);
+  const compositeValid = !errors.name && stages.length >= 1;
+  const valid = mode === 'composite' ? compositeValid : simpleValid;
   // Ανά βήμα: τι πρέπει να είναι σωστό για να προχωρήσει ο χρήστης.
   const stepValid: Record<StepId, boolean> = {
     start: true,
     material: !errors.name && !errors.price && !errors.waste,
     lines: parsedLines.every((x) => !x.err),
     labor: !errors.labor,
+    stages: compositeValid,
     summary: valid,
   };
 
@@ -176,11 +191,18 @@ export function RecipeEditor({ initial, templates = [], readOnly = false }: { in
     setBusy(true);
     setServerError(null);
     try {
-      const payload = {
-        name: name.trim(), kind, description: description.trim() || null, mtrl: main?.mtrl ?? null,
-        materialPrice: priceN, wastePct: wasteN, laborCostPerSqm: laborN, laborMtrl: laborItem?.mtrl ?? null,
-        lines: parsedLines.map((x) => ({ mtrl: x.l.mtrl, qtyPerSqm: x.qty, wastePct: x.w, unitPrice: x.p, notes: x.l.notes.trim() || null })),
-      };
+      const payload = mode === 'composite'
+        ? {
+            name: name.trim(), kind, description: description.trim() || null, mtrl: null,
+            materialPrice: 0, wastePct: 0, laborCostPerSqm: 0, laborMtrl: null, lines: [],
+            components: stages.map((s) => ({ childId: s.id })),
+          }
+        : {
+            name: name.trim(), kind, description: description.trim() || null, mtrl: main?.mtrl ?? null,
+            materialPrice: priceN, wastePct: wasteN, laborCostPerSqm: laborN, laborMtrl: laborItem?.mtrl ?? null,
+            lines: parsedLines.map((x) => ({ mtrl: x.l.mtrl, qtyPerSqm: x.qty, wastePct: x.w, unitPrice: x.p, notes: x.l.notes.trim() || null })),
+            components: [],
+          };
       const res = await saveRecipeAction(initial?.id ?? null, payload);
       if (!res.ok) throw new Error(res.message);
       toast.success(initial ? 'Η συνταγή αποθηκεύτηκε' : 'Η συνταγή δημιουργήθηκε');
@@ -247,6 +269,20 @@ export function RecipeEditor({ initial, templates = [], readOnly = false }: { in
                 </div>
               </div>
 
+              <div className="mb-4">
+                <Label className="mb-1 block text-(length:--fs-12)">Τύπος συνταγής</Label>
+                <div role="radiogroup" aria-label="Τύπος συνταγής" className="inline-flex flex-wrap rounded-lg border border-border p-0.5">
+                  {([['simple', 'Απλή'], ['composite', 'Σύνθετη (στάδια)']] as const).map(([m, l]) => (
+                    <button key={m} type="button" role="radio" aria-checked={mode === m} onClick={() => { setMode(m); setCur(0); }}
+                      className={cn('inline-flex h-8 cursor-pointer items-center rounded-md px-3 text-(length:--fs-12) font-medium transition-colors', mode === m ? 'bg-foreground text-white shadow-xs' : 'text-muted-foreground hover:text-foreground')}>{l}</button>
+                  ))}
+                </div>
+                <p className="mt-1 text-(length:--fs-11) text-muted-foreground">{mode === 'composite' ? 'Σύνθετη: μια σειρά από υπάρχουσες συνταγές ως στάδια (1..6). Το κόστος είναι το άθροισμά τους.' : 'Απλή: κύριο υλικό, υλικά ανά m² και εργατικά.'}</p>
+              </div>
+
+              {mode === 'composite' ? (
+                <Callout tone="info" icon={<FiInfo className="size-3.5" />}>Στο επόμενο βήμα θα προσθέσεις τα <b>στάδια</b> — υπάρχουσες (απλές) συνταγές, με σειρά.</Callout>
+              ) : (<>
               <div className="grid gap-2 sm:grid-cols-2">
                 <button type="button" onClick={() => { setStartMode('blank'); setSource(''); }}
                   className={cn('cursor-pointer rounded-xl border p-3 text-left transition-colors', startMode === 'blank' ? 'border-ring bg-accent' : 'border-border hover:border-ring/50')}>
@@ -279,6 +315,7 @@ export function RecipeEditor({ initial, templates = [], readOnly = false }: { in
                   </ul>
                 </div>
               )}
+              </>)}
             </div>
           )}
 
@@ -438,6 +475,61 @@ export function RecipeEditor({ initial, templates = [], readOnly = false }: { in
             </div>
           )}
 
+          {/* ── Βήμα: Στάδια (σύνθετη) ── */}
+          {step === 'stages' && (
+            <div>
+              <div className="mb-1 flex items-baseline justify-between gap-2">
+                <h2 className="text-(length:--fs-16) font-semibold">Στάδια (υποσυνταγές)</h2>
+                <span className="text-(length:--fs-12) tabular-nums text-muted-foreground">{stages.length}/6 · {eur.format(compositeCost.total)}/m²</span>
+              </div>
+              <p className="mb-4 text-(length:--fs-12) text-muted-foreground">Μια σειρά από <b>υπάρχουσες (απλές) συνταγές</b>, με σειρά εκτέλεσης. Κάθε στάδιο κρατά τη δική του ανάλυση· αλλαγή σε μια υποσυνταγή ενημερώνεται παντού.</p>
+              <Callout tone="example" icon={<FiZap className="size-3.5" />}><b>Παράδειγμα «Μπάνιο — πλήρης τοποθέτηση»:</b> 1 Στεγανοποίηση → 2 Υπόστρωμα → 3 Πλακάκι δαπέδου → 4 Πλακάκι τοίχου.</Callout>
+
+              <div className="mb-4">
+                <Label htmlFor="recipe-name" className="mb-1 block text-(length:--fs-12)">Όνομα σύνθετης συνταγής <span className="text-destructive">*</span></Label>
+                <Input id="recipe-name" value={name} onChange={(e) => setName(e.target.value)} maxLength={160} disabled={readOnly} aria-invalid={touched && !!errors.name} placeholder="π.χ. Μπάνιο — πλήρης τοποθέτηση" />
+                {err('name')}
+              </div>
+
+              {stages.length === 0 && (
+                <p className="mb-3 rounded-lg bg-muted/50 px-3 py-4 text-center text-(length:--fs-12) text-muted-foreground">Πρόσθεσε στάδια από τις υπάρχουσες απλές συνταγές.</p>
+              )}
+              <ul className="space-y-2">
+                {stages.map((s, i) => (
+                  <li key={s.id} className="flex items-center gap-3 rounded-lg border border-border p-3">
+                    <span className="grid size-7 shrink-0 place-items-center rounded-md bg-foreground text-(length:--fs-13) font-bold tabular-nums text-white">{i + 1}</span>
+                    <div className="min-w-0 flex-1">
+                      <KindBadge kind={s.kind} />
+                      <p className="truncate text-(length:--fs-13) font-medium">{s.name}</p>
+                    </div>
+                    <span className="shrink-0 text-right"><span className="block text-(length:--fs-13) font-semibold tabular-nums">{eur.format(s.cost.total)}</span><span className="block text-(length:--fs-11) text-muted-foreground">/m²</span></span>
+                    {!readOnly && (
+                      <div className="flex shrink-0 items-center">
+                        <button type="button" onClick={() => moveStage(s.id, -1)} disabled={i === 0} className="inline-flex size-8 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-muted disabled:cursor-default disabled:opacity-30" aria-label={`Μετακίνηση «${s.name}» πάνω`}>↑</button>
+                        <button type="button" onClick={() => moveStage(s.id, 1)} disabled={i === stages.length - 1} className="inline-flex size-8 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-muted disabled:cursor-default disabled:opacity-30" aria-label={`Μετακίνηση «${s.name}» κάτω`}>↓</button>
+                        <button type="button" onClick={() => removeStage(s.id)} className="inline-flex size-8 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-destructive/10 hover:text-destructive" aria-label={`Αφαίρεση «${s.name}»`}><FiTrash2 className="size-4" aria-hidden /></button>
+                      </div>
+                    )}
+                  </li>
+                ))}
+              </ul>
+              {!readOnly && stages.length < 6 && (
+                <div className="mt-3">
+                  <Label htmlFor="stage-add" className="mb-1 flex items-center gap-1.5 text-(length:--fs-12)"><FiPlus className="size-3.5" aria-hidden /> Προσθήκη σταδίου</Label>
+                  <select id="stage-add" value="" onChange={(e) => { if (e.target.value) { addStage(e.target.value); e.currentTarget.value = ''; } }}
+                    className="h-9 w-full cursor-pointer rounded-lg border border-input bg-background px-2 text-(length:--fs-13) outline-hidden focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50">
+                    <option value="">— Διάλεξε υπάρχουσα συνταγή —</option>
+                    {RECIPE_KINDS.map((k) => {
+                      const g = stagePool.filter((t) => t.kind === k);
+                      return g.length ? <optgroup key={k} label={RECIPE_KIND_META[k].plural}>{g.map((t) => <option key={t.id} value={t.id}>{t.name} · {eur.format(t.cost.total)}/m²</option>)}</optgroup> : null;
+                    })}
+                  </select>
+                  {stagePool.length === 0 && <p className="mt-1 text-(length:--fs-11) text-muted-foreground">Δεν υπάρχουν άλλες απλές συνταγές για στάδια — φτιάξε πρώτα τις επιμέρους.</p>}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* ── Βήμα: Σύνοψη ── */}
           {step === 'summary' && (
             <div>
@@ -451,6 +543,25 @@ export function RecipeEditor({ initial, templates = [], readOnly = false }: { in
               <div className="rounded-lg border border-border p-3">
                 <Label htmlFor="recipe-area" className="mb-1 block text-(length:--fs-12)">Υπολογισμός για τετραγωνικά (m²)</Label>
                 <Input id="recipe-area" inputMode="decimal" value={area} onChange={(e) => setArea(e.target.value)} className={`${field} max-w-[160px]`} />
+                {mode === 'composite' ? (
+                  <table className="mt-3 w-full text-(length:--fs-12)">
+                    <thead className="text-left text-(length:--fs-11) text-muted-foreground">
+                      <tr><th className="pb-1 font-medium">Στάδιο</th><th className="pb-1 text-right font-medium">€/m²</th><th className="pb-1 text-right font-medium">Σύνολο</th></tr>
+                    </thead>
+                    <tbody className="divide-y divide-border">
+                      {stages.map((s, i) => (
+                        <tr key={s.id}>
+                          <td className="max-w-0 truncate py-1 pr-2" title={s.name}>{i + 1}. {s.name}</td>
+                          <td className="whitespace-nowrap py-1 text-right tabular-nums">{eur.format(s.cost.total)}</td>
+                          <td className="whitespace-nowrap py-1 pl-2 text-right tabular-nums">{eur.format(s.cost.total * (Number.isFinite(areaN) ? areaN : 0))}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                    <tfoot>
+                      <tr className="border-t border-border font-semibold"><td className="pt-1.5">Σύνολο</td><td className="pt-1.5 text-right tabular-nums">{eur.format(compositeCost.total)}</td><td className="whitespace-nowrap pt-1.5 text-right tabular-nums">{eur.format(compositeCost.total * (Number.isFinite(areaN) ? areaN : 0))}</td></tr>
+                    </tfoot>
+                  </table>
+                ) : (
                 <table className="mt-3 w-full text-(length:--fs-12)">
                   <thead className="text-left text-(length:--fs-11) text-muted-foreground">
                     <tr><th className="pb-1 font-medium">Υλικό</th><th className="pb-1 text-right font-medium">Ποσότητα</th><th className="pb-1 text-right font-medium">€</th></tr>
@@ -469,6 +580,7 @@ export function RecipeEditor({ initial, templates = [], readOnly = false }: { in
                     <tr className="border-t border-border font-semibold"><td className="pt-1.5">Σύνολο</td><td /><td className="whitespace-nowrap pt-1.5 text-right tabular-nums">{eur.format(forArea.total)}</td></tr>
                   </tfoot>
                 </table>
+                )}
                 <p className="mt-2 text-(length:--fs-11) text-muted-foreground">Οι ποσότητες περιλαμβάνουν τη φύρα.</p>
               </div>
 
@@ -506,23 +618,35 @@ export function RecipeEditor({ initial, templates = [], readOnly = false }: { in
             <KindBadge kind={kind} />
           </div>
           <dl className="space-y-1.5 text-(length:--fs-13)">
-            <div className="flex justify-between gap-2"><dt className="text-muted-foreground">Κύριο υλικό{safe(wasteN) ? ` (+${num(safe(wasteN), 2)}%)` : ''}</dt><dd className="tabular-nums">{eur.format(cost.material)}</dd></div>
-            <div className="flex justify-between gap-2"><dt className="text-muted-foreground">Βοηθητικά υλικά</dt><dd className="tabular-nums">{eur.format(cost.accessories)}</dd></div>
-            <div className="flex justify-between gap-2"><dt className="text-muted-foreground">Εργατικά</dt><dd className="tabular-nums">{eur.format(cost.labor)}</dd></div>
+            {mode === 'composite' ? (<>
+              <div className="flex justify-between gap-2"><dt className="text-muted-foreground">Υλικά (στάδια)</dt><dd className="tabular-nums">{eur.format(compositeCost.material + compositeCost.accessories)}</dd></div>
+              <div className="flex justify-between gap-2"><dt className="text-muted-foreground">Εργατικά (στάδια)</dt><dd className="tabular-nums">{eur.format(compositeCost.labor)}</dd></div>
+              <div className="flex justify-between gap-2"><dt className="text-muted-foreground">Στάδια</dt><dd className="tabular-nums">{stages.length}</dd></div>
+            </>) : (<>
+              <div className="flex justify-between gap-2"><dt className="text-muted-foreground">Κύριο υλικό{safe(wasteN) ? ` (+${num(safe(wasteN), 2)}%)` : ''}</dt><dd className="tabular-nums">{eur.format(cost.material)}</dd></div>
+              <div className="flex justify-between gap-2"><dt className="text-muted-foreground">Βοηθητικά υλικά</dt><dd className="tabular-nums">{eur.format(cost.accessories)}</dd></div>
+              <div className="flex justify-between gap-2"><dt className="text-muted-foreground">Εργατικά</dt><dd className="tabular-nums">{eur.format(cost.labor)}</dd></div>
+            </>)}
             <div className="flex justify-between gap-2 border-t border-border pt-1.5 text-(length:--fs-16) font-semibold" style={{ color: tone }}>
-              <dt>Σύνολο</dt><dd className="tabular-nums">{eur.format(cost.total)}</dd>
+              <dt>Σύνολο</dt><dd className="tabular-nums">{eur.format((mode === 'composite' ? compositeCost : cost).total)}</dd>
             </div>
           </dl>
         </section>
 
         <section className="rounded-xl border border-dashed border-border bg-card p-4 shadow-xs">
-          <h2 className="mb-2 text-(length:--fs-12) font-semibold uppercase tracking-wide text-muted-foreground">Τι μπαίνει στην προσφορά</h2>
+          <h2 className="mb-2 text-(length:--fs-12) font-semibold uppercase tracking-wide text-muted-foreground">{mode === 'composite' ? 'Στάδια' : 'Τι μπαίνει στην προσφορά'}</h2>
           <ul className="space-y-1 text-(length:--fs-12)">
-            <li className="flex justify-between gap-2"><span className="min-w-0 truncate">{main?.name ?? `${RECIPE_KIND_META[kind].label} (κύριο υλικό)`}</span><span className="shrink-0 tabular-nums text-muted-foreground">{eur.format(cost.material)}/m²</span></li>
-            {calcLines.map((l, i) => <li key={i} className="flex justify-between gap-2"><span className="min-w-0 truncate">{l.name}</span><span className="shrink-0 tabular-nums text-muted-foreground">{eur.format(lineCostPerSqm(l))}/m²</span></li>)}
-            <li className="flex justify-between gap-2"><span className="min-w-0 truncate">{laborItem?.name ?? 'Εργασία τοποθέτησης'}</span><span className="shrink-0 tabular-nums text-muted-foreground">{eur.format(cost.labor)}/m²</span></li>
+            {mode === 'composite' ? (
+              stages.length
+                ? stages.map((s, i) => <li key={s.id} className="flex justify-between gap-2"><span className="min-w-0 truncate">{i + 1}. {s.name}</span><span className="shrink-0 tabular-nums text-muted-foreground">{eur.format(s.cost.total)}/m²</span></li>)
+                : <li className="text-muted-foreground">Δεν υπάρχουν στάδια ακόμη.</li>
+            ) : (<>
+              <li className="flex justify-between gap-2"><span className="min-w-0 truncate">{main?.name ?? `${RECIPE_KIND_META[kind].label} (κύριο υλικό)`}</span><span className="shrink-0 tabular-nums text-muted-foreground">{eur.format(cost.material)}/m²</span></li>
+              {calcLines.map((l, i) => <li key={i} className="flex justify-between gap-2"><span className="min-w-0 truncate">{l.name}</span><span className="shrink-0 tabular-nums text-muted-foreground">{eur.format(lineCostPerSqm(l))}/m²</span></li>)}
+              <li className="flex justify-between gap-2"><span className="min-w-0 truncate">{laborItem?.name ?? 'Εργασία τοποθέτησης'}</span><span className="shrink-0 tabular-nums text-muted-foreground">{eur.format(cost.labor)}/m²</span></li>
+            </>)}
           </ul>
-          {!laborItem && safe(laborN) > 0 && <p className="mt-2 flex items-start gap-1 text-(length:--fs-11) text-amber-700"><FiAlertTriangle className="mt-0.5 size-3 shrink-0" aria-hidden /> Τα εργατικά δεν θα περάσουν στον προϋπολογισμό χωρίς υπηρεσία.</p>}
+          {mode !== 'composite' && !laborItem && safe(laborN) > 0 && <p className="mt-2 flex items-start gap-1 text-(length:--fs-11) text-amber-700"><FiAlertTriangle className="mt-0.5 size-3 shrink-0" aria-hidden /> Τα εργατικά δεν θα περάσουν στον προϋπολογισμό χωρίς υπηρεσία.</p>}
         </section>
 
         {!readOnly && serverError && <p role="alert" className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-(length:--fs-12) text-destructive">{serverError}</p>}
