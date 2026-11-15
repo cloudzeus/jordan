@@ -262,8 +262,9 @@ function PriceStat({ label, value, hint, hl }: { label: string; value: React.Rea
 }
 
 /**
- * Τιμές: η πορεία του κόστους μονάδας στα 10 τελευταία ΤΙΜΟΛΟΓΙΑ αγοράς (μη ακυρωμένα), γράφημα +
- * σύνοψη + πίνακας. Ίδιο endpoint με τις «Αγορές» — εδώ μόνο τα τιμολόγια, κανονικοποιημένα στη μονάδα.
+ * Τιμές: η εξέλιξη του κόστους μονάδας στον χρόνο — ΟΛΑ τα παραστατικά αγοράς (τιμολόγια, δελτία,
+ * παραγγελίες, προσφορές) εκτός πιστωτικών/ακυρωμένων, κανονικοποιημένα στη μονάδα. Ίδιο endpoint με
+ * τις «Αγορές». Με ≥2 παραστατικά σχεδιάζεται η καμπύλη· με 1 δείχνεται καθαρή κάρτα (όχι άδειο γράφημα).
  */
 function PricesTab({ mtrl }: { mtrl: number }) {
   const { data, error, loading, reload } = useJson<ItemPurchases>(`/api/admin/items/${mtrl}/purchases`);
@@ -271,15 +272,43 @@ function PricesTab({ mtrl }: { mtrl: number }) {
   if (!data) return <div className="h-48 animate-pulse rounded-md bg-muted motion-reduce:animate-none" aria-busy="true" aria-label="Φόρτωση τιμών αγοράς" />;
 
   const unit = data.unit ? ` ${data.unit}` : '';
-  const invoices = data.lines.filter((l) => l.kind === 'invoice' && !l.cancelled && l.qty > 0 && l.value > 0);
-  const last10 = invoices.slice(0, 10); // φθίνουσα (νεότερο πρώτο)
-  const series = [...last10].reverse(); // χρονολογικά (παλιό → νέο) για το γράφημα
+  // Κάθε παραστατικό αγοράς με πραγματικό κόστος μονάδας — εκτός πιστωτικών (επιστροφές) και ακυρωμένων.
+  const acquisitions = data.lines.filter((l) => !l.cancelled && l.qty > 0 && l.value > 0 && l.kind !== 'credit');
+  const chrono = [...acquisitions].reverse(); // data.lines φθίνουσα → αύξουσα (παλιό → νέο)
+  const series = chrono.slice(Math.max(0, chrono.length - 30)); // τα 30 πιο πρόσφατα, χρονολογικά
+  const recent = [...series].reverse(); // για τον πίνακα (νεότερο πρώτο)
+
+  const reloadBtn = (
+    <button
+      type="button" onClick={reload} disabled={loading}
+      className="ml-auto inline-flex h-8 cursor-pointer items-center gap-1 self-start rounded-md px-2 text-(length:--fs-11) text-muted-foreground transition-colors duration-150 hover:bg-muted hover:text-foreground disabled:opacity-50"
+    >
+      <FiRefreshCw className={cn('size-3.5', loading && 'animate-spin motion-reduce:animate-none')} aria-hidden /> Ανανέωση
+    </button>
+  );
 
   if (series.length === 0) {
     return (
       <p className="rounded-md border border-dashed border-border px-3 py-6 text-center text-(length:--fs-12) text-muted-foreground">
-        Δεν υπάρχουν τιμολόγια αγοράς για αυτό το είδος — δεν υπάρχει πορεία τιμής ακόμη.
+        Δεν υπάρχουν παραστατικά αγοράς για αυτό το είδος — δεν υπάρχει εξέλιξη τιμής ακόμη.
       </p>
+    );
+  }
+
+  // Μία μόνο αγορά: καθαρή κάρτα αντί για άδειο γράφημα (η καμπύλη θέλει ≥2 σημεία).
+  if (series.length === 1) {
+    const o = series[0];
+    return (
+      <div className="space-y-3">
+        <div className="flex items-stretch gap-2">
+          <PriceStat label="Μοναδική αγορά" hl value={eur.format(o.unitCost)} hint={`${fmtDate(o.date)} · ${o.fincode}`} />
+          <PriceStat label="Προμηθευτής" value={<span className="truncate">{o.supplier ?? '—'}</span>} hint={`${qtyFmt.format(o.qty)}${unit} · ${o.kindLabel}`} />
+          {reloadBtn}
+        </div>
+        <p className="rounded-md border border-dashed border-border px-3 py-5 text-center text-(length:--fs-12) text-muted-foreground">
+          Μία μόνο καταχωρημένη αγορά — η εξέλιξη τιμής εμφανίζεται με 2+ παραστατικά.
+        </p>
+      </div>
     );
   }
 
@@ -289,45 +318,41 @@ function PricesTab({ mtrl }: { mtrl: number }) {
   const avg = vals.reduce((s, v) => s + v, 0) / vals.length;
   const overall = pct(latest, first);
 
-  // Γεωμετρία SVG (viewBox σταθερό, πλάτος 100%). Κλίμακα y με περιθώριο 20% πάνω/κάτω.
-  const W = 720, H = 220, padL = 52, padR = 16, padT = 18, padB = 28;
+  // Γεωμετρία SVG (viewBox σταθερό, πλάτος 100%). Κλίμακα y με περιθώριο 12% πάνω/κάτω.
+  const W = 720, H = 220, padL = 56, padR = 16, padT = 18, padB = 28;
   const range = max - min || Math.abs(max) || 1;
-  const lo = min - range * 0.2, hi = max + range * 0.2;
-  const xOf = (i: number) => (series.length === 1 ? (padL + (W - padL - padR) / 2) : padL + (i / (series.length - 1)) * (W - padL - padR));
+  const lo = min - range * 0.12, hi = max + range * 0.12;
+  const xOf = (i: number) => padL + (i / (series.length - 1)) * (W - padL - padR);
   const yOf = (v: number) => padT + (1 - (v - lo) / (hi - lo)) * (H - padT - padB);
   const pts = series.map((l, i) => ({ x: xOf(i), y: yOf(l.unitCost) }));
   const line = pts.map((p, i) => `${i ? 'L' : 'M'}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
   const area = `${line} L${pts[pts.length - 1].x.toFixed(1)},${(H - padB).toFixed(1)} L${pts[0].x.toFixed(1)},${(H - padB).toFixed(1)} Z`;
   const ticks = [0, 1, 2, 3].map((i) => lo + (hi - lo) * (i / 3));
   const last = pts[pts.length - 1];
-  const labelIdx = series.length <= 4 ? series.map((_, i) => i) : [0, Math.round((series.length - 1) / 2), series.length - 1];
+  const labelCount = Math.min(series.length, 5);
+  const labelIdx = series.length <= 5 ? series.map((_, i) => i) : Array.from({ length: labelCount }, (_, k) => Math.round((k * (series.length - 1)) / (labelCount - 1)));
   const gid = `price-area-${mtrl}`;
 
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-stretch gap-2">
-        <PriceStat label="Τελευταίο κόστος" hl value={eur.format(latest)} hint={fmtDate(series[series.length - 1].date)} />
+        <PriceStat label="Τελευταία τιμή" hl value={eur.format(latest)} hint={fmtDate(series[series.length - 1].date)} />
         <PriceStat label={`Μέσο (${series.length})`} value={eur.format(avg)} hint={`εύρος ${eur.format(min)}–${eur.format(max)}`} />
         <PriceStat label="Ελάχιστο / Μέγιστο" value={<>{eur.format(min)} <span className="text-muted-foreground">/</span> {eur.format(max)}</>} />
         <PriceStat
-          label={`Μεταβολή (${series.length}→1)`}
+          label="Συνολική μεταβολή"
           value={overall == null ? '—' : <span className={overall > 0 ? 'text-rose-600' : overall < 0 ? 'text-emerald-700' : undefined}>{pctFmt(overall)}</span>}
           hint={`${eur.format(first)} → ${eur.format(latest)}`}
         />
-        <button
-          type="button" onClick={reload} disabled={loading}
-          className="ml-auto inline-flex h-8 cursor-pointer items-center gap-1 self-start rounded-md px-2 text-(length:--fs-11) text-muted-foreground transition-colors duration-150 hover:bg-muted hover:text-foreground disabled:opacity-50"
-        >
-          <FiRefreshCw className={cn('size-3.5', loading && 'animate-spin motion-reduce:animate-none')} aria-hidden /> Ανανέωση
-        </button>
+        {reloadBtn}
       </div>
 
       <div className="rounded-md border border-border bg-background px-3 pt-2.5 pb-1">
         <div className="mb-1 flex flex-wrap items-baseline justify-between gap-x-3">
-          <span className="text-(length:--fs-12) font-semibold text-foreground">Κόστος μονάδας{unit ? ` (€/${unit.trim()})` : ' (€)'} — τελευταία {series.length} τιμολόγια</span>
-          <span className="text-(length:--fs-11) text-muted-foreground">μόνο τιμολόγια αγοράς · κανονικοποιημένο στη μονάδα</span>
+          <span className="text-(length:--fs-12) font-semibold text-foreground">Εξέλιξη κόστους μονάδας{unit ? ` (€/${unit.trim()})` : ' (€)'} — {series.length} παραστατικά</span>
+          <span className="text-(length:--fs-11) text-muted-foreground">όλα τα παραστατικά αγοράς εκτός πιστωτικών/ακυρωμένων</span>
         </div>
-        <svg viewBox={`0 0 ${W} ${H}`} width="100%" height="200" role="img" aria-label={`Γράφημα κόστους μονάδας· τελευταίο ${eur.format(latest)}, μέσο ${eur.format(avg)}`}>
+        <svg viewBox={`0 0 ${W} ${H}`} width="100%" height="200" role="img" aria-label={`Εξέλιξη κόστους μονάδας· τελευταίο ${eur.format(latest)}, μέσο ${eur.format(avg)}`}>
           <defs>
             <linearGradient id={gid} x1="0" y1="0" x2="0" y2="1">
               <stop offset="0" stopColor={TAB.prices} stopOpacity="0.2" />
@@ -340,12 +365,10 @@ function PricesTab({ mtrl }: { mtrl: number }) {
           <g fill="#9ca3af" fontSize="10" textAnchor="end" style={{ fontVariantNumeric: 'tabular-nums' }}>
             {ticks.map((t, i) => { const y = padT + ((3 - i) / 3) * (H - padT - padB); return <text key={i} x={padL - 6} y={y + 3}>{eur.format(t)}</text>; })}
           </g>
-          {series.length > 1 && <path d={area} fill={`url(#${gid})`} />}
-          {series.length > 1
-            ? <path d={line} fill="none" stroke={TAB.prices} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
-            : null}
+          <path d={area} fill={`url(#${gid})`} />
+          <path d={line} fill="none" stroke={TAB.prices} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
           <g fill={TAB.prices}>
-            {pts.slice(0, -1).map((p, i) => <circle key={i} cx={p.x} cy={p.y} r="3" opacity="0.55" />)}
+            {pts.slice(0, -1).map((p, i) => <circle key={i} cx={p.x} cy={p.y} r={series.length > 16 ? 2 : 3} opacity="0.55" />)}
           </g>
           <circle cx={last.x} cy={last.y} r="5" fill={TAB.prices} />
           <circle cx={last.x} cy={last.y} r="9" fill="none" stroke={TAB.prices} strokeOpacity="0.3" strokeWidth="2" />
@@ -360,7 +383,7 @@ function PricesTab({ mtrl }: { mtrl: number }) {
           <thead className="border-b border-border bg-muted/40">
             <tr>
               <th scope="col" className={TH}>Ημ/νία</th>
-              <th scope="col" className={TH}>Τιμολόγιο</th>
+              <th scope="col" className={TH}>Παραστατικό</th>
               <th scope="col" className={cn(TH, 'hidden md:table-cell')}>Προμηθευτής</th>
               <th scope="col" className={cn(TH, 'text-right')}>Ποσότητα</th>
               <th scope="col" className={cn(TH, 'text-right')}>Κόστος μον.</th>
@@ -368,12 +391,16 @@ function PricesTab({ mtrl }: { mtrl: number }) {
             </tr>
           </thead>
           <tbody>
-            {last10.map((l, i) => {
-              const ch = pct(l.unitCost, last10[i + 1]?.unitCost ?? null);
+            {recent.map((l, i) => {
+              const ch = pct(l.unitCost, recent[i + 1]?.unitCost ?? null);
+              const tone = KIND_TONE[l.kind];
               return (
                 <tr key={`${l.findoc}-${i}`} className="border-t border-border/60 transition-colors duration-150 hover:bg-muted/30">
-                  <td className={cn(TD, 'tabular-nums whitespace-nowrap')} style={{ boxShadow: `inset 3px 0 0 ${TAB.prices}` }}>{fmtDate(l.date)}</td>
-                  <td className={TD}><span className="font-mono font-medium whitespace-nowrap text-foreground">{l.fincode}</span></td>
+                  <td className={cn(TD, 'tabular-nums whitespace-nowrap')} style={{ boxShadow: `inset 3px 0 0 ${tone}` }}>{fmtDate(l.date)}</td>
+                  <td className={TD}>
+                    <span className="font-mono font-medium whitespace-nowrap text-foreground">{l.fincode}</span>
+                    <span className="ml-1.5 rounded-sm px-1 text-(length:--fs-10) font-semibold" style={{ color: tone, backgroundColor: soft(tone, 12) }}>{l.kindLabel}</span>
+                  </td>
                   <td className={cn(TD, 'hidden md:table-cell')}>{l.supplier ?? '—'}</td>
                   <td className={cn(TD, NUM)}>{qtyFmt.format(l.qty)}{unit}</td>
                   <td className={cn(TD, NUM, 'font-semibold text-foreground')}>{eur.format(l.unitCost)}</td>
@@ -384,7 +411,7 @@ function PricesTab({ mtrl }: { mtrl: number }) {
           </tbody>
         </table>
       </div>
-      <p className="text-(length:--fs-11) text-muted-foreground">Η μεταβολή κάθε γραμμής είναι σε σχέση με το προηγούμενο (παλαιότερο) τιμολόγιο.</p>
+      <p className="text-(length:--fs-11) text-muted-foreground">Η μεταβολή κάθε γραμμής είναι σε σχέση με το προηγούμενο (παλαιότερο) παραστατικό. Τα πιστωτικά/ακυρωμένα εξαιρούνται.</p>
     </div>
   );
 }
