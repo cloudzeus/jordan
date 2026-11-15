@@ -284,20 +284,21 @@ export function ItemsTableClient({
     if (variant === 'products' && warehouses.length > 0) {
       for (const w of warehouses) {
         base.push({
-          id: `wh_${w.id}`, header: () => <span className="block text-right" title={w.name}>{w.name}</span>, size: 110,
+          id: `wh_${w.id}`, header: () => <span className="truncate" title={w.name}>{w.name}</span>, size: 110,
+          meta: { align: 'right' },
           accessorFn: (r) => r.stock?.[w.id] ?? 0,
           cell: ({ row }) => <Qty v={row.original.stock?.[w.id] ?? 0} />,
         });
       }
       base.push({
-        id: 'stockTotal', header: () => <span className="block text-right">Σύνολο</span>, size: 100,
+        id: 'stockTotal', header: 'Σύνολο', size: 100, meta: { align: 'right' },
         accessorFn: (r) => Object.values(r.stock ?? {}).reduce((a, b) => a + b, 0),
         cell: ({ row }) => <Qty v={Object.values(row.original.stock ?? {}).reduce((a, b) => a + b, 0)} strong />,
       });
     }
     base.push({
-      accessorKey: 'price', header: () => <span className="block text-right">Τιμή λιανικής</span>, size: 130,
-      cell: ({ row }) => <span className="block text-right">{fmtPrice(row.original.price)}</span>,
+      accessorKey: 'price', header: 'Τιμή λιανικής', size: 130, meta: { align: 'right' },
+      cell: ({ row }) => fmtPrice(row.original.price),
     });
     if (canManage) {
       base.push({

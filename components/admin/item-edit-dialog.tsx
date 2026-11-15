@@ -423,10 +423,35 @@ export function ItemEditDialog({ mtrl, open, onOpenChange, onSaved }: {
                     <Input id="it-pw" inputMode="decimal" {...text('priceWholesale')} placeholder="0,00" className={cn(fieldCls, 'tabular-nums')} aria-invalid={!!err('priceWholesale')} />
                   </Field>
                 </div>
+                {/* Μικτό περιθώριο ζωντανά vs τελευταία τιμή αγοράς — βοηθά να φανεί αμέσως αν η τιμή βγάζει. */}
+                {lastBuy && lastBuy.unitCost > 0 && (() => {
+                  const cost = lastBuy.unitCost;
+                  const margin = (raw: string | boolean) => {
+                    const p = parseNum(String(raw));
+                    if (!(p > 0)) return null;
+                    return { eu: p - cost, pct: ((p - cost) / p) * 100 };
+                  };
+                  const fmtMargin = (label: string, m: { eu: number; pct: number } | null) => {
+                    if (!m) return null;
+                    const sign = m.eu >= 0 ? '+' : '−';
+                    return (
+                      <span className={m.eu < 0 ? 'text-destructive' : 'text-emerald-700 dark:text-emerald-300'}>
+                        {label}: <strong className="tabular-nums">{sign}{eur.format(Math.abs(m.eu)).replace('€', '').trim()} € ({m.pct.toLocaleString('el-GR', { maximumFractionDigits: 1 })}%)</strong>
+                      </span>
+                    );
+                  };
+                  const mr = margin(form.priceRetail); const mw = margin(form.priceWholesale);
+                  if (!mr && !mw) return null;
+                  return (
+                    <RowHint tone={(mr && mr.eu < 0) || (mw && mw.eu < 0) ? 'bad' : 'ok'}>
+                      Μικτό περιθώριο ανά μονάδα (vs {eur.format(cost)}): {[fmtMargin('λιανική', mr), fmtMargin('χονδρική', mw)].filter(Boolean).map((el, i, a) => <React.Fragment key={i}>{el}{i < a.length - 1 ? ' · ' : ''}</React.Fragment>)}
+                    </RowHint>
+                  );
+                })()}
               </FormSection>
 
               {!rec.isService && (
-                <FormSection tone="blue" icon={<FiMaximize2 />} title="Διαστάσεις & βάρος">
+                <FormSection tone="blue" icon={<FiMaximize2 />} title="Διαστάσεις & βάρος" collapsible defaultOpen={false}>
                   <div className="grid grid-cols-12 gap-x-3 gap-y-2">
                     {([['dim1', 'Μήκος'], ['dim2', 'Πλάτος'], ['dim3', 'Ύψος']] as const).map(([k, label]) => (
                       <Field key={k} label={label} htmlFor={`it-${k}`} className="col-span-4" error={err(k)}>
@@ -447,7 +472,7 @@ export function ItemEditDialog({ mtrl, open, onOpenChange, onSaved }: {
                 </FormSection>
               )}
 
-              <FormSection tone="violet" icon={<FiTag />} title="Χαρακτηριστικά" aside={<span>αποθηκεύονται στην εφαρμογή</span>}>
+              <FormSection tone="violet" icon={<FiTag />} title="Χαρακτηριστικά" aside={<span>{attrs.length ? `${attrs.length} ·` : ''} αποθηκεύονται στην εφαρμογή</span>} collapsible defaultOpen={attrs.length > 0}>
                 <datalist id="attr-names">{ATTR_SUGGESTIONS.map((n) => <option key={n} value={n} />)}</datalist>
                 {attrs.length === 0 && (
                   <p className="text-(length:--fs-12) text-muted-foreground">Κανένα χαρακτηριστικό. Πρόσθεσε π.χ. «Χρώμα: Λευκό» ή «Πάχος: 10 mm».</p>

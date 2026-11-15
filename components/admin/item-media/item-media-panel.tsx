@@ -145,32 +145,54 @@ function MediaCard({
   );
 }
 
-function DropZone({ kind, onFiles, disabled }: { kind: (typeof KINDS)[number]; onFiles: (files: File[]) => void; disabled?: boolean }) {
+/**
+ * Ολόκληρη η περιοχή του tab γίνεται στόχος drag-drop: η συμπαγής γραμμή-βοήθεια με το κουμπί
+ * «Μεταφόρτωση» ΚΑΙ το πλέγμα από κάτω. Σε σύρσιμο εμφανίζεται overlay πάνω σε όλη την περιοχή.
+ * `noClick` ώστε τα κλικ στις κάρτες/μενού να δουλεύουν· το κουμπί ανοίγει τον επιλογέα αρχείων.
+ */
+function DropArea({ kind, onFiles, disabled, canManage, children }: {
+  kind: (typeof KINDS)[number]; onFiles: (files: File[]) => void; disabled?: boolean; canManage: boolean; children: React.ReactNode;
+}) {
   const { getRootProps, getInputProps, isDragActive, open } = useDropzone({
-    accept: kind.accept, multiple: true, noClick: true, disabled, onDrop: (accepted, rejected) => {
+    accept: kind.accept, multiple: true, noClick: true, noKeyboard: true, disabled: disabled || !canManage,
+    onDrop: (accepted, rejected) => {
       if (rejected.length) toast.error(`${rejected.length} αρχεία απορρίφθηκαν: μη αποδεκτός τύπος για ${kind.label.toLowerCase()}.`);
       if (accepted.length) onFiles(accepted);
     },
   });
   const Icon = kind.icon;
+  // Χωρίς δικαιώματα διαχείρισης: απλώς το πλέγμα, χωρίς drop-zone.
+  if (!canManage) return <div className="space-y-2">{children}</div>;
   return (
-    <div
-      {...getRootProps()}
-      className={cn('flex flex-wrap items-center gap-2 rounded-md border border-dashed px-3 py-2 transition-colors duration-150', isDragActive && 'border-solid')}
-      style={{ borderColor: isDragActive ? kind.tone : soft(kind.tone, 40), backgroundColor: isDragActive ? soft(kind.tone, 10) : undefined }}
-    >
+    <div {...getRootProps()} className="relative space-y-2 rounded-lg">
       <input {...getInputProps()} aria-label={`Επιλογή αρχείων: ${kind.label}`} />
-      <Icon className="size-4 shrink-0" style={{ color: kind.tone }} aria-hidden />
-      <span className="min-w-0 flex-1 text-(length:--fs-12) text-muted-foreground">
-        {isDragActive ? 'Άφησε τα αρχεία εδώ…' : <>Σύρε αρχεία εδώ ή <span className="font-medium text-foreground">επίλεξε πολλά μαζί</span>. {kind.hint}</>}
-      </span>
-      <button
-        type="button" onClick={open} disabled={disabled}
-        className="inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-md px-3 text-(length:--fs-12) font-medium text-white transition-opacity duration-150 hover:opacity-90 disabled:opacity-50"
-        style={{ backgroundColor: kind.tone }}
+      <div
+        className="flex flex-wrap items-center gap-2 rounded-md border border-dashed px-3 py-2"
+        style={{ borderColor: soft(kind.tone, 40) }}
       >
-        <FiUploadCloud className="size-3.5" aria-hidden /> Μεταφόρτωση
-      </button>
+        <Icon className="size-4 shrink-0" style={{ color: kind.tone }} aria-hidden />
+        <span className="min-w-0 flex-1 text-(length:--fs-12) text-muted-foreground">
+          Σύρε αρχεία οπουδήποτε εδώ ή <span className="font-medium text-foreground">επίλεξε πολλά μαζί</span>. {kind.hint}
+        </span>
+        <button
+          type="button" onClick={open} disabled={disabled}
+          className="inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-md px-3 text-(length:--fs-12) font-medium text-white transition-opacity duration-150 hover:opacity-90 disabled:opacity-50"
+          style={{ backgroundColor: kind.tone }}
+        >
+          <FiUploadCloud className="size-3.5" aria-hidden /> Μεταφόρτωση
+        </button>
+      </div>
+      {children}
+      {isDragActive && (
+        <div
+          className="pointer-events-none absolute inset-0 z-10 grid place-items-center rounded-lg border-2"
+          style={{ borderColor: kind.tone, backgroundColor: soft(kind.tone, 12) }}
+        >
+          <span className="inline-flex items-center gap-2 rounded-lg border border-border bg-background px-4 py-2 text-(length:--fs-13) font-medium shadow-md" style={{ color: kind.tone }}>
+            <FiUploadCloud className="size-4" aria-hidden /> Άφησε τα {kind.label.toLowerCase()} εδώ
+          </span>
+        </div>
+      )}
     </div>
   );
 }
@@ -349,25 +371,26 @@ export function ItemMediaPanel({ mtrl, canManage, showStock = false }: { mtrl: n
           const list = byKind(k.kind);
           return (
             <TabsContent key={k.kind} value={k.tab} className="space-y-2">
-              {canManage && <DropZone kind={k} onFiles={(files) => setUpload({ kind: k.kind, files })} disabled={!!upload} />}
-              {list.length === 0 ? (
-                <p className="rounded-md border border-dashed border-border px-3 py-5 text-center text-(length:--fs-12) text-muted-foreground">
-                  Δεν υπάρχουν {k.label.toLowerCase() === '360°' ? 'πανοράματα 360°' : k.label.toLowerCase()} για αυτό το είδος.
-                </p>
-              ) : (
-                <div className={cn('grid gap-2', k.kind === 'PANORAMA' ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3' : 'grid-cols-2 sm:grid-cols-4 lg:grid-cols-6')}>
-                  {list.map((m, i) => (
-                    <MediaCard
-                      key={m.id} m={m} index={i} count={list.length} canManage={canManage}
-                      onPrimary={() => call(`/api/admin/items/${mtrl}/media/${m.id}`, { method: 'PATCH', body: JSON.stringify({ primary: true }) }, 'Ορίστηκε ως κύρια φωτογραφία')}
-                      onEdit={() => setEditing(m)}
-                      onMove={(dir) => move(list, i, dir)}
-                      onDelete={() => remove(m)}
-                      onSample={() => void sample(m)}
-                    />
-                  ))}
-                </div>
-              )}
+              <DropArea kind={k} canManage={canManage} onFiles={(files) => setUpload({ kind: k.kind, files })} disabled={!!upload}>
+                {list.length === 0 ? (
+                  <p className="rounded-md border border-dashed border-border px-3 py-8 text-center text-(length:--fs-12) text-muted-foreground">
+                    Δεν υπάρχουν {k.label.toLowerCase() === '360°' ? 'πανοράματα 360°' : k.label.toLowerCase()} για αυτό το είδος.{canManage ? ' Σύρε αρχεία εδώ για μεταφόρτωση.' : ''}
+                  </p>
+                ) : (
+                  <div className={cn('grid gap-2', k.kind === 'PANORAMA' ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3' : 'grid-cols-2 sm:grid-cols-4 lg:grid-cols-6')}>
+                    {list.map((m, i) => (
+                      <MediaCard
+                        key={m.id} m={m} index={i} count={list.length} canManage={canManage}
+                        onPrimary={() => call(`/api/admin/items/${mtrl}/media/${m.id}`, { method: 'PATCH', body: JSON.stringify({ primary: true }) }, 'Ορίστηκε ως κύρια φωτογραφία')}
+                        onEdit={() => setEditing(m)}
+                        onMove={(dir) => move(list, i, dir)}
+                        onDelete={() => remove(m)}
+                        onSample={() => void sample(m)}
+                      />
+                    ))}
+                  </div>
+                )}
+              </DropArea>
             </TabsContent>
           );
         })}

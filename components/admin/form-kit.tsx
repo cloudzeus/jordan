@@ -5,6 +5,7 @@
 // Ο στόχος: πυκνές φόρμες για tablet/desktop, όπου κάθε ενότητα αναγνωρίζεται με μια ματιά και
 // όλα τα πεδία μιας σειράς στοιχίζονται στην ίδια γραμμή (η βοήθεια ζει ΚΑΤΩ από τη σειρά).
 import * as React from 'react';
+import { FiChevronDown } from 'react-icons/fi';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 
@@ -19,20 +20,39 @@ const TONE: Record<SectionTone, { box: string; head: string; icon: string }> = {
   slate: { box: 'border-border', head: 'bg-muted/50 text-muted-foreground', icon: 'bg-muted text-muted-foreground' },
 };
 
-/** Ενότητα φόρμας: χρωματιστή κεφαλίδα (εικονίδιο + τίτλος + προαιρετική σημείωση δεξιά) και σώμα. */
-export function FormSection({ tone = 'slate', icon, title, aside, children, className }: {
+/**
+ * Ενότητα φόρμας: χρωματιστή κεφαλίδα (εικονίδιο + τίτλος + προαιρετική σημείωση δεξιά) και σώμα.
+ * Με `collapsible` η κεφαλίδα γίνεται κουμπί που ανοιγοκλείνει το σώμα (λιγότερο scroll σε δευτερεύουσες
+ * ενότητες) — οι υπάρχοντες callers που δεν το δηλώνουν μένουν πάντα ανοιχτοί.
+ */
+export function FormSection({ tone = 'slate', icon, title, aside, children, className, collapsible, defaultOpen = true }: {
   tone?: SectionTone; icon?: React.ReactNode; title: string; aside?: React.ReactNode; children: React.ReactNode; className?: string;
+  collapsible?: boolean; defaultOpen?: boolean;
 }) {
   const t = TONE[tone];
   const id = React.useId();
+  const [open, setOpen] = React.useState(collapsible ? defaultOpen : true);
+  const titleEl = <h3 id={id} className="text-(length:--fs-11) font-semibold uppercase tracking-wide">{title}</h3>;
   return (
     <section aria-labelledby={id} className={cn('overflow-hidden rounded-lg border bg-card', t.box, className)}>
-      <header className={cn('flex min-h-8 items-center gap-2 px-3 py-1.5', t.head)}>
-        {icon && <span aria-hidden className={cn('grid size-5 shrink-0 place-items-center rounded [&_svg]:size-3', t.icon)}>{icon}</span>}
-        <h3 id={id} className="text-(length:--fs-11) font-semibold uppercase tracking-wide">{title}</h3>
-        {aside && <div className="ml-auto min-w-0 text-(length:--fs-11) font-normal normal-case tracking-normal">{aside}</div>}
-      </header>
-      <div className="space-y-2.5 px-3 py-2.5">{children}</div>
+      {collapsible ? (
+        <button
+          type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open}
+          className={cn('flex min-h-8 w-full cursor-pointer items-center gap-2 px-3 py-1.5 text-left', t.head)}
+        >
+          {icon && <span aria-hidden className={cn('grid size-5 shrink-0 place-items-center rounded [&_svg]:size-3', t.icon)}>{icon}</span>}
+          {titleEl}
+          {aside && <div className="min-w-0 text-(length:--fs-11) font-normal normal-case tracking-normal">{aside}</div>}
+          <FiChevronDown className={cn('ml-auto size-3.5 shrink-0 transition-transform duration-150 motion-reduce:transition-none', open && 'rotate-180')} aria-hidden />
+        </button>
+      ) : (
+        <header className={cn('flex min-h-8 items-center gap-2 px-3 py-1.5', t.head)}>
+          {icon && <span aria-hidden className={cn('grid size-5 shrink-0 place-items-center rounded [&_svg]:size-3', t.icon)}>{icon}</span>}
+          {titleEl}
+          {aside && <div className="ml-auto min-w-0 text-(length:--fs-11) font-normal normal-case tracking-normal">{aside}</div>}
+        </header>
+      )}
+      {open && <div className="space-y-2.5 px-3 py-2.5">{children}</div>}
     </section>
   );
 }

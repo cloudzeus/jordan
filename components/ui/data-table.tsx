@@ -8,6 +8,7 @@ import {
   ColumnOrderState,
   ColumnSizingState,
   ExpandedState,
+  RowData,
   SortingState,
   VisibilityState,
   flexRender,
@@ -44,6 +45,15 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+
+declare module '@tanstack/react-table' {
+  // Στοίχιση κελιού/κεφαλίδας — opt-in ανά στήλη. Οι αριθμητικές στήλες δηλώνουν `align: 'right'`
+  // ώστε ΚΑΙ η κεφαλίδα ΚΑΙ τα νούμερα να πέφτουν στην ίδια (δεξιά) στοίχιση.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  interface ColumnMeta<TData extends RowData, TValue> {
+    align?: 'left' | 'right' | 'center';
+  }
+}
 
 export interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[];
@@ -554,6 +564,7 @@ export function DataTable<TData, TValue>({
                   {headerGroup.headers.map((header) => {
                     const canSort = header.column.getCanSort();
                     const sort = header.column.getIsSorted();
+                    const align = header.column.columnDef.meta?.align;
                     return (
                       <th
                         key={header.id}
@@ -564,7 +575,7 @@ export function DataTable<TData, TValue>({
                       >
                         {!header.isPlaceholder && (
                           <div
-                            className={cn('flex items-center gap-1.5 truncate', canSort && 'cursor-pointer hover:text-primary transition-colors')}
+                            className={cn('flex items-center gap-1.5 truncate', align === 'right' && 'justify-end', align === 'center' && 'justify-center', canSort && 'cursor-pointer hover:text-primary transition-colors')}
                             onClick={canSort ? header.column.getToggleSortingHandler() : undefined}
                           >
                             <span className="truncate">{flexRender(header.column.columnDef.header, header.getContext())}</span>
@@ -643,6 +654,7 @@ export function DataTable<TData, TValue>({
                     >
                       {row.getVisibleCells().map((cell) => {
                         const isActions = cell.column.id === 'actions' || cell.column.id === '__expand' || cell.column.id === '__select';
+                        const align = cell.column.columnDef.meta?.align;
                         return (
                           <td
                             key={cell.id}
@@ -650,6 +662,8 @@ export function DataTable<TData, TValue>({
                             className={cn(
                               'h-[var(--row-h)] px-[var(--row-px)] text-[length:var(--fs-12)] text-foreground',
                               isActions ? 'overflow-visible text-center' : 'truncate',
+                              !isActions && align === 'right' && 'text-right',
+                              !isActions && align === 'center' && 'text-center',
                             )}
                           >
                             {flexRender(cell.column.columnDef.cell, cell.getContext())}
