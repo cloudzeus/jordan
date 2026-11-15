@@ -68,6 +68,11 @@ describe('validation', () => {
     expect(contractInput.safeParse({ ...base, trdr: null }).success).toBe(false);
     expect(contractInput.safeParse({ ...base, startDate: '2026-11-10', endDate: '2026-11-01' }).success).toBe(false);
   });
+  it('δέχεται αρνητικό trdr demo πελάτη (scripts/demo-portal.ts)', () => {
+    const r = contractInput.safeParse({ ...base, trdr: -900001 });
+    expect(r.success).toBe(true);
+    expect(r.success && r.data.trdr).toBe(-900001);
+  });
 });
 
 describe('AI έγγραφο', () => {

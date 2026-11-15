@@ -87,6 +87,9 @@ export function dayEl(d: string | Date | null | undefined): string {
 const dateStr = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Μη έγκυρη ημερομηνία').nullish().transform((v) => v || null);
 const optStr = (max: number) => z.string().trim().max(max).nullish().transform((v) => v || null);
 const num = (min = 0, max = 1e9) => z.coerce.number().min(min).max(max);
+// Αναφορά σε έμπορο SoftOne. Τα demo/app-only (scripts/demo-portal.ts) έχουν ΑΡΝΗΤΙΚΟ trdr —
+// δεν φτάνει ποτέ στο SoftOne — οπότε δεν ισχύει .positive()· κρατάμε μόνο ακέραιο ≠ 0.
+const traderRef = z.coerce.number().int().nullish().transform((v) => v || null);
 
 export const lineInput = z.object({
   kind: z.enum(['MATERIAL', 'SERVICE']),
@@ -110,7 +113,7 @@ export const lineInput = z.object({
 export const partyInput = z.object({
   key: z.string().min(1).max(64), // σταθερό στον client: id της εγγραφής ή προσωρινό
   kind: z.enum(['SUPPLIER', 'PARTNER']),
-  trdr: z.coerce.number().int().positive().nullish().transform((v) => v ?? null),
+  trdr: traderRef,
   partnerId: optStr(64),
   name: z.string().trim().min(1).max(200),
   email: z.string().trim().email('Μη έγκυρο email συνεργείου').max(200).nullish().or(z.literal('')).transform((v) => v || null),
@@ -154,7 +157,7 @@ export const contractInput = z.object({
   title: z.string().trim().min(1, 'Δώστε τίτλο έργου').max(200),
   summary: z.string().trim().max(20_000).default(''),
   kind: z.enum(CONTRACT_KINDS),
-  trdr: z.coerce.number().int().positive().nullish().transform((v) => v ?? null),
+  trdr: traderRef,
   /** Δυνητικός πελάτης (μόνο στην εφαρμογή) — αντί για `trdr` μέχρι την αποδοχή. */
   prospectId: z.coerce.number().int().positive().nullish().transform((v) => v ?? null),
   customerName: optStr(200),
