@@ -49,6 +49,14 @@ export function recipeCost(r: RecipeCalcInput): RecipeCost {
   return { material, accessories, labor, total: round(material + accessories + labor) };
 }
 
+/** Κόστος σύνθετης συνταγής = άθροισμα των σταδίων (υποσυνταγών), κατά κατηγορία. */
+export function sumRecipeCosts(parts: RecipeCost[]): RecipeCost {
+  return parts.reduce<RecipeCost>((a, c) => ({
+    material: round(a.material + c.material), accessories: round(a.accessories + c.accessories),
+    labor: round(a.labor + c.labor), total: round(a.total + c.total),
+  }), { material: 0, accessories: 0, labor: 0, total: 0 });
+}
+
 export type RecipeQuantity = { key: string; name: string; unit: string | null; qty: number; cost: number };
 
 /**
@@ -91,6 +99,8 @@ export type RecipeForOffer = Omit<RecipeCalcInput, 'lines'> & {
   mtrlName: string | null;
   labor: { mtrl: number; code: string; name: string } | null;
   lines: (RecipeLineCalcInput & { mtrl: number; code: string; name: string; unit: string | null })[];
+  /** Σύνθετη συνταγή: τα στάδια (υποσυνταγές) ξεδιπλώνονται στη σειρά τους, στα ίδια m². */
+  components?: RecipeForOffer[];
 };
 export type OfferLine = {
   kind: 'MATERIAL' | 'SERVICE'; mtrl: number | null; code: string | null; name: string; unit: string | null;
@@ -105,6 +115,9 @@ export type OfferLine = {
  */
 export function recipeToOfferLines(r: RecipeForOffer, sqm: number, opts: { markupPct: number; mode: OfferLineMode }): OfferLine[] {
   if (!(Number.isFinite(sqm) && sqm > 0)) return [];
+  // Σύνθετη: κάθε στάδιο (υποσυνταγή) ξεδιπλώνεται με τη σειρά του, στα ίδια m². Το bundled δίνει
+  // μία γραμμή «Προμήθεια & τοποθέτηση» ανά στάδιο — ο πελάτης βλέπει τα στάδια, όχι εσωτερικά ονόματα.
+  if (r.components?.length) return r.components.flatMap((c) => recipeToOfferLines(c, sqm, opts));
   const k = wasteFactor(Number.isFinite(opts.markupPct) && opts.markupPct > 0 ? opts.markupPct : 0);
   const price = (p: number) => round(p * k, 2);
   const area = round(sqm, 3);

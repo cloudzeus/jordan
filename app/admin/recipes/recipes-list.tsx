@@ -78,11 +78,14 @@ export function RecipesList({ recipes, canManage }: { recipes: RecipeView[]; can
                     <span className="min-w-0 flex-1">
                       <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
                         <KindBadge kind={r.kind} />
+                        {r.components.length > 0 && <span className="inline-flex items-center rounded-full bg-violet-100 px-2 py-0.5 text-(length:--fs-11) font-semibold text-violet-700">Σύνθετη · {r.components.length} στάδια</span>}
                         {r.copiedFrom && <span className="text-(length:--fs-11) text-muted-foreground">αντίγραφο από «{r.copiedFrom.name}»</span>}
                       </span>
                       <span className="mt-0.5 block truncate text-(length:--fs-14) font-medium">{r.name}</span>
                       <span className="block truncate text-(length:--fs-12) text-muted-foreground">
-                        {r.mtrlName ? `${r.mtrlCode} · ${r.mtrlName}` : 'Γενική συνταγή'} · {r.lines.length} υλικά · φύρα {num(r.wastePct, 2)}% · εργατικά {eur.format(r.laborCostPerSqm)}/m²
+                        {r.components.length > 0
+                          ? r.components.map((c) => c.name).join(' → ')
+                          : `${r.mtrlName ? `${r.mtrlCode} · ${r.mtrlName}` : 'Γενική συνταγή'} · ${r.lines.length} υλικά · φύρα ${num(r.wastePct, 2)}% · εργατικά ${eur.format(r.laborCostPerSqm)}/m²`}
                       </span>
                     </span>
                     <span className="shrink-0 text-right">
@@ -124,13 +127,23 @@ async function remove(r: RecipeView) {
 /** Αναπτυσσόμενη λεπτομέρεια: υλικά ανά m², ανάλυση κόστους και γρήγορη inline διόρθωση. */
 function RecipeDetail({ recipe: r, canManage, onCopy }: { recipe: RecipeView; canManage: boolean; onCopy: () => void }) {
   const tone = RECIPE_KIND_META[r.kind].color;
+  const isComposite = r.components.length > 0;
   const [editing, setEditing] = React.useState(false);
   return (
     <div className="border-t border-dashed border-border bg-muted/20 px-3 pb-4 pt-3 sm:pl-12">
       <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_260px]">
         <div className="rounded-lg border border-border bg-card p-3">
-          <h3 className="mb-2 text-(length:--fs-11) font-semibold uppercase tracking-wide text-muted-foreground">Υλικά ανά m²</h3>
-          {r.lines.length ? (
+          <h3 className="mb-2 text-(length:--fs-11) font-semibold uppercase tracking-wide text-muted-foreground">{isComposite ? 'Στάδια' : 'Υλικά ανά m²'}</h3>
+          {isComposite ? (
+            <ul className="divide-y divide-border">
+              {r.components.map((c, i) => (
+                <li key={c.id} className="flex items-center justify-between gap-2 py-1.5 text-(length:--fs-12)">
+                  <span className="min-w-0 truncate"><span className="tabular-nums text-muted-foreground">{i + 1}.</span> {c.name} <span className="text-muted-foreground">· {RECIPE_KIND_META[c.kind].label}</span></span>
+                  <span className="shrink-0 tabular-nums text-muted-foreground">{eur.format(c.cost.total)}/m²</span>
+                </li>
+              ))}
+            </ul>
+          ) : r.lines.length ? (
             <ul className="divide-y divide-border">
               {r.lines.map((l) => (
                 <li key={l.id} className="flex items-center justify-between gap-2 py-1.5 text-(length:--fs-12)">
@@ -146,26 +159,33 @@ function RecipeDetail({ recipe: r, canManage, onCopy }: { recipe: RecipeView; ca
         <div className="rounded-lg border border-border bg-card p-3">
           <h3 className="mb-2 text-(length:--fs-11) font-semibold uppercase tracking-wide text-muted-foreground">Ανάλυση κόστους /m²</h3>
           <dl className="space-y-1 text-(length:--fs-12)">
-            <div className="flex justify-between gap-2"><dt className="text-muted-foreground">Κύριο υλικό{r.wastePct ? ` (+${num(r.wastePct, 2)}%)` : ''}</dt><dd className="tabular-nums">{eur.format(r.cost.material)}</dd></div>
-            <div className="flex justify-between gap-2"><dt className="text-muted-foreground">Βοηθητικά υλικά</dt><dd className="tabular-nums">{eur.format(r.cost.accessories)}</dd></div>
-            <div className="flex justify-between gap-2"><dt className="text-muted-foreground">Εργατικά</dt><dd className="tabular-nums">{eur.format(r.cost.labor)}</dd></div>
+            {isComposite ? (<>
+              <div className="flex justify-between gap-2"><dt className="text-muted-foreground">Υλικά (στάδια)</dt><dd className="tabular-nums">{eur.format(r.cost.material + r.cost.accessories)}</dd></div>
+              <div className="flex justify-between gap-2"><dt className="text-muted-foreground">Εργατικά (στάδια)</dt><dd className="tabular-nums">{eur.format(r.cost.labor)}</dd></div>
+            </>) : (<>
+              <div className="flex justify-between gap-2"><dt className="text-muted-foreground">Κύριο υλικό{r.wastePct ? ` (+${num(r.wastePct, 2)}%)` : ''}</dt><dd className="tabular-nums">{eur.format(r.cost.material)}</dd></div>
+              <div className="flex justify-between gap-2"><dt className="text-muted-foreground">Βοηθητικά υλικά</dt><dd className="tabular-nums">{eur.format(r.cost.accessories)}</dd></div>
+              <div className="flex justify-between gap-2"><dt className="text-muted-foreground">Εργατικά</dt><dd className="tabular-nums">{eur.format(r.cost.labor)}</dd></div>
+            </>)}
             <div className="flex justify-between gap-2 border-t border-border pt-1 text-(length:--fs-14) font-semibold" style={{ color: tone }}><dt>Σύνολο</dt><dd className="tabular-nums">{eur.format(r.cost.total)}</dd></div>
           </dl>
-          {!r.labor && r.laborCostPerSqm > 0 && <p className="mt-2 rounded bg-amber-50 px-2 py-1 text-(length:--fs-11) text-amber-900">Χωρίς υπηρεσία εργατικών — δεν περνούν στον προϋπολογισμό έργου.</p>}
+          {!isComposite && !r.labor && r.laborCostPerSqm > 0 && <p className="mt-2 rounded bg-amber-50 px-2 py-1 text-(length:--fs-11) text-amber-900">Χωρίς υπηρεσία εργατικών — δεν περνούν στον προϋπολογισμό έργου.</p>}
         </div>
       </div>
 
       {canManage && (
         <div className="mt-3 flex flex-wrap items-center gap-2">
-          <Button type="button" variant="outline" size="sm" className="h-8 gap-1.5 text-(length:--fs-12)" onClick={() => setEditing((v) => !v)}>
-            <FiSliders className="size-3.5" aria-hidden /> Γρήγορη διόρθωση
-          </Button>
-          <Button asChild size="sm" className="h-8 gap-1.5 text-(length:--fs-12)"><Link href={`/admin/recipes/${r.id}`}><FiEdit2 className="size-3.5" aria-hidden /> Πλήρης οδηγός</Link></Button>
-          <Button type="button" variant="outline" size="sm" className="h-8 gap-1.5 text-(length:--fs-12)" onClick={onCopy}><FiCopy className="size-3.5" aria-hidden /> Αντιγραφή για ομοειδές</Button>
+          {!isComposite && (
+            <Button type="button" variant="outline" size="sm" className="h-8 gap-1.5 text-(length:--fs-12)" onClick={() => setEditing((v) => !v)}>
+              <FiSliders className="size-3.5" aria-hidden /> Γρήγορη διόρθωση
+            </Button>
+          )}
+          <Button asChild size="sm" className="h-8 gap-1.5 text-(length:--fs-12)"><Link href={`/admin/recipes/${r.id}`}><FiEdit2 className="size-3.5" aria-hidden /> {isComposite ? 'Επεξεργασία σταδίων' : 'Πλήρης οδηγός'}</Link></Button>
+          <Button type="button" variant="outline" size="sm" className="h-8 gap-1.5 text-(length:--fs-12)" onClick={onCopy}><FiCopy className="size-3.5" aria-hidden /> Αντιγραφή{isComposite ? '' : ' για ομοειδές'}</Button>
         </div>
       )}
 
-      {editing && <QuickEdit recipe={r} tone={tone} onDone={() => setEditing(false)} />}
+      {!isComposite && editing && <QuickEdit recipe={r} tone={tone} onDone={() => setEditing(false)} />}
     </div>
   );
 }

@@ -2,7 +2,7 @@ import 'server-only';
 import { z } from 'zod';
 import { prisma } from '@/lib/db';
 import { lastPurchasePrices } from '@/lib/last-purchase-price';
-import { RECIPE_KINDS, recipeCost, recipeForArea, type RecipeCost, type RecipeKind } from '@/lib/install-recipes-core';
+import { RECIPE_KINDS, recipeCost, recipeForArea, sumRecipeCosts, type RecipeCost, type RecipeKind } from '@/lib/install-recipes-core';
 
 export class RecipeError extends Error {
   constructor(message: string, readonly status = 400) { super(message); }
@@ -30,6 +30,8 @@ export type RecipeView = {
   copiedFrom: { id: string; name: string } | null;
   updatedAt: string;
   lines: RecipeLineView[];
+  /** Στάδια σύνθετης συνταγής (υποσυνταγές-αναφορές) στη σειρά τους· κενό = απλή συνταγή. */
+  components: RecipeView[];
   cost: RecipeCost;
 };
 
@@ -52,6 +54,8 @@ export const recipeInput = z.object({
     unitPrice: money.default(0),
     notes: z.string().trim().max(500).nullish().transform((v) => v || null),
   })).max(100, 'Έως 100 υλικά ανά συνταγή'),
+  // Σύνθετη συνταγή: στάδια-αναφορές σε άλλες (απλές) συνταγές, στη σειρά 1..6.
+  components: z.array(z.object({ childId: z.string().min(1) })).max(6, 'Έως 6 στάδια ανά σύνθετη συνταγή').default([]),
 });
 export type RecipeInput = z.infer<typeof recipeInput>;
 
@@ -67,14 +71,24 @@ type Row = Awaited<ReturnType<typeof loadRows>>[number];
 const loadRows = (where: { id?: string } = {}) => prisma.installRecipe.findMany({
   where,
   orderBy: [{ kind: 'asc' }, { name: 'asc' }],
-  include: { lines: { orderBy: { sortOrder: 'asc' } } },
+  include: {
+    lines: { orderBy: { sortOrder: 'asc' } },
+    // Τα στάδια με την πλήρη (απλή) υποσυνταγή τους — τα παιδιά είναι πάντα απλά (δεν φωλιάζουν άλλα).
+    components: { orderBy: { sortOrder: 'asc' }, include: { child: { include: { lines: { orderBy: { sortOrder: 'asc' } } } } } },
+  },
 });
 
-function toView(r: Row, names: Map<string, string>): RecipeView {
+/** Κοινό χτίσιμο view από οποιαδήποτε εγγραφή συνταγής (με τις γραμμές της), με έτοιμα τα στάδια. */
+function viewOf(
+  r: { id: string; name: string; kind: RecipeKind; description: string | null; mtrl: number | null; mtrlCode: string | null; mtrlName: string | null; mtrlUnit: string | null; materialPrice: number; wastePct: number; laborCostPerSqm: number; laborMtrl: number | null; laborCode: string | null; laborName: string | null; copiedFromId: string | null; updatedAt: Date; lines: Row['lines'] },
+  names: Map<string, string>,
+  components: RecipeView[],
+): RecipeView {
   const lines = r.lines.map((l) => ({
     id: l.id, mtrl: l.mtrl, code: l.code, name: l.name, unit: l.unit,
     qtyPerSqm: l.qtyPerSqm, wastePct: l.wastePct, unitPrice: l.unitPrice, notes: l.notes,
   }));
+  const own = recipeCost({ materialPrice: r.materialPrice, wastePct: r.wastePct, laborCostPerSqm: r.laborCostPerSqm, lines });
   return {
     id: r.id, name: r.name, kind: r.kind, description: r.description,
     mtrl: r.mtrl, mtrlCode: r.mtrlCode, mtrlName: r.mtrlName, mtrlUnit: r.mtrlUnit,
@@ -83,8 +97,15 @@ function toView(r: Row, names: Map<string, string>): RecipeView {
     copiedFrom: r.copiedFromId && names.has(r.copiedFromId) ? { id: r.copiedFromId, name: names.get(r.copiedFromId)! } : null,
     updatedAt: r.updatedAt.toISOString(),
     lines,
-    cost: recipeCost({ materialPrice: r.materialPrice, wastePct: r.wastePct, laborCostPerSqm: r.laborCostPerSqm, lines }),
+    components,
+    // Σύνθετη: κόστος = δικό της (0 στην καθαρή σύνθεση) + άθροισμα σταδίων.
+    cost: components.length ? sumRecipeCosts([own, ...components.map((c) => c.cost)]) : own,
   };
+}
+
+function toView(r: Row, names: Map<string, string>): RecipeView {
+  const components = r.components.map((c) => viewOf(c.child, names, []));
+  return viewOf(r, names, components);
 }
 
 export async function listRecipes(): Promise<RecipeView[]> {
@@ -140,23 +161,55 @@ async function buildData(input: RecipeInput) {
   };
 }
 
-export async function createRecipe(input: RecipeInput, userId: string | null) {
-  const { head, lines } = await buildData(input);
-  return prisma.installRecipe.create({ data: { ...head, createdById: userId, lines: { create: lines } }, select: { id: true, name: true } });
+/**
+ * Έλεγχος και σειρά των σταδίων σύνθετης συνταγής. Τα στάδια είναι ΑΝΑΦΟΡΕΣ σε ΑΠΛΕΣ συνταγές:
+ * όχι διπλά, όχι ο εαυτός της, όχι άλλη σύνθετη (κρατάμε τη λίστα επίπεδη 1..6).
+ */
+async function buildComponents(specs: { childId: string }[], selfId: string | null): Promise<{ childId: string; sortOrder: number }[]> {
+  if (!specs.length) return [];
+  const ids = specs.map((s) => s.childId);
+  const uniq = new Set(ids);
+  if (uniq.size !== ids.length) throw new RecipeError('Μια υποσυνταγή μπήκε δύο φορές στα στάδια');
+  if (selfId && uniq.has(selfId)) throw new RecipeError('Η συνταγή δεν μπορεί να περιέχει τον εαυτό της');
+  const children = await prisma.installRecipe.findMany({ where: { id: { in: [...uniq] } }, select: { id: true, _count: { select: { components: true } } } });
+  const byId = new Map(children.map((c) => [c.id, c]));
+  for (const id of uniq) {
+    const c = byId.get(id);
+    if (!c) throw new RecipeError('Μια υποσυνταγή (στάδιο) δεν βρέθηκε — ανανεώστε τη λίστα');
+    if (c._count.components > 0) throw new RecipeError('Ως στάδιο μπαίνει μόνο ΑΠΛΗ συνταγή — όχι άλλη σύνθετη');
+  }
+  return specs.map((s, i) => ({ childId: s.childId, sortOrder: i }));
 }
 
-/** Πλήρης αντικατάσταση: κεφαλή + όλες οι γραμμές (η φόρμα στέλνει πάντα ολόκληρη τη συνταγή). */
+export async function createRecipe(input: RecipeInput, userId: string | null) {
+  const { head, lines } = await buildData(input);
+  const comps = await buildComponents(input.components, null);
+  return prisma.$transaction(async (tx) => {
+    const r = await tx.installRecipe.create({ data: { ...head, createdById: userId, lines: { create: lines } }, select: { id: true, name: true } });
+    if (comps.length) await tx.installRecipeComponent.createMany({ data: comps.map((c) => ({ parentId: r.id, childId: c.childId, sortOrder: c.sortOrder })) });
+    return r;
+  });
+}
+
+/** Πλήρης αντικατάσταση: κεφαλή + όλες οι γραμμές + στάδια (η φόρμα στέλνει πάντα ολόκληρη τη συνταγή). */
 export async function updateRecipe(id: string, input: RecipeInput) {
   if (!(await prisma.installRecipe.findUnique({ where: { id }, select: { id: true } }))) throw new RecipeError('Η συνταγή δεν βρέθηκε', 404);
   const { head, lines } = await buildData(input);
+  const comps = await buildComponents(input.components, id);
   return prisma.$transaction(async (tx) => {
     await tx.installRecipeLine.deleteMany({ where: { recipeId: id } });
-    return tx.installRecipe.update({ where: { id }, data: { ...head, lines: { create: lines } }, select: { id: true, name: true } });
+    await tx.installRecipeComponent.deleteMany({ where: { parentId: id } });
+    const r = await tx.installRecipe.update({ where: { id }, data: { ...head, lines: { create: lines } }, select: { id: true, name: true } });
+    if (comps.length) await tx.installRecipeComponent.createMany({ data: comps.map((c) => ({ parentId: id, childId: c.childId, sortOrder: c.sortOrder })) });
+    return r;
   });
 }
 
 export async function deleteRecipe(id: string) {
-  if (!(await prisma.installRecipe.findUnique({ where: { id }, select: { id: true } }))) throw new RecipeError('Η συνταγή δεν βρέθηκε', 404);
+  const r = await prisma.installRecipe.findUnique({ where: { id }, select: { id: true, _count: { select: { usedIn: true } } } });
+  if (!r) throw new RecipeError('Η συνταγή δεν βρέθηκε', 404);
+  // RESTRICT στο childId: μια συνταγή-στάδιο δεν σβήνεται όσο μια σύνθετη τη χρησιμοποιεί.
+  if (r._count.usedIn > 0) throw new RecipeError('Η συνταγή χρησιμοποιείται ως στάδιο σε σύνθετη συνταγή — αφαιρέστε τη από εκεί πρώτα');
   await prisma.installRecipe.delete({ where: { id } });
 }
 
@@ -165,7 +218,10 @@ export async function deleteRecipe(id: string) {
  * αλλάζει το όνομα και (προαιρετικά) το κύριο υλικό και η τιμή του.
  */
 export async function copyRecipe(id: string, input: RecipeCopyInput, userId: string | null) {
-  const src = await prisma.installRecipe.findUnique({ where: { id }, include: { lines: { orderBy: { sortOrder: 'asc' } } } });
+  const src = await prisma.installRecipe.findUnique({
+    where: { id },
+    include: { lines: { orderBy: { sortOrder: 'asc' } }, components: { orderBy: { sortOrder: 'asc' }, select: { childId: true } } },
+  });
   if (!src) throw new RecipeError('Η συνταγή-πηγή δεν βρέθηκε', 404);
   const sameMaterial = input.mtrl == null || input.mtrl === src.mtrl;
   const { head, lines } = await buildData({
@@ -178,8 +234,15 @@ export async function copyRecipe(id: string, input: RecipeCopyInput, userId: str
     laborCostPerSqm: src.laborCostPerSqm,
     laborMtrl: src.laborMtrl,
     lines: src.lines.map((l) => ({ mtrl: l.mtrl, qtyPerSqm: l.qtyPerSqm, wastePct: l.wastePct, unitPrice: l.unitPrice, notes: l.notes })),
+    components: [],
   });
-  return prisma.installRecipe.create({ data: { ...head, copiedFromId: src.id, createdById: userId, lines: { create: lines } }, select: { id: true, name: true } });
+  // Σύνθετη πηγή → το αντίγραφο κρατά τα ίδια στάδια (ίδιες αναφορές, ίδια σειρά).
+  const comps = src.components.map((c, i) => ({ childId: c.childId, sortOrder: i }));
+  return prisma.$transaction(async (tx) => {
+    const r = await tx.installRecipe.create({ data: { ...head, copiedFromId: src.id, createdById: userId, lines: { create: lines } }, select: { id: true, name: true } });
+    if (comps.length) await tx.installRecipeComponent.createMany({ data: comps.map((c) => ({ parentId: r.id, childId: c.childId, sortOrder: c.sortOrder })) });
+    return r;
+  });
 }
 
 export type RecipeItemInfo = { unit: string | null; lastPurchase: { unitCost: number; date: string; fincode: string } | null };
@@ -212,26 +275,43 @@ export type ApplyRecipeInput = z.infer<typeof applyRecipeInput>;
 export async function applyRecipeToBudget(prjc: number, input: ApplyRecipeInput, userId: string | null) {
   const project = await prisma.softoneProject.findUnique({ where: { prjc }, select: { prjc: true } });
   if (!project) throw new RecipeError('Το έργο δεν υπάρχει', 404);
-  const r = await prisma.installRecipe.findUnique({ where: { id: input.recipeId }, include: { lines: { orderBy: { sortOrder: 'asc' } } } });
-  if (!r) throw new RecipeError('Η συνταγή δεν βρέθηκε', 404);
+  const parent = await prisma.installRecipe.findUnique({
+    where: { id: input.recipeId },
+    include: {
+      lines: { orderBy: { sortOrder: 'asc' } },
+      components: { orderBy: { sortOrder: 'asc' }, include: { child: { include: { lines: { orderBy: { sortOrder: 'asc' } } } } } },
+    },
+  });
+  if (!parent) throw new RecipeError('Η συνταγή δεν βρέθηκε', 404);
 
-  const laborMtrl = input.laborMtrl === undefined ? r.laborMtrl : input.laborMtrl;
-  const items = await snapshotItems([...(r.mtrl ? [r.mtrl] : []), ...(laborMtrl ? [laborMtrl] : []), ...r.lines.map((l) => l.mtrl)]);
-  if (laborMtrl && !items.get(laborMtrl)!.isService) throw new RecipeError('Τα εργατικά μπαίνουν στον προϋπολογισμό ως υπηρεσία — διαλέξτε υπηρεσία');
+  const isComposite = parent.components.length > 0;
+  // Στόχοι: σύνθετη → κάθε στάδιο (απλή υποσυνταγή) στα ίδια m². Το override υπηρεσίας εργατικών
+  // αφορά μόνο απλή συνταγή· κάθε στάδιο κρατά τη δική του υπηρεσία.
+  const targets = isComposite
+    ? parent.components.map((c) => ({ r: c.child, laborMtrl: c.child.laborMtrl }))
+    : [{ r: parent, laborMtrl: input.laborMtrl === undefined ? parent.laborMtrl : input.laborMtrl }];
 
-  const calc = recipeForArea({ ...r, lines: r.lines }, input.sqm);
-  const note = `Συνταγή «${r.name}» · ${input.sqm.toLocaleString('el-GR', { maximumFractionDigits: 2 })} m²`;
-  const row = (mtrl: number, qty: number, unitPrice: number) => {
+  const items = await snapshotItems(targets.flatMap((t) => [...(t.r.mtrl ? [t.r.mtrl] : []), ...(t.laborMtrl ? [t.laborMtrl] : []), ...t.r.lines.map((l) => l.mtrl)]));
+  for (const t of targets) {
+    if (t.laborMtrl && !items.get(t.laborMtrl)!.isService) throw new RecipeError('Τα εργατικά μπαίνουν στον προϋπολογισμό ως υπηρεσία — διαλέξτε υπηρεσία');
+  }
+
+  const sqmStr = input.sqm.toLocaleString('el-GR', { maximumFractionDigits: 2 });
+  const row = (mtrl: number, qty: number, unitPrice: number, notes: string) => {
     const it = items.get(mtrl)!;
-    return { prjc, mtrl, code: it.code, name: it.name, isService: it.isService, unit: it.unit, qty, unitPrice, notes: note, createdById: userId };
+    return { prjc, mtrl, code: it.code, name: it.name, isService: it.isService, unit: it.unit, qty, unitPrice, notes, createdById: userId };
   };
-  const data = [
-    ...(r.mtrl ? [row(r.mtrl, calc.rows[0].qty, r.materialPrice)] : []),
-    ...r.lines.map((l, i) => row(l.mtrl, calc.rows[i + 1].qty, l.unitPrice)),
-    ...(laborMtrl && r.laborCostPerSqm > 0 ? [row(laborMtrl, input.sqm, r.laborCostPerSqm)] : []),
-  ].filter((d) => d.qty > 0);
+  const data = targets.flatMap((t) => {
+    const calc = recipeForArea({ ...t.r, lines: t.r.lines }, input.sqm);
+    const note = isComposite ? `Συνταγή «${parent.name}» · στάδιο «${t.r.name}» · ${sqmStr} m²` : `Συνταγή «${parent.name}» · ${sqmStr} m²`;
+    return [
+      ...(t.r.mtrl ? [row(t.r.mtrl, calc.rows[0].qty, t.r.materialPrice, note)] : []),
+      ...t.r.lines.map((l, i) => row(l.mtrl, calc.rows[i + 1].qty, l.unitPrice, note)),
+      ...(t.laborMtrl && t.r.laborCostPerSqm > 0 ? [row(t.laborMtrl, input.sqm, t.r.laborCostPerSqm, note)] : []),
+    ];
+  }).filter((d) => d.qty > 0);
   if (!data.length) throw new RecipeError('Η συνταγή δεν έχει υλικά ή εργατικά για να μπουν στον προϋπολογισμό');
 
   await prisma.projectBudgetLine.createMany({ data });
-  return { recipe: { id: r.id, name: r.name }, lines: data.length, value: data.reduce((s, d) => s + d.qty * d.unitPrice, 0) };
+  return { recipe: { id: parent.id, name: parent.name }, lines: data.length, value: data.reduce((s, d) => s + d.qty * d.unitPrice, 0) };
 }
