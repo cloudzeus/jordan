@@ -216,6 +216,7 @@ export function ContractEditor({ initial, staff, readOnly = false, customer = nu
   // Τιμολόγηση χώρων (συνταγές): περιθώριο % και μορφή γραμμών — ισχύουν στον επόμενο υπολογισμό.
   const [markupPct, setMarkupPct] = React.useState(0);
   const [lineMode, setLineMode] = React.useState<OfferLineMode>('detailed');
+  const [recalcing, setRecalcing] = React.useState(false);
 
   // Μετά από ενέργεια (π.χ. σύνδεση με έργο) ο server στέλνει νέα δεδομένα· τα παίρνουμε μόνο αν δεν
   // υπάρχουν μη αποθηκευμένες αλλαγές του χρήστη. (adjust-state-while-rendering)
@@ -265,6 +266,8 @@ export function ContractEditor({ initial, staff, readOnly = false, customer = nu
 
   /** Γραμμές για τους χώρους `ids` (ή όλους) — οι υπόλοιπες γραμμές μένουν ως έχουν. Σειρά: χώροι, μετά τα άλλα. */
   const recalcRooms = async (rooms: PlanRoom[], ids: Set<string> | null, opts = { markupPct, mode: lineMode }) => {
+    setRecalcing(true);
+    try {
     const target = rooms.filter((r) => r.material && (!ids || ids.has(r.id)));
     const mats = target.flatMap((r) => [r.material, r.materialB].filter((m): m is RoomMaterial => !!m));
     const list = mats.some((m) => m.type === 'recipe') ? await loadRecipes() : [];
@@ -282,7 +285,10 @@ export function ContractEditor({ initial, staff, readOnly = false, customer = nu
       const out = roomLines({ ...base, material: r.material });
       // Εναλλακτικό υλικό (Β): δεύτερο σετ γραμμών του χώρου — ο πελάτης διαλέγει A ή Β.
       const outB = r.material && r.materialB ? roomLines({ ...base, material: r.materialB }) : null;
-      if (out.missing || outB?.missing) missing.push(r.name);
+      // Αν δεν βρέθηκε η συνταγή/είδος (π.χ. προσωρινή αποτυχία φόρτωσης συνταγών), ΜΗΝ αντικαθιστάς
+      // τις υπάρχουσες γραμμές του χώρου με κενό — κράτα τες και προειδοποίησε. Αλλιώς ο (αυτόματος)
+      // επανυπολογισμός θα μηδένιζε ολόκληρη την προσφορά σε κάθε παροδικό σφάλμα.
+      if (out.missing || outB?.missing) { missing.push(r.name); continue; }
       const g = outB ? roomGroup(r.id) : null;
       const mk = (ls: typeof out.lines, option: OptionKey | null): Line[] => ls.map((l) => ({ ...l, uid: uid(), discount: 0, partyKey: null, crewFee: null, optionGroup: option ? g : null, option }));
       fresh.set(r.id, [...mk(out.lines, outB ? 'A' : null), ...(outB ? mk(outB.lines, 'B') : [])]);
@@ -292,7 +298,18 @@ export function ContractEditor({ initial, staff, readOnly = false, customer = nu
       const byRoom = (id: string) => fresh.get(id) ?? p.lines.filter((l) => l.roomId === id);
       return { lines: [...rooms.flatMap((r) => byRoom(r.id)), ...p.lines.filter((l) => !l.roomId || !keep.has(l.roomId))] };
     });
-    if (missing.length) toast.error(`Δεν βρέθηκε υλικό/συνταγή για: ${missing.join(', ')}`);
+    if (missing.length) toast.error(`Δεν βρέθηκε υλικό/συνταγή για: ${missing.join(', ')} — οι γραμμές τους διατηρήθηκαν ως είχαν.`);
+    } finally { setRecalcing(false); }
+  };
+  // Αυτόματος (debounced) επανυπολογισμός όλων των χώρων όταν αλλάζει περιθώριο ή μορφή γραμμών —
+  // αντικαθιστά το χειροκίνητο κουμπί «Επανυπολογισμός». Τα υλικά ανά χώρο ξαναϋπολογίζονται ήδη αμέσως.
+  const recalcT = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  React.useEffect(() => () => { if (recalcT.current) clearTimeout(recalcT.current); }, []);
+  const scheduleRecalc = (next: { markupPct: number; mode: OfferLineMode }) => {
+    if (readOnly) return;
+    if (recalcT.current) clearTimeout(recalcT.current);
+    const rooms = s.rooms;
+    recalcT.current = setTimeout(() => { void recalcRooms(rooms, null, next); }, 500);
   };
   const setRoomMaterial = (roomId: string, m: RoomMaterial | null) => {
     // Χωρίς κύριο υλικό δεν υπάρχει ούτε εναλλακτικό.
@@ -737,12 +754,9 @@ export function ContractEditor({ initial, staff, readOnly = false, customer = nu
               }] }));
               toast.success('Η σημείωση μπήκε στο χρονοδιάγραμμα ως εργασία — πατήστε «Αποθήκευση»');
             }}
-            onMarkup={setMarkupPct} onMode={setLineMode} onUnlink={unlinkPlan}
-            onRecalc={() => {
-              // Από την αρχή: φρέσκιες συνταγές και τιμές ειδών (αλλαγές στις συνταγές περνούν στην προσφορά).
-              recipesP.current = null; items.current.clear();
-              void recalcRooms(s.rooms, null).then(() => toast.success('Οι γραμμές των χώρων ξαναϋπολογίστηκαν με τις τρέχουσες συνταγές και τιμές'));
-            }}
+            onMarkup={(n) => { setMarkupPct(n); scheduleRecalc({ markupPct: n, mode: lineMode }); }}
+            onMode={(m) => { setLineMode(m); scheduleRecalc({ markupPct, mode: m }); }}
+            onUnlink={unlinkPlan} recalcing={recalcing}
           />
           {altFor && (() => {
             const src = s.lines.find((x) => x.uid === altFor);

@@ -27,7 +27,7 @@ export type EditorRoom = PlanRoom;
 
 export function RoomsSection({
   owner, ownerHint, projectLabel, floorPlan, rooms, costOf, recipes, recipesError, markupPct, mode, readOnly,
-  onApplyPlan, onMaterial, onMaterialB, costOfB, onApplyToEmpty, onMarkup, onMode, onRecalc, onUnlink, extra, pins = [], pinIsTask, onPinToTask, linesOf,
+  onApplyPlan, onMaterial, onMaterialB, costOfB, onApplyToEmpty, onMarkup, onMode, recalcing, onUnlink, extra, pins = [], pinIsTask, onPinToTask, linesOf,
 }: {
   /** Οι γραμμές (υλικά, εργασίες) του χώρου — ανοίγουν κάτω από τη γραμμή του. Αριθμός + περιεχόμενο. */
   linesOf?: (roomId: string) => { count: number; node: React.ReactNode } | null;
@@ -55,7 +55,8 @@ export function RoomsSection({
   onApplyToEmpty: (m: RoomMaterial) => void;
   onMarkup: (n: number) => void;
   onMode: (m: OfferLineMode) => void;
-  onRecalc: () => void;
+  /** Τρέχει τώρα (debounced) επανυπολογισμός γραμμών — για την ένδειξη «Ενημέρωση…». */
+  recalcing: boolean;
   onUnlink: () => void;
   /** Επιπλέον κουμπί δίπλα σε κάθε χώρο (σημειώσεις). */
   extra?: (room: EditorRoom) => React.ReactNode;
@@ -147,9 +148,12 @@ export function RoomsSection({
                 <option value="bundled">Μία ανά m²</option>
               </select>
             </label>
-            <Button type="button" variant="outline" size="sm" className="h-9 gap-1.5" onClick={onRecalc} disabled={!priced} title="Ξαναϋπολογίζει τις γραμμές όλων των χώρων με τις τρέχουσες τιμές">
-              <FiRefreshCw className="size-3.5" aria-hidden /> Επανυπολογισμός
-            </Button>
+            {priced > 0 && (
+              <span className="inline-flex h-9 items-center gap-1.5 text-(length:--fs-11) text-muted-foreground" aria-live="polite" title="Οι γραμμές και το ποσό ξαναϋπολογίζονται μόνα τους σε κάθε αλλαγή υλικού, περιθωρίου ή μορφής">
+                <FiRefreshCw className={cn('size-3.5', recalcing && 'animate-spin')} aria-hidden />
+                {recalcing ? 'Ενημέρωση γραμμών…' : 'Αυτόματη ενημέρωση'}
+              </span>
+            )}
             <Button type="button" variant="outline" size="sm" className="h-9 gap-1.5" onClick={openTool} disabled={!owner} title="Άνοιγμα της κάτοψης για αλλαγές σε χώρους και τοίχους">
               <FiEdit3 className="size-3.5" aria-hidden /> Κάτοψη
             </Button>
