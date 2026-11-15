@@ -62,6 +62,7 @@ export function NewItemsClient({
   units,
   itemGroups,
   itemCategories,
+  groupDefaultCategory,
   lineCategories,
 }: {
   /** Έτοιμο `PageHeader` από τον server (κρατά το wiki `?` icon). */
@@ -79,6 +80,8 @@ export function NewItemsClient({
   itemGroups: ClassOption[];
   /** Εμπορικές κατηγορίες (`MTRCATEGORY`) — με inline δημιουργία. */
   itemCategories: ClassOption[];
+  /** MTRGROUP → MTRCATEGORY: προεπιλογή εμπορικής κατηγορίας από τη σύνδεση της ομάδας. */
+  groupDefaultCategory: Record<string, string>;
   lineCategories: LineCategoryOption[];
 }) {
   const router = useRouter();
@@ -628,6 +631,7 @@ export function NewItemsClient({
           units={units}
           itemGroups={itemGroups}
           itemCategories={classOptions}
+          groupDefaultCategory={groupDefaultCategory}
           onCategoryCreated={(opt) => setClassOptions((prev) => (
             prev.some((c) => c.code === opt.code) ? prev : [...prev, opt]
           ))}
