@@ -16,6 +16,7 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
+import { useFilePreview, entityPreview } from '@/components/admin/file-preview';
 import { crewTotal, docTitle, eur } from '@/lib/contracts/core';
 import type { ContractView } from '@/lib/contracts/service';
 import { sendDocumentAction } from '../actions';
@@ -33,6 +34,7 @@ export function DocumentsPanel({ contract: c, canManage }: { contract: ContractV
   const router = useRouter();
   const [busy, setBusy] = React.useState<string | null>(null);
   const [send, setSend] = React.useState<Doc | null>(null);
+  const pv = useFilePreview();
 
   const targets = [
     { key: 'customer', partyId: null as string | null, title: docTitle(c.stage, 'CUSTOMER'), who: c.customer?.name ?? c.customerName ?? 'Πελάτης', amount: c.totals.gross, ok: c.lines.length > 0 },
@@ -66,6 +68,8 @@ export function DocumentsPanel({ contract: c, canManage }: { contract: ContractV
           const docs = c.documents.filter((d) => (t.partyId ? d.partyId === t.partyId : d.audience === 'CUSTOMER'));
           const last = docs[0];
           const sent = last?.sends.filter((s) => s.result === 'sent') ?? [];
+          // Προεπισκόπηση μέσα στον επεξεργαστή (iframe σε modal) — τελευταία έκδοση + προηγούμενες με βέλη.
+          const previews = docs.filter((d) => d.fileId).map((d) => entityPreview(d.fileId!, `${t.title} — ${t.who}.pdf`, `έκδοση ${d.version}${d.revision ? ` · προσφ. ${d.revision}` : ''} · ${when(d.createdAt)}`));
           return (
             <li key={t.key} className="flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3">
               <span className={cn('inline-flex size-9 shrink-0 items-center justify-center rounded-md ring-1', !last ? 'bg-muted text-muted-foreground ring-border' : t.partyId ? 'bg-orange-50 text-orange-700 ring-orange-200' : 'bg-indigo-50 text-indigo-700 ring-indigo-200')}><FiFileText className="size-4" /></span>
@@ -77,7 +81,7 @@ export function DocumentsPanel({ contract: c, canManage }: { contract: ContractV
                 </p>
               </div>
               {last?.fileId && (
-                <a href={pdfUrl(last)} target="_blank" rel="noreferrer" className="inline-flex min-h-9 items-center gap-1.5 rounded-md border border-border px-2.5 text-(length:--fs-12) hover:bg-muted"><FiEye className="size-3.5" />PDF</a>
+                <button type="button" onClick={() => pv.open(previews, 0)} className="inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-md border border-border px-2.5 text-(length:--fs-12) hover:bg-muted"><FiEye className="size-3.5" />Προβολή</button>
               )}
               {canManage && (
                 <Button size="sm" variant={last ? 'secondary' : 'default'} disabled={!!busy || !t.ok} onClick={() => generate(t.partyId, t.key)} className="gap-1.5" title={!t.ok ? 'Δεν υπάρχουν γραμμές για αυτό το έγγραφο' : undefined}>
@@ -99,7 +103,7 @@ export function DocumentsPanel({ contract: c, canManage }: { contract: ContractV
                         <DropdownMenuSeparator />
                         <DropdownMenuLabel className="text-(length:--fs-11) text-muted-foreground">Προηγούμενες εκδόσεις</DropdownMenuLabel>
                         {docs.slice(1, 8).map((d) => (
-                          <DropdownMenuItem key={d.id} className={ITEM} onSelect={() => d.fileId && window.open(pdfUrl(d), '_blank')}><FiClock className="size-3.5" />PDF v{d.version}{d.revision ? ` · έκδ. ${d.revision}` : ''} · {when(d.createdAt)}</DropdownMenuItem>
+                          <DropdownMenuItem key={d.id} className={ITEM} onSelect={() => { const idx = previews.findIndex((_, k) => docs.filter((x) => x.fileId)[k]?.id === d.id); if (idx >= 0) pv.open(previews, idx); }}><FiClock className="size-3.5" />PDF v{d.version}{d.revision ? ` · έκδ. ${d.revision}` : ''} · {when(d.createdAt)}</DropdownMenuItem>
                         ))}
                       </>
                     )}
@@ -111,6 +115,7 @@ export function DocumentsPanel({ contract: c, canManage }: { contract: ContractV
         })}
       </ul>
       <SendDialog doc={send} onClose={() => setSend(null)} contract={c} />
+      {pv.element}
     </section>
   );
 }
