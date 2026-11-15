@@ -7,9 +7,10 @@ import { ClassificationsTableClient } from './classifications-table-client';
 import { ClassificationsTabs } from './classifications-tabs';
 import { HierarchyTree } from '@/components/admin/hierarchy-tree';
 import { RowHint } from '@/components/admin/form-kit';
-import { loadItemGroupTrees, loadTraderClassTrees } from '@/lib/classification-trees';
+import { loadItemGroupBoards, loadTraderClassTrees } from '@/lib/classification-trees';
 import { loadCategoryHierarchies } from '@/lib/category-hierarchy';
 import { CategoryDndTree } from '@/components/admin/category-dnd-tree';
+import { ItemGroupDndTree } from '@/components/admin/item-group-dnd-tree';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,11 +18,11 @@ export const dynamic = 'force-dynamic';
 export default async function ClassificationsPage({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
   const { tab } = await searchParams;
   await requirePermission('classifications.read');
-  const [{ rows, membersError }, canManage, lastSync, itemTrees, traderTrees, catHierarchies] = await Promise.all([
+  const [{ rows, membersError }, canManage, lastSync, itemBoards, traderTrees, catHierarchies] = await Promise.all([
     listClassifications(),
     hasPermission('classifications.manage'),
     getSetting<string>('integrations.softoneClassificationsLastSync'),
-    loadItemGroupTrees(),
+    loadItemGroupBoards(),
     loadTraderClassTrees(),
     loadCategoryHierarchies(),
   ]);
@@ -41,10 +42,11 @@ export default async function ClassificationsPage({ searchParams }: { searchPara
         items={(
           <div className="space-y-3">
             <RowHint>
-              Πρόταση ομάδων από τα ονόματα των ειδών και τους προμηθευτές τους. Οι ομάδες που δείχνουν «μόνο εφαρμογή» δεν έχουν
-              δημιουργηθεί ακόμα στο SoftOne. Η εμπορική κατηγορία των ειδών (Εμπορεύματα, Προϊόντα…) είναι λογιστική ρύθμιση και δεν αλλάζει.
+              Η δική μας ιεραρχία ομάδων. Σύρε μια ομάδα για αναδιάταξη ή για να την κάνεις υπο-ομάδα άλλης — ο κωδικός ιεραρχίας
+              ξαναϋπολογίζεται μόνος. Από το ⋮ συνδέεις κάθε ομάδα με μια εμπορική κατηγορία, που προτείνεται στα νέα είδη. Οι ομάδες
+              που δείχνουν «μόνο εφαρμογή» δεν υπάρχουν ακόμα στο SoftOne. Τίποτα εδώ δεν γράφεται στο SoftOne.
             </RowHint>
-            <div className="grid gap-3 xl:grid-cols-2">{itemTrees.map((t) => <HierarchyTree key={t.key} tree={t} />)}</div>
+            <div className="grid gap-3 xl:grid-cols-2">{itemBoards.map((b) => <ItemGroupDndTree key={b.sodtype} board={b} canManage={canManage} />)}</div>
           </div>
         )}
         traders={(

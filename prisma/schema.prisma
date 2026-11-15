@@ -3586,6 +3586,9 @@ model ItemGroup {
   parent      ItemGroup?  @relation("ItemGroupTree", fields: [parentId], references: [id], onDelete: SetNull)
   children    ItemGroup[] @relation("ItemGroupTree")
   softoneId   Int? // MTRGROUP στο SoftOne (null = δεν υπάρχει ακόμα)
+  // Σύνδεση με εμπορική κατηγορία (SoftoneClassification.code, kind=CATEGORY, ίδιο sodtype) — ΤΟΠΙΚΟ:
+  // προσυμπληρώνει την εμπορική κατηγορία στα νέα είδη της ομάδας. ΔΕΝ γράφεται ποτέ στο SoftOne.
+  categoryCode Int?
   order       Int         @default(0)
   isActive    Boolean     @default(true)
   createdAt   DateTime    @default(now())
