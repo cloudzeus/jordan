@@ -113,10 +113,12 @@ function NumInput({ value, onValue, nullable = false, ...rest }: Omit<React.Comp
 }
 
 /** Ενότητα-βήμα: ήρεμη κάρτα με αριθμό (✓ όταν ολοκληρωθεί), τίτλο, μία γραμμή βοήθειας και ενέργειες. */
-function Section({ id, n, done, title, hint, actions, children, optional, collapsible, badge }: {
+function Section({ id, n, done, title, hint, actions, children, optional, collapsible, badge, open }: {
   id: string; n: number | null; done?: boolean; title: string; hint?: string; actions?: React.ReactNode; children: React.ReactNode; optional?: boolean;
   /** Accordion: κλειστή ενότητα με κεφαλίδα (τίτλος + σήμα) που ανοίγει με κλικ. */
   collapsible?: boolean; badge?: React.ReactNode;
+  /** Ανοίγει μόνη της όταν γίνει το ενεργό βήμα (ο χρήστης μπορεί να την ξανακλείσει). */
+  open?: boolean;
 }) {
   // Σύνδεσμος προς την ενότητα (#c-requests από τα εισερχόμενα, βήματα αριστερά): ανοίγει μόνη της.
   const det = React.useRef<HTMLDetailsElement>(null);
@@ -127,6 +129,7 @@ function Section({ id, n, done, title, hint, actions, children, optional, collap
     window.addEventListener('hashchange', sync);
     return () => window.removeEventListener('hashchange', sync);
   }, [collapsible, id]);
+  React.useEffect(() => { if (collapsible && open && det.current) det.current.open = true; }, [collapsible, open]);
   if (collapsible) return (
     <section id={id} aria-labelledby={`${id}-h`} className="scroll-mt-20 rounded-xl border border-border bg-card shadow-xs">
       <details ref={det} className="group">
@@ -466,6 +469,11 @@ export function ContractEditor({ initial, staff, readOnly = false, customer = nu
   const roomsNoMaterial = s.rooms.filter((r) => !r.material).length;
   // Τα βασικά στοιχεία ανοίγουν κλειστά ΜΟΝΟ αν ήταν πλήρη στο άνοιγμα — όχι ενώ πληκτρολογείς (θα έχανες το focus).
   const [basicsFolded] = React.useState(() => !!initial && steps[0].done);
+  // Απλοποιημένη πλοήγηση: ΕΝΑ βήμα τη φορά. Οι ενότητες μένουν mounted (απλώς κρύβονται) ώστε να
+  // μη χάνεται καμία κατάσταση όταν αλλάζεις βήμα. `shownStep` πέφτει σε έγκυρο βήμα αν το ενεργό εξαφανιστεί.
+  const [activeStep, setActiveStep] = React.useState<string>(() => steps.find((x) => !x.done)?.id ?? 'c-rooms');
+  const shownStep = steps.some((x) => x.id === activeStep) ? activeStep : steps[0].id;
+  const stepGroupCls = (id: string) => cn('space-y-3', shownStep !== id && 'hidden');
 
   // ── Γραμμές ομαδοποιημένες ανά χώρο ──
   const groups = [
@@ -618,15 +626,34 @@ export function ContractEditor({ initial, staff, readOnly = false, customer = nu
 
   return (
     <NotesProvider value={notesCtx}>
-    <div className="items-start gap-5 lg:grid lg:grid-cols-[minmax(0,1fr)_17.5rem]">
+    <div className="items-start gap-5 lg:grid lg:grid-cols-[12.5rem_minmax(0,1fr)_17.5rem]">
+      {/* ── Αριστερή πλοήγηση βημάτων (αντικαθιστά το ατέρμονο scroll: μία ενότητα τη φορά) ── */}
+      <nav aria-label="Βήματα προσφοράς" className="sticky top-4 z-10 mb-3 flex gap-1.5 overflow-x-auto lg:mb-0 lg:block lg:space-y-0.5 lg:overflow-visible">
+        <p className="hidden px-2 pb-1 text-(length:--fs-11) font-medium uppercase tracking-wide text-muted-foreground lg:block">Βήματα</p>
+        {steps.map((st, i) => {
+          const on = shownStep === st.id;
+          const extra = st.id === 'c-rooms' && roomsNoMaterial > 0 ? `${roomsNoMaterial} κενά` : null;
+          return (
+            <button key={st.id} type="button" onClick={() => setActiveStep(st.id)} aria-current={on ? 'step' : undefined}
+              className={cn('flex shrink-0 items-center gap-2.5 rounded-lg border px-2.5 py-2 text-left text-(length:--fs-12) lg:w-full', on ? 'border-border bg-card shadow-xs' : 'border-transparent hover:bg-muted')}>
+              <span className={cn('inline-flex size-5 shrink-0 items-center justify-center rounded-full text-(length:--fs-10) font-semibold', st.done ? 'bg-emerald-600 text-white' : on ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground')}>
+                {st.done ? <FiCheck className="size-3" aria-hidden /> : i + 1}
+              </span>
+              <span className={cn('min-w-0 flex-1 truncate', on && 'font-semibold')}>{st.label}</span>
+              {extra && <span className="shrink-0 rounded bg-amber-100 px-1.5 text-(length:--fs-10) font-semibold text-amber-900">{extra}</span>}
+              {st.optional && !st.done && !extra && <span className="shrink-0 text-(length:--fs-10) text-muted-foreground">προαιρ.</span>}
+            </button>
+          );
+        })}
+      </nav>
       <div className="min-w-0 space-y-3">
         {!ro && (todo.length > 0 || roomsNoMaterial > 0) && (
           <nav aria-label="Τι μένει" className={cn('flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-xl border px-4 py-2.5 text-(length:--fs-12)',
             todo.length ? 'border-amber-300 bg-amber-50 text-amber-950' : 'border-sky-200 bg-sky-50 text-sky-950')}>
             <FiAlertTriangle className="size-4 shrink-0" aria-hidden />
             <span className="font-semibold">{todo.length ? (todo.length === 1 ? 'Μένει 1 βήμα' : `Μένουν ${todo.length} βήματα`) : 'Τα υποχρεωτικά βήματα έγιναν'}</span>
-            {todo.map((x) => <a key={x.id} href={`#${x.id}`} className="inline-flex min-h-7 items-center rounded-md bg-white/70 px-2 font-medium underline-offset-2 ring-1 ring-black/10 hover:underline">{x.label}</a>)}
-            {roomsNoMaterial > 0 && <a href="#c-rooms" className="inline-flex min-h-7 items-center rounded-md bg-white/70 px-2 font-medium underline-offset-2 ring-1 ring-black/10 hover:underline">{roomsNoMaterial} χώρ{roomsNoMaterial === 1 ? 'ος' : 'οι'} χωρίς υλικό</a>}
+            {todo.map((x) => <button key={x.id} type="button" onClick={() => setActiveStep(x.id)} className="inline-flex min-h-7 cursor-pointer items-center rounded-md bg-white/70 px-2 font-medium underline-offset-2 ring-1 ring-black/10 hover:underline">{x.label}</button>)}
+            {roomsNoMaterial > 0 && <button type="button" onClick={() => setActiveStep('c-rooms')} className="inline-flex min-h-7 cursor-pointer items-center rounded-md bg-white/70 px-2 font-medium underline-offset-2 ring-1 ring-black/10 hover:underline">{roomsNoMaterial} χώρ{roomsNoMaterial === 1 ? 'ος' : 'οι'} χωρίς υλικό</button>}
           </nav>
         )}
         {/* ── Αιτήματα πελάτη (portal) ── */}
@@ -649,8 +676,9 @@ export function ContractEditor({ initial, staff, readOnly = false, customer = nu
           </Section>
         )}
 
+        <div className={stepGroupCls('c-basics')}>
         {/* ── 1. Έργο & πελάτης ── */}
-        <Section id="c-basics" n={stepNo('c-basics')} done={stepDone('c-basics')} title="Έργο & πελάτης" collapsible={basicsFolded}
+        <Section id="c-basics" n={stepNo('c-basics')} done={stepDone('c-basics')} title="Έργο & πελάτης" collapsible={basicsFolded} open={shownStep === 'c-basics'}
           hint={basicsFolded
             ? [s.customerName, KIND_LABEL[s.kind], s.site ? siteLine(s.site) : siteFallback, s.startDate && s.endDate ? `${dayEl(s.startDate)} έως ${dayEl(s.endDate)}` : null, s.validUntil ? `ισχύει ως ${dayEl(s.validUntil)}` : null, `ΦΠΑ ${s.vatRate}%`].filter(Boolean).join(' · ')
             : 'Για ποιον είναι, τι είδους δουλειά, πού και πότε'}>
@@ -714,8 +742,10 @@ export function ContractEditor({ initial, staff, readOnly = false, customer = nu
             </div>
           </div>
         </Section>
+        </div>
         <ProjectSiteDialog open={siteOpen} onOpenChange={setSiteOpen} prjc={null} projectLabel={s.title || 'Νέο έργο'} value={s.site} onSave={(site) => up({ site })} />
 
+        <div className={stepGroupCls('c-rooms')}>
         {/* ── 2. Χώροι & υλικά: ο χώρος, το υλικό του και οι γραμμές του σε ΕΝΑ σημείο ── */}
         <Section id="c-rooms" n={stepNo('c-rooms')} done={stepDone('c-rooms')} title="Χώροι & υλικά"
           hint={s.rooms.length ? 'Υλικό ανά χώρο — το ποσό βγαίνει μόνο του. Το βελάκι ανοίγει τις γραμμές του χώρου' : crews ? 'Ποιο συνεργείο εκτελεί κάθε γραμμή και η αμοιβή του φαίνονται ΜΟΝΟ στη δική του σύμβαση' : 'Από κάτοψη, από το μητρώο, από συνταγή ή ελεύθερη γραμμή'}
@@ -826,8 +856,10 @@ export function ContractEditor({ initial, staff, readOnly = false, customer = nu
           </Section>
         )}
 
+        </div>
+        <div className={stepGroupCls('c-text')}>
         {/* ── 4. Περιγραφή ── */}
-        <Section id="c-text" n={stepNo('c-text')} done={stepDone('c-text')} collapsible title="Περιγραφή του έργου"
+        <Section id="c-text" n={stepNo('c-text')} done={stepDone('c-text')} collapsible open={shownStep === 'c-text'} title="Περιγραφή του έργου"
           badge={<span className="text-(length:--fs-12) font-normal text-muted-foreground">· {s.customerText?.trim() ? 'με κείμενο για τον πελάτη' : 'χωρίς κείμενο για τον πελάτη'}</span>}
           hint="Οι σημειώσεις σας και ένα απλό κείμενο για τον πελάτη — και τα δύο μπαίνουν στη σύνταξη των εγγράφων">
           {s.rooms.length > 0 && (
@@ -891,8 +923,10 @@ export function ContractEditor({ initial, staff, readOnly = false, customer = nu
           )}
         </Section>
 
+        </div>
+        <div className={stepGroupCls('c-pay')}>
         {/* ── 5. Πληρωμές ── */}
-        <Section id="c-pay" n={stepNo('c-pay')} done={stepDone('c-pay')} collapsible title="Πληρωμές"
+        <Section id="c-pay" n={stepNo('c-pay')} done={stepDone('c-pay')} collapsible open={shownStep === 'c-pay'} title="Πληρωμές"
           badge={(() => {
             // Σύνοψη: πόσες δόσεις του πελάτη και αν καλύπτουν ακριβώς το σύνολο.
             const cm = s.milestones.filter((m) => !m.partyKey);
@@ -913,14 +947,18 @@ export function ContractEditor({ initial, staff, readOnly = false, customer = nu
           />
         </Section>
 
+        </div>
+        <div className={stepGroupCls('c-plan')}>
         {/* ── Χρονοδιάγραμμα (Gantt) ── */}
-        <Section id="c-plan" n={stepNo('c-plan')} done={stepDone('c-plan')} optional collapsible title="Χρονοδιάγραμμα εργασιών"
+        <Section id="c-plan" n={stepNo('c-plan')} done={stepDone('c-plan')} optional collapsible open={shownStep === 'c-plan'} title="Χρονοδιάγραμμα εργασιών"
           badge={s.tasks.length > 0 && <span className="text-(length:--fs-12) font-normal text-muted-foreground">· {s.tasks.length} εργασίες</span>}
           hint="Τι γίνεται και πότε — ήδη από την προσφορά. Με την ενεργοποίηση γίνονται εργασίες του έργου (Kanban & Gantt)">
           <ScheduleSection tasks={s.tasks} rooms={s.rooms} start={s.startDate} today={today} templates={templates} readOnly={ro} onChange={(tasks) => up({ tasks })}
             noteFor={(t) => noteBtn('TASK', savedTasks.has(t.key) ? t.key : null, `Εργασία: ${t.name || '—'}`)} />
         </Section>
 
+        </div>
+        <div className={stepGroupCls('c-crews')}>
         {/* ── 6. Συνεργεία ── */}
         {crews && (
           <Section id="c-crews" n={stepNo('c-crews')} done={stepDone('c-crews')} optional title="Συνεργεία & τεχνικές εταιρίες"
@@ -963,8 +1001,9 @@ export function ContractEditor({ initial, staff, readOnly = false, customer = nu
           </Section>
         )}
 
-        {/* ── Περισσότερα (σπάνια πεδία) ── */}
-        <details className="group rounded-xl border border-border bg-card shadow-xs" open={!!s.terms || s.members.length > 0}>
+        </div>
+        {/* ── Περισσότερα (σπάνια πεδία) — πάντα διαθέσιμο, κλειστό ── */}
+        <details className="group rounded-xl border border-border bg-card shadow-xs">
           <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-2 rounded-xl px-4 py-3 hover:bg-muted/40 [&::-webkit-details-marker]:hidden">
             <span>
               <span className="text-(length:--fs-14) font-semibold">Περισσότερα</span>
@@ -1016,22 +1055,6 @@ export function ContractEditor({ initial, staff, readOnly = false, customer = nu
       {/* ── Δεξιά στήλη: πρόοδος, σύνολο, απόθεμα ── */}
       <aside className="sticky top-4 hidden space-y-3 lg:block" aria-label="Σύνοψη προσφοράς">
         {totalsCard}
-        <nav aria-label="Βήματα" className="rounded-xl border border-border bg-card p-2 shadow-xs">
-          <ol>
-            {steps.map((st, i) => (
-              <li key={st.id}>
-                <a href={`#${st.id}`} className="flex min-h-9 items-center gap-2.5 rounded-md px-2 text-(length:--fs-12) hover:bg-muted focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring">
-                  <span className={cn('inline-flex size-5 shrink-0 items-center justify-center rounded-full text-(length:--fs-10) font-semibold', st.done ? 'bg-emerald-600 text-white' : 'bg-muted text-muted-foreground')}>
-                    {st.done ? <FiCheck className="size-3" aria-hidden /> : i + 1}
-                  </span>
-                  <span className={cn('min-w-0 flex-1 truncate', st.done ? 'text-muted-foreground' : 'font-medium text-foreground')}>{st.label}</span>
-                  {st.optional && !st.done && <span className="text-(length:--fs-10) text-muted-foreground">προαιρ.</span>}
-                  <span className="sr-only">{st.done ? ' — ολοκληρώθηκε' : ''}</span>
-                </a>
-              </li>
-            ))}
-          </ol>
-        </nav>
         <StockCard needs={stock.needs} loading={stock.loading} />
         {!ro && s.rooms.length === 0 && (
           <p className="flex items-start gap-1.5 px-1 text-(length:--fs-11) text-muted-foreground"><FiEdit3 className="mt-0.5 size-3 shrink-0" aria-hidden />Συμβουλή: με κάτοψη τα τετραγωνικά και το ποσό ανά χώρο βγαίνουν αυτόματα.</p>
