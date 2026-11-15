@@ -19,6 +19,7 @@ import { listTasks, listTemplates, partyOptions } from '@/lib/project-tasks';
 import { zonedParts } from '@/lib/appointments-core';
 import { TasksWorkspace } from './tasks/tasks-workspace';
 import { ProjectTabs } from './project-tabs';
+import { ProgressPdfButton } from './progress-pdf-button';
 import { contractHistory } from '@/lib/contracts/history';
 import { HistoryPanel } from '../contracts/history-panel';
 import { PHASES, phaseCounts } from '@/lib/project-tasks-core';
@@ -153,9 +154,12 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
             {work.tasks.length === 0 ? 'Καμία εργασία ακόμη' : PHASES.map((ph) => <span key={ph.key}>{ph.label} <span className="tabular-nums font-medium text-foreground">{counts[ph.key]}</span></span>)}
           </p>
         </div>
-        <Link href={`/admin/projects/${p.prjc}?tab=tasks`} scroll={false} className="inline-flex min-h-9 items-center gap-1.5 rounded-md border border-border px-3 text-(length:--fs-12) font-medium hover:bg-muted focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring">
-          <FiTrello className="size-3.5" aria-hidden /> Kanban εργασιών
-        </Link>
+        <div className="flex flex-wrap items-center gap-2">
+          <Link href={`/admin/projects/${p.prjc}?tab=tasks`} scroll={false} className="inline-flex min-h-9 items-center gap-1.5 rounded-md border border-border px-3 text-(length:--fs-12) font-medium hover:bg-muted focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring">
+            <FiTrello className="size-3.5" aria-hidden /> Kanban εργασιών
+          </Link>
+          {canManage && <ProgressPdfButton prjc={p.prjc} />}
+        </div>
       </section>
 
       {fin && <ProjectFinancials profit={fin.profit} issues={fin.issues} computedAt={fin.computedAt} error={fresh?.error ?? null} />}
