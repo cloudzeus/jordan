@@ -38,16 +38,16 @@ const ENDPOINT: Record<RegistryKind, string> = {
 };
 
 const PLACEHOLDER: Record<RegistryKind, string> = {
-  product: 'Αναζήτηση είδους (κωδικός ή περιγραφή)…',
-  service: 'Αναζήτηση υπηρεσίας (κωδικός ή περιγραφή)…',
-  expense: 'Αναζήτηση εξόδου (κωδικός ή περιγραφή)…',
-  lineitem: 'Αναζήτηση χρεοπίστωσης (κωδικός ή περιγραφή)…',
+  product: 'Κλικ για τη λίστα — ή γράψε κωδικό/περιγραφή',
+  service: 'Κλικ για τη λίστα — ή γράψε κωδικό/περιγραφή',
+  expense: 'Κλικ για τη λίστα — ή γράψε κωδικό/περιγραφή',
+  lineitem: 'Κλικ για τη λίστα — ή γράψε κωδικό/περιγραφή',
 };
 
 /**
- * Combobox πάνω στα τοπικά μητρώα SoftOne (είδη / υπηρεσίες / έξοδα) για την
- * ουρά «Είδη & έξοδα»: debounced αναζήτηση ≥ 2 χαρακτήρων, πλοήγηση με βέλη,
- * Enter επιλέγει, Escape κλείνει τη λίστα χωρίς να αδειάσει το πεδίο.
+ * Combobox πάνω στα τοπικά μητρώα SoftOne (είδη / υπηρεσίες / έξοδα): με το focus ανοίγει και
+ * ΦΥΛΛΟΜΕΤΡΑ (κενό ερώτημα ⇒ πρώτη σελίδα του μητρώου — ο χρήστης βλέπει τη λίστα χωρίς να
+ * πληκτρολογήσει), γράφοντας φιλτράρει (debounced), βέλη πλοηγούν, Enter επιλέγει, Escape κλείνει.
  */
 export function RegistrySearch({
   kind,
@@ -90,18 +90,21 @@ export function RegistrySearch({
     setResults([]); setOpen(false); setActive(0); setFailed(false);
   }
 
-  // Προετοιμασία της αναζήτησης (αρχικό `[]` ⇒ και στο πρώτο render, όπως το effect).
-  const searchDeps = [q, kind, category, reload];
+  // Προετοιμασία της αναζήτησης. Η φόρτωση τρέχει ΜΟΝΟ όταν η λίστα είναι ανοιχτή (focus), ώστε
+  // πολλά picker στην ίδια οθόνη να μην χτυπούν τη βάση με το που φορτώνουν — φυλλομετρούν μόλις
+  // τα χρειαστεί ο χρήστης. `open` στα deps: το focus (κενό ερώτημα) ξεκινά τη φυλλομέτρηση.
+  const searchDeps = [q, kind, category, reload, open];
   const [prevSearchDeps, setPrevSearchDeps] = React.useState<readonly unknown[]>([]);
   if (searchDeps.length !== prevSearchDeps.length || searchDeps.some((x, i) => !Object.is(x, prevSearchDeps[i]))) {
     setPrevSearchDeps(searchDeps);
-    if (q.trim().length < 2) { setResults([]); setLoading(false); setFailed(false); } else setLoading(true);
+    if (!open) { setLoading(false); setFailed(false); } else setLoading(true);
   }
 
   React.useEffect(() => {
+    if (!open) return;
     const term = q.trim();
-    if (term.length < 2) return;
-    // `ignore` ώστε μια αργή απάντηση να μην προσπεράσει μια νεότερη.
+    // `ignore` ώστε μια αργή απάντηση να μην προσπεράσει μια νεότερη. Κενό ερώτημα (φυλλομέτρηση)
+    // ανοίγει αμέσως· η πληκτρολόγηση περιμένει 250ms.
     let ignore = false;
     const h = setTimeout(() => {
       const cat = kind === 'lineitem' && category ? `&category=${category}` : '';
@@ -116,13 +119,12 @@ export function RegistrySearch({
           setResults(d.results ?? []);
           setFailed(false);
           setActive(0);
-          setOpen(true);
         })
-        .catch(() => { if (!ignore) { setResults([]); setFailed(true); setOpen(true); } })
+        .catch(() => { if (!ignore) { setResults([]); setFailed(true); } })
         .finally(() => { if (!ignore) setLoading(false); });
-    }, 250);
+    }, term ? 250 : 0);
     return () => { ignore = true; clearTimeout(h); };
-  }, [q, kind, category, reload]);
+  }, [q, kind, category, reload, open]);
 
   React.useEffect(() => {
     if (!open) return;
@@ -166,7 +168,7 @@ export function RegistrySearch({
 
   const showList = open && !failed && results.length > 0;
   const showError = open && failed && !loading;
-  const showEmpty = open && !failed && !loading && q.trim().length >= 2 && results.length === 0;
+  const showEmpty = open && !failed && !loading && results.length === 0;
 
   return (
     <div className="relative" ref={rootRef}>
@@ -182,6 +184,7 @@ export function RegistrySearch({
           id={id}
           value={q}
           disabled={disabled}
+          onFocus={() => setOpen(true)}
           onChange={(e) => { setQ(e.target.value); setOpen(true); }}
           onKeyDown={(e) => {
             if (e.key === 'Escape') { e.stopPropagation(); setOpen(false); return; }

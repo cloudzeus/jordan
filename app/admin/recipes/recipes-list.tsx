@@ -2,36 +2,34 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
-import { FiCopy, FiEdit2, FiLayers, FiMoreVertical, FiSearch, FiTrash2 } from 'react-icons/fi';
+import { FiChevronRight, FiCopy, FiEdit2, FiLayers, FiLoader, FiMoreVertical, FiSave, FiSearch, FiSliders, FiTrash2 } from 'react-icons/fi';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { confirmAction } from '@/components/ui/confirm-dialog';
 import { cn } from '@/lib/utils';
-import { RECIPE_KINDS, RECIPE_KIND_META, type RecipeKind } from '@/lib/install-recipes-core';
+import { RECIPE_KINDS, RECIPE_KIND_META, lineCostPerSqm, parseDecimal, toInput, type RecipeKind } from '@/lib/install-recipes-core';
 import type { RecipeView } from '@/lib/install-recipes';
 import { CopyRecipeDialog } from './copy-recipe-dialog';
 import { KindBadge, eur, num } from './recipe-ui';
-import { deleteRecipeAction } from './actions';
+import { deleteRecipeAction, saveRecipeAction } from './actions';
 
 const ITEM = 'cursor-pointer gap-2 text-(length:--fs-12)';
+const field = 'h-8 w-[110px] tabular-nums text-right text-(length:--fs-13)';
 
 export function RecipesList({ recipes, canManage }: { recipes: RecipeView[]; canManage: boolean }) {
-  const router = useRouter();
   const [q, setQ] = React.useState('');
   const [kind, setKind] = React.useState<RecipeKind | 'ALL'>('ALL');
   const [copy, setCopy] = React.useState<RecipeView | null>(null);
+  const [open, setOpen] = React.useState<Set<string>>(() => new Set());
+
+  const toggle = (id: string) => setOpen((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
 
   const s = q.trim().toLowerCase();
   const shown = recipes.filter((r) => (kind === 'ALL' || r.kind === kind)
     && (!s || [r.name, r.mtrlName, r.mtrlCode, r.description, ...r.lines.map((l) => l.name)].some((v) => v?.toLowerCase().includes(s))));
-
-  const remove = async (r: RecipeView) => {
-    if (!(await confirmAction({ message: `Διαγραφή της συνταγής «${r.name}»;\nΔεν αναιρείται. Τα αντίγραφά της δεν επηρεάζονται.`, destructive: true }))) return;
-    const res = await deleteRecipeAction(r.id);
-    if (res.ok) toast.success('Η συνταγή διαγράφηκε'); else toast.error(res.message);
-  };
 
   const tabs: { key: RecipeKind | 'ALL'; label: string; count: number }[] = [
     { key: 'ALL', label: 'Όλες', count: recipes.length },
@@ -60,47 +58,161 @@ export function RecipesList({ recipes, canManage }: { recipes: RecipeView[]; can
           <FiLayers className="mx-auto mb-3 size-8 text-muted-foreground/60" aria-hidden />
           <p className="text-(length:--fs-14) font-medium">{recipes.length ? 'Καμία συνταγή με αυτά τα κριτήρια' : 'Δεν υπάρχουν ακόμη συνταγές'}</p>
           <p className="mt-1 text-(length:--fs-12) text-muted-foreground">
-            {canManage ? 'Πατήστε «Νέα συνταγή»: υλικό, υλικά ανά m² με φύρα και εργατικό κόστος ανά m².' : 'Ο διαχειριστής δεν έχει δημιουργήσει ακόμη συνταγές.'}
+            {canManage ? 'Πατήστε «Νέα συνταγή»: ένας οδηγός σε 5 βήματα — υλικό, υλικά ανά m² με φύρα και εργατικό κόστος.' : 'Ο διαχειριστής δεν έχει δημιουργήσει ακόμη συνταγές.'}
           </p>
         </div>
       ) : (
         <ul className="divide-y divide-border overflow-hidden rounded-lg border border-border bg-card">
-          {shown.map((r) => (
-            <li key={r.id} className="group relative flex items-center gap-3 px-3 py-3 transition-colors hover:bg-muted/40 sm:px-4">
-              <Link href={`/admin/recipes/${r.id}`} className="absolute inset-0" aria-label={`Άνοιγμα συνταγής ${r.name}`} />
-              <span className="hidden h-10 w-1 shrink-0 rounded-full sm:block" style={{ backgroundColor: RECIPE_KIND_META[r.kind].color }} aria-hidden />
-              <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                  <KindBadge kind={r.kind} />
-                  {r.copiedFrom && <span className="text-(length:--fs-11) text-muted-foreground">αντίγραφο από «{r.copiedFrom.name}»</span>}
+          {shown.map((r) => {
+            const isOpen = open.has(r.id);
+            return (
+              <li key={r.id}>
+                <div className="group relative flex items-center gap-2 px-2 py-2.5 transition-colors hover:bg-muted/40 sm:px-3">
+                  <button
+                    type="button" onClick={() => toggle(r.id)} aria-expanded={isOpen}
+                    className="flex min-w-0 flex-1 cursor-pointer items-center gap-3 text-left"
+                    aria-label={`${isOpen ? 'Σύμπτυξη' : 'Ανάπτυξη'} λεπτομερειών: ${r.name}`}
+                  >
+                    <FiChevronRight className={cn('size-5 shrink-0 text-muted-foreground transition-transform duration-200', isOpen && 'rotate-90')} aria-hidden />
+                    <span className="hidden h-10 w-1 shrink-0 rounded-full sm:block" style={{ backgroundColor: RECIPE_KIND_META[r.kind].color }} aria-hidden />
+                    <span className="min-w-0 flex-1">
+                      <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                        <KindBadge kind={r.kind} />
+                        {r.copiedFrom && <span className="text-(length:--fs-11) text-muted-foreground">αντίγραφο από «{r.copiedFrom.name}»</span>}
+                      </span>
+                      <span className="mt-0.5 block truncate text-(length:--fs-14) font-medium">{r.name}</span>
+                      <span className="block truncate text-(length:--fs-12) text-muted-foreground">
+                        {r.mtrlName ? `${r.mtrlCode} · ${r.mtrlName}` : 'Γενική συνταγή'} · {r.lines.length} υλικά · φύρα {num(r.wastePct, 2)}% · εργατικά {eur.format(r.laborCostPerSqm)}/m²
+                      </span>
+                    </span>
+                    <span className="shrink-0 text-right">
+                      <span className="block text-(length:--fs-15) font-semibold tabular-nums">{eur.format(r.cost.total)}</span>
+                      <span className="block text-(length:--fs-11) text-muted-foreground">ανά m²</span>
+                    </span>
+                  </button>
+                  {canManage && (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger className="relative z-10 inline-flex size-9 shrink-0 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring" aria-label={`Ενέργειες για «${r.name}»`}>
+                        <FiMoreVertical className="size-4" aria-hidden />
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-56">
+                        <DropdownMenuItem className={ITEM} asChild><Link href={`/admin/recipes/${r.id}`}><FiEdit2 className="size-3.5" aria-hidden /> Πλήρης επεξεργασία</Link></DropdownMenuItem>
+                        <DropdownMenuItem className={ITEM} onSelect={() => setCopy(r)}><FiCopy className="size-3.5" aria-hidden /> Αντιγραφή για ομοειδές…</DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem className={`${ITEM} text-destructive focus:text-destructive`} onSelect={() => void remove(r)}><FiTrash2 className="size-3.5" aria-hidden /> Διαγραφή…</DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  )}
                 </div>
-                <p className="mt-0.5 truncate text-(length:--fs-14) font-medium">{r.name}</p>
-                <p className="truncate text-(length:--fs-12) text-muted-foreground">
-                  {r.mtrlName ? `${r.mtrlCode} · ${r.mtrlName}` : 'Γενική συνταγή'} · {r.lines.length} υλικά · φύρα {num(r.wastePct, 2)}% · εργατικά {eur.format(r.laborCostPerSqm)}/m²
-                </p>
-              </div>
-              <div className="shrink-0 text-right">
-                <p className="text-(length:--fs-15) font-semibold tabular-nums">{eur.format(r.cost.total)}</p>
-                <p className="text-(length:--fs-11) text-muted-foreground">ανά m²</p>
-              </div>
-              {canManage && (
-                <DropdownMenu>
-                  <DropdownMenuTrigger className="relative z-10 inline-flex size-9 shrink-0 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring" aria-label={`Ενέργειες για «${r.name}»`}>
-                    <FiMoreVertical className="size-4" aria-hidden />
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-56">
-                    <DropdownMenuItem className={ITEM} onSelect={() => router.push(`/admin/recipes/${r.id}`)}><FiEdit2 className="size-3.5" aria-hidden /> Επεξεργασία</DropdownMenuItem>
-                    <DropdownMenuItem className={ITEM} onSelect={() => setCopy(r)}><FiCopy className="size-3.5" aria-hidden /> Αντιγραφή για ομοειδές…</DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem className={`${ITEM} text-destructive focus:text-destructive`} onSelect={() => void remove(r)}><FiTrash2 className="size-3.5" aria-hidden /> Διαγραφή…</DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              )}
-            </li>
-          ))}
+                {isOpen && <RecipeDetail recipe={r} canManage={canManage} onCopy={() => setCopy(r)} />}
+              </li>
+            );
+          })}
         </ul>
       )}
       <CopyRecipeDialog recipe={copy} onClose={() => setCopy(null)} />
+    </div>
+  );
+}
+
+async function remove(r: RecipeView) {
+  if (!(await confirmAction({ message: `Διαγραφή της συνταγής «${r.name}»;\nΔεν αναιρείται. Τα αντίγραφά της δεν επηρεάζονται.`, destructive: true }))) return;
+  const res = await deleteRecipeAction(r.id);
+  if (res.ok) toast.success('Η συνταγή διαγράφηκε'); else toast.error(res.message);
+}
+
+/** Αναπτυσσόμενη λεπτομέρεια: υλικά ανά m², ανάλυση κόστους και γρήγορη inline διόρθωση. */
+function RecipeDetail({ recipe: r, canManage, onCopy }: { recipe: RecipeView; canManage: boolean; onCopy: () => void }) {
+  const tone = RECIPE_KIND_META[r.kind].color;
+  const [editing, setEditing] = React.useState(false);
+  return (
+    <div className="border-t border-dashed border-border bg-muted/20 px-3 pb-4 pt-3 sm:pl-12">
+      <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_260px]">
+        <div className="rounded-lg border border-border bg-card p-3">
+          <h3 className="mb-2 text-(length:--fs-11) font-semibold uppercase tracking-wide text-muted-foreground">Υλικά ανά m²</h3>
+          {r.lines.length ? (
+            <ul className="divide-y divide-border">
+              {r.lines.map((l) => (
+                <li key={l.id} className="flex items-center justify-between gap-2 py-1.5 text-(length:--fs-12)">
+                  <span className="min-w-0 truncate">{l.name} <span className="text-muted-foreground tabular-nums">· {num(l.qtyPerSqm)}{l.unit ? ` ${l.unit}` : ''}/m²{l.wastePct ? ` +${num(l.wastePct, 2)}%` : ''}</span></span>
+                  <span className="shrink-0 tabular-nums text-muted-foreground">{eur.format(lineCostPerSqm(l))}</span>
+                </li>
+              ))}
+            </ul>
+          ) : <p className="py-2 text-(length:--fs-12) text-muted-foreground">Χωρίς βοηθητικά υλικά.</p>}
+          {r.description && <p className="mt-2 border-t border-border pt-2 text-(length:--fs-12) text-muted-foreground">{r.description}</p>}
+        </div>
+
+        <div className="rounded-lg border border-border bg-card p-3">
+          <h3 className="mb-2 text-(length:--fs-11) font-semibold uppercase tracking-wide text-muted-foreground">Ανάλυση κόστους /m²</h3>
+          <dl className="space-y-1 text-(length:--fs-12)">
+            <div className="flex justify-between gap-2"><dt className="text-muted-foreground">Κύριο υλικό{r.wastePct ? ` (+${num(r.wastePct, 2)}%)` : ''}</dt><dd className="tabular-nums">{eur.format(r.cost.material)}</dd></div>
+            <div className="flex justify-between gap-2"><dt className="text-muted-foreground">Βοηθητικά υλικά</dt><dd className="tabular-nums">{eur.format(r.cost.accessories)}</dd></div>
+            <div className="flex justify-between gap-2"><dt className="text-muted-foreground">Εργατικά</dt><dd className="tabular-nums">{eur.format(r.cost.labor)}</dd></div>
+            <div className="flex justify-between gap-2 border-t border-border pt-1 text-(length:--fs-14) font-semibold" style={{ color: tone }}><dt>Σύνολο</dt><dd className="tabular-nums">{eur.format(r.cost.total)}</dd></div>
+          </dl>
+          {!r.labor && r.laborCostPerSqm > 0 && <p className="mt-2 rounded bg-amber-50 px-2 py-1 text-(length:--fs-11) text-amber-900">Χωρίς υπηρεσία εργατικών — δεν περνούν στον προϋπολογισμό έργου.</p>}
+        </div>
+      </div>
+
+      {canManage && (
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <Button type="button" variant="outline" size="sm" className="h-8 gap-1.5 text-(length:--fs-12)" onClick={() => setEditing((v) => !v)}>
+            <FiSliders className="size-3.5" aria-hidden /> Γρήγορη διόρθωση
+          </Button>
+          <Button asChild size="sm" className="h-8 gap-1.5 text-(length:--fs-12)"><Link href={`/admin/recipes/${r.id}`}><FiEdit2 className="size-3.5" aria-hidden /> Πλήρης οδηγός</Link></Button>
+          <Button type="button" variant="outline" size="sm" className="h-8 gap-1.5 text-(length:--fs-12)" onClick={onCopy}><FiCopy className="size-3.5" aria-hidden /> Αντιγραφή για ομοειδές</Button>
+        </div>
+      )}
+
+      {editing && <QuickEdit recipe={r} tone={tone} onDone={() => setEditing(false)} />}
+    </div>
+  );
+}
+
+/** Γρήγορη διόρθωση τιμής/φύρας/εργατικών χωρίς να φύγεις από τη λίστα. Ξαναχτίζει το πλήρες payload από τη συνταγή. */
+function QuickEdit({ recipe: r, tone, onDone }: { recipe: RecipeView; tone: string; onDone: () => void }) {
+  const [price, setPrice] = React.useState(toInput(r.materialPrice));
+  const [waste, setWaste] = React.useState(toInput(r.wastePct, 2));
+  const [labor, setLabor] = React.useState(toInput(r.laborCostPerSqm));
+  const [busy, setBusy] = React.useState(false);
+
+  const priceN = parseDecimal(price), wasteN = parseDecimal(waste), laborN = parseDecimal(labor);
+  const invalid = !Number.isFinite(priceN) || priceN < 0 || !Number.isFinite(wasteN) || wasteN < 0 || wasteN > 100 || !Number.isFinite(laborN) || laborN < 0;
+
+  const save = async () => {
+    if (invalid) return;
+    setBusy(true);
+    try {
+      const res = await saveRecipeAction(r.id, {
+        name: r.name, kind: r.kind, description: r.description, mtrl: r.mtrl,
+        materialPrice: priceN, wastePct: wasteN, laborCostPerSqm: laborN, laborMtrl: r.labor?.mtrl ?? null,
+        lines: r.lines.map((l) => ({ mtrl: l.mtrl, qtyPerSqm: l.qtyPerSqm, wastePct: l.wastePct, unitPrice: l.unitPrice, notes: l.notes })),
+      });
+      if (!res.ok) throw new Error(res.message);
+      toast.success('Η συνταγή ενημερώθηκε');
+      onDone();
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="mt-3 rounded-lg border border-border bg-card p-3">
+      <div className="flex flex-wrap items-end gap-3">
+        <div><Label htmlFor={`qe-p-${r.id}`} className="mb-1 block text-(length:--fs-11) text-muted-foreground">Τιμή υλικού (€/m²)</Label><Input id={`qe-p-${r.id}`} inputMode="decimal" value={price} onChange={(e) => setPrice(e.target.value)} className={field} /></div>
+        <div><Label htmlFor={`qe-w-${r.id}`} className="mb-1 block text-(length:--fs-11) text-muted-foreground">Φύρα (%)</Label><Input id={`qe-w-${r.id}`} inputMode="decimal" value={waste} onChange={(e) => setWaste(e.target.value)} className={field} /></div>
+        <div><Label htmlFor={`qe-l-${r.id}`} className="mb-1 block text-(length:--fs-11) text-muted-foreground">Εργατικά (€/m²)</Label><Input id={`qe-l-${r.id}`} inputMode="decimal" value={labor} onChange={(e) => setLabor(e.target.value)} className={field} /></div>
+        <div className="ml-auto flex items-center gap-2">
+          <Button type="button" variant="ghost" size="sm" className="h-8 text-(length:--fs-12)" onClick={onDone} disabled={busy}>Άκυρο</Button>
+          <Button type="button" size="sm" className="h-8 gap-1.5 text-(length:--fs-12) text-white hover:opacity-90" style={{ backgroundColor: tone }} onClick={() => void save()} disabled={busy || invalid}>
+            {busy ? <FiLoader className="size-3.5 animate-spin motion-reduce:animate-none" aria-hidden /> : <FiSave className="size-3.5" aria-hidden />} Αποθήκευση
+          </Button>
+        </div>
+      </div>
+      <p className="mt-2 text-(length:--fs-11) text-muted-foreground">Για αλλαγές σε υλικά ανά m² ή υπηρεσία εργατικών, άνοιξε τον πλήρη οδηγό.</p>
     </div>
   );
 }
