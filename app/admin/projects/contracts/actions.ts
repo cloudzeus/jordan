@@ -388,6 +388,30 @@ export async function stockAction(mtrls: number[]): Promise<Record<number, Stock
   return stockSummary(mtrls.map(Number));
 }
 
+/** Κορυφαίος προμηθευτής (μεγαλύτερη αξία αγορών) + τελευταίο κόστος ανά είδος — για «BOM → παραγγελίες προμηθευτών». */
+export type SupplierForItem = { mtrl: number; lastCost: number | null; supplier: { trdr: number; name: string; code: string | null; email: string | null; phone: string | null } | null };
+export async function supplierOrdersAction(mtrls: number[]): Promise<ActionResult<SupplierForItem[]>> {
+  const a = await actor('projects.manage');
+  if ('error' in a) return a.error;
+  const ids = [...new Set((Array.isArray(mtrls) ? mtrls : []).map(Number).filter((m) => Number.isInteger(m) && m > 0))].slice(0, 500);
+  if (!ids.length) return done([]);
+  const rows = await prisma.supplierProduct.findMany({
+    where: { mtrl: { in: ids } }, orderBy: [{ mtrl: 'asc' }, { invoiceValue: 'desc' }], select: { mtrl: true, trdr: true, lastCost: true },
+  });
+  const top = new Map<number, { trdr: number; lastCost: number | null }>();
+  for (const r of rows) if (!top.has(r.mtrl)) top.set(r.mtrl, { trdr: r.trdr, lastCost: r.lastCost });
+  const trdrs = [...new Set([...top.values()].map((v) => v.trdr))];
+  const traders = trdrs.length
+    ? await prisma.softoneTrader.findMany({ where: { trdr: { in: trdrs } }, select: { trdr: true, name: true, code: true, email: true, phone: true } })
+    : [];
+  const byTrdr = new Map(traders.map((t) => [t.trdr, t]));
+  return done(ids.map((mtrl) => {
+    const s = top.get(mtrl);
+    const t = s ? byTrdr.get(s.trdr) : null;
+    return { mtrl, lastCost: s?.lastCost ?? null, supplier: t ? { trdr: t.trdr, name: t.name, code: t.code ?? null, email: t.email ?? null, phone: t.phone ?? null } : null };
+  }));
+}
+
 const customerTextInput = z.object({
   contractId: z.string().max(64).nullish(),
   title: z.string().max(200).default(''),

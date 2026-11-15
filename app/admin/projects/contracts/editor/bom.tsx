@@ -4,12 +4,16 @@
 // με εξαγωγή CSV. Οι αριθμοί βγαίνουν από τις ίδιες γραμμές με την προσφορά — καμία δεύτερη πηγή.
 import * as React from 'react';
 import { toast } from 'sonner';
-import { FiDownload, FiLayers } from 'react-icons/fi';
+import { FiDownload, FiLayers, FiShoppingCart, FiCopy, FiMail, FiLoader } from 'react-icons/fi';
 import { bomCsv, buildBom, type BomLine, type BomRoomRef } from '@/lib/contracts/bom-core';
 import type { StockInfo } from '@/lib/contracts/stock-core';
 import { stockLabel } from './stock';
 import { FiAlertTriangle, FiCheckCircle, FiHelpCircle, FiXCircle } from 'react-icons/fi';
 import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
+import { Dialog, DialogBody, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { groupBySupplier, orderText, orderMailto, type OrderItem, type SupplierGroup } from '@/lib/contracts/supplier-orders-core';
+import { supplierOrdersAction } from '../actions';
 
 const q = (n: number) => n.toLocaleString('el-GR', { maximumFractionDigits: 2 });
 const TONE = {
@@ -24,8 +28,25 @@ export function BomSection({ lines, rooms, stock, loading, fileName }: {
   lines: BomLine[]; rooms: BomRoomRef[]; stock: Record<number, StockInfo>; loading: boolean; fileName: string;
 }) {
   const [view, setView] = React.useState<'items' | 'rooms'>('items');
+  const [ordersOpen, setOrdersOpen] = React.useState(false);
+  const [ordersLoading, setOrdersLoading] = React.useState(false);
+  const [ordersSup, setOrdersSup] = React.useState<Map<number, { supplier: SupplierGroup['supplier']; lastCost: number | null }>>(new Map());
   const bom = React.useMemo(() => buildBom(lines, rooms, stock), [lines, rooms, stock]);
   const usedRooms = rooms.filter((r) => bom.items.some((i) => i.perRoom[r.id]));
+  // Είδη που λείπουν (short > 0) → πόσα να παραγγείλουμε. Το κόστος/προμηθευτής έρχονται από τον server.
+  const toOrder = React.useMemo<OrderItem[]>(
+    () => bom.items.filter((i) => i.short > 0).map((i) => ({ mtrl: i.mtrl, code: i.code, name: i.name, unit: i.unit, qty: i.short, lastCost: null })),
+    [bom.items],
+  );
+  // Εύρεση προμηθευτών με το άνοιγμα (σε event handler, όχι effect).
+  const openOrders = async () => {
+    setOrdersOpen(true);
+    setOrdersLoading(true);
+    const r = await supplierOrdersAction(toOrder.map((i) => i.mtrl));
+    if (!r.ok) { toast.error(r.message); setOrdersSup(new Map()); }
+    else setOrdersSup(new Map(r.data.map((d) => [d.mtrl, { supplier: d.supplier, lastCost: d.lastCost }])));
+    setOrdersLoading(false);
+  };
 
   const download = () => {
     const blob = new Blob([bomCsv(bom, rooms)], { type: 'text/csv;charset=utf-8' });
@@ -55,10 +76,18 @@ export function BomSection({ lines, rooms, stock, loading, fileName }: {
         <p className="text-(length:--fs-12) text-muted-foreground" aria-live="polite">
           {loading ? 'Έλεγχος αποθέματος…' : <>{bom.items.length} είδη · <b className={bom.totals.toOrder ? 'text-amber-900' : 'text-foreground'}>{bom.totals.toOrder} προς παραγγελία</b>{bom.totals.unknown ? ` · ${bom.totals.unknown} για έλεγχο` : ''}</>}
         </p>
-        <button type="button" onClick={download} className="inline-flex min-h-8 cursor-pointer items-center gap-1.5 rounded-md border border-border px-2.5 text-(length:--fs-12) font-medium hover:bg-muted">
-          <FiDownload className="size-3.5" aria-hidden /> CSV
-        </button>
+        <div className="flex items-center gap-2">
+          {toOrder.length > 0 && (
+            <button type="button" onClick={() => void openOrders()} className="inline-flex min-h-8 cursor-pointer items-center gap-1.5 rounded-md border border-amber-300 bg-amber-50 px-2.5 text-(length:--fs-12) font-medium text-amber-900 hover:bg-amber-100">
+              <FiShoppingCart className="size-3.5" aria-hidden /> Παραγγελία σε προμηθευτές
+            </button>
+          )}
+          <button type="button" onClick={download} className="inline-flex min-h-8 cursor-pointer items-center gap-1.5 rounded-md border border-border px-2.5 text-(length:--fs-12) font-medium hover:bg-muted">
+            <FiDownload className="size-3.5" aria-hidden /> CSV
+          </button>
+        </div>
       </div>
+      <SupplierOrdersDialog open={ordersOpen} onClose={() => setOrdersOpen(false)} items={toOrder} refLabel={fileName} loading={ordersLoading} sup={ordersSup} />
 
       {view === 'items' ? (
         bom.items.length === 0 ? <p className="text-(length:--fs-13) text-muted-foreground">Δεν υπάρχουν υλικά από το μητρώο ειδών.</p> : (
@@ -139,5 +168,61 @@ export function BomSection({ lines, rooms, stock, loading, fileName }: {
       )}
       <p className="text-(length:--fs-11) text-muted-foreground">Με την ενεργοποίηση της σύμβασης, η λίστα περνά στον προϋπολογισμό του έργου (με κόστος από την τελευταία αγορά).</p>
     </div>
+  );
+}
+
+/** Είδη προς παραγγελία ανά προμηθευτή: αντιγραφή ή έτοιμο email. Δεν στέλνει email και δεν γράφει στο SoftOne. */
+function SupplierOrdersDialog({ open, onClose, items, refLabel, loading, sup }: {
+  open: boolean; onClose: () => void; items: OrderItem[]; refLabel: string;
+  loading: boolean; sup: Map<number, { supplier: SupplierGroup['supplier']; lastCost: number | null }>;
+}) {
+  const groups = React.useMemo(() => groupBySupplier(
+    items.map((i) => ({ ...i, lastCost: sup.get(i.mtrl)?.lastCost ?? null })),
+    (mtrl) => sup.get(mtrl)?.supplier ?? null,
+  ), [items, sup]);
+
+  const copy = async (g: SupplierGroup) => {
+    try { await navigator.clipboard.writeText(orderText(g, refLabel)); toast.success('Αντιγράφηκε'); }
+    catch { toast.error('Η αντιγραφή απέτυχε'); }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="sm:max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>Παραγγελία σε προμηθευτές</DialogTitle>
+          <DialogDescription>Τα είδη που λείπουν, ομαδοποιημένα ανά κορυφαίο προμηθευτή (από το ιστορικό αγορών). Αντιγράψτε ή στείλτε email — η εφαρμογή δεν στέλνει email και δεν γράφει στο SoftOne.</DialogDescription>
+        </DialogHeader>
+        <DialogBody className="space-y-3">
+          {loading ? (
+            <p className="flex items-center justify-center gap-2 py-6 text-(length:--fs-13) text-muted-foreground"><FiLoader className="size-4 animate-spin" aria-hidden />Εύρεση προμηθευτών…</p>
+          ) : groups.length === 0 ? (
+            <p className="py-6 text-center text-(length:--fs-13) text-muted-foreground">Δεν υπάρχουν είδη προς παραγγελία.</p>
+          ) : groups.map((g) => (
+            <section key={g.supplier ? `t${g.supplier.trdr}` : 'none'} className={cn('rounded-lg border p-3', g.supplier ? 'border-border' : 'border-dashed border-amber-300 bg-amber-50/40')}>
+              <header className="flex flex-wrap items-center justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="truncate text-(length:--fs-13) font-semibold">{g.supplier ? g.supplier.name : 'Χωρίς γνωστό προμηθευτή'}</p>
+                  <p className="truncate text-(length:--fs-11) text-muted-foreground">{g.lines.length} είδη{g.total > 0 ? ` · εκτ. ${eur(g.total)}` : ''}{g.supplier?.email ? ` · ${g.supplier.email}` : ''}</p>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <Button type="button" size="sm" variant="outline" className="gap-1.5" onClick={() => void copy(g)}><FiCopy className="size-3.5" aria-hidden />Αντιγραφή</Button>
+                  {g.supplier?.email && <a href={orderMailto(g, refLabel)} className="inline-flex min-h-8 items-center gap-1.5 rounded-md bg-primary px-2.5 text-(length:--fs-12) font-medium text-primary-foreground hover:bg-primary/90"><FiMail className="size-3.5" aria-hidden />Email</a>}
+                </div>
+              </header>
+              <ul className="mt-2 divide-y divide-border rounded-md border border-border">
+                {g.lines.map((l) => (
+                  <li key={l.mtrl} className="flex items-center justify-between gap-2 px-2.5 py-1 text-(length:--fs-12)">
+                    <span className="min-w-0 truncate" title={l.name}>{l.name}{l.code ? <span className="ml-1 font-mono text-(length:--fs-10) text-muted-foreground">{l.code}</span> : null}</span>
+                    <span className="shrink-0 font-medium tabular-nums">{q(l.qty)} {l.unit ?? ''}</span>
+                  </li>
+                ))}
+              </ul>
+              {!g.supplier && <p className="mt-2 text-(length:--fs-11) text-amber-900">Δεν βρέθηκε προμηθευτής από το ιστορικό αγορών — επιλέξτε χειροκίνητα.</p>}
+            </section>
+          ))}
+        </DialogBody>
+      </DialogContent>
+    </Dialog>
   );
 }
