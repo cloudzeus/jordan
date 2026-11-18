@@ -2,6 +2,7 @@ import 'server-only';
 import { z } from 'zod';
 import { prisma } from '@/lib/db';
 import { softoneCall, softoneGetTable, SoftoneError } from '@/lib/softone';
+import { syncAssistantChunk } from '@/lib/assistant/indexer';
 
 /**
  * Εμπορικές κατηγορίες & ομάδες ειδών/υπηρεσιών (SoftOne MTRCATEGORY / MTRGROUP).
@@ -182,11 +183,13 @@ export async function createCategory(input: z.infer<typeof categoryCreateInput>)
       throw new ClassificationError('Το SoftOne απάντησε «επιτυχία» αλλά η κατηγορία δεν βρέθηκε μετά την εγγραφή', 502);
     }
     memberCache = null;
-    return prisma.softoneClassification.upsert({
+    const classification = await prisma.softoneClassification.upsert({
       where: { kind_sodtype_code: { kind: 'CATEGORY', sodtype, code } },
       create: { kind: 'CATEGORY', sodtype, code, shortCode: saved.shortCode, name: saved.name, sohCode: saved.sohCode, isActive: true },
       update: { shortCode: saved.shortCode, name: saved.name, sohCode: saved.sohCode, isActive: true, syncedAt: new Date() },
     });
+    void syncAssistantChunk(`classification:${classification.kind}:${classification.sodtype}:${classification.code}`).catch(() => null);
+    return classification;
   }
   throw new ClassificationError('Δεν βρέθηκε ελεύθερος αριθμός κατηγορίας', 409);
 }
@@ -221,10 +224,12 @@ export async function updateCategory(sodtype: number, code: number, input: z.inf
     throw new ClassificationError('Το SoftOne απάντησε «επιτυχία» αλλά η αλλαγή δεν φαίνεται μετά την εγγραφή', 502);
   }
   memberCache = null;
-  return prisma.softoneClassification.update({
+  const classification = await prisma.softoneClassification.update({
     where: { id: current.id },
     data: { shortCode: saved.shortCode, name: saved.name, sohCode: saved.sohCode, isActive: saved.isActive, syncedAt: new Date() },
   });
+  void syncAssistantChunk(`classification:${classification.kind}:${classification.sodtype}:${classification.code}`).catch(() => null);
+  return classification;
 }
 
 /** Επιλογές για τη φόρμα είδους: μόνο οι ενεργές του ίδιου μητρώου (είδη ή υπηρεσίες). */

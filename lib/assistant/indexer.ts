@@ -10,6 +10,7 @@ import { createHash } from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { prisma } from '@/lib/db';
+import type { Prisma } from '@prisma/client';
 import { getSetting, setSetting } from '@/lib/settings';
 import { SODTYPE_LABEL } from '@/lib/softone';
 import { projectStatusLabel } from '@/lib/projects';
@@ -38,54 +39,135 @@ const eur = (n: number | null | undefined) =>
 const day = (d: Date | string | null | undefined) => (d ? new Date(d).toISOString().slice(0, 10) : null);
 const line = (label: string, v: unknown) => (v == null || v === '' ? null : `${label}: ${v}`);
 const lines = (...xs: (string | null | undefined | false)[]) => xs.filter(Boolean).join('\n');
+const group = <T, K>(xs: T[], k: (x: T) => K) => {
+  const m = new Map<K, T[]>();
+  for (const x of xs) { const a = m.get(k(x)) ?? []; a.push(x); m.set(k(x), a); }
+  return m;
+};
 
-/** Όλα τα κομμάτια γνώσης από τη βάση της εφαρμογής, το wiki και το γλωσσάρι. */
-export async function buildKnowledgeDocs(): Promise<KnowledgeDoc[]> {
-  const [
-    projects, financials, budget, traders, contacts, items, stock, lookups, classifications, units,
-    partners, partnerProjects, offers, orderRequests, appointments, leads,
-  ] = await Promise.all([
-    prisma.softoneProject.findMany(),
-    prisma.projectFinancials.findMany(),
-    prisma.projectBudgetLine.findMany({ select: { prjc: true, code: true, name: true, qty: true, unitPrice: true, unit: true } }),
-    prisma.softoneTrader.findMany(),
-    prisma.customerContact.findMany({ select: { trdr: true, name: true, role: true, phone: true, mobile: true, email: true } }),
-    prisma.softoneItem.findMany(),
-    prisma.softoneStock.findMany({ select: { mtrl: true, whouse: true, qty: true } }),
-    prisma.softoneLookup.findMany(),
-    prisma.softoneClassification.findMany(),
-    prisma.softoneUnit.findMany({ select: { code: true, shortcut: true, name: true, interCode: true, isActive: true } }),
-    prisma.partner.findMany({ include: { contacts: { select: { name: true, role: true, phone: true, mobile: true, email: true } } } }),
-    prisma.partnerProject.findMany({ select: { partnerId: true, prjc: true, role: true } }),
-    prisma.containerOffer.findMany({ include: { items: { select: { code: true, name: true, baseUnit: true, prices: true } } } }),
-    prisma.orderRequest.findMany({ include: { lines: { select: { code: true, name: true, qty: true, unit: true } } }, orderBy: { createdAt: 'desc' }, take: 500 }),
-    prisma.appointment.findMany({ orderBy: { startsAt: 'desc' }, take: 500 }),
-    prisma.lead.findMany({ orderBy: { createdAt: 'desc' }, take: 1000 }),
+export type EntityFilter =
+  | { source: 'project'; prjc: number }
+  | { source: 'document'; findoc: number }
+  | { source: 'trader'; trdr: number }
+  | { source: 'item' | 'service'; mtrl: number }
+  | { source: 'lookup'; kind: string; code: string }
+  | { source: 'classification'; kind: string; sodtype: number; code: string }
+  | { source: 'unit'; code: string }
+  | { source: 'partner'; id: string }
+  | { source: 'offer'; id: string }
+  | { source: 'order_request'; id: string }
+  | { source: 'appointment'; id: string }
+  | { source: 'lead'; id: string }
+  | { source: 'wiki'; refKey: string }
+  | { source: 'glossary'; refKey: string };
+
+async function loadKnowledgeContext(filter?: EntityFilter) {
+  const whereProject = filter?.source === 'project' ? { prjc: filter.prjc } : undefined;
+  const whereTrader = filter?.source === 'trader' ? { trdr: filter.trdr } : undefined;
+  const whereItem = filter?.source === 'item' || filter?.source === 'service' ? { mtrl: filter.mtrl } : undefined;
+  const whereClassification = filter?.source === 'classification' ? { kind: filter.kind, sodtype: filter.sodtype, code: Number(filter.code) } : undefined;
+  const whereLookup = filter?.source === 'lookup' ? { kind: filter.kind, code: filter.code } : undefined;
+  const whereUnit = filter?.source === 'unit' ? { code: Number(filter.code) } : undefined;
+  const wherePartner = filter?.source === 'partner' ? { id: filter.id } : undefined;
+  const whereOffer = filter?.source === 'offer' ? { id: filter.id } : undefined;
+  const whereOrderRequest = filter?.source === 'order_request' ? { id: filter.id } : undefined;
+  const whereAppointment = filter?.source === 'appointment' ? { id: filter.id } : undefined;
+  const whereLead = filter?.source === 'lead' ? { id: filter.id } : undefined;
+
+  const projectsQ = prisma.softoneProject.findMany({ where: whereProject });
+  const tradersQ = prisma.softoneTrader.findMany({ where: whereTrader });
+  const itemsQ = prisma.softoneItem.findMany({ where: whereItem });
+  const classificationsQ = prisma.softoneClassification.findMany({ where: whereClassification });
+  const lookupsQ = prisma.softoneLookup.findMany({ where: whereLookup });
+  const unitsQ = prisma.softoneUnit.findMany({ where: whereUnit, select: { code: true, shortcut: true, name: true, interCode: true, isActive: true } });
+  const partnersQ = prisma.partner.findMany({
+    where: wherePartner,
+    include: { contacts: { select: { name: true, role: true, phone: true, mobile: true, email: true } } },
+  });
+  const offersQ = prisma.containerOffer.findMany({
+    where: whereOffer,
+    include: { items: { select: { code: true, name: true, baseUnit: true, prices: true } } },
+  });
+  const orderRequestsQ = prisma.orderRequest.findMany({
+    where: whereOrderRequest,
+    include: { lines: { select: { code: true, name: true, qty: true, unit: true } } },
+    orderBy: { createdAt: 'desc' },
+    take: filter?.source === 'order_request' ? 1 : 500,
+  });
+  const appointmentsQ = prisma.appointment.findMany({
+    where: whereAppointment,
+    orderBy: { startsAt: 'desc' },
+    take: filter?.source === 'appointment' ? 1 : 500,
+  });
+  const leadsQ = prisma.lead.findMany({
+    where: whereLead,
+    orderBy: { createdAt: 'desc' },
+    take: filter?.source === 'lead' ? 1 : 1000,
+  });
+
+  // Για μονή οντότητα φορτώνουμε μόνο τα related που χρειάζονται.
+  const singleEntity = filter && !['wiki', 'glossary'].includes(filter.source);
+  const [projects, traders, items, classifications, lookups, units, partners, offers, orderRequests, appointments, leads] = await Promise.all([
+    projectsQ, tradersQ, itemsQ, classificationsQ, lookupsQ, unitsQ, partnersQ, offersQ, orderRequestsQ, appointmentsQ, leadsQ,
   ]);
 
-  const traderById = new Map(traders.map((t) => [t.trdr, t]));
-  const traderName = (id: number | null | undefined) => (id != null ? traderById.get(id)?.name ?? `#${id}` : null);
-  const projectById = new Map(projects.map((p) => [p.prjc, p]));
-  const lookupName = new Map(lookups.map((l) => [`${l.kind}:${l.code}`, l.name]));
-  const unitName = (code: string | null) => (code ? lookupName.get(`MTRUNIT:${code}`) ?? code : null);
-  const finBy = new Map(financials.map((f) => [f.prjc, f]));
-  const group = <T, K>(xs: T[], k: (x: T) => K) => {
-    const m = new Map<K, T[]>();
-    for (const x of xs) { const a = m.get(k(x)) ?? []; a.push(x); m.set(k(x), a); }
-    return m;
+  const projectIds = projects.map((p) => p.prjc);
+  const traderIds = traders.map((t) => t.trdr);
+  const itemIds = items.map((i) => i.mtrl);
+
+  const [financials, budget, contacts, stock, partnerProjects] = await Promise.all([
+    singleEntity
+      ? prisma.projectFinancials.findMany({ where: { prjc: { in: projectIds } } })
+      : prisma.projectFinancials.findMany(),
+    singleEntity
+      ? prisma.projectBudgetLine.findMany({ where: { prjc: { in: projectIds } }, select: { prjc: true, code: true, name: true, qty: true, unitPrice: true, unit: true } })
+      : prisma.projectBudgetLine.findMany({ select: { prjc: true, code: true, name: true, qty: true, unitPrice: true, unit: true } }),
+    singleEntity
+      ? prisma.customerContact.findMany({ where: { trdr: { in: traderIds } }, select: { trdr: true, name: true, role: true, phone: true, mobile: true, email: true } })
+      : prisma.customerContact.findMany({ select: { trdr: true, name: true, role: true, phone: true, mobile: true, email: true } }),
+    singleEntity
+      ? prisma.softoneStock.findMany({ where: { mtrl: { in: itemIds } }, select: { mtrl: true, whouse: true, qty: true } })
+      : prisma.softoneStock.findMany({ select: { mtrl: true, whouse: true, qty: true } }),
+    singleEntity && filter.source === 'partner'
+      ? prisma.partnerProject.findMany({ where: { partnerId: filter.id }, select: { partnerId: true, prjc: true, role: true } })
+      : prisma.partnerProject.findMany({ select: { partnerId: true, prjc: true, role: true } }),
+  ]);
+
+  return {
+    projects, financials, budget, traders, contacts, items, stock, lookups, classifications, units,
+    partners, partnerProjects, offers, orderRequests, appointments, leads,
   };
-  const budgetBy = group(budget, (b) => b.prjc);
-  const contactsBy = group(contacts, (c) => c.trdr);
-  const stockBy = group(stock, (s) => s.mtrl);
-  const partnersByPrjc = group(partnerProjects, (p) => p.prjc);
-  const partnerById = new Map(partners.map((p) => [p.id, p]));
-  const projectsByTrader = new Map<number, typeof projects>();
-  for (const p of projects) for (const t of [p.trdr, p.trdrSu]) if (t != null) projectsByTrader.set(t, [...(projectsByTrader.get(t) ?? []), p]);
+}
 
+type KnowledgeContext = Awaited<ReturnType<typeof loadKnowledgeContext>>;
+
+function ctxHelpers(ctx: KnowledgeContext) {
+  const traderById = new Map(ctx.traders.map((t) => [t.trdr, t]));
+  const projectById = new Map(ctx.projects.map((p) => [p.prjc, p]));
+  const lookupName = new Map(ctx.lookups.map((l) => [`${l.kind}:${l.code}`, l.name]));
+  const partnerById = new Map(ctx.partners.map((p) => [p.id, p]));
+  const finBy = new Map(ctx.financials.map((f) => [f.prjc, f]));
+  const budgetBy = group(ctx.budget, (b) => b.prjc);
+  const contactsBy = group(ctx.contacts, (c) => c.trdr);
+  const stockBy = group(ctx.stock, (s) => s.mtrl);
+  const partnersByPrjc = group(ctx.partnerProjects, (p) => p.prjc);
+  const projectsByTrader = new Map<number, typeof ctx.projects>();
+  for (const p of ctx.projects) for (const t of [p.trdr, p.trdrSu]) if (t != null) projectsByTrader.set(t, [...(projectsByTrader.get(t) ?? []), p]);
+
+  const traderName = (id: number | null | undefined) => (id != null ? traderById.get(id)?.name ?? `#${id}` : null);
+  const unitName = (code: string | null) => (code ? lookupName.get(`MTRUNIT:${code}`) ?? code : null);
+  const whName = (w: string) => lookupName.get(`WHOUSE:${w}`) ?? `Αποθήκη ${w}`;
+
+  return {
+    traderById, projectById, lookupName, partnerById, finBy, budgetBy, contactsBy, stockBy, partnersByPrjc, projectsByTrader,
+    traderName, unitName, whName,
+  };
+}
+
+function buildProjectKnowledgeDocs(ctx: KnowledgeContext): KnowledgeDoc[] {
+  const { traderName, projectById, finBy, budgetBy, partnersByPrjc, partnerById } = ctxHelpers(ctx);
   const docs: KnowledgeDoc[] = [];
-
-  // ── Έργα + τα παραστατικά τους (από το αποθηκευμένο στιγμιότυπο κερδοφορίας) ──
-  for (const p of projects) {
+  for (const p of ctx.projects) {
     const f = finBy.get(p.prjc);
     const profit = (f?.data ?? null) as ProjectProfit | null;
     const b = budgetBy.get(p.prjc) ?? [];
@@ -109,39 +191,50 @@ export async function buildKnowledgeDocs(): Promise<KnowledgeDoc[]> {
         f ? `Οικονομικά (εσωτερικά, υπολογισμός ${day(f.computedAt)}): έσοδα ${eur(f.revenue)}, κόστος ${eur(f.costs)}, γενικά έξοδα ${eur(f.overhead)}, καθαρό κέρδος ${eur(f.netProfit)}, περιθώριο ${f.marginPct == null ? '—' : `${f.marginPct.toFixed(1)}%`}, εισπράξεις ${eur(f.collected)}, ανοιχτό υπόλοιπο ${eur(f.openAmount)}, πληρωμές προμηθευτών ${eur(f.paid)}${f.issues ? `, δεδομένα που λείπουν: ${f.issues}` : ''}` : 'Οικονομικά: δεν έχουν υπολογιστεί',
         b.length ? `Προϋπολογισμός (${b.length} γραμμές): ${b.slice(0, 15).map((x) => `${x.code} ${x.name} ${x.qty}${x.unit ? ` ${x.unit}` : ''}`).join('; ')}` : null,
       ),
-      extra: [traderById.get(p.trdr ?? -1)?.code, traderById.get(p.trdr ?? -1)?.afm].filter((x): x is string => !!x),
+      extra: [ctxHelpers(ctx).traderById.get(p.trdr ?? -1)?.code, ctxHelpers(ctx).traderById.get(p.trdr ?? -1)?.afm].filter((x): x is string => !!x),
     });
-    if (profit) {
-      const all = [
-        ...profit.revenue.docs.map((d) => ({ d, role: 'Πώληση' })),
-        ...profit.costs.docs.map((d) => ({ d, role: 'Αγορά/κόστος' })),
-        ...profit.collections.docs.map((d) => ({ d, role: 'Είσπραξη' })),
-        ...profit.payments.docs.map((d) => ({ d, role: 'Πληρωμή' })),
-      ];
-      const seen = new Set<number>();
-      for (const { d, role } of all) {
-        if (seen.has(d.findoc)) continue;
-        seen.add(d.findoc);
-        docs.push({
-          source: 'document',
-          refKey: `document:${d.findoc}`,
-          title: `Παραστατικό ${d.fincode}${d.seriesName ? ` (${d.seriesName})` : ''}`,
-          url: `/admin/projects/${p.prjc}`,
-          meta: { findoc: d.findoc, prjc: p.prjc, fincode: d.fincode },
-          body: lines(
-            line('Αριθμός', d.fincode), line('Ημερομηνία', day(d.date)), line('Τύπος', `${role} · ${d.seriesName ?? d.series}`),
-            line('Συναλλασσόμενος', d.traderName), line('Έργο', `${p.code} · ${p.name}`),
-            line('Καθαρή αξία (για το έργο)', eur(d.net)), line('Μικτή αξία', eur(d.gross)),
-            d.partial ? 'Μόνο μέρος του παραστατικού αφορά το έργο.' : null,
-            line('ΜΑΡΚ myDATA', d.mark),
-          ),
-        });
-      }
-    }
+    if (profit) docs.push(...buildDocumentDocsFromProfit(p, profit));
   }
+  return docs;
+}
 
-  // ── Συναλλασσόμενοι ──
-  for (const t of traders) {
+function buildDocumentDocsFromProfit(
+  project: KnowledgeContext['projects'][number],
+  profit: ProjectProfit,
+): KnowledgeDoc[] {
+  const docs: KnowledgeDoc[] = [];
+  const all = [
+    ...profit.revenue.docs.map((d) => ({ d, role: 'Πώληση' })),
+    ...profit.costs.docs.map((d) => ({ d, role: 'Αγορά/κόστος' })),
+    ...profit.collections.docs.map((d) => ({ d, role: 'Είσπραξη' })),
+    ...profit.payments.docs.map((d) => ({ d, role: 'Πληρωμή' })),
+  ];
+  const seen = new Set<number>();
+  for (const { d, role } of all) {
+    if (seen.has(d.findoc)) continue;
+    seen.add(d.findoc);
+    docs.push({
+      source: 'document',
+      refKey: `document:${d.findoc}`,
+      title: `Παραστατικό ${d.fincode}${d.seriesName ? ` (${d.seriesName})` : ''}`,
+      url: `/admin/projects/${project.prjc}`,
+      meta: { findoc: d.findoc, prjc: project.prjc, fincode: d.fincode },
+      body: lines(
+        line('Αριθμός', d.fincode), line('Ημερομηνία', day(d.date)), line('Τύπος', `${role} · ${d.seriesName ?? d.series}`),
+        line('Συναλλασσόμενος', d.traderName), line('Έργο', `${project.code} · ${project.name}`),
+        line('Καθαρή αξία (για το έργο)', eur(d.net)), line('Μικτή αξία', eur(d.gross)),
+        d.partial ? 'Μόνο μέρος του παραστατικού αφορά το έργο.' : null,
+        line('ΜΑΡΚ myDATA', d.mark),
+      ),
+    });
+  }
+  return docs;
+}
+
+function buildTraderKnowledgeDocs(ctx: KnowledgeContext): KnowledgeDoc[] {
+  const { traderById, contactsBy, projectsByTrader } = ctxHelpers(ctx);
+  const docs: KnowledgeDoc[] = [];
+  for (const t of ctx.traders) {
     const cs = contactsBy.get(t.trdr) ?? [];
     const ps = projectsByTrader.get(t.trdr) ?? [];
     const kind = SODTYPE_LABEL[t.sodtype] ?? t.kind;
@@ -161,10 +254,13 @@ export async function buildKnowledgeDocs(): Promise<KnowledgeDoc[]> {
       ),
     });
   }
+  return docs;
+}
 
-  // ── Είδη & υπηρεσίες ──
-  const whName = (w: string) => lookupName.get(`WHOUSE:${w}`) ?? `Αποθήκη ${w}`;
-  for (const i of items) {
+function buildItemKnowledgeDocs(ctx: KnowledgeContext): KnowledgeDoc[] {
+  const { unitName, whName, stockBy } = ctxHelpers(ctx);
+  const docs: KnowledgeDoc[] = [];
+  for (const i of ctx.items) {
     const st = stockBy.get(i.mtrl) ?? [];
     const total = st.reduce((s, x) => s + x.qty, 0);
     docs.push({
@@ -185,25 +281,44 @@ export async function buildKnowledgeDocs(): Promise<KnowledgeDoc[]> {
       ),
     });
   }
+  return docs;
+}
 
-  // ── Μητρώα (μονάδες, κατηγορίες, ομάδες, ΦΠΑ, αποθήκες …) ──
-  for (const l of lookups) {
-    docs.push({ source: 'lookup', refKey: `lookup:${l.kind}:${l.code}`, title: `${l.kind} ${l.code} · ${l.name}`, url: '/admin/reference-data', body: `Μητρώο SoftOne ${l.kind}: κωδικός ${l.code}, περιγραφή «${l.name}».` });
-  }
-  for (const c of classifications) {
-    docs.push({
-      source: 'classification', refKey: `classification:${c.kind}:${c.sodtype}:${c.code}`,
-      title: `${c.kind === 'CATEGORY' ? 'Κατηγορία' : 'Ομάδα'} ${c.sodtype === 52 ? 'υπηρεσιών' : 'ειδών'} · ${c.name}`,
-      url: '/admin/classifications', body: lines(line('Κωδικός', c.code), line('Σύντμηση', c.shortCode), line('Όνομα', c.name), line('Ενεργή', c.isActive ? 'ναι' : 'όχι')),
-    });
-  }
-  for (const u of units) {
-    docs.push({ source: 'unit', refKey: `unit:${u.code}`, title: `Μονάδα μέτρησης ${u.shortcut} · ${u.name}`, url: '/admin/units', body: lines(line('Κωδικός', u.code), line('Σύντμηση', u.shortcut), line('Διεθνής', u.interCode), line('Ενεργή', u.isActive ? 'ναι' : 'όχι')) });
-  }
+function buildLookupKnowledgeDocs(ctx: KnowledgeContext): KnowledgeDoc[] {
+  return ctx.lookups.map((l) => ({
+    source: 'lookup',
+    refKey: `lookup:${l.kind}:${l.code}`,
+    title: `${l.kind} ${l.code} · ${l.name}`,
+    url: '/admin/reference-data',
+    body: `Μητρώο SoftOne ${l.kind}: κωδικός ${l.code}, περιγραφή «${l.name}».`,
+  }));
+}
 
-  // ── Συνεργάτες ──
-  const prjcOfPartner = group(partnerProjects, (p) => p.partnerId);
-  for (const p of partners) {
+function buildClassificationKnowledgeDocs(ctx: KnowledgeContext): KnowledgeDoc[] {
+  return ctx.classifications.map((c) => ({
+    source: 'classification',
+    refKey: `classification:${c.kind}:${c.sodtype}:${c.code}`,
+    title: `${c.kind === 'CATEGORY' ? 'Κατηγορία' : 'Ομάδα'} ${c.sodtype === 52 ? 'υπηρεσιών' : 'ειδών'} · ${c.name}`,
+    url: '/admin/classifications',
+    body: lines(line('Κωδικός', c.code), line('Σύντμηση', c.shortCode), line('Όνομα', c.name), line('Ενεργή', c.isActive ? 'ναι' : 'όχι')),
+  }));
+}
+
+function buildUnitKnowledgeDocs(ctx: KnowledgeContext): KnowledgeDoc[] {
+  return ctx.units.map((u) => ({
+    source: 'unit',
+    refKey: `unit:${u.code}`,
+    title: `Μονάδα μέτρησης ${u.shortcut} · ${u.name}`,
+    url: '/admin/units',
+    body: lines(line('Κωδικός', u.code), line('Σύντμηση', u.shortcut), line('Διεθνής', u.interCode), line('Ενεργή', u.isActive ? 'ναι' : 'όχι')),
+  }));
+}
+
+function buildPartnerKnowledgeDocs(ctx: KnowledgeContext): KnowledgeDoc[] {
+  const { projectById } = ctxHelpers(ctx);
+  const prjcOfPartner = group(ctx.partnerProjects, (p) => p.partnerId);
+  const docs: KnowledgeDoc[] = [];
+  for (const p of ctx.partners) {
     const prs = (prjcOfPartner.get(p.id) ?? []).map((x) => projectById.get(x.prjc)).filter(Boolean);
     docs.push({
       source: 'partner', refKey: `partner:${p.id}`, title: `Συνεργάτης · ${p.name}${p.specialty ? ` (${p.specialty})` : ''}`, url: '/admin/partners',
@@ -216,23 +331,25 @@ export async function buildKnowledgeDocs(): Promise<KnowledgeDoc[]> {
       ),
     });
   }
+  return docs;
+}
 
-  // ── Δυναμικές προσφορές container ──
-  for (const o of offers) {
-    docs.push({
-      source: 'offer', refKey: `offer:${o.id}`, title: `Δυναμική προσφορά · ${o.title ?? o.id}`, url: '/admin/dynamic-offers',
-      body: lines(
-        line('Κατάσταση', o.status), line('Χωρητικότητα', `${o.capacityPallets} παλέτες`), line('Λήξη συμμετοχής', day(o.closesAt)),
-        line('Σημειώσεις', o.notes),
-        o.items.length ? `Είδη: ${o.items.map((i) => `${i.code} ${i.name} (τιμές ${i.prices.map((x) => eur(x)).join(' → ')}${i.baseUnit ? `/${i.baseUnit}` : ''})`).join('; ')}` : null,
-      ),
-    });
-  }
+function buildOfferKnowledgeDocs(ctx: KnowledgeContext): KnowledgeDoc[] {
+  return ctx.offers.map((o) => ({
+    source: 'offer', refKey: `offer:${o.id}`, title: `Δυναμική προσφορά · ${o.title ?? o.id}`, url: '/admin/dynamic-offers',
+    body: lines(
+      line('Κατάσταση', o.status), line('Χωρητικότητα', `${o.capacityPallets} παλέτες`), line('Λήξη συμμετοχής', day(o.closesAt)),
+      line('Σημειώσεις', o.notes),
+      o.items.length ? `Είδη: ${o.items.map((i) => `${i.code} ${i.name} (τιμές ${i.prices.map((x) => eur(x)).join(' → ')}${i.baseUnit ? `/${i.baseUnit}` : ''})`).join('; ')}` : null,
+    ),
+  }));
+}
 
-  // ── Αιτήματα παραγγελίας (portal) ──
-  for (const r of orderRequests) {
+function buildOrderRequestKnowledgeDocs(ctx: KnowledgeContext): KnowledgeDoc[] {
+  const { traderName, projectById } = ctxHelpers(ctx);
+  return ctx.orderRequests.map((r) => {
     const num = `ΑΠ-${String(r.number).padStart(6, '0')}`;
-    docs.push({
+    return {
       source: 'order_request', refKey: `order_request:${r.id}`, title: `Αίτημα παραγγελίας ${num} · ${traderName(r.trdr)}`, url: '/admin/order-requests',
       body: lines(
         line('Αριθμός', num), line('Πελάτης', traderName(r.trdr)), line('Έργο', r.prjc ? (projectById.get(r.prjc)?.code ?? r.prjc) : null),
@@ -240,37 +357,33 @@ export async function buildKnowledgeDocs(): Promise<KnowledgeDoc[]> {
         line('Σημειώσεις', r.notes),
         r.lines.length ? `Γραμμές: ${r.lines.map((l) => `${l.code ?? ''} ${l.name} × ${l.qty}${l.unit ? ` ${l.unit}` : ''}`).join('; ')}` : null,
       ),
-    });
-  }
+    };
+  });
+}
 
-  // ── Ραντεβού & leads ──
-  for (const a of appointments) {
+function buildAppointmentKnowledgeDocs(ctx: KnowledgeContext): KnowledgeDoc[] {
+  const { traderName } = ctxHelpers(ctx);
+  return ctx.appointments.map((a) => {
     const num = `ΡΝΤ-${String(a.number).padStart(6, '0')}`;
-    docs.push({
+    return {
       source: 'appointment', refKey: `appointment:${a.id}`, title: `Ραντεβού ${num} · ${a.name} · ${day(a.startsAt)}`, url: '/admin/appointments',
       body: lines(
         line('Αριθμός', num), line('Πότε', a.startsAt.toISOString().slice(0, 16).replace('T', ' ') + ' UTC'), line('Κατάσταση', a.status),
         line('Επισκέπτης', a.name), line('Εταιρεία', a.company ?? traderName(a.trdr)), line('Email', a.email), line('Τηλέφωνο', a.phone),
         line('Θέμα', a.topic), line('Μήνυμα', a.message?.slice(0, 400)),
       ),
-    });
-  }
-  for (const l of leads) {
-    docs.push({
-      source: 'lead', refKey: `lead:${l.id}`, title: `Lead · ${l.name ?? l.email}`, url: '/admin/leads',
-      body: lines(line('Όνομα', l.name), line('Εταιρεία', l.company), line('Email', l.email), line('Τηλέφωνο', l.phone), line('Επάγγελμα', l.profession), line('Πηγές', l.sources.join(', ')), line('SoftOne', l.softoneCode ?? l.softoneStatus), line('Ημερομηνία', day(l.createdAt))),
-    });
-  }
-
-  // ── Wiki & γλωσσάρι ──
-  docs.push(...(await wikiDocs()));
-  for (const g of GLOSSARY) docs.push({ source: 'glossary', refKey: `glossary:${g.key}`, title: g.title, body: g.body });
-
-  return docs;
+    };
+  });
 }
 
-/** Σελίδες wiki (docs/wiki/**.mdx) — ένα κομμάτι ανά ενότητα «## …». */
-async function wikiDocs(): Promise<KnowledgeDoc[]> {
+function buildLeadKnowledgeDocs(ctx: KnowledgeContext): KnowledgeDoc[] {
+  return ctx.leads.map((l) => ({
+    source: 'lead', refKey: `lead:${l.id}`, title: `Lead · ${l.name ?? l.email}`, url: '/admin/leads',
+    body: lines(line('Όνομα', l.name), line('Εταιρεία', l.company), line('Email', l.email), line('Τηλέφωνο', l.phone), line('Επάγγελμα', l.profession), line('Πηγές', l.sources.join(', ')), line('SoftOne', l.softoneCode ?? l.softoneStatus), line('Ημερομηνία', day(l.createdAt))),
+  }));
+}
+
+async function buildWikiKnowledgeDocs(): Promise<KnowledgeDoc[]> {
   const root = path.join(process.cwd(), 'docs', 'wiki');
   const out: KnowledgeDoc[] = [];
   const walk = async (dir: string): Promise<string[]> => {
@@ -298,6 +411,137 @@ async function wikiDocs(): Promise<KnowledgeDoc[]> {
     });
   }
   return out;
+}
+
+function buildGlossaryKnowledgeDocs(): KnowledgeDoc[] {
+  return GLOSSARY.map((g) => ({ source: 'glossary', refKey: `glossary:${g.key}`, title: g.title, body: g.body }));
+}
+
+/** Όλα τα κομμάτια γνώσης από τη βάση της εφαρμογής, το wiki και το γλωσσάρι. */
+export async function buildKnowledgeDocs(): Promise<KnowledgeDoc[]> {
+  const ctx = await loadKnowledgeContext();
+  return [
+    ...buildProjectKnowledgeDocs(ctx),
+    ...buildTraderKnowledgeDocs(ctx),
+    ...buildItemKnowledgeDocs(ctx),
+    ...buildLookupKnowledgeDocs(ctx),
+    ...buildClassificationKnowledgeDocs(ctx),
+    ...buildUnitKnowledgeDocs(ctx),
+    ...buildPartnerKnowledgeDocs(ctx),
+    ...buildOfferKnowledgeDocs(ctx),
+    ...buildOrderRequestKnowledgeDocs(ctx),
+    ...buildAppointmentKnowledgeDocs(ctx),
+    ...buildLeadKnowledgeDocs(ctx),
+    ...(await buildWikiKnowledgeDocs()),
+    ...buildGlossaryKnowledgeDocs(),
+  ];
+}
+
+/** Φτιάχνει/ενημερώνει ένα μόνο AssistantChunk από τη refKey του.
+ *  Χρησιμοποιείται μετά από save οντότητας για real-time RAG update. */
+export async function syncAssistantChunk(refKey: string, userId?: string | null): Promise<boolean> {
+  const filter = parseRefKey(refKey);
+  if (!filter) return false;
+
+  let docs: KnowledgeDoc[] = [];
+  if (filter.source === 'wiki') {
+    const all = await buildWikiKnowledgeDocs();
+    docs = all.filter((d) => d.refKey === refKey);
+  } else if (filter.source === 'glossary') {
+    docs = buildGlossaryKnowledgeDocs().filter((d) => d.refKey === refKey);
+  } else {
+    const ctx = await loadKnowledgeContext(filter);
+    switch (filter.source) {
+      case 'project': docs = buildProjectKnowledgeDocs(ctx); break;
+      case 'document': docs = buildProjectKnowledgeDocs(ctx).filter((d) => d.source === 'document' && d.refKey === refKey); break;
+      case 'trader': docs = buildTraderKnowledgeDocs(ctx); break;
+      case 'item':
+      case 'service': docs = buildItemKnowledgeDocs(ctx); break;
+      case 'lookup': docs = buildLookupKnowledgeDocs(ctx); break;
+      case 'classification': docs = buildClassificationKnowledgeDocs(ctx); break;
+      case 'unit': docs = buildUnitKnowledgeDocs(ctx); break;
+      case 'partner': docs = buildPartnerKnowledgeDocs(ctx); break;
+      case 'offer': docs = buildOfferKnowledgeDocs(ctx); break;
+      case 'order_request': docs = buildOrderRequestKnowledgeDocs(ctx); break;
+      case 'appointment': docs = buildAppointmentKnowledgeDocs(ctx); break;
+      case 'lead': docs = buildLeadKnowledgeDocs(ctx); break;
+    }
+  }
+
+  const doc = docs.find((d) => d.refKey === refKey);
+  if (!doc) {
+    // Η οντότητα δεν υπάρχει πλέον → σβήνουμε το chunk.
+    await prisma.assistantChunk.deleteMany({ where: { refKey } });
+    return false;
+  }
+
+  const h = hashOf(doc);
+  const row = {
+    refKey: doc.refKey,
+    source: doc.source,
+    title: doc.title,
+    body: doc.body,
+    url: doc.url ?? null,
+    meta: (doc.meta ?? undefined) as never,
+    searchText: searchTextOf(doc.title, doc.body, ...(doc.extra ?? [])),
+    contentHash: h,
+  };
+
+  await prisma.assistantChunk.upsert({
+    where: { refKey },
+    create: row,
+    update: row,
+  });
+  await prisma.$executeRaw`UPDATE "AssistantChunk" SET "embedding" = NULL WHERE "refKey" = ${refKey}`;
+
+  // Ξαναϋπολογίζουμε το embedding ασύγχρονα (δεν μπλοκάρουμε το save).
+  void embedMissingChunks(userId).catch((e) => console.error('assistant embed failed', e));
+  return true;
+}
+
+function parseRefKey(refKey: string): EntityFilter | null {
+  const [source, ...rest] = refKey.split(':');
+  switch (source) {
+    case 'project': {
+      const prjc = Number(rest[0]);
+      return Number.isFinite(prjc) ? { source: 'project', prjc } : null;
+    }
+    case 'document': {
+      const findoc = Number(rest[0]);
+      return Number.isFinite(findoc) ? { source: 'document', findoc } : null;
+    }
+    case 'trader': {
+      const trdr = Number(rest[0]);
+      return Number.isFinite(trdr) ? { source: 'trader', trdr } : null;
+    }
+    case 'item':
+    case 'service': {
+      const mtrl = Number(rest[0]);
+      return Number.isFinite(mtrl) ? { source, mtrl } : null;
+    }
+    case 'lookup':
+      return rest.length >= 2 ? { source: 'lookup', kind: rest[0], code: rest.slice(1).join(':') } : null;
+    case 'classification':
+      return rest.length >= 3 ? { source: 'classification', kind: rest[0], sodtype: Number(rest[1]), code: rest.slice(2).join(':') } : null;
+    case 'unit':
+      return rest.length >= 1 ? { source: 'unit', code: rest.join(':') } : null;
+    case 'partner':
+      return rest.length >= 1 ? { source: 'partner', id: rest.join(':') } : null;
+    case 'offer':
+      return rest.length >= 1 ? { source: 'offer', id: rest.join(':') } : null;
+    case 'order_request':
+      return rest.length >= 1 ? { source: 'order_request', id: rest.join(':') } : null;
+    case 'appointment':
+      return rest.length >= 1 ? { source: 'appointment', id: rest.join(':') } : null;
+    case 'lead':
+      return rest.length >= 1 ? { source: 'lead', id: rest.join(':') } : null;
+    case 'wiki':
+      return { source: 'wiki', refKey };
+    case 'glossary':
+      return { source: 'glossary', refKey };
+    default:
+      return null;
+  }
 }
 
 const hashOf = (d: KnowledgeDoc) => createHash('sha1').update(`${d.title}\n${d.body}\n${d.url ?? ''}\n${(d.extra ?? []).join(' ')}`).digest('hex');
@@ -334,9 +578,12 @@ async function doReindex(opts: { userId?: string | null }): Promise<IndexRun> {
   for (let i = 0; i < fresh.length; i += 500) {
     await prisma.assistantChunk.createMany({ data: fresh.slice(i, i + 500), skipDuplicates: true });
   }
-  // Αλλαγμένο περιεχόμενο ⇒ το παλιό embedding δεν ισχύει: μηδενίζεται και ξαναϋπολογίζεται.
-  for (let i = 0; i < changedRows.length; i += 50) {
-    await prisma.$transaction(changedRows.slice(i, i + 50).map(({ refKey, ...data }) => prisma.assistantChunk.update({ where: { refKey }, data })));
+  for (let i = 0; i < changedRows.length; i += 25) {
+    const batch = changedRows.slice(i, i + 25);
+    await prisma.$transaction(
+      batch.map(({ refKey, ...data }) => prisma.assistantChunk.update({ where: { refKey }, data })),
+      { timeout: 60_000 },
+    );
   }
   if (changedRows.length) {
     await prisma.$executeRaw`UPDATE "AssistantChunk" SET "embedding" = NULL WHERE "refKey" = ANY(${changedRows.map((r) => r.refKey)})`;

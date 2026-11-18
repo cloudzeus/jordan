@@ -2,6 +2,7 @@ import 'server-only';
 import { z } from 'zod';
 import { prisma } from '@/lib/db';
 import { editSoftoneItem } from '@/lib/softone-sync/item-edit';
+import { syncAssistantChunk } from '@/lib/assistant/indexer';
 import {
   checkLevels, checkPrices, checkReservation, fillState, isStep, itemTiers, MAX_TIERS, nextTier, offerState, PALLET_STEP,
   roundStep, sortTiers, tierAt, type Level, type Tier,
@@ -175,7 +176,7 @@ const tierRows = (input: OfferInput) => input.tiers.map(({ level, fromPallets })
 export async function createOffer(input: OfferInput, userId: string | null) {
   validate(input);
   const snaps = await itemSnapshots(input.items.map((i) => i.mtrl));
-  return prisma.containerOffer.create({
+  const offer = await prisma.containerOffer.create({
     data: {
       title: input.title, capacityPallets: input.capacityPallets, minOrder: input.minOrder, closesAt: input.closesAt, notes: input.notes, createdById: userId,
       items: { create: input.items.map((it, order) => ({ mtrl: it.mtrl, ...snaps.get(it.mtrl)!, sqmPerPallet: it.sqmPerPallet, prices: it.prices, order })) },
@@ -183,6 +184,8 @@ export async function createOffer(input: OfferInput, userId: string | null) {
     },
     select: { id: true, status: true },
   });
+  void syncAssistantChunk(`offer:${offer.id}`, userId).catch(() => null);
+  return offer;
 }
 
 /**
