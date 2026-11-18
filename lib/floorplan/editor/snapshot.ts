@@ -1,12 +1,14 @@
 import { labelPoint, pointInPolygon, polygonArea, polygonPerimeter } from '../core';
 import { mPerPxOf, type PlanData, type PlanDataV2, type SavedRoom } from '../saved';
+import { DEFAULT_HEIGHT } from '../walls';
 import { roomsFromWalls } from './rooms';
 
-const sameEdge = (a: { x: number; y: number }, b: { x: number; y: number }, c: { x: number; y: number }, d: { x: number; y: number }, tol: number): boolean => {
-  const m1 = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
-  const m2 = { x: (c.x + d.x) / 2, y: (c.y + d.y) / 2 };
-  return Math.hypot(m1.x - m2.x, m1.y - m2.y) <= tol;
-};
+function pointNearSegment(p: { x: number; y: number }, a: { x: number; y: number }, b: { x: number; y: number }, tol: number): boolean {
+  const dx = b.x - a.x, dy = b.y - a.y, L2 = dx * dx + dy * dy || 1;
+  const t = Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / L2));
+  const q = { x: a.x + t * dx, y: a.y + t * dy };
+  return Math.hypot(p.x - q.x, p.y - q.y) <= tol;
+}
 
 /** Μετατρέπει τα v2 openings (παραμετρικά πάνω σε wall) σε v1 openings (at + room) για 3D/επιμέτρηση. */
 function v2OpeningsToV1(
@@ -15,7 +17,9 @@ function v2OpeningsToV1(
   if (!openings.length) return rooms;
   const byWall = new Map(walls.map((w) => [w.id, w]));
   const px = (m: number) => m / mpp;
-  const out = rooms.map((r) => (r.walls ? { ...r, walls: { ...r.walls, openings: [...r.walls.openings] } } : r));
+  const out = rooms.map((r) => (r.walls
+    ? { ...r, walls: { ...r.walls, openings: [...r.walls.openings] } }
+    : { ...r, walls: { on: false, heightM: DEFAULT_HEIGHT, openings: [] } }));
   for (const o of openings) {
     const wall = byWall.get(o.wallId);
     if (!wall) continue;
@@ -23,14 +27,15 @@ function v2OpeningsToV1(
     const b = { x: px(wall.a.x + o.t1 * (wall.b.x - wall.a.x)), y: px(wall.a.y + o.t1 * (wall.b.y - wall.a.y)) };
     const lenM = Math.hypot(b.x - a.x, b.y - a.y) * mpp;
     const sill = o.sillM ?? 0;
+    const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
     for (const r of out) {
-      if (!r.walls) continue;
       const poly = r.polygon;
       for (let i = 0; i < poly.length; i++) {
         const p1 = poly[i], p2 = poly[(i + 1) % poly.length];
-        if (!sameEdge(a, b, p1, p2, Math.max(3, 0.05 / mpp))) continue;
+        if (!pointNearSegment(mid, p1, p2, Math.max(3, 0.05 / mpp))) continue;
         // μην προσθέσεις duplicate (ίδιο id) σε διπλανό χώρο
         if (r.walls.openings.some((x) => x.id === o.id)) continue;
+        if (!r.walls.on) r.walls.on = true;
         r.walls.openings.push({ id: o.id, kind: o.kind, w: lenM, h: o.heightM, sill, count: 1, at: [a, b] });
       }
     }

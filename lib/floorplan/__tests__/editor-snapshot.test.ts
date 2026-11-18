@@ -24,4 +24,20 @@ describe('saved vector editor measurements', () => {
     expect(editorSnapshot(draft, editor, [])).toEqual(draft);
     expect(roomSheet(draft).floorM2).toBe(0);
   });
+  it('maps v2 openings to v1 rooms even when the opening is not centered on the wall', () => {
+    const editorWithOpening = planDataV2.parse({
+      ...editor,
+      openings: [{
+        id: 'o1', wallId: 'w0', kind: 'door', t0: 0.1, t1: 0.4,
+        modelId: null, sillM: 0, heightM: 2.1, swing: null,
+      }],
+    });
+    const saved = editorSnapshot(base, editorWithOpening, [{ id: 'wall-type', thicknessM: 0.2 }]);
+    expect(saved.rooms).toHaveLength(1);
+    expect(saved.rooms[0].walls?.openings).toHaveLength(1);
+    const o = saved.rooms[0].walls!.openings[0];
+    expect(o.kind).toBe('door');
+    expect(o.at).toBeDefined();
+    expect(o.at!.length).toBe(2);
+  });
 });
