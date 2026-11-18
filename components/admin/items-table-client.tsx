@@ -3,7 +3,8 @@
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { type ColumnDef } from '@tanstack/react-table';
-import { FiRefreshCw, FiEdit2, FiSlash, FiHash, FiAlertTriangle, FiMoreVertical, FiEdit3, FiCopy, FiTool } from 'react-icons/fi';
+import { FiRefreshCw, FiEdit2, FiSlash, FiHash, FiAlertTriangle, FiMoreVertical, FiEdit3, FiCopy, FiTool, FiGlobe } from 'react-icons/fi';
+import { ItemWebResearchDialog } from '@/components/admin/item-web-research-dialog';
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
@@ -78,6 +79,7 @@ function ItemActions({ row, onDone }: { row: ItemRecord; onDone: () => void }) {
   const [mode, setMode] = React.useState<'code' | 'deactivate' | null>(null);
   const [editing, setEditing] = React.useState(false);
   const [guide, setGuide] = React.useState(false);
+  const [research, setResearch] = React.useState(false);
   const [code, setCode] = React.useState('');
   const [busy, setBusy] = React.useState(false);
 
@@ -124,6 +126,9 @@ function ItemActions({ row, onDone }: { row: ItemRecord; onDone: () => void }) {
           <DropdownMenuItem className="cursor-pointer gap-2 text-(length:--fs-12)" onSelect={() => setEditing(true)}>
             <FiEdit3 className="size-3.5" aria-hidden /> Επεξεργασία στοιχείων
           </DropdownMenuItem>
+          {!row.isService && <DropdownMenuItem className="cursor-pointer gap-2 text-(length:--fs-12)" onSelect={() => setResearch(true)}>
+            <FiGlobe className="size-3.5" aria-hidden /> Χαρακτηριστικά & φωτογραφίες web
+          </DropdownMenuItem>}
           <DropdownMenuItem className="cursor-pointer gap-2 text-(length:--fs-12)" onSelect={() => setGuide(true)}>
             <FiTool className="size-3.5 text-amber-700 dark:text-amber-400" aria-hidden /> Οδηγίες εγκατάστασης
           </DropdownMenuItem>
@@ -147,6 +152,7 @@ function ItemActions({ row, onDone }: { row: ItemRecord; onDone: () => void }) {
         </DropdownMenuContent>
       </DropdownMenu>
       <ItemEditDialog mtrl={editing ? row.mtrl : null} open={editing} onOpenChange={setEditing} onSaved={onDone} />
+      {research && <ItemWebResearchDialog row={row} onClose={() => setResearch(false)} onSaved={onDone} />}
       {guide && <InstallGuideDialog mtrl={row.mtrl} open={guide} onOpenChange={setGuide} canManage />}
       <Dialog open={mode !== null} onOpenChange={(o) => { if (!o && !busy) setMode(null); }}>
         <DialogContent className="w-[95vw] gap-0 overflow-hidden p-0 sm:max-w-md">
