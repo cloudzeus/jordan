@@ -340,6 +340,10 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
   const [offering, setOffering] = React.useState(false);
   const [offerOpen, setOfferOpen] = React.useState(false);
   const [createdOffer, setCreatedOffer] = React.useState<string | null>(null);
+  /** Dialog επιβεβαίωσης όταν κλείνει ένα πολύγωνο: όνομα, χρώμα και εμβαδόν. */
+  const [polygonDialog, setPolygonDialog] = React.useState<{
+    open: boolean; polygon: Pt[]; areaPx: number; perimeterPx: number; manual: boolean; name: string; color: string;
+  }>({ open: false, polygon: [], areaPx: 0, perimeterPx: 0, manual: true, name: '', color: '' });
   // Αποθηκευμένη χαρτογράφηση: id (μετά την πρώτη αποθήκευση), τίτλος, και για ποιο σχέδιο ανέβηκε η εικόνα.
   const [savedId, setSavedId] = React.useState<string | null>(null);
   const [planTitle, setPlanTitle] = React.useState('');
@@ -558,9 +562,14 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
 
   // ── Ενέργειες ────────────────────────────────────────────────────────────────────────
   const seq = React.useRef(0);
-  const addRoom = (polygon: Pt[], areaPx: number, perimeterPx: number, manual: boolean) => {
+  const addRoom = (polygon: Pt[], areaPx: number, perimeterPx: number, manual: boolean, name?: string, color?: string) => {
     const n = ++seq.current;
-    const r: Room = { id: uid(), name: `Χώρος ${n}`, color: PALETTE[(n - 1) % PALETTE.length], polygon, areaPx, perimeterPx, manual, material: null };
+    const r: Room = {
+      id: uid(),
+      name: name ?? `Χώρος ${n}`,
+      color: color ?? PALETTE[(n - 1) % PALETTE.length],
+      polygon, areaPx, perimeterPx, manual, material: null,
+    };
     setRooms((rs) => [...rs, r]);
     setSelected(r.id);
   };
@@ -660,6 +669,10 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
 
   const finishPolygon = () => {
     if (tool !== 'polygon' || draft.length < 3) return;
+    let polygon = draft;
+    let areaPx = polygonArea(draft);
+    let perimeterPx = polygonPerimeter(draft);
+    let manual = true;
     if (polyWalls) {
       // Το περίγραμμα γίνεται τοίχος· ο χώρος μετριέται μέσα του όπως με το «χώρος με κλικ».
       const edges: DrawnWall[] = draft.map((a, i) => ({ a, b: draft[(i + 1) % draft.length], t: wallPx, typeId: null }));
@@ -667,10 +680,20 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
       const b = blocked ? blocked.slice() : new Uint8Array(w * h);
       for (const e of edges) burnLine(b, w, h, e.a, e.b, Math.max(1, Math.round(e.t / 2)));
       const res = measureRoom(b, w, h, labelPoint(draft), [0]);
-      if (res.ok) addRoom(res.polygon, res.areaPx, res.perimeterPx, true);
-      else addRoom(draft, polygonArea(draft), polygonPerimeter(draft), true);
-    } else addRoom(draft, polygonArea(draft), polygonPerimeter(draft), true);
+      if (res.ok) { polygon = res.polygon; areaPx = res.areaPx; perimeterPx = res.perimeterPx; }
+    }
+    const n = seq.current + 1;
+    setPolygonDialog({
+      open: true, polygon, areaPx, perimeterPx, manual,
+      name: `Χώρος ${n}`,
+      color: PALETTE[(n - 1) % PALETTE.length],
+    });
     setDraft([]);
+  };
+  const confirmPolygonDialog = () => {
+    const { polygon, areaPx, perimeterPx, manual, name, color } = polygonDialog;
+    addRoom(polygon, areaPx, perimeterPx, manual, name, color);
+    setPolygonDialog((d) => ({ ...d, open: false }));
   };
 
   const onPick = (p: Pt) => {
@@ -2283,6 +2306,55 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
             </div>
           </div>
         )}
+
+        {/* Dialog επιβεβαίωσης νέου χώρου από πολύγωνο */}
+        <Dialog open={polygonDialog.open} onOpenChange={(open) => { if (!open) setPolygonDialog((d) => ({ ...d, open: false })); }}>
+          <DialogContent className="sm:max-w-sm">
+            <DialogTitle>Νέος χώρος</DialogTitle>
+            <DialogDescription>Όνομα και χρώμα για το πολύγωνο που έκλεισες.</DialogDescription>
+            <div className="space-y-3 py-2">
+              <div className="flex items-center gap-3">
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <button
+                      type="button" aria-label="Αλλαγή χρώματος"
+                      className="size-8 shrink-0 rounded-md border border-border shadow-sm"
+                      style={{ background: polygonDialog.color }}
+                    />
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-2">
+                    <div className="grid grid-cols-5 gap-1">
+                      {PALETTE.map((c) => (
+                        <button
+                          key={c} type="button" aria-label={`Χρώμα ${c}`}
+                          className="size-6 rounded-sm border border-border"
+                          style={{ background: c }}
+                          onClick={() => setPolygonDialog((d) => ({ ...d, color: c }))}
+                        />
+                      ))}
+                    </div>
+                  </PopoverContent>
+                </Popover>
+                <Input
+                  value={polygonDialog.name}
+                  placeholder="Όνομα χώρου"
+                  onChange={(e) => setPolygonDialog((d) => ({ ...d, name: e.target.value }))}
+                  onKeyDown={(e) => { if (e.key === 'Enter') confirmPolygonDialog(); }}
+                />
+              </div>
+              <p className="text-(length:--fs-13) text-muted-foreground">
+                Εμβαδόν:{' '}
+                <span className="font-mono font-semibold text-foreground">
+                  {mPerPx ? fmtM2(toM2(polygonDialog.areaPx, mPerPx)) : `${Math.round(polygonDialog.areaPx)} px²`}
+                </span>
+              </p>
+              <div className="flex justify-end gap-2 pt-1">
+                <Button size="sm" variant="secondary" onClick={() => setPolygonDialog((d) => ({ ...d, open: false }))}>Ακύρωση</Button>
+                <Button size="sm" onClick={confirmPolygonDialog}>Προσθήκη</Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       </DialogContent>
     </Dialog>
     </TooltipProvider>
