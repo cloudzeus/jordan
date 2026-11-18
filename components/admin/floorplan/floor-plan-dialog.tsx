@@ -764,6 +764,9 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
           wallId: best.wall.id, t0: best.params.t0, t1: best.params.t1, kind: openingKind,
           sillM: openingKind === 'door' ? 0 : openingSill, heightM: openingH,
         });
+        // Συγχρονισμός v1 rooms για 3D/επιμέτρηση.
+        const snapshot = editorSnapshot(planDataNow(), st.data, wallTypes.map((t) => ({ id: t.id, thicknessM: t.thicknessM })));
+        setRooms(snapshot.rooms);
         toast.success(`${OPENING_PRESETS[openingKind].label} ${nf.format(best.params.lengthM)} m.`);
         return;
       }

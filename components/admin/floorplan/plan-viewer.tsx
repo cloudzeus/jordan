@@ -720,7 +720,7 @@ export function PlanViewer(props: PlanViewerProps) {
     // Layer v2 (beta): διανυσματικοί τοίχοι — λωρίδα στο χρώμα του τύπου (πραγματικό πάχος, world units),
     // με κυανή κεντρική γραμμή (screen units) όταν είναι επιλεγμένος ώστε να φαίνεται σε κάθε zoom.
     for (const vw of vectorWalls ?? []) {
-      c.layers.lines.add(line([vw.a, vw.b], Z.divider + 0.06, vw.color, Math.max(1, vw.thicknessPx), { world: true }));
+      c.layers.lines.add(line([vw.a, vw.b], Z.divider + 0.06, vw.color, Math.max(2, vw.thicknessPx), { world: true }));
       if (vw.selected) c.layers.lines.add(line([vw.a, vw.b], Z.divider + 0.08, '#22D3EE', 3));
     }
     // v2 (beta): λαβές στα άκρα και στο κέντρο των επιλεγμένων τοίχων (σύρσιμο → onWallEnd/onWallMove).
