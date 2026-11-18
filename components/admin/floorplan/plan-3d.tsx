@@ -10,6 +10,7 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import type { RoomWalls } from '@/lib/floorplan/walls';
 import { wallPieces } from '@/lib/floorplan/walls3d';
 import { CABLE_META, CABLE_RUN_M, cameraWedge, DEVICE_3D, DEVICE_META, type PlanCable, type PlanDevice } from '@/lib/floorplan/network';
+import { brickTexture, floorTexture, glassTexture, plasterTexture, woodTexture } from '@/lib/floorplan/textures';
 
 type Pt = { x: number; y: number };
 export type Room3d = { id: string; name: string; color: string; polygon: Pt[]; walls?: RoomWalls };
@@ -20,10 +21,12 @@ const BG = '#0B1220';
 const CEILING_M = 2.8;
 const WALL_T_M = 0.1;
 
-export function Plan3d({ image, w, h, mPerPx, rooms, selectedId, devices = [], cables = [], selectedDeviceId = null, columns = [], ref }: {
+export function Plan3d({ image, w, h, mPerPx, rooms, selectedId, devices = [], cables = [], selectedDeviceId = null, columns = [], ceilingM = CEILING_M, ref }: {
   image: HTMLCanvasElement; w: number; h: number; mPerPx: number; rooms: Room3d[]; selectedId: string | null;
   devices?: PlanDevice[]; cables?: PlanCable[]; selectedDeviceId?: string | null;
   columns?: Array<{ center: Pt; widthM: number; depthM: number; rotationDeg: number; heightM: number; color: string }>;
+  /** Ύψος ταβανιού (μέτρα) — default 2.8. */
+  ceilingM?: number;
   ref?: React.Ref<Plan3dHandle>;
 }) {
   const host = React.useRef<HTMLDivElement | null>(null);
@@ -57,6 +60,13 @@ export function Plan3d({ image, w, h, mPerPx, rooms, selectedId, devices = [], c
     const sun = new THREE.DirectionalLight(0xffffff, 1.6);
     sun.position.set(size * 0.6, size * 1.2, size * 0.4);
     scene.add(sun);
+
+    // Φωτισμός για ρεαλιστικότερο render.
+    const fill = new THREE.DirectionalLight(0x88bbff, 0.4);
+    fill.position.set(-size * 0.5, size * 0.8, -size * 0.3);
+    scene.add(fill);
+    const ambient = new THREE.AmbientLight(0xffffff, 0.25);
+    scene.add(ambient);
 
     // Το σχέδιο στο δάπεδο.
     const tex = new THREE.CanvasTexture(image);
@@ -129,7 +139,7 @@ export function Plan3d({ image, w, h, mPerPx, rooms, selectedId, devices = [], c
       fl.position.y = px(0.005);
       c.group.add(fl);
       const tiled = new THREE.MeshStandardMaterial({ color: r.color, roughness: 0.55, emissive: new THREE.Color(r.color), emissiveIntensity: sel ? 0.25 : 0.08 });
-      const pieces = wallPieces(r.polygon, r.walls?.openings ?? [], { tileM: r.walls?.on ? r.walls.heightM : null, ceilingM: CEILING_M, tolPx: px(0.3) });
+      const pieces = wallPieces(r.polygon, r.walls?.openings ?? [], { tileM: r.walls?.on ? r.walls.heightM : null, ceilingM, tolPx: px(0.3) });
       for (const pc of pieces) {
         const len = Math.hypot(pc.b.x - pc.a.x, pc.b.y - pc.a.y);
         if (len < 0.5) continue;
@@ -222,7 +232,7 @@ export function Plan3d({ image, w, h, mPerPx, rooms, selectedId, devices = [], c
       <div className="pointer-events-none absolute bottom-3 left-3 max-w-[min(26rem,calc(100%-1.5rem))] space-y-1 rounded-lg border border-slate-700/80 bg-slate-900/85 px-3 py-2 text-(length:--fs-11) text-slate-200 backdrop-blur-sm">
         <p>Σύρε για περιστροφή · δεξί κλικ / δύο δάχτυλα για μετακίνηση · ροδέλα για zoom</p>
         <p className="flex flex-wrap items-center gap-x-3 gap-y-1">
-          <span className="inline-flex items-center gap-1"><span className="size-2.5 rounded-sm bg-slate-200" aria-hidden />τοίχος ως {String(CEILING_M).replace('.', ',')} m</span>
+          <span className="inline-flex items-center gap-1"><span className="size-2.5 rounded-sm bg-slate-200" aria-hidden />τοίχος ως {String(ceilingM).replace('.', ',')} m</span>
           <span className="inline-flex items-center gap-1"><span className="size-2.5 rounded-sm" style={{ background: 'linear-gradient(90deg,#38BDF8,#34D399,#F472B6)' }} aria-hidden />ζώνη πλακιδίων (χρώμα χώρου)</span>
         </p>
         {kinds.length > 0 && (

@@ -40,6 +40,8 @@ const planDataBase = z.object({
   v: z.literal(1),
   w: z.number().int().positive().max(20_000),
   h: z.number().int().positive().max(20_000),
+  /** Ύψος κάτοψης (ταβάνι) — επηρεάζει το 3D render. */
+  ceilingM: z.number().finite().min(2).max(6).default(2.8),
   /** Κενός κάναβος: pixels ανάλυσης ανά μέτρο. */
   pxPerM: z.number().finite().positive().nullish().transform((v) => v ?? null),
   page: z.number().int().positive().default(1),
@@ -192,6 +194,7 @@ export function scalePlanData(d: PlanData, w: number, h: number): PlanData {
   return {
     ...d, w, h,
     ...(d.editorV2 ? { editorV2: { ...d.editorV2, underlay: d.editorV2.underlay ? { ...d.editorV2.underlay, wPx: w, hPx: h, mPerPx: d.editorV2.underlay.mPerPx == null ? null : d.editorV2.underlay.mPerPx / k } : null } } : {}),
+    ceilingM: d.ceilingM,
     pxPerM: d.pxPerM == null ? null : d.pxPerM * k,
     calib: d.calib ? { a: p(d.calib.a), b: p(d.calib.b), meters: d.calib.meters } : null,
     thick: d.thick == null ? null : Math.max(2, Math.round(d.thick * k)),

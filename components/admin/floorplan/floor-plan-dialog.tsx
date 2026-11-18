@@ -290,6 +290,8 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
   const [autoWalls, setAutoWalls] = React.useState(true);
   const [drawnWalls, setDrawnWalls] = React.useState<DrawnWall[]>([]);
   const [wallCm, setWallCm] = React.useState(15);
+  /** Ύψος ταβανιού — επηρεάζει το 3D render. */
+  const [ceilingM, setCeilingM] = React.useState(2.8);
   /** Πολύγωνο: οι πλευρές του γίνονται και τοίχοι (καθαρό εμβαδό μέσα από τον τοίχο). */
   const [polyWalls, setPolyWalls] = React.useState(false);
   const [tool, setTool] = React.useState<ViewerTool>('calibrate');
@@ -1135,7 +1137,7 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
 
   // ── Αποθήκευση χαρτογράφησης ─────────────────────────────────────────────────────────
   const planDataNow = (): PlanData => ({
-    v: 1, w, h, pxPerM: plan?.pxPerM ?? null, page: plan?.page ?? 1, calib, autoWalls, thr, thick, wallCm, doorCm,
+    v: 1, w, h, ceilingM, pxPerM: plan?.pxPerM ?? null, page: plan?.page ?? 1, calib, autoWalls, thr, thick, wallCm, doorCm,
     dividers, drawnWalls,
     columns: v2Active && mPerPx ? v2.data.columns.map((c) => ({
       id: c.id,
@@ -1490,7 +1492,7 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
 
   // Ο καμβάς (3D ή 2D) — κοινός για τον σημερινό editor και το κέλυφος v2. null όσο δεν υπάρχει σχέδιο.
   const viewer = !plan ? null : view3d && mPerPx ? (
-    <Plan3d ref={plan3dRef} image={plan.display} w={w} h={h} mPerPx={mPerPx} rooms={rooms} selectedId={selected} devices={devices} cables={cables} selectedDeviceId={devSel}
+    <Plan3d ref={plan3dRef} image={plan.display} w={w} h={h} mPerPx={mPerPx} rooms={rooms} selectedId={selected} devices={devices} cables={cables} selectedDeviceId={devSel} ceilingM={ceilingM}
       columns={v2Active ? v2.data.columns.map((c) => ({ center: { x: c.center.x / mPerPx, y: c.center.y / mPerPx }, widthM: c.widthM, depthM: c.depthM, rotationDeg: c.rotationDeg, heightM: c.heightM, color: wallTypes.find((t) => t.id === c.typeId)?.color ?? '#CBD5E1' })) : []}
     />
   ) : (
@@ -1899,6 +1901,14 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
                     <Button type="submit" size="sm" disabled={!meters}>Εφαρμογή</Button>
                   </form>
                 )}
+                <div className="border-t border-border pt-2">
+                  <label htmlFor="fp-ceiling" className="mb-1 block text-muted-foreground">Ύψος ταβανιού</label>
+                  <div className="relative">
+                    <Input id="fp-ceiling" inputMode="decimal" value={String(ceilingM).replace('.', ',')} onChange={(e) => { const v = Number(e.target.value.replace(',', '.')); if (Number.isFinite(v) && v >= 2 && v <= 6) setCeilingM(v); }} className="pr-8 font-mono" />
+                    <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground">m</span>
+                  </div>
+                  <p className="mt-1 text-(length:--fs-11) text-muted-foreground">Επηρεάζει το ύψος των τοίχων στο 3D render.</p>
+                </div>
               </Step>
 
               {/* raised: το dropdown αναζήτησης είδους να περνά πάνω από το βήμα «Προσφορά» */}
