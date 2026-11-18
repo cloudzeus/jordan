@@ -52,6 +52,7 @@ export type FloorPlanOfferInput = z.infer<typeof floorPlanOfferInput>;
  * από το μενού του πελάτη, χωρίς έργο ακόμη) — ο πελάτης, χωρίς τοποθεσία.
  */
 async function offerContext(owner: PlanOwner) {
+  if (owner.kind === 'library') throw new ContractError('Επίλεξε πρώτα την κάτοψη σε έργο για να δημιουργήσεις προσφορά.', 400);
   if (owner.kind === 'customer') {
     const t = await prisma.softoneTrader.findUnique({ where: { trdr: owner.trdr }, select: { trdr: true, name: true } });
     if (!t) throw new ContractError('Ο πελάτης δεν βρέθηκε στον καθρέφτη του SoftOne', 404);

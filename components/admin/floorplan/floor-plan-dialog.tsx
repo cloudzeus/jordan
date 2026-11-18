@@ -54,6 +54,8 @@ import type { StoreApi } from 'zustand/vanilla';
 import { aiResponse, aiWallsResponse, aiWallsToSegments, chooseScale, fallbackPolygon, pickCandidate, roomsInPx } from '@/lib/floorplan/ai-core';
 import { Sparkles } from 'lucide-react';
 import type { FloorPlanListRow } from '@/lib/floorplan/plans';
+import { FloorPlanLibraryPicker } from './library-picker';
+import { editorSnapshot } from '@/lib/floorplan/editor/snapshot';
 import { MetersInput, RoomWallsPanel, WallsToggle } from './room-walls';
 import { DEFAULT_HEIGHT, OPENING_PRESETS, snapOpening, wallArea, type Opening, type OpeningKind, type RoomWalls } from '@/lib/floorplan/walls';
 
@@ -224,7 +226,7 @@ function Range({ label, value, min, max, step = 1, display, onChange, disabled }
 }
 
 /** Σε ποιον ανήκει η χαρτογράφηση: έργο, πελάτης (προσφορά πριν από το έργο) ή δυνητικός πελάτης (πριν υπάρξει στο SoftOne). */
-export type FloorPlanOwner = { prjc: number } | { trdr: number } | { prospect: number };
+export type FloorPlanOwner = { prjc: number } | { trdr: number } | { prospect: number } | { library: true };
 
 export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSave = false, canOffer = false, onApply, initialPlanId = null, editorV2: editorV2Prop = false, wallTypes: wallTypesProp = [] }: {
   owner: FloorPlanOwner; projectLabel: string; open: boolean; onOpenChange: (o: boolean) => void;
@@ -241,11 +243,12 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
   /** Κατάλογος τύπων τοίχου για την παλέτα του v2 (από listWallTypes). */
   wallTypes?: EditorShellWallType[];
 }) {
-  const ownerId = 'prjc' in owner ? owner.prjc : 'trdr' in owner ? owner.trdr : owner.prospect;
+  const isLibrary = 'library' in owner;
+  const ownerId = 'prjc' in owner ? owner.prjc : 'trdr' in owner ? owner.trdr : 'prospect' in owner ? owner.prospect : 'library';
   // API της χαρτογράφησης ανά ιδιοκτήτη· αρχεία στον φάκελο του έργου ή του πελάτη.
-  const ownerPath = 'prjc' in owner ? `projects/${owner.prjc}` : 'trdr' in owner ? `traders/${owner.trdr}` : `prospects/${owner.prospect}`;
+  const ownerPath = 'prjc' in owner ? `projects/${owner.prjc}` : 'trdr' in owner ? `traders/${owner.trdr}` : 'prospect' in owner ? `prospects/${owner.prospect}` : 'floorplan-library';
   const apiBase = `/api/admin/${ownerPath}`;
-  const filesUrl = `/api/admin/entity-files/${ownerPath}`;
+  const filesUrl = `/api/admin/entity-files/${isLibrary ? 'floorplan-library/1' : ownerPath}`;
   // Ο v2 editor + AI είναι διαθέσιμα ΑΠΟ ΠΑΝΤΟΥ: αν ο caller δεν περάσει το config (π.χ. από προσφορά/
   // σύμβαση/prospect), το φέρνουμε ανά χρήστη στο άνοιγμα. Η σελίδα «Κατόψεις» το περνά ήδη (χωρίς flash).
   const [editorV2, setEditorV2] = React.useState(editorV2Prop);
@@ -401,7 +404,8 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
       const saved = planData.parse(body.plan.data);
       const img = await fetch(`/api/admin/floorplans/${id}/image?v=plan`);
       if (!img.ok) throw new Error('Η εικόνα της κάτοψης δεν βρέθηκε.');
-      const f = new File([await img.blob()], body.plan.source || `${body.plan.title}.png`, { type: 'image/png' });
+      // The stored working image is always PNG, even when the original source was a PDF.
+      const f = new File([await img.blob()], `${body.plan.title}.png`, { type: 'image/png' });
       const p = await loadPlan(f, 1);
       const d: PlanData = scalePlanData(saved, p.analysis.width, p.analysis.height);
       if (d.pxPerM != null) p.pxPerM = d.pxPerM;
@@ -411,6 +415,11 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
       setAutoWalls(d.autoWalls); setThr(d.thr); setThick(d.thick); setWallCm(d.wallCm); setDoorCm(d.doorCm);
       setDividers(d.dividers); setDrawnWalls(d.drawnWalls); setCalib(d.calib); setDims(d.dims); setPins(d.pins); setDevices(d.devices); setCables(d.cables);
       setRooms(d.rooms.map((r) => ({ ...r, walls: r.walls, material: r.material })));
+      if (d.editorV2) {
+        storeRef.current!.getState().load(d.editorV2);
+        seededRef.current = p.display;
+        setV2Rooms(roomsFromWalls(d.editorV2.walls));
+      }
       seq.current = d.rooms.length;
       setSavedId(id); setPlanTitle(body.plan.title); imageSavedFor.current = p;
       setTool(d.calib ? 'room' : 'calibrate');
@@ -1017,6 +1026,7 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
     if (!v2.data.walls.length) { toast.message('Σχεδίασε ή ανίχνευσε πρώτα τοίχους.'); return; }
     const rs = roomsFromWalls(v2.data.walls);
     setV2Rooms(rs);
+    setRooms(editorSnapshot(planDataNow(), v2.data, wallTypes).rooms);
     if (rs.length) toast.success(`${rs.length} χώρ${rs.length === 1 ? 'ος' : 'οι'} · ${fmtM2(rs.reduce((s, r) => s + r.areaM2, 0))}`);
     else toast.message('Δεν βρέθηκαν κλειστοί χώροι — κλείσε τα περιγράμματα των τοίχων.');
   };
@@ -1076,7 +1086,7 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
   /** Νέα ή ενημέρωση της χαρτογράφησης στο έργο· επιστρέφει το id (null σε αποτυχία). */
   const savePlan = async (quiet = false): Promise<string | null> => {
     // Αποθηκεύεται και κάτοψη μόνο με ηλεκτρολογικά/δίκτυο (χωρίς χώρους).
-    if (!plan || (!rooms.length && !devices.length && !cables.length)) return null;
+    if (!plan || !canOffer || planSaving) return null;
     setPlanSaving(true);
     try {
       const fd = new FormData();
@@ -1084,14 +1094,16 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
       if (savedId) fd.append('id', savedId);
       fd.append('title', title);
       fd.append('source', `${plan.name}${plan.pages > 1 ? `, σελ. ${plan.page}` : ''}`);
-      fd.append('data', JSON.stringify(planDataNow()));
+      const snapshot = v2Active ? editorSnapshot(planDataNow(), storeRef.current!.getState().data, wallTypes) : planDataNow();
+      fd.append('data', JSON.stringify(snapshot));
       // Το σχέδιο ανεβαίνει μόνο την πρώτη φορά ή όταν άλλαξε κάτοψη.
       if (imageSavedFor.current !== plan) {
         fd.append('image', new File([await canvasPng(plan.display)], 'plan.png', { type: 'image/png' }));
         // Και το πρωτότυπο (φωτογραφία σχεδίου/PDF) όπως το ανέβασε ο χρήστης — όχι στον κενό κάναβο.
         if (file) fd.append('original', file);
       }
-      fd.append('annotated', new File([await png()], 'annotated.png', { type: 'image/png' }));
+      const annotated = await annotatedPng({ image: plan.display, w, h, rooms: snapshot.rooms.map((r) => ({ name: r.name, color: r.color, polygon: r.polygon, areaM2: mPerPx ? r.areaPx * mPerPx * mPerPx : null, perimeterM: mPerPx ? r.perimeterPx * mPerPx : null, walls: r.walls?.on && mPerPx ? { m2: wallArea(r.perimeterPx * mPerPx, r.walls).net, heightM: r.walls.heightM, openingsM2: wallArea(r.perimeterPx * mPerPx, r.walls).openings } : null })), dividers, walls: snapshot.drawnWalls, title, scaleNote });
+      fd.append('annotated', new File([annotated], 'annotated.png', { type: 'image/png' }));
       // Η εικόνα 3D (όταν είναι ανοιχτή η προβολή) αποθηκεύεται μαζί — δεν χάνεται το render.
       const r3d = view3d ? await plan3dRef.current?.capture().catch(() => null) : null;
       if (r3d) fd.append('render3d', new File([r3d], 'render-3d.png', { type: 'image/png' }));
@@ -1099,7 +1111,8 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
       const d = await res.json().catch(() => null);
       if (!res.ok) throw new Error(d?.message ?? 'Η χαρτογράφηση δεν αποθηκεύτηκε.');
       setSavedId(d.id); setPlanTitle(title); imageSavedFor.current = plan; setSavedPlans(null);
-      if (!quiet) toast.success(d.created ? 'Η χαρτογράφηση αποθηκεύτηκε στο έργο.' : 'Η χαρτογράφηση ενημερώθηκε.');
+      setRooms(snapshot.rooms);
+      if (!quiet) toast.success(d.created ? (isLibrary ? 'Η κάτοψη αποθηκεύτηκε στη βιβλιοθήκη.' : 'Η χαρτογράφηση αποθηκεύτηκε στο έργο.') : 'Η χαρτογράφηση ενημερώθηκε.');
       return d.id as string;
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Η χαρτογράφηση δεν αποθηκεύτηκε.');
@@ -1300,6 +1313,7 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
             <DialogTitle className="truncate text-(length:--fs-15) font-semibold">Διαστασιολόγηση κάτοψης</DialogTitle>
             <DialogDescription className="truncate text-(length:--fs-12) text-muted-foreground">{projectLabel}</DialogDescription>
           </div>
+          {plan && canOffer && <input aria-label="Τίτλος κάτοψης" value={planTitle} onChange={(e) => setPlanTitle(e.target.value)} placeholder="Τίτλος κάτοψης" maxLength={200} className="h-8 w-32 rounded-md border border-border bg-background px-2 text-xs sm:w-56" />}
           <a
             href="/wiki/operations/floor-plan-measure" target="_blank" rel="noopener noreferrer"
             className="inline-flex size-7 items-center justify-center rounded-sm text-muted-foreground transition hover:bg-muted hover:text-foreground"
@@ -1343,9 +1357,10 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
                   ))}
                 </ol>
               </div>
+              {'prjc' in owner && canOffer && <FloorPlanLibraryPicker prjc={owner.prjc} disabled={loading} onImported={async (id) => { setSavedPlans(null); await restore(id); }} />}
               {savedPlans && savedPlans.length > 0 && (
                 <section className="w-full max-w-xl rounded-2xl border border-slate-700/70 bg-slate-900/70 p-3" aria-label="Αποθηκευμένες χαρτογραφήσεις">
-                  <h3 className="mb-2 text-(length:--fs-11) font-semibold uppercase tracking-wider text-cyan-300">Αποθηκευμένες χαρτογραφήσεις του έργου</h3>
+                  <h3 className="mb-2 text-(length:--fs-11) font-semibold uppercase tracking-wider text-cyan-300">{isLibrary ? 'Αποθηκευμένες κατόψεις βιβλιοθήκης' : 'Αποθηκευμένες χαρτογραφήσεις'}</h3>
                   <ul className="divide-y divide-slate-700/70">
                     {savedPlans.map((sp) => (
                       <li key={sp.id} className="flex items-center gap-3 py-2">
@@ -1481,7 +1496,7 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
                 )}
               </div>
             }
-            onSave={() => { if (!calib) { toast.error('Όρισε πρώτα κλίμακα με το εργαλείο «Κλίμακα».'); return; } void savePlan(); }} saving={planSaving}
+            onSave={() => { void savePlan(); }} saving={planSaving || !canOffer}
           >
             <div className="relative size-full" {...dz.getRootProps()}>
               <input {...dz.getInputProps()} />
@@ -1806,7 +1821,7 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
                   </Button>
                 </Step>
               )}
-              {canOffer && !onApply && (
+              {canOffer && !isLibrary && !onApply && (
                 <Step n={4} title="Προσφορά" done={!!createdOffer} active={step === 3 && rooms.length > 0}>
                   <OfferStepBody
                     withMaterial={withMaterial} total={rooms.length} ready={!!calib && (rooms.length > 0 || netOffer.lines.length > 0)}
@@ -1814,7 +1829,7 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
                   />
                 </Step>
               )}
-              {canOffer && !onApply && (
+              {canOffer && !isLibrary && !onApply && (
                 <FloorPlanOfferDialog
                   open={offerOpen} onOpenChange={setOfferOpen} apiBase={apiBase} rooms={offerRooms} recipes={recipes}
                   busy={offering || planSaving} onSubmit={(o) => void createOffer(o)} networkLines={netOffer.lines.length}
@@ -1853,18 +1868,18 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
                 </div>
                 {canOffer && (
                   <div className="mt-3 space-y-1.5 border-t border-white/10 pt-3">
-                    <label htmlFor="fp-title" className="block text-[length:var(--fs-11)] font-medium uppercase tracking-wider text-slate-400">Χαρτογράφηση στο έργο</label>
+                    <label htmlFor="fp-title" className="block text-[length:var(--fs-11)] font-medium uppercase tracking-wider text-slate-400">{isLibrary ? 'Κάτοψη βιβλιοθήκης' : 'Χαρτογράφηση στο έργο'}</label>
                     <input
                       id="fp-title" value={planTitle} onChange={(e) => setPlanTitle(e.target.value)} placeholder={`Κάτοψη ${projectLabel}`} maxLength={200}
                       className="h-8 w-full rounded-md border border-slate-600 bg-slate-900 px-2 text-(length:--fs-12) text-slate-100 placeholder:text-slate-500 focus:border-cyan-300 focus:outline-hidden"
                     />
-                    <Button className="w-full" size="sm" disabled={(!rooms.length && !devices.length && !cables.length) || !calib || planSaving} onClick={() => void savePlan()}>
+                    <Button className="w-full" size="sm" disabled={planSaving} onClick={() => void savePlan()}>
                       {planSaving ? <FiLoader className="animate-spin" aria-hidden /> : <FiSave aria-hidden />} {savedId ? 'Ενημέρωση χαρτογράφησης' : 'Αποθήκευση χαρτογράφησης'}
                     </Button>
                     {savedId && <p className="text-[length:var(--fs-11)] text-slate-400">Αποθηκευμένη — ξανανοίγει από την αρχική οθόνη του εργαλείου.</p>}
                   </div>
                 )}
-                {canSave && (
+                {canSave && !isLibrary && (
                   <Button className="mt-1.5 w-full" size="sm" variant="secondary" disabled={!rooms.length || !calib || saving} onClick={() => void save()}>
                     {saving ? <FiLoader className="animate-spin" aria-hidden /> : <FiSave aria-hidden />} Αποθήκευση στα αρχεία του έργου
                   </Button>

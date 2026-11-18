@@ -20,7 +20,7 @@ export class FloorPlanAiError extends Error {
   constructor(message: string, readonly status = 400) { super(message); }
 }
 
-export async function detectRooms(image: File, user: { id: string }, ref: { type: 'Project' | 'Trader' | 'Prospect'; id: number }): Promise<AiResponse & { model: string }> {
+export async function detectRooms(image: File, user: { id: string }, ref: { type: 'Project' | 'Trader' | 'Prospect' | 'FloorPlanLibrary'; id: number }): Promise<AiResponse & { model: string }> {
   if (!/^image\/(jpeg|png|webp)$/.test(image.type)) throw new FloorPlanAiError('Η εικόνα πρέπει να είναι JPG, PNG ή WebP');
   if (image.size > MAX_BYTES) throw new FloorPlanAiError('Η εικόνα είναι πολύ μεγάλη');
   const dataUrl = `data:${image.type};base64,${Buffer.from(await image.arrayBuffer()).toString('base64')}`;
@@ -56,7 +56,7 @@ export async function detectRooms(image: File, user: { id: string }, ref: { type
 }
 
 /** Κοινή κλήση vision: εικόνα + prompt → κείμενο απάντησης (OpenRouter πρώτο, Google εφεδρεία). */
-async function callVision(image: File, prompt: string, operation: string, user: { id: string }, ref: { type: 'Project' | 'Trader' | 'Prospect'; id: number }): Promise<{ content: string; model: string }> {
+async function callVision(image: File, prompt: string, operation: string, user: { id: string }, ref: { type: 'Project' | 'Trader' | 'Prospect' | 'FloorPlanLibrary'; id: number }): Promise<{ content: string; model: string }> {
   if (!/^image\/(jpeg|png|webp)$/.test(image.type)) throw new FloorPlanAiError('Η εικόνα πρέπει να είναι JPG, PNG ή WebP');
   if (image.size > MAX_BYTES) throw new FloorPlanAiError('Η εικόνα είναι πολύ μεγάλη');
   const dataUrl = `data:${image.type};base64,${Buffer.from(await image.arrayBuffer()).toString('base64')}`;
@@ -89,7 +89,7 @@ async function callVision(image: File, prompt: string, operation: string, user: 
 }
 
 /** Ανίχνευση ΤΟΙΧΩΝ με vision (οι τοίχοι ορίζουν τους χώρους) — για vector/scan/εικόνα. */
-export async function detectStructure(image: File, user: { id: string }, ref: { type: 'Project' | 'Trader' | 'Prospect'; id: number }): Promise<AiWallsResponse & { model: string }> {
+export async function detectStructure(image: File, user: { id: string }, ref: { type: 'Project' | 'Trader' | 'Prospect' | 'FloorPlanLibrary'; id: number }): Promise<AiWallsResponse & { model: string }> {
   const { content, model } = await callVision(image, FLOORPLAN_WALLS_PROMPT, 'floorplan.walls', user, ref);
   const parsed = parseAiWallsResponse(content);
   if (!parsed.walls.length) throw new FloorPlanAiError('Το μοντέλο δεν βρήκε τοίχους στην εικόνα', 422);

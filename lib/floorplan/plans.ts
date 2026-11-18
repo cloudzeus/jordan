@@ -18,13 +18,13 @@ const MAX_PNG = 15 * 1024 * 1024;
 type User = { id: string; name: string | null; email: string };
 
 /** Σε ποιον ανήκει η χαρτογράφηση: έργο SoftOne ή πελάτης (προσφορά πριν από το έργο). */
-export type PlanOwner = { kind: 'project'; prjc: number } | { kind: 'customer'; trdr: number } | { kind: 'prospect'; prospect: number };
-const ownerWhere = (o: PlanOwner) => (o.kind === 'project' ? { prjc: o.prjc } : o.kind === 'customer' ? { trdr: o.trdr } : { prospectId: o.prospect });
-const ownerFiles = (o: PlanOwner) => (o.kind === 'project' ? { type: 'PROJECT' as const, id: o.prjc } : o.kind === 'customer' ? { type: 'TRADER' as const, id: o.trdr } : { type: 'PROSPECT' as const, id: o.prospect });
+export type PlanOwner = { kind: 'project'; prjc: number } | { kind: 'customer'; trdr: number } | { kind: 'prospect'; prospect: number } | { kind: 'library' };
+const ownerWhere = (o: PlanOwner) => (o.kind === 'project' ? { prjc: o.prjc } : o.kind === 'customer' ? { trdr: o.trdr } : o.kind === 'prospect' ? { prospectId: o.prospect } : { prjc: null, trdr: null, prospectId: null });
+const ownerFiles = (o: PlanOwner) => (o.kind === 'project' ? { type: 'PROJECT' as const, id: o.prjc } : o.kind === 'customer' ? { type: 'TRADER' as const, id: o.trdr } : o.kind === 'prospect' ? { type: 'PROSPECT' as const, id: o.prospect } : { type: 'FLOORPLAN_LIBRARY' as const, id: 1 });
 /** Ανήκει η αποθηκευμένη χαρτογράφηση στον ιδιοκτήτη; (Δυνητικού που μετατράπηκε: και στον πελάτη του.) */
 export const ownsPlan = (o: PlanOwner, fp: { prjc: number | null; trdr: number | null; prospectId: number | null }) =>
-  o.kind === 'project' ? fp.prjc === o.prjc : o.kind === 'customer' ? fp.trdr === o.trdr : fp.prospectId === o.prospect;
-const OWNER_OTHER: Record<PlanOwner['kind'], string> = { project: 'Η χαρτογράφηση ανήκει σε άλλο έργο', customer: 'Η χαρτογράφηση ανήκει σε άλλον πελάτη', prospect: 'Η χαρτογράφηση ανήκει σε άλλον δυνητικό πελάτη' };
+  o.kind === 'project' ? fp.prjc === o.prjc : o.kind === 'customer' ? fp.trdr === o.trdr : o.kind === 'prospect' ? fp.prospectId === o.prospect : fp.prjc == null && fp.trdr == null && fp.prospectId == null;
+const OWNER_OTHER: Record<PlanOwner['kind'], string> = { project: 'Η χαρτογράφηση ανήκει σε άλλο έργο', customer: 'Η χαρτογράφηση ανήκει σε άλλον πελάτη', prospect: 'Η χαρτογράφηση ανήκει σε άλλον δυνητικό πελάτη', library: 'Η κάτοψη δεν ανήκει στην ανεξάρτητη βιβλιοθήκη' };
 
 export type FloorPlanListRow = {
   id: string; title: string; source: string | null; floorM2: number; wallsM2: number; roomCount: number;
@@ -33,7 +33,7 @@ export type FloorPlanListRow = {
 
 export async function listFloorPlans(owner: PlanOwner): Promise<FloorPlanListRow[]> {
   const rows = await prisma.floorPlan.findMany({
-    where: ownerWhere(owner), orderBy: { updatedAt: 'desc' }, take: 50,
+    where: ownerWhere(owner), orderBy: { updatedAt: 'desc' }, take: owner.kind === 'library' ? 500 : 50,
     select: { id: true, title: true, source: true, floorM2: true, wallsM2: true, roomCount: true, annotatedFileId: true, updatedAt: true, contracts: { select: { id: true, number: true, title: true } } },
   });
   return rows.map((r) => ({ ...r, updatedAt: r.updatedAt.toISOString() }));
@@ -122,7 +122,7 @@ export async function saveFloorPlan(o: {
   // Χαρτογράφηση έργου: κρατάμε και τον πελάτη του έργου (εμφανίζεται και στο μενού του πελάτη).
   const owner = o.owner.kind === 'project'
     ? { prjc: o.owner.prjc, trdr: (await prisma.softoneProject.findUnique({ where: { prjc: o.owner.prjc }, select: { trdr: true } }))?.trdr ?? null }
-    : o.owner.kind === 'customer' ? { prjc: null, trdr: o.owner.trdr } : { prjc: null, trdr: null, prospectId: o.owner.prospect };
+    : o.owner.kind === 'customer' ? { prjc: null, trdr: o.owner.trdr } : { prjc: null, trdr: null, prospectId: o.owner.kind === 'prospect' ? o.owner.prospect : null };
   const row = await prisma.floorPlan.create({ data: { ...owner, createdById: o.user.id, ...fields } });
   return { id: row.id, created: true };
 }
@@ -145,6 +145,59 @@ export async function floorPlanForDocument(floorPlanId: string | null): Promise<
 export async function attachFloorPlanToProject(floorPlanId: string | null, prjc: number) {
   if (!floorPlanId) return;
   await prisma.floorPlan.updateMany({ where: { id: floorPlanId, prjc: null }, data: { prjc } });
+}
+
+/** Independent copy: project edits must never replace or delete library files. */
+export async function copyLibraryPlanToProject(id: string, prjc: number, user: User) {
+  const [source, project] = await Promise.all([
+    prisma.floorPlan.findUnique({ where: { id } }),
+    prisma.softoneProject.findUnique({ where: { prjc }, select: { trdr: true } }),
+  ]);
+  if (!project) throw new FloorPlanError('Το έργο δεν βρέθηκε.', 404);
+  if (!source || !ownsPlan({ kind: 'library' }, source)) throw new FloorPlanError('Η κάτοψη δεν βρέθηκε στη βιβλιοθήκη.', 404);
+  const data = planData.parse(source.data);
+  const sheet = roomSheet(data);
+  if (!data.calib || !data.rooms.length || sheet.floorM2 <= 0) throw new FloorPlanError('Ολοκλήρωσε πρώτα την κλίμακα και τις επιμετρήσεις χώρων της κάτοψης.');
+  const copied = new Map<string, string>();
+  const copyFile = async (fileId: string | null): Promise<string | null> => {
+    if (!fileId) return null;
+    if (copied.has(fileId)) return copied.get(fileId)!;
+    const file = await getEntityFile(fileId);
+    if (!file) throw new FloorPlanError('Λείπει αρχείο της κάτοψης. Άνοιξέ την και αποθήκευσέ την ξανά.', 409);
+    const result = await uploadEntityFile({ type: 'PROJECT', id: prjc, buffer: await bunnyDownload(file.storageKey), name: file.name, subfolder: SUBFOLDER, notes: `Αντίγραφο βιβλιοθήκης: ${source.title}`, user });
+    copied.set(fileId, result.id);
+    return result.id;
+  };
+  try {
+    const imageFileId = await copyFile(source.imageFileId);
+    if (!imageFileId) throw new FloorPlanError('Λείπει η εικόνα της κάτοψης.', 409);
+    const annotatedFileId = await copyFile(source.annotatedFileId);
+    const sourceFileId = await copyFile(source.sourceFileId);
+    data.render3dFileId = await copyFile(data.render3dFileId);
+    for (const entry of [...data.pins, ...data.devices]) {
+      const ids: string[] = [];
+      for (const fileId of entry.photoFileIds) ids.push((await copyFile(fileId))!);
+      entry.photoFileIds = ids;
+    }
+    if (data.editorV2) {
+      data.editorV2.render3dFileId = data.render3dFileId;
+      if (data.editorV2.underlay) data.editorV2.underlay.fileId = imageFileId;
+      for (const entry of [...data.editorV2.pins, ...data.editorV2.devices]) {
+        const ids: string[] = [];
+        for (const fileId of entry.photoFileIds) ids.push((await copyFile(fileId))!);
+        entry.photoFileIds = ids;
+      }
+    }
+    const row = await prisma.floorPlan.create({ data: {
+      prjc, trdr: project.trdr, prospectId: null, title: source.title, source: source.source,
+      data: data as unknown as object, floorM2: sheet.floorM2, wallsM2: sheet.wallsM2, roomCount: data.rooms.length,
+      imageFileId, annotatedFileId, sourceFileId, createdById: user.id,
+    } });
+    return { id: row.id };
+  } catch (error) {
+    await Promise.allSettled([...copied.values()].map((fileId) => deleteEntityFile(fileId)));
+    throw error;
+  }
 }
 
 /** Μία κάρτα της σελίδας «Κατόψεις & σχέδια»: όλες οι χαρτογραφήσεις, έργων και πελατών. */

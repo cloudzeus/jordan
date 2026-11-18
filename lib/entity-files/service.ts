@@ -45,6 +45,7 @@ function toDTO(f: FileRow): EntityFileDTO {
 
 /** Κωδικός + όνομα από τον καθρέφτη του SoftOne (μόνο για τη ΔΗΜΙΟΥΡΓΙΑ της διαδρομής). */
 async function entityInfo(type: EntityType, id: number): Promise<{ code: string; name: string } | null> {
+  if (type === 'FLOORPLAN_LIBRARY') return id === 1 ? { code: 'LIBRARY', name: 'Βιβλιοθήκη κατόψεων' } : null;
   if (type === 'TRADER') return prisma.softoneTrader.findUnique({ where: { trdr: id }, select: { code: true, name: true } });
   if (type === 'PROSPECT') return prisma.prospect.findUnique({ where: { id }, select: { name: true } }).then((p) => (p ? { code: `D${id}`, name: p.name } : null));
   return prisma.softoneProject.findUnique({ where: { prjc: id }, select: { code: true, name: true } });

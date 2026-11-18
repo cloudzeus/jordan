@@ -36,7 +36,7 @@ export const savedRoom = z.object({
 });
 export type SavedRoom = z.infer<typeof savedRoom>;
 
-export const planData = z.object({
+const planDataBase = z.object({
   v: z.literal(1),
   w: z.number().int().positive().max(20_000),
   h: z.number().int().positive().max(20_000),
@@ -50,7 +50,7 @@ export const planData = z.object({
   wallCm: z.number().finite().min(1).max(200).default(15),
   doorCm: z.number().finite().min(0).max(1000).default(100),
   dividers: z.array(z.tuple([pt, pt])).max(2000).default([]),
-  drawnWalls: z.array(z.object({ a: pt, b: pt, t: z.number().finite().min(0) })).max(5000).default([]),
+  drawnWalls: z.array(z.object({ a: pt, b: pt, t: z.number().finite().min(0) })).max(20_000).default([]),
   /** Διαστάσεις «από–έως» που τοποθέτησε ο χρήστης (μόνο ένδειξη — δεν επηρεάζουν εμβαδά). */
   dims: z.array(z.object({ id: z.string().min(1).max(64), a: pt, b: pt })).max(500).default([]),
   /** Σημειώσεις-«πινέζες» πάνω στο σχέδιο (κείμενο + φωτογραφίες) — γίνονται εργασίες στην προσφορά. */
@@ -139,6 +139,9 @@ export const planDataV2 = z.object({
 });
 export type PlanDataV2 = z.infer<typeof planDataV2>;
 
+/** Keep the editable vector model alongside the compatible takeoff used by offers and PDFs. */
+export const planData = planDataBase.extend({ editorV2: planDataV2.optional() });
+
 /** Οποιαδήποτε έκδοση δεδομένων κάτοψης — διακρίνεται από το `v`. */
 export const planDataAny = z.discriminatedUnion('v', [planData, planDataV2]);
 export type PlanDataAny = z.infer<typeof planDataAny>;
@@ -164,6 +167,7 @@ export function scalePlanData(d: PlanData, w: number, h: number): PlanData {
   const p = (q: { x: number; y: number }) => ({ x: q.x * k, y: q.y * k });
   return {
     ...d, w, h,
+    ...(d.editorV2 ? { editorV2: { ...d.editorV2, underlay: d.editorV2.underlay ? { ...d.editorV2.underlay, wPx: w, hPx: h, mPerPx: d.editorV2.underlay.mPerPx == null ? null : d.editorV2.underlay.mPerPx / k } : null } } : {}),
     pxPerM: d.pxPerM == null ? null : d.pxPerM * k,
     calib: d.calib ? { a: p(d.calib.a), b: p(d.calib.b), meters: d.calib.meters } : null,
     thick: d.thick == null ? null : Math.max(2, Math.round(d.thick * k)),

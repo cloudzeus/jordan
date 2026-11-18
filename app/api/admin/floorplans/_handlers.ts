@@ -13,12 +13,13 @@ import { planFail } from './_shared';
 
 export async function ownerFromParams(params: Promise<Record<string, string>>): Promise<PlanOwner | null> {
   const p = await params;
+  if (p.library === '1') return { kind: 'library' };
   const n = Number(p.prjc ?? p.trdr ?? p.prospect);
   if (!Number.isInteger(n) || n <= 0) return null;
   return p.prjc ? { kind: 'project', prjc: n } : p.trdr ? { kind: 'customer', trdr: n } : { kind: 'prospect', prospect: n };
 }
 const invalid = () => NextResponse.json({ error: 'invalid_owner', message: 'Άκυρο έργο ή πελάτης' }, { status: 400 });
-const refOf = (o: PlanOwner) => (o.kind === 'project' ? { type: 'Project' as const, id: o.prjc } : o.kind === 'customer' ? { type: 'Trader' as const, id: o.trdr } : { type: 'Prospect' as const, id: o.prospect });
+const refOf = (o: PlanOwner) => (o.kind === 'project' ? { type: 'Project' as const, id: o.prjc } : o.kind === 'customer' ? { type: 'Trader' as const, id: o.trdr } : o.kind === 'prospect' ? { type: 'Prospect' as const, id: o.prospect } : { type: 'FloorPlanLibrary' as const, id: 1 });
 
 export async function listPlans(params: Promise<Record<string, string>>) {
   await requirePermission('projects.read');

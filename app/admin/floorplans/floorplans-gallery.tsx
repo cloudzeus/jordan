@@ -5,10 +5,11 @@ import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
-  FiBox, FiBriefcase, FiDownload, FiEdit2, FiExternalLink, FiFileText, FiGrid, FiImage, FiMap, FiMoreVertical, FiSearch, FiUser,
+  FiBox, FiBriefcase, FiDownload, FiEdit2, FiExternalLink, FiFileText, FiGrid, FiImage, FiMap, FiMoreVertical, FiSearch, FiUser, FiUploadCloud,
 } from 'react-icons/fi';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
@@ -21,10 +22,10 @@ import { setFloorplanV2Action } from './flag-actions';
 // three.js + pdfjs φορτώνονται μόνο όταν ανοίξει το εργαλείο.
 const FloorPlanDialog = dynamic(() => import('@/components/admin/floorplan/floor-plan-dialog').then((m) => m.FloorPlanDialog), { ssr: false });
 
-type Filter = 'all' | 'project' | 'customer' | '3d';
+type Filter = 'all' | 'library' | 'project' | 'customer' | '3d';
 type Sort = 'recent' | 'area' | 'title';
 const FILTERS: { key: Filter; label: string }[] = [
-  { key: 'all', label: 'Όλες' }, { key: 'project', label: 'Έργων' }, { key: 'customer', label: 'Πελατών' }, { key: '3d', label: 'Με 3D' },
+  { key: 'all', label: 'Όλες' }, { key: 'library', label: 'Βιβλιοθήκη' }, { key: 'project', label: 'Έργων' }, { key: 'customer', label: 'Πελατών' }, { key: '3d', label: 'Με 3D' },
 ];
 const ITEM = 'cursor-pointer gap-2 text-(length:--fs-12)';
 const fmt = (n: number) => n.toLocaleString('el-GR', { maximumFractionDigits: 1 });
@@ -41,6 +42,7 @@ export function FloorPlansGallery({ plans, canSave, canOffer, editorV2 = false, 
   const [filter, setFilter] = React.useState<Filter>('all');
   const [sort, setSort] = React.useState<Sort>('recent');
   const [editing, setEditing] = React.useState<FloorPlanCard | null>(null);
+  const [creating, setCreating] = React.useState(false);
   const [togglingV2, startToggleV2] = React.useTransition();
   const toggleV2 = () => startToggleV2(async () => {
     const r = await setFloorplanV2Action({ all: !editorV2 });
@@ -50,14 +52,18 @@ export function FloorPlansGallery({ plans, canSave, canOffer, editorV2 = false, 
 
   const needle = q.trim().toLowerCase();
   const shown = plans
-    .filter((p) => filter === 'all' || (filter === 'project' ? p.prjc != null : filter === 'customer' ? p.prjc == null : p.has3d))
+    .filter((p) => filter === 'all' || (filter === 'project' ? p.prjc != null : filter === 'customer' ? p.prjc == null && (p.trdr != null || p.prospectId != null) : filter === 'library' ? p.prjc == null && p.trdr == null && p.prospectId == null : p.has3d))
     .filter((p) => !needle || [p.title, p.projectLabel, p.customerName, p.source, ...p.rooms].some((s) => s?.toLowerCase().includes(needle)))
     .sort((a, b) => (sort === 'area' ? b.floorM2 - a.floorM2 : sort === 'title' ? a.title.localeCompare(b.title, 'el') : b.updatedAt.localeCompare(a.updatedAt)));
 
-  const owner: FloorPlanOwner | null = editing ? (editing.prjc != null ? { prjc: editing.prjc } : editing.trdr != null ? { trdr: editing.trdr } : editing.prospectId != null ? { prospect: editing.prospectId } : null) : null;
+  const owner: FloorPlanOwner | null = creating ? { library: true } : editing ? (editing.prjc != null ? { prjc: editing.prjc } : editing.trdr != null ? { trdr: editing.trdr } : editing.prospectId != null ? { prospect: editing.prospectId } : { library: true }) : null;
 
   return (
     <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-muted/30 p-4">
+        <div className="space-y-1"><p className="text-sm font-semibold">Προετοίμασε την κάτοψη πριν τη συνδέσεις με έργο</p><p className="max-w-3xl text-sm text-muted-foreground">Ανέβασε PDF ή εικόνα, όρισε κλίμακα και μέτρησε τους χώρους. Αποθήκευσέ τη στη βιβλιοθήκη και επίλεξέ τη αργότερα από τη «Διαστασιολόγηση κάτοψης» οποιουδήποτε έργου.</p></div>
+        {canOffer && <Button onClick={() => setCreating(true)}><FiUploadCloud aria-hidden /> Νέα κάτοψη</Button>}
+      </div>
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative min-w-56 flex-1 sm:max-w-sm">
           <FiSearch className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" aria-hidden />
@@ -96,7 +102,7 @@ export function FloorPlansGallery({ plans, canSave, canOffer, editorV2 = false, 
           <FiMap className="size-6 text-muted-foreground" aria-hidden />
           <p className="text-(length:--fs-14) font-medium">{plans.length ? 'Καμία κάτοψη με αυτά τα κριτήρια' : 'Δεν υπάρχουν ακόμη κατόψεις'}</p>
           <p className="max-w-md text-(length:--fs-12) text-muted-foreground">
-            {plans.length ? 'Αλλάξτε την αναζήτηση ή το φίλτρο.' : 'Μια κάτοψη αναλύεται από το μενού ⋮ ενός έργου («Διαστασιολόγηση κάτοψης») ή από την προσφορά πελάτη· μετά την αποθήκευση εμφανίζεται εδώ.'}
+            {plans.length ? 'Αλλάξτε την αναζήτηση ή το φίλτρο.' : 'Πάτησε «Νέα κάτοψη» για να ξεκινήσεις χωρίς να χρειάζεται να επιλέξεις έργο ή πελάτη.'}
           </p>
         </div>
       ) : (
@@ -105,12 +111,12 @@ export function FloorPlansGallery({ plans, canSave, canOffer, editorV2 = false, 
         </ul>
       )}
 
-      {editing && owner && (
+      {owner && (editing || creating) && (
         <FloorPlanDialog
-          owner={owner} projectLabel={editing.projectLabel ?? editing.customerName ?? editing.title}
-          canSave={canSave} canOffer={canOffer} initialPlanId={editing.id}
+          owner={owner} projectLabel={editing?.projectLabel ?? editing?.customerName ?? editing?.title ?? 'Βιβλιοθήκη κατόψεων'}
+          canSave={canSave} canOffer={canOffer} initialPlanId={editing?.id ?? null}
           editorV2={editorV2} wallTypes={wallTypes}
-          open onOpenChange={(o) => { if (!o) { setEditing(null); router.refresh(); } }}
+          open onOpenChange={(o) => { if (!o) { setEditing(null); setCreating(false); router.refresh(); } }}
         />
       )}
     </div>
@@ -159,7 +165,7 @@ function PlanCard({ plan: p, onEdit }: { plan: FloorPlanCard; onEdit: () => void
             <h2 className="truncate text-(length:--fs-14) font-semibold" title={p.title}>{p.title}</h2>
             <p className="flex min-w-0 items-center gap-1 text-(length:--fs-12) text-muted-foreground">
               {p.prjc != null ? <FiBriefcase className="size-3 shrink-0" aria-hidden /> : <FiUser className="size-3 shrink-0" aria-hidden />}
-              <span className="truncate" title={p.projectLabel ?? p.customerName ?? undefined}>{p.projectLabel ?? p.customerName ?? 'Χωρίς κάτοχο'}</span>
+              <span className="truncate" title={p.projectLabel ?? p.customerName ?? undefined}>{p.projectLabel ?? p.customerName ?? 'Βιβλιοθήκη κατόψεων'}</span>
               {p.prospectId != null && <span className="shrink-0 rounded bg-amber-50 px-1 text-(length:--fs-11) font-medium text-amber-900 ring-1 ring-amber-200">δυνητικός</span>}
             </p>
           </div>
@@ -171,6 +177,7 @@ function PlanCard({ plan: p, onEdit }: { plan: FloorPlanCard; onEdit: () => void
           <Metric label="Τοίχοι" value={`${fmt(p.wallsM2)} m²`} />
           <Metric label="Χώροι" value={String(p.roomCount)} />
         </dl>
+        {p.prjc == null && p.trdr == null && p.prospectId == null && <p className="text-xs text-muted-foreground">{p.roomCount > 0 && p.floorM2 > 0 ? 'Διαθέσιμη για επιλογή σε έργο' : 'Πρόχειρη · ολοκλήρωσε κλίμακα και επιμετρήσεις'}</p>}
 
         {p.rooms.length > 0 && (
           <ul className="flex flex-wrap gap-1" aria-label="Χώροι">
