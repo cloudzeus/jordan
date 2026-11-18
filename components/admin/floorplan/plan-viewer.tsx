@@ -18,13 +18,20 @@ import { LineMaterial } from 'three/examples/jsm/lines/LineMaterial.js';
 import type { Pt } from '@/lib/floorplan/core';
 import type { CanvasWall, CanvasColumn } from '@/lib/floorplan/editor/interactions';
 import { distSqToSeg } from '@/lib/floorplan/editor/interactions';
+import { doorSwing, wallCaps, wallEdges, windowLines } from '@/lib/floorplan/openings-2d';
 
 export type ViewerRoom = { id: string; color: string; polygon: Pt[]; label: string; sub: string; anchor: Pt };
 export type ViewerTool = 'room' | 'rect' | 'polygon' | 'wall' | 'divider' | 'opening' | 'calibrate' | 'measure' | 'pin' | 'pan' | 'edit' | 'erase' | 'device' | 'cable' | 'select' | 'column' | 'crop';
 /** Εργαλεία που σχεδιάζουν γραμμές — σε αυτά ισχύει το «Ορθογώνια» (μόνο οριζόντια/κάθετα). */
 export const LINE_TOOLS: ReadonlySet<ViewerTool> = new Set(['wall', 'polygon', 'measure', 'divider', 'calibrate', 'cable']);
 /** Άνοιγμα (πόρτα/παράθυρο) πάνω σε τοίχο χώρου, όπως σχεδιάστηκε. */
-export type ViewerOpening = { id: string; kind: 'door' | 'window' | 'other'; a: Pt; b: Pt; selected?: boolean };
+export type ViewerOpening = {
+  id: string; kind: 'door' | 'window' | 'other'; a: Pt; b: Pt; selected?: boolean;
+  /** Κατεύθυνση ανάπτυξης πόρτας (από το άκρο a). */
+  swing?: 'left' | 'right' | null;
+  /** Πάχος τοίχου (px) που κόβει το άνοιγμα — για σωστή απόδοση παραθύρου. */
+  thicknessPx?: number;
+};
 export const OPENING_COLOR = { door: '#F59E0B', window: '#38BDF8', other: '#A78BFA' } as const;
 const DIM_COLOR = '#FDE047';
 /** Φάση επεξεργασίας περιγράμματος: start (πριν την πρώτη αλλαγή — για αναίρεση), move, end. */
@@ -701,10 +708,23 @@ export function PlanViewer(props: PlanViewerProps) {
     if (!c) return;
     clear(c.layers.lines);
     for (const [a, b] of dividers) c.layers.lines.add(line([a, b], Z.divider, '#F43F5E', 3));
-    // Ανοίγματα: χοντρή γραμμή στο χρώμα του είδους, με λευκό περίγραμμα όταν ο χώρος είναι επιλεγμένος.
+    // Ανοίγματα: αρχιτεκτονική απόδοση — πόρτα με τόξο ανάπτυξης, παράθυρο με διπλή γραμμή.
+    // Το `thicknessPx` του κάθε ανοίγματος είναι το πάχος του τοίχου που κόβει· default 15cm.
     for (const o of openings ?? []) {
+      const thick = o.thicknessPx ?? 15;
       if (o.selected) c.layers.lines.add(line([o.a, o.b], Z.divider, '#FFFFFF', 10));
-      c.layers.lines.add(line([o.a, o.b], Z.divider + 0.05, OPENING_COLOR[o.kind], 6));
+      if (o.kind === 'door') {
+        const { leaf, arc } = doorSwing(o.a, o.b, 'a', o.swing ?? 'left');
+        c.layers.lines.add(line(leaf, Z.divider + 0.05, OPENING_COLOR[o.kind], 3));
+        c.layers.lines.add(line(arc, Z.divider + 0.05, OPENING_COLOR[o.kind], 2, { dashed: true }));
+      } else if (o.kind === 'window') {
+        const { l1, l2, caps } = windowLines(o.a, o.b, thick);
+        c.layers.lines.add(line(l1, Z.divider + 0.05, OPENING_COLOR[o.kind], 2));
+        c.layers.lines.add(line(l2, Z.divider + 0.05, OPENING_COLOR[o.kind], 2));
+        for (const cap of caps) c.layers.lines.add(line(cap, Z.divider + 0.05, OPENING_COLOR[o.kind], 2));
+      } else {
+        c.layers.lines.add(line([o.a, o.b], Z.divider + 0.05, OPENING_COLOR[o.kind], 6));
+      }
     }
     // Διαστάσεις: γραμμή + κάθετα «αυτάκια» στα άκρα (το μήκος είναι ετικέτα HTML, βλ. παρακάτω).
     for (const d of dimensions ?? []) {
@@ -717,10 +737,14 @@ export function PlanViewer(props: PlanViewerProps) {
       c.layers.lines.add(line(calibration, Z.divider, '#F59E0B', 3));
       c.layers.lines.add(dots(calibration, Z.divider + 0.1, 10));
     }
-    // Layer v2 (beta): διανυσματικοί τοίχοι — λωρίδα στο χρώμα του τύπου (πραγματικό πάχος, world units),
-    // με κυανή κεντρική γραμμή (screen units) όταν είναι επιλεγμένος ώστε να φαίνεται σε κάθε zoom.
+    // Layer v2 (beta): διανυσματικοί τοίχοι — αρχιτεκτονική απόδοση με δύο offset γραμμές στο
+    // πραγματικό πάχος και «καπέλες» στα άκρα. Επιλεγμένος: κυανή κεντρική γραμμή.
     for (const vw of vectorWalls ?? []) {
-      c.layers.lines.add(line([vw.a, vw.b], Z.divider + 0.06, vw.color, Math.max(2, vw.thicknessPx), { world: true }));
+      const thick = Math.max(2, vw.thicknessPx);
+      const { a1, b1, a2, b2 } = wallEdges(vw.a, vw.b, thick);
+      c.layers.lines.add(line([a1, b1], Z.divider + 0.06, vw.color, 2, { world: true }));
+      c.layers.lines.add(line([a2, b2], Z.divider + 0.06, vw.color, 2, { world: true }));
+      for (const cap of wallCaps(vw.a, vw.b, thick)) c.layers.lines.add(line(cap, Z.divider + 0.06, vw.color, 2, { world: true }));
       if (vw.selected) c.layers.lines.add(line([vw.a, vw.b], Z.divider + 0.08, '#22D3EE', 3));
     }
     // v2 (beta): λαβές στα άκρα και στο κέντρο των επιλεγμένων τοίχων (σύρσιμο → onWallEnd/onWallMove).

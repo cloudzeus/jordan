@@ -1452,10 +1452,18 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
       if (!wall) return null;
       const a = { x: wall.a.x + o.t0 * (wall.b.x - wall.a.x), y: wall.a.y + o.t0 * (wall.b.y - wall.a.y) };
       const b = { x: wall.a.x + o.t1 * (wall.b.x - wall.a.x), y: wall.a.y + o.t1 * (wall.b.y - wall.a.y) };
-      return { id: o.id, kind: o.kind, a: { x: a.x / mPerPx, y: a.y / mPerPx }, b: { x: b.x / mPerPx, y: b.y / mPerPx }, selected: false };
+      const thicknessM = wallTypes.find((t) => t.id === wall.typeId)?.thicknessM ?? 0.15;
+      return {
+        id: o.id, kind: o.kind,
+        a: { x: a.x / mPerPx, y: a.y / mPerPx },
+        b: { x: b.x / mPerPx, y: b.y / mPerPx },
+        selected: false,
+        swing: o.swing,
+        thicknessPx: thicknessM / mPerPx,
+      };
     }).filter(Boolean) as ViewerOpening[];
     return [...v1, ...v2ops];
-  }, [rooms, selected, v2Active, mPerPx, v2.data.openings, v2.data.walls]);
+  }, [rooms, selected, v2Active, mPerPx, v2.data.openings, v2.data.walls, wallTypes]);
 
   // Η αυτόματη κλίμακα του κενού κάναβου δεν σχεδιάζεται ως γραμμή.
   const blankScale = !!calib && plan?.pxPerM != null && calib.meters === 1 && calib.a.x === 0 && calib.b.x === plan.pxPerM;
