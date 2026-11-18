@@ -9,18 +9,18 @@ for (const [ip, prefix] of [['0.0.0.0', 8], ['10.0.0.0', 8], ['100.64.0.0', 10],
 export const isPublicIPv4 = (address: string) => !blocked.check(address, 'ipv4');
 
 /** Pin the validated IPv4 address at connection time; revalidate every redirect. */
-export async function fetchPublic(raw: string, kind: 'html' | 'image', redirects = 0): Promise<{ buffer: Buffer; mime: string; url: string }> {
+export async function fetchPublic(raw: string, kind: 'html' | 'image' | 'document', redirects = 0): Promise<{ buffer: Buffer; mime: string; url: string }> {
   const safe = publicHttpsUrl(raw);
   if (!safe || redirects > 3) throw new Error('Μη αποδεκτή διεύθυνση πηγής.');
   const url = new URL(safe);
   const addresses = await lookup(url.hostname, { family: 4, all: true });
   if (!addresses.length || addresses.some((a) => !isPublicIPv4(a.address))) throw new Error('Η πηγή δεν είναι δημόσια.');
-  const max = kind === 'image' ? 10 * 1024 * 1024 : 2 * 1024 * 1024;
+  const max = kind === 'document' ? 20 * 1024 * 1024 : kind === 'image' ? 10 * 1024 * 1024 : 2 * 1024 * 1024;
   return new Promise((resolve, reject) => {
     const req = request(url, {
       family: 4, agent: false,
       lookup: (_host, _options, cb) => cb(null, addresses[0].address, 4),
-      headers: { 'User-Agent': 'Jordan-ProductResearch/1.0', Accept: kind === 'html' ? 'text/html' : 'image/*', 'Accept-Encoding': 'identity' },
+      headers: { 'User-Agent': 'Jordan-ProductResearch/1.0', Accept: kind === 'html' ? 'text/html' : kind === 'document' ? 'text/html, application/pdf' : 'image/*', 'Accept-Encoding': 'identity' },
       signal: AbortSignal.timeout(12000),
     }, (res) => {
       if (res.statusCode && [301, 302, 303, 307, 308].includes(res.statusCode) && res.headers.location) {
@@ -31,7 +31,7 @@ export async function fetchPublic(raw: string, kind: 'html' | 'image', redirects
         return;
       }
       const mime = String(res.headers['content-type'] || '').split(';')[0].trim().toLowerCase();
-      if (res.statusCode !== 200 || !(kind === 'html' ? mime === 'text/html' : /^image\/(jpeg|png|webp|avif|gif)$/.test(mime))) {
+      if (res.statusCode !== 200 || !(kind === 'document' ? ['text/html', 'application/pdf'].includes(mime) : kind === 'html' ? mime === 'text/html' : /^image\/(jpeg|png|webp|avif|gif)$/.test(mime))) {
         res.destroy(); reject(new Error('Η πηγή δεν επέστρεψε προσβάσιμο αρχείο.')); return;
       }
       if (Number(res.headers['content-length']) > max) { res.destroy(); reject(new Error('Το αρχείο είναι πολύ μεγάλο.')); return; }

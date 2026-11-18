@@ -9,7 +9,9 @@ export type Attribute = z.infer<typeof attributeSchema>;
 export type Source = { url: string; title: string };
 export type Suggestion = Attribute & { sourceUrl: string; evidence: string };
 export type WebImage = { url: string; sourceUrl: string; title: string };
-export type Research = { attributes: Suggestion[]; images: WebImage[]; sources: Source[]; note: string; existing: Attribute[] };
+export type WebDocument = { url: string; sourceUrl: string; title: string };
+export type SourcePreview = { url: string | null; title: string; text: string; kind: 'WEB' | 'PDF' | 'TEXT'; images: WebImage[]; documents: WebDocument[]; hash?: string };
+export type Research = { attributes: Suggestion[]; images: WebImage[]; sources: Source[]; documents?: WebDocument[]; warnings?: string[]; note: string; existing: Attribute[] };
 export const attributeKey = (name: string) => name.trim().normalize('NFC').toLocaleLowerCase('el');
 
 export function mergeAttributes(existing: Attribute[], selected: Attribute[]) {
@@ -36,7 +38,7 @@ export function publicHttpsUrl(raw: string): string | null {
   } catch { return null; }
 }
 
-const answerSchema = z.object({
+export const answerSchema = z.object({
   note: z.string().max(2000).default(''),
   attributes: z.array(attributeSchema.extend({ sourceUrl: z.string(), evidence: z.string().min(1).max(1200) })).max(40),
 });
