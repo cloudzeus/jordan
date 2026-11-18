@@ -5,7 +5,7 @@
 // δεξί πάνελ (τύποι τοίχου + ιδιότητες επιλογής), status bar σε μέτρα, φωτεινό artboard.
 // Presentational: παίρνει τα εργαλεία/δεδομένα/handlers και τον καμβά (PlanViewer) ως children.
 import * as React from 'react';
-import { FiSave, FiLoader, FiFileText } from 'react-icons/fi';
+import { FiSave, FiLoader, FiFileText, FiPlus, FiMinus, FiMaximize } from 'react-icons/fi';
 import { clampToolbarPos } from '@/lib/floorplan/editor-ui';
 
 type ToolItem = { key: string; label: string; kbd: string; icon: React.ReactNode; group: string };
@@ -23,12 +23,15 @@ export type EditorShellProps = {
   onView: (v: boolean) => void;
   canUse3d: boolean;
   zoomPct?: number;
+  onZoomIn?: () => void;
+  onZoomOut?: () => void;
+  onZoomFit?: () => void;
   scaleLabel?: string;
   ceilingLabel?: string;
   wallTypes: EditorShellWallType[];
   activeWallTypeId?: string | null;
   onWallType?: (id: string) => void;
-  status?: { xM?: string; yM?: string; lengthM?: string; angleDeg?: string; selection?: string; snap?: string };
+  status?: { xM?: string; yM?: string; lengthM?: string; angleDeg?: string; selection?: string; snap?: string; wallType?: string };
   takeoff?: { floorM2: string; wallsM2: string; openings?: string };
   onSave: () => void;
   saving?: boolean;
@@ -154,6 +157,19 @@ export function EditorShell(props: EditorShellProps) {
               <div className="flex gap-3"><span>Δάπεδο <b className="text-white">{props.takeoff.floorM2}</b></span><span>Τοίχοι <b className="text-white">{props.takeoff.wallsM2}</b></span></div>
             </div>
           )}
+
+          {/* Zoom controls */}
+          <div className="absolute bottom-2 right-2 flex flex-col gap-1 rounded-lg border border-white/10 p-1 shadow-lg" style={{ background: 'rgba(15,23,42,.92)' }}>
+            <button type="button" onClick={props.onZoomIn} aria-label="Zoom in" title="Zoom in" className="inline-flex size-7 cursor-pointer items-center justify-center rounded-md text-slate-300 transition-colors hover:bg-white/10">
+              <FiPlus className="size-4" />
+            </button>
+            <button type="button" onClick={props.onZoomOut} aria-label="Zoom out" title="Zoom out" className="inline-flex size-7 cursor-pointer items-center justify-center rounded-md text-slate-300 transition-colors hover:bg-white/10">
+              <FiMinus className="size-4" />
+            </button>
+            <button type="button" onClick={props.onZoomFit} aria-label="Χώρεσέ το" title="Χώρεσέ το" className="inline-flex size-7 cursor-pointer items-center justify-center rounded-md text-slate-300 transition-colors hover:bg-white/10">
+              <FiMaximize className="size-4" />
+            </button>
+          </div>
         </div>
 
         {/* ── Δεξί inspector ── */}
@@ -174,6 +190,16 @@ export function EditorShell(props: EditorShellProps) {
                   </button>
                 ))}
               </div>
+              <div className="mt-2 flex flex-wrap gap-1">
+                {wallTypes.filter((w) => w.hotkey).map((w) => (
+                  <button key={`chip-${w.id}`} type="button" onClick={() => props.onWallType?.(w.id)} title={`${w.name} — ${w.hotkey}`}
+                    className="inline-flex h-6 items-center gap-1 rounded border px-1.5 text-[10px] transition-colors hover:bg-white/5"
+                    style={props.activeWallTypeId === w.id ? { borderColor: w.color, background: `${w.color}22`, color: '#fff' } : { borderColor: 'rgba(255,255,255,.08)', color: '#94A3B8' }}>
+                    <span className="size-2 rounded-sm" style={{ background: w.color }} />
+                    {w.hotkey}
+                  </button>
+                ))}
+              </div>
             </div>
           )}
         </aside>
@@ -184,6 +210,7 @@ export function EditorShell(props: EditorShellProps) {
         {props.status?.xM != null && <span><span className="text-slate-600">X</span> <b className="text-slate-200">{props.status.xM}</b></span>}
         {props.status?.yM != null && <span><span className="text-slate-600">Y</span> <b className="text-slate-200">{props.status.yM}</b></span>}
         {props.status?.lengthM != null && <span><span className="text-slate-600">Μήκος</span> <b className="text-slate-200">{props.status.lengthM}</b></span>}
+        {props.status?.wallType && <span><span className="text-slate-600">Τοίχος</span> <b className="text-slate-200">{props.status.wallType}</b></span>}
         <div className="ml-auto flex items-center gap-3.5">
           {ortho && <span style={{ color: '#34D399' }}>◳ Ορθο (F8)</span>}
           {props.status?.snap && <span><span className="text-slate-600">Κούμπωμα</span> <b className="text-slate-200">{props.status.snap}</b></span>}

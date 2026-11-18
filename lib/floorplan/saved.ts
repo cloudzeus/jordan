@@ -50,7 +50,19 @@ const planDataBase = z.object({
   wallCm: z.number().finite().min(1).max(200).default(15),
   doorCm: z.number().finite().min(0).max(1000).default(100),
   dividers: z.array(z.tuple([pt, pt])).max(2000).default([]),
-  drawnWalls: z.array(z.object({ a: pt, b: pt, t: z.number().finite().min(0) })).max(20_000).default([]),
+  drawnWalls: z.array(z.object({
+    a: pt, b: pt, t: z.number().finite().min(0),
+    /** Τύπος κατασκευής (v2) για να επιβιώνει πάχος/ύψος στο save. */
+    typeId: z.string().max(64).nullish().transform((v) => v ?? null),
+  })).max(20_000).default([]),
+  /** Κολώνες (ορθογώνια) για αρχιτεκτονική σκιαγράφηση. */
+  columns: z.array(z.object({
+    id: z.string().min(1).max(64),
+    center: pt,
+    widthPx: z.number().finite().positive(),
+    heightPx: z.number().finite().positive(),
+    rotationDeg: z.number().finite().default(0),
+  })).max(2_000).default([]),
   /** Διαστάσεις «από–έως» που τοποθέτησε ο χρήστης (μόνο ένδειξη — δεν επηρεάζουν εμβαδά). */
   dims: z.array(z.object({ id: z.string().min(1).max(64), a: pt, b: pt })).max(500).default([]),
   /** Σημειώσεις-«πινέζες» πάνω στο σχέδιο (κείμενο + φωτογραφίες) — γίνονται εργασίες στην προσφορά. */
@@ -92,6 +104,17 @@ export const openingEntity = z.object({
   swing: z.enum(['left', 'right']).nullish().transform((v) => v ?? null),
 });
 
+/** Κολώνα v2: ορθογώνιο στο επίπεδο, με διαστάσεις σε μέτρα και ύψος. */
+export const columnEntity = z.object({
+  id: z.string().min(1).max(64),
+  center: pt,
+  widthM: z.number().finite().positive().max(10),
+  depthM: z.number().finite().positive().max(10),
+  rotationDeg: z.number().finite().default(0),
+  heightM: z.number().finite().positive().max(100).default(2.8),
+  typeId: z.string().max(64).nullish().transform((v) => v ?? null),
+});
+
 export const savedRoomV2 = z.object({
   id: z.string().min(1).max(64),
   name: z.string().trim().max(120),
@@ -126,6 +149,7 @@ export const planDataV2 = z.object({
   }).nullable(),
   walls: z.array(wallEntity).max(20_000).default([]),
   openings: z.array(openingEntity).max(5_000).default([]),
+  columns: z.array(columnEntity).max(2_000).default([]),
   dividers: z.array(z.tuple([pt, pt])).max(2_000).default([]),
   dims: z.array(z.object({ id: z.string().min(1).max(64), a: pt, b: pt })).max(500).default([]),
   pins: z.array(z.object({
@@ -172,7 +196,8 @@ export function scalePlanData(d: PlanData, w: number, h: number): PlanData {
     calib: d.calib ? { a: p(d.calib.a), b: p(d.calib.b), meters: d.calib.meters } : null,
     thick: d.thick == null ? null : Math.max(2, Math.round(d.thick * k)),
     dividers: d.dividers.map(([a, b]) => [p(a), p(b)] as [{ x: number; y: number }, { x: number; y: number }]),
-    drawnWalls: d.drawnWalls.map((x) => ({ a: p(x.a), b: p(x.b), t: x.t * k })),
+    drawnWalls: d.drawnWalls.map((x) => ({ a: p(x.a), b: p(x.b), t: x.t * k, typeId: x.typeId ?? null })),
+    columns: d.columns.map((x) => ({ ...x, center: p(x.center), widthPx: x.widthPx * k, heightPx: x.heightPx * k })),
     dims: d.dims.map((x) => ({ ...x, a: p(x.a), b: p(x.b) })),
     pins: d.pins.map((x) => ({ ...x, ...p(x) })),
     devices: d.devices.map((x) => ({ ...x, ...p(x) })),

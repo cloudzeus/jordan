@@ -93,7 +93,7 @@ export function upgradePlanData(raw: unknown, opts: { wallTypes?: WallType[] } =
       page: v1.page, wPx: v1.w, hPx: v1.h, mPerPx: mpp, rotation: 0, offset: { x: 0, y: 0 },
       calib: v1.calib ? { a: m(v1.calib.a), b: m(v1.calib.b), meters: v1.calib.meters } : null, opacity: 1,
     },
-    walls, openings,
+    walls, openings, columns: [],
     dividers: v1.dividers.map(([a, b]) => [m(a), m(b)] as [P, P]),
     dims: v1.dims.map((d) => ({ ...d, a: m(d.a), b: m(d.b) })),
     pins: v1.pins.map((p) => ({ ...p, ...m(p) })),

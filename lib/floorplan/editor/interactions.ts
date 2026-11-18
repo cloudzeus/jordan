@@ -1,7 +1,7 @@
 import { nearestWallTypeByThickness } from '@/lib/floorplan/wall-types';
 import type { VectorWall } from '@/lib/floorplan/vectorize';
 import type { EditorShellWallType } from '@/components/admin/floorplan/editor-shell';
-import type { Pt, NewWall, WallEntity } from './reducers';
+import type { Pt, NewWall, WallEntity, ColumnEntity } from './reducers';
 
 /** Τοίχος έτοιμος για τον καμβά: συντεταγμένες σε pixels, χρώμα/πάχος/επιλογή για ζωγράφισμα. */
 export type CanvasWall = { id: string; a: Pt; b: Pt; thicknessPx: number; color: string; selected: boolean };
@@ -17,7 +17,7 @@ export function hotkeyToWallTypeId(wallTypes: EditorShellWallType[], key: string
 }
 
 /** Τετράγωνο απόστασης σημείου p από το τμήμα a–b. */
-function distSqToSeg(p: Pt, a: Pt, b: Pt): number {
+export function distSqToSeg(p: Pt, a: Pt, b: Pt): number {
   const dx = b.x - a.x, dy = b.y - a.y;
   const len2 = dx * dx + dy * dy;
   let t = len2 > 0 ? ((p.x - a.x) * dx + (p.y - a.y) * dy) / len2 : 0;
@@ -104,4 +104,89 @@ export function wallsForCanvas(
       selected: sel.has(w.id),
     };
   });
+}
+
+/** Κολώνα v2 (μέτρα) → καμβάς (px). */
+export type CanvasColumn = {
+  id: string; x: number; y: number; widthPx: number; depthPx: number; rotationDeg: number; color: string; selected: boolean;
+};
+
+export function columnsForCanvas(
+  columns: ColumnEntity[], mPerPx: number, selectedIds: string[], wallTypes: EditorShellWallType[],
+): CanvasColumn[] {
+  const byId = new Map(wallTypes.map((t) => [t.id, t]));
+  const sel = new Set(selectedIds);
+  return columns.map((c) => {
+    const t = c.typeId ? byId.get(c.typeId) : undefined;
+    return {
+      id: c.id,
+      x: c.center.x / mPerPx, y: c.center.y / mPerPx,
+      widthPx: Math.max(2, c.widthM / mPerPx),
+      depthPx: Math.max(2, c.depthM / mPerPx),
+      rotationDeg: c.rotationDeg,
+      color: t ? t.color : '#CBD5E1',
+      selected: sel.has(c.id),
+    };
+  });
+}
+
+/** Κοντινότερη κολώνα σε σημείο p (μέτρα). */
+export function pickColumnAt(columns: ColumnEntity[], p: Pt, tolM: number): string | null {
+  const tol2 = tolM * tolM;
+  let best: { id: string; d2: number } | null = null;
+  for (const c of columns) {
+    const dx = p.x - c.center.x, dy = p.y - c.center.y;
+    const d2 = dx * dx + dy * dy;
+    if (d2 <= tol2 && (!best || d2 < best.d2)) best = { id: c.id, d2 };
+  }
+  return best ? best.id : null;
+}
+
+/** Κέντρο ενός τοίχου. */
+export function wallCenter(w: WallEntity): Pt {
+  return { x: (w.a.x + w.b.x) / 2, y: (w.a.y + w.b.y) / 2 };
+}
+
+/** Παράμετροι για νέο άνοιγμα από δύο κλικ πάνω σε έναν τοίχο (μέτρα). */
+export function openingParamsOnWall(wall: WallEntity, a: Pt, b: Pt): { t0: number; t1: number; lengthM: number } | null {
+  const pa = projectOnSegment(a, wall.a, wall.b);
+  const pb = projectOnSegment(b, wall.a, wall.b);
+  if (pa == null || pb == null) return null;
+  const t0 = Math.max(0, Math.min(1, Math.min(pa.t, pb.t)));
+  const t1 = Math.max(0, Math.min(1, Math.max(pa.t, pb.t)));
+  if (t1 - t0 < 0.01) return null;
+  const p0 = lerp(wall.a, wall.b, t0);
+  const p1 = lerp(wall.a, wall.b, t1);
+  return { t0, t1, lengthM: Math.hypot(p1.x - p0.x, p1.y - p0.y) };
+}
+
+function lerp(a: Pt, b: Pt, t: number): Pt {
+  return { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t };
+}
+
+function projectOnSegment(p: Pt, a: Pt, b: Pt): { t: number; d: number } | null {
+  const dx = b.x - a.x, dy = b.y - a.y, L2 = dx * dx + dy * dy;
+  if (L2 < 1e-12) return null;
+  const t = Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / L2));
+  const q = { x: a.x + t * dx, y: a.y + t * dy };
+  return { t, d: Math.hypot(p.x - q.x, p.y - q.y) };
+}
+
+/** Άκρα τοίχων + κέντρα + άκρα κολωνών ως candidate snap targets για διάσταση. */
+export function measureTargets(walls: WallEntity[], columns: ColumnEntity[]): Pt[] {
+  const out: Pt[] = [];
+  for (const w of walls) { out.push(w.a, w.b, wallCenter(w)); }
+  for (const c of columns) { out.push(c.center); }
+  return out;
+}
+
+/** Κοντινότερο σημείο snap από μια λίστα στόχων. */
+export function snapToTargets(cursor: Pt, targets: Pt[], tolM: number): Pt | null {
+  let best: { p: Pt; d2: number } | null = null;
+  const tol2 = tolM * tolM;
+  for (const t of targets) {
+    const dx = t.x - cursor.x, dy = t.y - cursor.y, d2 = dx * dx + dy * dy;
+    if (d2 <= tol2 && (!best || d2 < best.d2)) best = { p: t, d2 };
+  }
+  return best ? { x: best.p.x, y: best.p.y } : null;
 }

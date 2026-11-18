@@ -16,10 +16,11 @@ import { Line2 } from 'three/examples/jsm/lines/Line2.js';
 import { LineGeometry } from 'three/examples/jsm/lines/LineGeometry.js';
 import { LineMaterial } from 'three/examples/jsm/lines/LineMaterial.js';
 import type { Pt } from '@/lib/floorplan/core';
-import type { CanvasWall } from '@/lib/floorplan/editor/interactions';
+import type { CanvasWall, CanvasColumn } from '@/lib/floorplan/editor/interactions';
+import { distSqToSeg } from '@/lib/floorplan/editor/interactions';
 
 export type ViewerRoom = { id: string; color: string; polygon: Pt[]; label: string; sub: string; anchor: Pt };
-export type ViewerTool = 'room' | 'rect' | 'polygon' | 'wall' | 'divider' | 'opening' | 'calibrate' | 'measure' | 'pin' | 'pan' | 'edit' | 'erase' | 'device' | 'cable';
+export type ViewerTool = 'room' | 'rect' | 'polygon' | 'wall' | 'divider' | 'opening' | 'calibrate' | 'measure' | 'pin' | 'pan' | 'edit' | 'erase' | 'device' | 'cable' | 'select' | 'column';
 /** Εργαλεία που σχεδιάζουν γραμμές — σε αυτά ισχύει το «Ορθογώνια» (μόνο οριζόντια/κάθετα). */
 export const LINE_TOOLS: ReadonlySet<ViewerTool> = new Set(['wall', 'polygon', 'measure', 'divider', 'calibrate', 'cable']);
 /** Άνοιγμα (πόρτα/παράθυρο) πάνω σε τοίχο χώρου, όπως σχεδιάστηκε. */
@@ -52,6 +53,8 @@ export type PlanViewerProps = {
   openingKind?: ViewerOpening['kind'];
   /** Layer v2 (beta): διανυσματικοί τοίχοι ως επιλέξιμες οντότητες (px), με χρώμα τύπου. */
   vectorWalls?: CanvasWall[];
+  /** Layer v2 (beta): κολώνες ως ορθογώνια (px). */
+  columns?: CanvasColumn[];
   draft: Pt[];
   tool: ViewerTool;
   /** Μήκος σε px → κείμενο (π.χ. «3,42 m») για τη ζωντανή ένδειξη στο σχέδιο. */
@@ -73,7 +76,15 @@ export type PlanViewerProps = {
   editWalls?: { id: string; a: Pt; b: Pt }[];
   /** v2 (beta): σύρσιμο λαβής άκρου — νέα θέση (px)· το snapping/commit γίνεται στο dialog. */
   onWallEnd?: (id: string, end: 'a' | 'b', pt: Pt) => void;
+  /** v2 (beta): σύρσιμο κέντρου τοίχου — μετακίνηση ολόκληρου του τμήματος (delta px). */
+  onWallMove?: (id: string, delta: Pt) => void;
+  /** v2 (beta): διπλό κλικ σε τοίχο → σπάσιμο στο πλησιέστερο σημείο. */
+  onWallSplit?: (id: string, at: Pt) => void;
   fitKey: number;
+  /** Keys που αλλάζουν για programmatic zoom από το chrome (+ / − / fit). */
+  zoomInKey?: number;
+  zoomOutKey?: number;
+  zoomFitKey?: number;
 };
 
 const Z = { plan: 0, walls: 0.2, rooms: 0.4, outline: 0.6, net: 0.7, divider: 0.8, draft: 1 };
@@ -104,6 +115,12 @@ function plusTexture() {
 }
 
 const mid = (a: Pt, b: Pt): Pt => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
+function closestOnSeg(p: Pt, a: Pt, b: Pt): Pt {
+  const dx = b.x - a.x, dy = b.y - a.y, L2 = dx * dx + dy * dy;
+  if (L2 === 0) return { x: a.x, y: a.y };
+  const t = Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / L2));
+  return { x: a.x + t * dx, y: a.y + t * dy };
+}
 function inside(p: Pt, pts: Pt[]) {
   let r = false;
   for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
@@ -114,7 +131,7 @@ function inside(p: Pt, pts: Pt[]) {
 }
 
 export function PlanViewer(props: PlanViewerProps) {
-  const { image, w, h, wallsOverlay, showWalls, rooms, selectedId, dividers, calibration, openings, dimensions, pins, draft, tool, fitKey, formatLength, netDevices, netCables, vectorWalls, editWalls } = props;
+  const { image, w, h, wallsOverlay, showWalls, rooms, selectedId, dividers, calibration, openings, dimensions, pins, draft, tool, fitKey, formatLength, netDevices, netCables, vectorWalls, columns, editWalls, zoomInKey, zoomOutKey, zoomFitKey } = props;
   const host = React.useRef<HTMLDivElement | null>(null);
   const labelsEl = React.useRef<HTMLDivElement | null>(null);
   const tipEl = React.useRef<HTMLDivElement | null>(null);
@@ -134,8 +151,8 @@ export function PlanViewer(props: PlanViewerProps) {
     drag: { id: string; kind: 'vertex' | 'move'; i: number; base: Pt[]; from: Pt; moved: boolean } | null;
     /** v2: τρέχον ορθογώνιο επιλογής (Shift+σύρσιμο) — px σημείο + client coords για το overlay. */
     marquee: { from: Pt; fromClient: { x: number; y: number } } | null;
-    /** v2: τρέχον σύρσιμο λαβής άκρου τοίχου — σταθερό άκρο + ζωντανή θέση (px)· `moved` = έγινε πραγματικό σύρσιμο. */
-    wdrag: { id: string; end: 'a' | 'b'; fixed: Pt; cur: Pt; from: { x: number; y: number }; moved: boolean } | null;
+    /** v2: τρέχον σύρσιμο λαβής άκρου ή κέντρου τοίχου — σταθερό άκρο + ζωντανή θέση (px)· `moved` = έγινε πραγματικό σύρσιμο. */
+    wdrag: { id: string; end: 'a' | 'b' | 'center'; fixed: Pt; cur: Pt; from: { x: number; y: number }; moved: boolean } | null;
   };
   const ctx = React.useRef<Ctx | null>(null);
   const toWorld = React.useCallback((p: Pt, z: number) => new THREE.Vector3(p.x - w / 2, h / 2 - p.y, z), [w, h]);
@@ -318,13 +335,16 @@ export function PlanViewer(props: PlanViewerProps) {
     };
     const clampPt = (p: Pt): Pt => ({ x: Math.max(0, Math.min(w, p.x)), y: Math.max(0, Math.min(h, p.y)) });
 
-    // v2: λαβή άκρου τοίχου κάτω από τον δείκτη (από τους editWalls) — πιο κοντινό άκρο εντός 11px οθόνης.
-    const wallHandleHit = (e: PointerEvent | MouseEvent): { id: string; end: 'a' | 'b'; fixed: Pt } | null => {
+    // v2: λαβή άκρου ή κέντρου τοίχου κάτω από τον δείκτη (από τους editWalls) — εντός 11px οθόνης.
+    const wallHandleHit = (e: PointerEvent | MouseEvent): { id: string; end: 'a' | 'b' | 'center'; fixed: Pt } | null => {
       for (const ew of cbs.current.editWalls ?? []) {
         for (const end of ['a', 'b'] as const) {
           const s = screen(ew[end]);
           if (Math.hypot(s.x - e.clientX, s.y - e.clientY) <= 11) return { id: ew.id, end, fixed: end === 'a' ? ew.b : ew.a };
         }
+        const center = mid(ew.a, ew.b);
+        const s = screen(center);
+        if (Math.hypot(s.x - e.clientX, s.y - e.clientY) <= 11) return { id: ew.id, end: 'center', fixed: center };
       }
       return null;
     };
@@ -355,9 +375,9 @@ export function PlanViewer(props: PlanViewerProps) {
     const onDown = (e: PointerEvent) => {
       down = { x: e.clientX, y: e.clientY, button: e.button };
       skipClick = false;
-      // v2 (beta): Shift+σύρσιμο = ορθογώνια επιλογή (μόνο στο εργαλείο «Μετακίνηση», απενεργοποιεί
+      // v2 (beta): Shift+σύρσιμο = ορθογώνια επιλογή (στα εργαλεία «Επιλογή»/«Μετακίνηση», απενεργοποιεί
       // προσωρινά το pan). Σε άλλα εργαλεία το Shift μένει για τη σχεδίαση.
-      if (e.button === 0 && e.shiftKey && cbs.current.onMarquee && cbs.current.tool === 'pan') {
+      if (e.button === 0 && e.shiftKey && cbs.current.onMarquee && (cbs.current.tool === 'pan' || cbs.current.tool === 'select')) {
         const p = pick(e);
         if (p) {
           c.marquee = { from: p, fromClient: { x: e.clientX, y: e.clientY } };
@@ -369,8 +389,8 @@ export function PlanViewer(props: PlanViewerProps) {
           return;
         }
       }
-      // v2 (beta): σύρσιμο λαβής άκρου επιλεγμένου τοίχου (εργαλείο «Μετακίνηση»/pan· χωρίς Shift = marquee).
-      if (e.button === 0 && !e.shiftKey && cbs.current.tool === 'pan' && cbs.current.onWallEnd) {
+      // v2 (beta): σύρσιμο λαβής άκρου/κέντρου επιλεγμένου τοίχου (εργαλεία «Επιλογή»/«Μετακίνηση»).
+      if (e.button === 0 && !e.shiftKey && (cbs.current.tool === 'pan' || cbs.current.tool === 'select') && (cbs.current.onWallEnd || cbs.current.onWallMove)) {
         const wh = wallHandleHit(e);
         if (wh) {
           const p0 = pick(e);
@@ -436,8 +456,14 @@ export function PlanViewer(props: PlanViewerProps) {
         controls.enabled = true;
         if (renderer.domElement.hasPointerCapture(e.pointerId)) renderer.domElement.releasePointerCapture(e.pointerId);
         clear(c.layers.draft);
-        // Μόνο πραγματικό σύρσιμο μετακινεί το άκρο· σκέτο κλικ στη λαβή δεν αλλάζει τον τοίχο.
-        if (wd.moved) cbs.current.onWallEnd?.(wd.id, wd.end, wd.cur); // snapping + commit στο dialog
+        if (wd.moved) {
+          if (wd.end === 'center') {
+            // μετακίνηση ολόκληρου του τοίχου: στέλνουμε delta σε px
+            cbs.current.onWallMove?.(wd.id, { x: wd.cur.x - wd.fixed.x, y: wd.cur.y - wd.fixed.y });
+          } else {
+            cbs.current.onWallEnd?.(wd.id, wd.end, wd.cur); // snapping + commit στο dialog
+          }
+        }
         skipClick = true; down = null;
         return;
       }
@@ -491,6 +517,21 @@ export function PlanViewer(props: PlanViewerProps) {
     const onLeave = () => { c.hover = null; drawDraft(); };
     const onDbl = (e: MouseEvent) => {
       e.preventDefault();
+      // v2 (beta): διπλό κλικ σε επιλεγμένο τοίχο = σπάσιμο στο πλησιέστερο σημείο.
+      if (cbs.current.tool === 'select' && cbs.current.onWallSplit && cbs.current.editWalls?.length) {
+        const p = pick(e);
+        if (!p) return;
+        let best: { id: string; d2: number; at: Pt } | null = null;
+        for (const ew of cbs.current.editWalls) {
+          const d2 = distSqToSeg(p, ew.a, ew.b);
+          if (d2 <= 100 && (!best || d2 < best.d2)) {
+            // πλησιέστερο σημείο πάνω στο τμήμα
+            const q = closestOnSeg(p, ew.a, ew.b);
+            best = { id: ew.id, d2, at: q };
+          }
+        }
+        if (best) { cbs.current.onWallSplit(best.id, best.at); return; }
+      }
       if (cbs.current.tool === 'edit') {
         // Διπλό κλικ σε κορυφή: διαγραφή της (μένουν τουλάχιστον 3).
         const hit = editHit(e);
@@ -681,9 +722,26 @@ export function PlanViewer(props: PlanViewerProps) {
       c.layers.lines.add(line([vw.a, vw.b], Z.divider + 0.06, vw.color, Math.max(1, vw.thicknessPx), { world: true }));
       if (vw.selected) c.layers.lines.add(line([vw.a, vw.b], Z.divider + 0.08, '#22D3EE', 3));
     }
-    // v2 (beta): λαβές στα άκρα των επιλεγμένων τοίχων (σύρσιμο → onWallEnd).
-    for (const ew of editWalls ?? []) c.layers.lines.add(dots([ew.a, ew.b], Z.divider + 0.12, 12, c.vdot));
-  }, [dividers, calibration, openings, dimensions, vectorWalls, editWalls, image, w, h, toWorld, clear, line, dots]);
+    // v2 (beta): λαβές στα άκρα και στο κέντρο των επιλεγμένων τοίχων (σύρσιμο → onWallEnd/onWallMove).
+    for (const ew of editWalls ?? []) c.layers.lines.add(dots([ew.a, ew.b, mid(ew.a, ew.b)], Z.divider + 0.12, 12, c.vdot));
+    // v2 (beta): κολώνες — ορθογώνιο περίγραμμα + γέμισμα όταν είναι επιλεγμένη.
+    for (const col of columns ?? []) {
+      const hw = col.widthPx / 2, hd = col.depthPx / 2;
+      const rad = (col.rotationDeg * Math.PI) / 180;
+      const cos = Math.cos(rad), sin = Math.sin(rad);
+      const corners: Pt[] = [
+        { x: col.x + (-hw * cos - -hd * sin), y: col.y + (-hw * sin + -hd * cos) },
+        { x: col.x + (hw * cos - -hd * sin), y: col.y + (hw * sin + -hd * cos) },
+        { x: col.x + (hw * cos - hd * sin), y: col.y + (hw * sin + hd * cos) },
+        { x: col.x + (-hw * cos - hd * sin), y: col.y + (-hw * sin + hd * cos) },
+      ];
+      c.layers.lines.add(line([...corners, corners[0]], Z.divider + 0.07, col.color, col.selected ? 3 : 2, { closed: true }));
+      if (col.selected) {
+        const shape = new THREE.Shape(corners.map((p) => new THREE.Vector2(p.x - w / 2, h / 2 - p.y)));
+        c.layers.lines.add(new THREE.Mesh(new THREE.ShapeGeometry(shape), new THREE.MeshBasicMaterial({ color: col.color, transparent: true, opacity: 0.25, depthWrite: false, side: THREE.DoubleSide })));
+      }
+    }
+  }, [dividers, calibration, openings, dimensions, vectorWalls, columns, editWalls, image, w, h, toWorld, clear, line, dots]);
 
   // Ηλεκτρολογικά & δίκτυο: κάλυψη AP / κάμερας (ημιδιαφανής) και διαδρομές καλωδίων.
   React.useEffect(() => {
@@ -724,6 +782,31 @@ export function PlanViewer(props: PlanViewerProps) {
     return () => { tl.kill(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fitKey]);
+
+  // Programmatic zoom από κουμπιά chrome.
+  React.useEffect(() => {
+    const c = ctx.current;
+    if (!c || !zoomInKey) return;
+    c.camera.zoom = Math.min(c.controls.maxZoom, c.camera.zoom * 1.25);
+    c.camera.updateProjectionMatrix();
+  }, [zoomInKey]);
+  React.useEffect(() => {
+    const c = ctx.current;
+    if (!c || !zoomOutKey) return;
+    c.camera.zoom = Math.max(c.controls.minZoom, c.camera.zoom / 1.25);
+    c.camera.updateProjectionMatrix();
+  }, [zoomOutKey]);
+  React.useEffect(() => {
+    const c = ctx.current;
+    const el = host.current;
+    if (!c || !el || !zoomFitKey) return;
+    c.camera.zoom = Math.min(el.clientWidth / w, el.clientHeight / h) * 0.92;
+    c.controls.target.set(0, 0, 0);
+    c.camera.position.set(0, 0, c.camera.position.z);
+    c.camera.lookAt(c.controls.target);
+    c.camera.updateProjectionMatrix();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [zoomFitKey]);
 
   const cursor = tool === 'pan' ? 'grab' : tool === 'room' ? 'cell' : tool === 'edit' ? 'default' : tool === 'erase' ? 'pointer' : 'crosshair';
   return (

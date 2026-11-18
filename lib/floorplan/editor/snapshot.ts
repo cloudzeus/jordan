@@ -22,7 +22,21 @@ export function editorSnapshot(base: PlanData, editor: PlanDataV2, types: { id: 
   }) : base.rooms;
   return {
     ...base, rooms,
-    drawnWalls: editor.walls.map((wall) => ({ a: px(wall.a), b: px(wall.b), t: (types.find((t) => t.id === wall.typeId)?.thicknessM ?? base.wallCm / 100) / mpp })),
+    drawnWalls: editor.walls.map((wall) => {
+      const type = types.find((t) => t.id === wall.typeId);
+      return {
+        a: px(wall.a), b: px(wall.b),
+        t: (type?.thicknessM ?? base.wallCm / 100) / mpp,
+        typeId: wall.typeId ?? null,
+      };
+    }),
+    columns: editor.columns.map((c) => ({
+      id: c.id,
+      center: px(c.center),
+      widthPx: c.widthM / mpp,
+      heightPx: c.depthM / mpp,
+      rotationDeg: c.rotationDeg,
+    })),
     editorV2: { ...editor, rooms: rooms.map((r) => ({
       ...r, seed: null, polygon: r.polygon.map((p) => ({ x: p.x * mpp, y: p.y * mpp })), floorM2: r.areaPx * mpp * mpp, perimeterM: r.perimeterPx * mpp,
     })) },

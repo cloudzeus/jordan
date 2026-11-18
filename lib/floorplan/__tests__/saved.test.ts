@@ -26,7 +26,7 @@ describe('αποθηκευμένη χαρτογράφηση', () => {
   it('κλιμάκωση στη νέα ανάλυση: ίδια m² και μέτρα', () => {
     const d = scalePlanData(base, 500, 400);
     expect(d.rooms[0].polygon[1]).toEqual({ x: 100, y: 0 });
-    expect(d.drawnWalls[0]).toEqual({ a: { x: 0, y: 0 }, b: { x: 250, y: 0 }, t: 7.5 });
+    expect(d.drawnWalls[0]).toEqual({ a: { x: 0, y: 0 }, b: { x: 250, y: 0 }, t: 7.5, typeId: null });
     expect(roomSheet(d).rows[0].floorM2).toBeCloseTo(6);
     expect(roomSheet(d).rows[0].perimeterM).toBeCloseTo(10);
   });

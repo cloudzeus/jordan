@@ -47,7 +47,7 @@ import type { RecipeView } from '@/lib/install-recipes';
 import { planData, planDataV2, planPins, planRooms, scalePlanData, type PlanData, type PlanPin, type PlanRoom } from '@/lib/floorplan/saved';
 import { upgradePlanData } from '@/lib/floorplan/upgrade';
 import { createEditorStore, type EditorStore } from '@/lib/floorplan/editor/store';
-import { clampAcceptCount, hotkeyToWallTypeId, marqueeIds, pickWallAt, wallsForCanvas } from '@/lib/floorplan/editor/interactions';
+import { clampAcceptCount, hotkeyToWallTypeId, marqueeIds, pickWallAt, wallsForCanvas, pickColumnAt, columnsForCanvas, openingParamsOnWall, measureTargets, snapToTargets } from '@/lib/floorplan/editor/interactions';
 import { snapPoint, applyLength, type SnapKind } from '@/lib/floorplan/editor/snapping';
 import { useStore } from 'zustand';
 import type { StoreApi } from 'zustand/vanilla';
@@ -72,7 +72,7 @@ type Room = {
 };
 type Calib = { a: Pt; b: Pt; meters: number };
 /** Τοίχος σχεδιασμένος από τον χρήστη: τμήμα a→b με πάχος t (px ανάλυσης). */
-type DrawnWall = { a: Pt; b: Pt; t: number };
+type DrawnWall = { a: Pt; b: Pt; t: number; typeId: string | null };
 
 const PALETTE = ['#38BDF8', '#34D399', '#FBBF24', '#F472B6', '#A78BFA', '#FB923C', '#2DD4BF', '#F87171', '#A3E635', '#60A5FA'];
 const WALL_RGB = [34, 211, 238];
@@ -91,6 +91,11 @@ type ToolGroup = 'Πλοήγηση' | 'Χώροι' | 'Τοίχοι & ανοίγ�
  * πότε το χρησιμοποιώ (tooltip και «Οδηγός εργαλείων»).
  */
 const TOOLS: Array<{ key: ViewerTool; label: string; hint: string; help: string; kbd: string; icon: React.ReactNode; group: ToolGroup }> = [
+  {
+    key: 'select', label: 'Επιλογή', kbd: 'S', icon: <FiMousePointer />, group: 'Πλοήγηση',
+    hint: 'Κλικ σε τοίχο/κολώνα για επιλογή · σύρε λαβές για επεξεργασία · διπλό κλικ σε τοίχο για σπάσιμο.',
+    help: 'Επιλέγει και επεξεργάζεται vector τοίχους και κολώνες. Κλικ σε τοίχο = επιλογή, Shift+κλικ/σύρσιμο = πολλαπλή, σύρε άκρο = αλλαγή μήκους, σύρε κέντρο = μετακίνηση, διπλό κλικ = σπάσιμο.',
+  },
   {
     key: 'pan', label: 'Μετακίνηση', kbd: 'V', icon: <FiMove />, group: 'Πλοήγηση',
     hint: 'Σύρε για μετακίνηση, ροδέλα για zoom.',
@@ -120,6 +125,11 @@ const TOOLS: Array<{ key: ViewerTool; label: string; hint: string; help: string;
     key: 'edit', label: 'Επεξεργασία χώρου', kbd: 'E', icon: <Spline className="size-4" />, group: 'Χώροι',
     hint: 'Κλικ σε χώρο· σύρε κορυφές, σύρε το «+» για νέο σπάσιμο, σύρε μέσα για μετακίνηση (ή βελάκια). Διπλό κλικ σε κορυφή = διαγραφή · ⌘/Ctrl+Z αναίρεση.',
     help: 'Διορθώνει ένα περίγραμμα: σύρε τις γωνίες, σύρε το «+» στη μέση πλευράς για νέα γωνία, διπλό κλικ σε γωνία για διαγραφή, βελάκια για μετακίνηση (Shift ×10). ⌘/Ctrl+Z αναίρεση.',
+  },
+  {
+    key: 'column', label: 'Κολώνα', kbd: 'C', icon: <FiSquare className="size-4" />, group: 'Τοίχοι & ανοίγματα',
+    hint: 'Κλικ για τοποθέτηση κολώνας · διάλεξε διάσταση από το δεξί πάνελ.',
+    help: 'Τοποθετεί ορθογώνια κολώνα στο σχέδιο. Χρήσιμο για φέροντα στοιχεία που πρέπει να φαίνονται στην κάτοψη.',
   },
   {
     key: 'wall', label: 'Τοίχος', kbd: 'W', icon: <BrickWall className="size-4" />, group: 'Τοίχοι & ανοίγματα',
@@ -306,6 +316,7 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
   const [openingKind, setOpeningKind] = React.useState<OpeningKind>('door');
   const [openingH, setOpeningH] = React.useState(OPENING_PRESETS.door.h);
   const [openingSill, setOpeningSill] = React.useState(OPENING_PRESETS.door.sill);
+  const [columnSize, setColumnSize] = React.useState<{ wM: number; dM: number }>({ wM: 0.25, dM: 0.25 });
   const [view3d, setView3d] = React.useState(false);
   const plan3dRef = React.useRef<Plan3dHandle | null>(null);
   const [rooms, setRooms] = React.useState<Room[]>([]);
@@ -313,6 +324,9 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
   // Το τελευταίο ύψος πλακιδίων που διάλεξε ο χρήστης — προτείνεται στον επόμενο χώρο.
   const [lastHeight, setLastHeight] = React.useState(DEFAULT_HEIGHT);
   const [fitKey, setFitKey] = React.useState(0);
+  const [zoomInKey, setZoomInKey] = React.useState(0);
+  const [zoomOutKey, setZoomOutKey] = React.useState(0);
+  const [zoomFitKey, setZoomFitKey] = React.useState(0);
   const [saving, setSaving] = React.useState(false);
   const [recipes, setRecipes] = React.useState<RecipeView[] | null>(null);
   const [recipesError, setRecipesError] = React.useState<string | null>(null);
@@ -641,7 +655,7 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
     if (tool !== 'polygon' || draft.length < 3) return;
     if (polyWalls) {
       // Το περίγραμμα γίνεται τοίχος· ο χώρος μετριέται μέσα του όπως με το «χώρος με κλικ».
-      const edges: DrawnWall[] = draft.map((a, i) => ({ a, b: draft[(i + 1) % draft.length], t: wallPx }));
+      const edges: DrawnWall[] = draft.map((a, i) => ({ a, b: draft[(i + 1) % draft.length], t: wallPx, typeId: null }));
       setDrawnWalls((ws) => [...ws, ...edges]);
       const b = blocked ? blocked.slice() : new Uint8Array(w * h);
       for (const e of edges) burnLine(b, w, h, e.a, e.b, Math.max(1, Math.round(e.t / 2)));
@@ -653,11 +667,29 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
   };
 
   const onPick = (p: Pt) => {
-    // v2 (beta): με το εργαλείο «Μετακίνηση» (pan), κλικ κοντά σε τοίχο τον επιλέγει· αλλιώς αποεπιλογή.
-    if (v2Active && tool === 'pan' && mPerPx) {
+    // v2 (beta): με το εργαλείο «Επιλογή» (select) ή «Μετακίνηση» (pan), κλικ κοντά σε τοίχο/κολώνα τον επιλέγει.
+    if (v2Active && (tool === 'select' || tool === 'pan') && mPerPx) {
       const st = storeRef.current!.getState();
-      const id = pickWallAt(st.data.walls, { x: p.x * mPerPx, y: p.y * mPerPx }, 10 * mPerPx);
-      st.select({ kind: id ? 'wall' : null, id });
+      const wallId = pickWallAt(st.data.walls, { x: p.x * mPerPx, y: p.y * mPerPx }, 10 * mPerPx);
+      const colId = pickColumnAt(st.data.columns, { x: p.x * mPerPx, y: p.y * mPerPx }, 10 * mPerPx);
+      // προτεραιότητα: τοίχος πάνω από κολώνα (πιο λεπτό στοιχείο)
+      if (wallId) {
+        const shift = (window as typeof window & { event?: PointerEvent }).event?.shiftKey;
+        if (shift) {
+          const set = new Set(st.selectedWallIds);
+          if (set.has(wallId)) set.delete(wallId); else set.add(wallId);
+          st.selectWalls([...set]);
+        } else st.select({ kind: 'wall', id: wallId });
+      } else if (colId) {
+        st.select({ kind: 'column', id: colId });
+      } else {
+        st.select({ kind: null, id: null });
+      }
+      return;
+    }
+    if (v2Active && tool === 'column' && mPerPx) {
+      const st = storeRef.current!.getState();
+      st.addColumn({ center: { x: p.x * mPerPx, y: p.y * mPerPx }, widthM: columnSize.wM, depthM: columnSize.dM });
       return;
     }
     if (tool === 'edit') {
@@ -683,13 +715,39 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
     }
     if (tool === 'measure') {
       if (!draft.length) { setDraft([p]); return; }
-      if (Math.hypot(p.x - draft[0].x, p.y - draft[0].y) < 3) return;
-      setDims((ds) => [...ds, { id: uid(), a: draft[0], b: p }]);
+      const mpp = mPerPx ?? 1;
+      const st = storeRef.current!.getState();
+      const targets = measureTargets(st.data.walls, st.data.columns).map((q) => ({ x: q.x / mpp, y: q.y / mpp }));
+      for (const w of drawnWalls) { targets.push(w.a, w.b); }
+      const snapped = snapToTargets(p, targets, 12 * mpp) ?? p;
+      if (Math.hypot(snapped.x - draft[0].x, snapped.y - draft[0].y) < 3) return;
+      setDims((ds) => [...ds, { id: uid(), a: draft[0], b: snapped }]);
       setDraft([]);
       return;
     }
     if (tool === 'opening') {
       if (!mPerPx) { toast.error('Όρισε πρώτα την κλίμακα (βήμα 2) — το πλάτος του ανοίγματος βγαίνει σε μέτρα.'); return; }
+      if (v2Active) {
+        const st = storeRef.current!.getState();
+        if (!draft.length) { setDraft([p]); return; }
+        const aM = { x: draft[0].x * mPerPx, y: draft[0].y * mPerPx };
+        const bM = { x: p.x * mPerPx, y: p.y * mPerPx };
+        // βρες τον τοίχο πάνω στον οποίο προβάλλεται το άνοιγμα
+        let best: { wall: import('@/lib/floorplan/editor/reducers').WallEntity; params: { t0: number; t1: number; lengthM: number } } | null = null;
+        for (const wall of st.data.walls) {
+          const params = openingParamsOnWall(wall, aM, bM);
+          if (params && (!best || params.lengthM > best.params.lengthM)) best = { wall, params };
+        }
+        setDraft([]);
+        if (!best) { toast.error('Σχεδίασε το άνοιγμα πάνω σε έναν τοίχο.'); return; }
+        if (best.params.lengthM < 0.2) { toast.error('Το άνοιγμα είναι πολύ μικρό — κάνε κλικ στα δύο άκρα του.'); return; }
+        st.addOpening({
+          wallId: best.wall.id, t0: best.params.t0, t1: best.params.t1, kind: openingKind,
+          sillM: openingKind === 'door' ? 0 : openingSill, heightM: openingH,
+        });
+        toast.success(`${OPENING_PRESETS[openingKind].label} ${nf.format(best.params.lengthM)} m.`);
+        return;
+      }
       if (!draft.length) { setDraft([p]); return; }
       const snapped = snapOpening(rooms.map((r) => r.polygon), draft[0], p, 0.6 / mPerPx);
       setDraft([]);
@@ -774,7 +832,7 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
       const last = draft[draft.length - 1];
       if (!last) { setDraft([q]); return; }
       if (Math.hypot(q.x - last.x, q.y - last.y) < 2) return; // δεύτερο κλικ του διπλού κλικ
-      setDrawnWalls((ws) => [...ws, { a: last, b: q, t: wallPx }]);
+      setDrawnWalls((ws) => [...ws, { a: last, b: q, t: wallPx, typeId: null }]);
       // Κλείσιμο στο πρώτο σημείο της αλυσίδας ⇒ τέλος· αλλιώς συνεχίζουμε από το νέο άκρο.
       setDraft(draft.length > 1 && q.x === draft[0].x && q.y === draft[0].y ? [] : [...draft, q]);
       return;
@@ -902,6 +960,12 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
           e.preventDefault();
           return;
         }
+        if ((e.key === 'Delete' || e.key === 'Backspace') && st.selection.kind === 'column' && st.selection.id && !draft.length) {
+          st.deleteColumn(st.selection.id);
+          st.select({ kind: null, id: null });
+          e.preventDefault();
+          return;
+        }
       }
       if (e.key === 'Escape' && draft.length) { e.preventDefault(); e.stopPropagation(); setDraft([]); return; }
       if (e.key === 'Enter') { finish(); return; }
@@ -969,7 +1033,15 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
   // ── Αποθήκευση χαρτογράφησης ─────────────────────────────────────────────────────────
   const planDataNow = (): PlanData => ({
     v: 1, w, h, pxPerM: plan?.pxPerM ?? null, page: plan?.page ?? 1, calib, autoWalls, thr, thick, wallCm, doorCm,
-    dividers, drawnWalls, dims, pins, devices, cables, render3dFileId: null,
+    dividers, drawnWalls,
+    columns: v2Active && mPerPx ? v2.data.columns.map((c) => ({
+      id: c.id,
+      center: { x: c.center.x / mPerPx, y: c.center.y / mPerPx },
+      widthPx: c.widthM / mPerPx,
+      heightPx: c.depthM / mPerPx,
+      rotationDeg: c.rotationDeg,
+    })) : [],
+    dims, pins, devices, cables, render3dFileId: null,
     rooms: rooms.map((r) => ({ id: r.id, name: r.name, color: r.color, polygon: r.polygon, areaPx: r.areaPx, perimeterPx: r.perimeterPx, manual: r.manual, walls: r.walls, material: r.material, materialB: r.material ? r.materialB ?? null : null })),
   });
   // Seed του v2 store μία φορά ανά «σύνοδο σχεδίου» (νέο plan/restore): οι drawnWalls (px) γίνονται
@@ -1222,6 +1294,10 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
     }
   };
 
+  const zoomIn = React.useCallback(() => setZoomInKey((k) => k + 1), []);
+  const zoomOut = React.useCallback(() => setZoomOutKey((k) => k + 1), []);
+  const zoomFit = React.useCallback(() => setZoomFitKey((k) => k + 1), []);
+
   const viewerRooms: ViewerRoom[] = React.useMemo(() => rooms.map((r) => ({
     id: r.id, color: r.color, polygon: r.polygon, label: r.name, anchor: labelPoint(r.polygon),
     sub: mPerPx ? fmtM2(toM2(r.areaPx, mPerPx)) : `${nf.format(r.areaPx)} px²`,
@@ -1236,8 +1312,19 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
     });
   }, [v2Active, mPerPx, v2Rooms]);
 
-  const viewerOpenings: ViewerOpening[] = React.useMemo(() => rooms.flatMap((r) => (r.walls?.openings ?? [])
-    .filter((o) => o.at).map((o) => ({ id: o.id, kind: o.kind, a: o.at![0], b: o.at![1], selected: r.id === selected }))), [rooms, selected]);
+  const viewerOpenings: ViewerOpening[] = React.useMemo(() => {
+    const v1 = rooms.flatMap((r) => (r.walls?.openings ?? [])
+      .filter((o) => o.at).map((o) => ({ id: o.id, kind: o.kind, a: o.at![0], b: o.at![1], selected: r.id === selected })));
+    if (!v2Active || !mPerPx) return v1;
+    const v2ops = v2.data.openings.map((o) => {
+      const wall = v2.data.walls.find((w) => w.id === o.wallId);
+      if (!wall) return null;
+      const a = { x: wall.a.x + o.t0 * (wall.b.x - wall.a.x), y: wall.a.y + o.t0 * (wall.b.y - wall.a.y) };
+      const b = { x: wall.a.x + o.t1 * (wall.b.x - wall.a.x), y: wall.a.y + o.t1 * (wall.b.y - wall.a.y) };
+      return { id: o.id, kind: o.kind, a: { x: a.x / mPerPx, y: a.y / mPerPx }, b: { x: b.x / mPerPx, y: b.y / mPerPx }, selected: false };
+    }).filter(Boolean) as ViewerOpening[];
+    return [...v1, ...v2ops];
+  }, [rooms, selected, v2Active, mPerPx, v2.data.openings, v2.data.walls]);
 
   // Η αυτόματη κλίμακα του κενού κάναβου δεν σχεδιάζεται ως γραμμή.
   const blankScale = !!calib && plan?.pxPerM != null && calib.meters === 1 && calib.a.x === 0 && calib.b.x === plan.pxPerM;
@@ -1264,7 +1351,9 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
 
   // Ο καμβάς (3D ή 2D) — κοινός για τον σημερινό editor και το κέλυφος v2. null όσο δεν υπάρχει σχέδιο.
   const viewer = !plan ? null : view3d && mPerPx ? (
-    <Plan3d ref={plan3dRef} image={plan.display} w={w} h={h} mPerPx={mPerPx} rooms={rooms} selectedId={selected} devices={devices} cables={cables} selectedDeviceId={devSel} />
+    <Plan3d ref={plan3dRef} image={plan.display} w={w} h={h} mPerPx={mPerPx} rooms={rooms} selectedId={selected} devices={devices} cables={cables} selectedDeviceId={devSel}
+      columns={v2Active ? v2.data.columns.map((c) => ({ center: { x: c.center.x / mPerPx, y: c.center.y / mPerPx }, widthM: c.widthM, depthM: c.depthM, rotationDeg: c.rotationDeg, heightM: c.heightM, color: wallTypes.find((t) => t.id === c.typeId)?.color ?? '#CBD5E1' })) : []}
+    />
   ) : (
     <PlanViewer
       image={plan.display} w={w} h={h}
@@ -1274,10 +1363,12 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
       pins={pins.map((p, i) => ({ id: p.id, x: p.x, y: p.y, n: i + 1, selected: p.id === pinSel, hasPhoto: p.photoFileIds.length > 0 }))}
       calibration={calibLine ?? (calib && !blankScale ? [calib.a, calib.b] : null)}
       draft={draft} tool={tool} formatLength={fmtLen}
+      zoomInKey={zoomInKey} zoomOutKey={zoomOutKey} zoomFitKey={zoomFitKey}
       vectorWalls={v2Active ? [
         ...wallsForCanvas(v2.data.walls, mPerPx!, v2.selectedWallIds, wallTypes),
         ...(wallDraft ?? []).map((nw, i) => ({ id: `draft-${i}`, a: { x: nw.a.x / mPerPx!, y: nw.a.y / mPerPx! }, b: { x: nw.b.x / mPerPx!, y: nw.b.y / mPerPx! }, thicknessPx: 3, color: '#22D3EE', selected: false })),
       ] : undefined}
+      columns={v2Active && mPerPx ? columnsForCanvas(v2.data.columns, mPerPx, v2.selectedColumnIds, wallTypes) : undefined}
       onPick={onPick} onFinish={finish} onEdit={onEdit} fitKey={fitKey} ortho={ortho}
       onMarquee={v2Active && mPerPx ? (a, b) => {
         if (aiRegionMode) { setAiRegionMode(false); void aiScanWalls({ x0: a.x, y0: a.y, x1: b.x, y1: b.y }); return; }
@@ -1291,6 +1382,14 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
         const wl = st.data.walls.find((x) => x.id === id);
         const snapped = snapPoint(st.data.walls, { x: pt.x * mPerPx, y: pt.y * mPerPx }, { tolM: 12 * mPerPx, ortho, anchor: wl ? (end === 'a' ? wl.b : wl.a) : null, excludeId: id });
         st.moveWallEnd(id, end, snapped.point);
+      } : undefined}
+      onWallMove={v2Active && mPerPx ? (id, delta) => {
+        const st = storeRef.current!.getState();
+        st.moveWall(id, { x: delta.x * mPerPx, y: delta.y * mPerPx });
+      } : undefined}
+      onWallSplit={v2Active && mPerPx ? (id, at) => {
+        const st = storeRef.current!.getState();
+        st.splitWall(id, { x: at.x * mPerPx, y: at.y * mPerPx });
       } : undefined}
       netDevices={viewerDevices} netCables={viewerCables} cableColor={netPick.tool === 'cable' ? CABLE_META[netPick.kind].color : undefined}
     />
@@ -1394,13 +1493,17 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
             tools={TOOLS} activeTool={tool} onTool={(k) => changeTool(k as ViewerTool)}
             ortho={ortho} onToggleOrtho={toggleOrtho}
             view3d={view3d} onView={(v) => { setView3d(v); setDraft([]); }} canUse3d={!!mPerPx}
+            onZoomIn={zoomIn} onZoomOut={zoomOut} onZoomFit={zoomFit}
             wallTypes={wallTypes}
             activeWallTypeId={v2.activeWallTypeId}
             onWallType={(id) => { if (v2.selectedWallIds.length > 1) v2.setWallTypeMany(v2.selectedWallIds, id); else if (v2.selection.kind === 'wall' && v2.selection.id) v2.setWallType(v2.selection.id, id); else v2.setActiveWallType(id); }}
             status={{
               snap: snapKind && SNAP_LABEL[snapKind] ? SNAP_LABEL[snapKind] : undefined,
               selection: v2.selectedWallIds.length > 1 ? `${v2.selectedWallIds.length} τοίχοι`
-                : v2.selection.kind === 'wall' ? 'τοίχος' : (selected ? '1 χώρος' : undefined),
+                : v2.selection.kind === 'wall' ? 'τοίχος'
+                : v2.selection.kind === 'column' ? 'κολώνα'
+                : (selected ? '1 χώρος' : undefined),
+              wallType: v2.activeWallTypeId ? wallTypes.find((t) => t.id === v2.activeWallTypeId)?.name : undefined,
             }}
             rightExtra={
               <div className="flex flex-col gap-2">
@@ -1436,6 +1539,29 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
                       placeholder="π.χ. 3.45"
                       className="h-7 w-full rounded-md border border-white/15 bg-[#0d1526] px-2 text-(length:--fs-12) text-slate-100 outline-hidden focus:border-cyan-400/60" />
                   </label>
+                )}
+                {(tool === 'column' || v2.selection.kind === 'column') && (
+                  <div className="flex flex-col gap-1.5 border-t border-white/10 pt-2">
+                    <h3 className="text-(length:--fs-11) font-semibold uppercase tracking-wider text-slate-500">Διάσταση κολώνας</h3>
+                    <div className="grid grid-cols-3 gap-1">
+                      {[{ wM: 0.2, dM: 0.2 }, { wM: 0.25, dM: 0.25 }, { wM: 0.3, dM: 0.3 }, { wM: 0.4, dM: 0.4 }, { wM: 0.25, dM: 0.5 }, { wM: 0.3, dM: 0.6 }].map((s) => {
+                        const active = Math.abs(columnSize.wM - s.wM) < 0.01 && Math.abs(columnSize.dM - s.dM) < 0.01;
+                        return (
+                          <button key={`${s.wM}x${s.dM}`} type="button" onClick={() => setColumnSize(s)}
+                            className="h-7 rounded border text-(length:--fs-11) transition-colors"
+                            style={active ? { borderColor: '#7C3AED', background: 'rgba(124,58,237,.14)', color: '#fff' } : { borderColor: 'rgba(255,255,255,.1)', color: '#94A3B8' }}>
+                            {s.wM * 100}×{s.dM * 100}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+                {v2.selectedWallIds.length === 2 && (
+                  <button type="button" onClick={() => { const [a, b] = v2.selectedWallIds; v2.mergeWalls(a, b); }}
+                    className="inline-flex h-7 w-full cursor-pointer items-center justify-center rounded-md border border-white/15 text-(length:--fs-12) text-slate-200 transition-colors hover:bg-white/5">
+                    Ένωση 2 τοίχων
+                  </button>
                 )}
                 {/* ── AI ανίχνευση τοίχων (OpenRouter/Claude) — vector/scan/εικόνα ── */}
                 <div className="flex flex-col gap-1.5">

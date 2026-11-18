@@ -20,9 +20,10 @@ const BG = '#0B1220';
 const CEILING_M = 2.8;
 const WALL_T_M = 0.1;
 
-export function Plan3d({ image, w, h, mPerPx, rooms, selectedId, devices = [], cables = [], selectedDeviceId = null, ref }: {
+export function Plan3d({ image, w, h, mPerPx, rooms, selectedId, devices = [], cables = [], selectedDeviceId = null, columns = [], ref }: {
   image: HTMLCanvasElement; w: number; h: number; mPerPx: number; rooms: Room3d[]; selectedId: string | null;
   devices?: PlanDevice[]; cables?: PlanCable[]; selectedDeviceId?: string | null;
+  columns?: Array<{ center: Pt; widthM: number; depthM: number; rotationDeg: number; heightM: number; color: string }>;
   ref?: React.Ref<Plan3dHandle>;
 }) {
   const host = React.useRef<HTMLDivElement | null>(null);
@@ -138,7 +139,15 @@ export function Plan3d({ image, w, h, mPerPx, rooms, selectedId, devices = [], c
         c.group.add(box);
       }
     }
-  }, [rooms, selectedId, mPerPx, w, h, image]);
+    // Κολώνες: ορθογώνιοι παραλληλεπίπεδοι από δάπεδο ως ύψος κολώνας.
+    for (const col of columns) {
+      const mat = new THREE.MeshStandardMaterial({ color: col.color, roughness: 0.6 });
+      const box = new THREE.Mesh(new THREE.BoxGeometry(px(col.widthM), px(col.heightM), px(col.depthM)), mat);
+      box.position.set(X(col.center), px(col.heightM / 2), Z(col.center));
+      box.rotation.y = -(col.rotationDeg * Math.PI) / 180;
+      c.group.add(box);
+    }
+  }, [rooms, selectedId, mPerPx, w, h, image, columns]);
 
   // Ηλεκτρολογικά & δίκτυο.
   React.useEffect(() => {
