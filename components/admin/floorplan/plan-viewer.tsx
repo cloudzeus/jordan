@@ -20,7 +20,7 @@ import type { CanvasWall, CanvasColumn } from '@/lib/floorplan/editor/interactio
 import { distSqToSeg } from '@/lib/floorplan/editor/interactions';
 
 export type ViewerRoom = { id: string; color: string; polygon: Pt[]; label: string; sub: string; anchor: Pt };
-export type ViewerTool = 'room' | 'rect' | 'polygon' | 'wall' | 'divider' | 'opening' | 'calibrate' | 'measure' | 'pin' | 'pan' | 'edit' | 'erase' | 'device' | 'cable' | 'select' | 'column';
+export type ViewerTool = 'room' | 'rect' | 'polygon' | 'wall' | 'divider' | 'opening' | 'calibrate' | 'measure' | 'pin' | 'pan' | 'edit' | 'erase' | 'device' | 'cable' | 'select' | 'column' | 'crop';
 /** Εργαλεία που σχεδιάζουν γραμμές — σε αυτά ισχύει το «Ορθογώνια» (μόνο οριζόντια/κάθετα). */
 export const LINE_TOOLS: ReadonlySet<ViewerTool> = new Set(['wall', 'polygon', 'measure', 'divider', 'calibrate', 'cable']);
 /** Άνοιγμα (πόρτα/παράθυρο) πάνω σε τοίχο χώρου, όπως σχεδιάστηκε. */
@@ -206,7 +206,7 @@ export function PlanViewer(props: PlanViewerProps) {
     if (!d.length) return;
     const color = t === 'calibrate' ? '#F59E0B' : t === 'divider' ? '#F43F5E' : t === 'wall' ? WALL_DRAW : t === 'opening' ? OPENING_COLOR[cbs.current.openingKind ?? 'door'] : t === 'measure' ? '#FDE047' : t === 'cable' ? (cbs.current.cableColor ?? '#3B82F6') : '#22D3EE';
     const seq = c.hover ? [...d, c.hover] : d;
-    if (t === 'rect' && c.hover) {
+    if ((t === 'rect' || t === 'crop') && c.hover) {
       // Ορθογώνιο από την πρώτη γωνία ως τον κέρσορα.
       const a = d[0], b = c.hover;
       c.layers.draft.add(line([a, { x: b.x, y: a.y }, b, { x: a.x, y: b.y }], Z.draft, color, 2.5, { closed: true, dashed: true }));
@@ -245,6 +245,7 @@ export function PlanViewer(props: PlanViewerProps) {
     controls.touches = { ONE: THREE.TOUCH.PAN, TWO: THREE.TOUCH.DOLLY_PAN };
     controls.minZoom = 0.02;
     controls.maxZoom = 40;
+    controls.zoomToCursor = true;
 
     const tex = new THREE.CanvasTexture(image);
     tex.colorSpace = THREE.SRGBColorSpace;

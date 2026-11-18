@@ -17,7 +17,7 @@ import {
   FiUploadCloud, FiLoader, FiCheck, FiMove, FiMousePointer, FiEdit3, FiScissors, FiMaximize, FiSquare, FiGrid, FiRotateCcw,
   FiEye, FiEyeOff, FiTrash2, FiCopy, FiDownload, FiSave, FiRefreshCw, FiHelpCircle, FiChevronLeft, FiChevronRight, FiFileText, FiCamera, FiMapPin,
 } from 'react-icons/fi';
-import { BrickWall, DoorOpen, Eraser, RectangleHorizontal, Ruler, RulerDimensionLine, Spline } from 'lucide-react';
+import { BrickWall, Crop, DoorOpen, Eraser, RectangleHorizontal, Ruler, RulerDimensionLine, Spline } from 'lucide-react';
 import { eraseHit, type EraseHit } from '@/lib/floorplan/erase';
 import { angleTo, cameraWedge, CABLE_META, DEVICE_META, nearestDevice, networkLines, newDevice, type NetworkLine, type PlanCable, type PlanDevice } from '@/lib/floorplan/network';
 import { DEVICE_ICON, NetworkMenu, NetworkPanel, type NetPick } from './network-ui';
@@ -35,6 +35,7 @@ import {
 import { blankPlan, isPdf, loadPlan, pageVectors, type LoadedPlan } from './load-plan';
 import { segmentsByRole, layerRole } from '@/lib/floorplan/cad/recognize-walls';
 import { recognizeColumns, recognizeStairs } from '@/lib/floorplan/cad/recognize-elements';
+import { detectColumnsFromRaster } from '@/lib/floorplan/detect-columns';
 import { cadWallsToNew } from '@/lib/floorplan/cad/import';
 import type { NewWall } from '@/lib/floorplan/editor/reducers';
 import { roomsFromWalls, type DerivedRoom } from '@/lib/floorplan/editor/rooms';
@@ -105,6 +106,11 @@ const TOOLS: Array<{ key: ViewerTool; label: string; hint: string; help: string;
     key: 'erase', label: 'Γόμα', kbd: 'X', icon: <Eraser className="size-4" />, group: 'Πλοήγηση',
     hint: 'Κλικ πάνω σε τοίχο, διαχωριστικό, διάσταση, άνοιγμα, σημείωση ή χώρο για να σβηστεί · ⌘/Ctrl+Z επαναφορά.',
     help: 'Σβήνει με ένα κλικ ό,τι σχεδίασες: τοίχο, διαχωριστικό, διάσταση, πόρτα/παράθυρο, σημείωση ή ολόκληρο χώρο. Πρώτα σβήνει το πιο «λεπτό» στοιχείο κάτω από τον δείκτη (π.χ. τη διάσταση πριν από τον χώρο). Επαναφορά με ⌘/Ctrl+Z. Οι τοίχοι της αυτόματης ανίχνευσης δεν σβήνονται — κρύψ’ τους ή κλείσε κενά με Διαχωριστικό.',
+  },
+  {
+    key: 'crop', label: 'Crop', kbd: 'Z', icon: <Crop className="size-4" />, group: 'Πλοήγηση',
+    hint: 'Δύο κλικ σε απέναντι γωνίες για να ορίσεις ορθογώνιο · μετά «Εφαρμογή crop» για κόψιμο σχεδίου και entities.',
+    help: 'Κόβει την εικόνα και όλες τις οντότητες (τοίχους, κολώνες, διαστάσεις, σημειώσεις) στο επιλεγμένο ορθογώνιο. Χρήσιμο για να αφαιρέσεις περιθώρια ή άλλες σελίδες του σχεδίου.',
   },
   {
     key: 'room', label: 'Χώρος με κλικ', kbd: 'R', icon: <FiMousePointer />, group: 'Χώροι',
@@ -317,6 +323,7 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
   const [openingH, setOpeningH] = React.useState(OPENING_PRESETS.door.h);
   const [openingSill, setOpeningSill] = React.useState(OPENING_PRESETS.door.sill);
   const [columnSize, setColumnSize] = React.useState<{ wM: number; dM: number }>({ wM: 0.25, dM: 0.25 });
+  const [cropRect, setCropRect] = React.useState<{ x: number; y: number; w: number; h: number } | null>(null);
   const [view3d, setView3d] = React.useState(false);
   const plan3dRef = React.useRef<Plan3dHandle | null>(null);
   const [rooms, setRooms] = React.useState<Room[]>([]);
@@ -706,6 +713,18 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
       setDraft([]);
       return;
     }
+    if (tool === 'crop') {
+      if (!draft.length) { setDraft([p]); setCropRect(null); return; }
+      const a = draft[0];
+      const x = Math.max(0, Math.min(w, Math.min(a.x, p.x)));
+      const y = Math.max(0, Math.min(h, Math.min(a.y, p.y)));
+      const rw = Math.min(w, Math.max(a.x, p.x)) - x;
+      const rh = Math.min(h, Math.max(a.y, p.y)) - y;
+      if (rw < 10 || rh < 10) { toast.error('Το ορθογώνιο crop είναι πολύ μικρό.'); return; }
+      setCropRect({ x, y, w: rw, h: rh });
+      setDraft([]);
+      return;
+    }
     if (tool === 'pin') {
       const id = typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : `${Date.now()}-${uid()}-${uid()}`;
       setPins((ps) => [...ps, { id, x: p.x, y: p.y, text: '', photoFileIds: [] }]);
@@ -862,7 +881,65 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
     toast.success('Η κλίμακα ορίστηκε — κάνε κλικ μέσα στους χώρους.');
   };
 
-  const changeTool = (t: ViewerTool) => { setTool(t); setDraft([]); };
+  /** Crop εικόνας + entities στο επιλεγμένο ορθογώνιο (px ανάλυσης). */
+  const applyCrop = () => {
+    if (!plan || !cropRect) return;
+    const r = cropRect;
+    const displayScaleX = plan.display.width / w;
+    const displayScaleY = plan.display.height / h;
+    const newDisplay = document.createElement('canvas');
+    newDisplay.width = Math.max(1, Math.round(r.w * displayScaleX));
+    newDisplay.height = Math.max(1, Math.round(r.h * displayScaleY));
+    const dg = newDisplay.getContext('2d')!;
+    dg.drawImage(plan.display, r.x * displayScaleX, r.y * displayScaleY, r.w * displayScaleX, r.h * displayScaleY, 0, 0, newDisplay.width, newDisplay.height);
+
+    const ac = document.createElement('canvas');
+    ac.width = r.w; ac.height = r.h;
+    const ag = ac.getContext('2d', { willReadFrequently: true })!;
+    ag.putImageData(plan.analysis, -r.x, -r.y);
+    const newAnalysis = ag.getImageData(0, 0, r.w, r.h);
+
+    const shift = (p: Pt): Pt => ({ x: p.x - r.x, y: p.y - r.y });
+    const newPlan: LoadedPlan = { ...plan, display: newDisplay, analysis: newAnalysis, name: `${plan.name} (crop)` };
+
+    setDrawnWalls((ws) => ws.map((d) => ({ ...d, a: shift(d.a), b: shift(d.b) })));
+    setDividers((ds) => ds.map(([a, b]) => [shift(a), shift(b)]));
+    setCalib((c) => (c ? { ...c, a: shift(c.a), b: shift(c.b) } : null));
+    setCalibLine((l) => (l ? [shift(l[0]), shift(l[1])] : null));
+    setRooms((rs) => rs.map((x) => ({ ...x, polygon: x.polygon.map(shift) })));
+    setDims((ds) => ds.map((d) => ({ ...d, a: shift(d.a), b: shift(d.b) })));
+    setPins((ps) => ps.map((p) => ({ ...p, ...shift(p) })));
+    setDevices((ds) => ds.map((d) => ({ ...d, ...shift(d) })));
+    setCables((cs) => cs.map((c) => ({ ...c, pts: c.pts.map(shift) })));
+
+    setPlan(newPlan);
+
+    if (v2Active && mPerPx) {
+      seededRef.current = newPlan.display;
+      const st = storeRef.current!.getState();
+      const dxM = r.x * mPerPx, dyM = r.y * mPerPx;
+      const shiftM = (p: Pt): Pt => ({ x: p.x - dxM, y: p.y - dyM });
+      const cropped: import('@/lib/floorplan/saved').PlanDataV2 = {
+        ...st.data,
+        underlay: st.data.underlay ? { ...st.data.underlay, wPx: r.w, hPx: r.h } : null,
+        walls: st.data.walls.map((wl) => ({ ...wl, a: shiftM(wl.a), b: shiftM(wl.b) })),
+        columns: st.data.columns.map((c) => ({ ...c, center: shiftM(c.center) })),
+        dividers: st.data.dividers.map(([a, b]) => [shiftM(a), shiftM(b)] as [Pt, Pt]),
+        dims: st.data.dims.map((d) => ({ ...d, a: shiftM(d.a), b: shiftM(d.b) })),
+        pins: st.data.pins.map((p) => ({ ...p, ...shiftM(p) })),
+        devices: st.data.devices.map((d) => ({ ...d, ...shiftM(d) })),
+        cables: st.data.cables.map((c) => ({ ...c, pts: c.pts.map(shiftM) })),
+        rooms: st.data.rooms.map((rm) => ({ ...rm, polygon: rm.polygon.map(shiftM), seed: rm.seed ? shiftM(rm.seed) : null })),
+      };
+      st.load(cropped);
+    }
+
+    setCropRect(null);
+    setFitKey((k) => k + 1);
+    toast.success(`Crop ${fmtLen(r.w)} × ${fmtLen(r.h)} · οι οντότητες μετακινήθηκαν.`);
+  };
+
+  const changeTool = (t: ViewerTool) => { setTool(t); setDraft([]); setCropRect(null); };
 
   // ── Γόμα ────────────────────────────────────────────────────────────────────────────
   // Κάθε σβήσιμο κρατά στιγμιότυπο για επαναφορά (⌘/Ctrl+Z ή «Αναίρεση» στο μήνυμα).
@@ -1060,6 +1137,34 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [v2Active, plan, wallTypes]);
 
+
+  // v2 (beta): αυτόματη αναγνώριση κολωνών από raster εικόνα ή CAD/PDF ─────────────────
+  const detectColumnsAuto = async () => {
+    if (!v2Active || !mPerPx || !plan) return;
+    setCadBusy(true);
+    try {
+      const minM = 0.15, maxM = 0.8;
+      let detected: { center: Pt; wPx: number; hPx: number }[] = [];
+      if (file && isPdf(file)) {
+        const { segments } = await pageVectors(file, plan.page, w);
+        detected = recognizeColumns(segments, { minPx: minM / mPerPx, maxPx: maxM / mPerPx });
+      } else if (gray) {
+        detected = detectColumnsFromRaster(gray, w, h, { minM, maxM, mPerPx });
+      }
+      const st = storeRef.current!.getState();
+      const toM = (px: number) => px * mPerPx;
+      let added = 0;
+      for (const c of detected) {
+        st.addColumn({ center: { x: toM(c.center.x), y: toM(c.center.y) }, widthM: toM(c.wPx), depthM: toM(c.hPx) });
+        added++;
+      }
+      toast.success(added ? `Βρέθηκαν ${added} κολώνες.` : 'Δεν βρέθηκαν κολώνες — πρόσθεσέ τες χειροκίνητα.');
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Η αναγνώριση κολωνών απέτυχε.');
+    } finally {
+      setCadBusy(false);
+    }
+  };
 
   // v2 (beta): εισαγωγή τοίχων από τα διανύσματα/layers του PDF (CAD/PDF layers, στυλ Hamina).
   const importCad = async () => {
@@ -1529,6 +1634,35 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
                       Εφαρμογή
                     </button>
                   </div>
+                </div>
+                {/* ── Crop εικόνας + entities ── */}
+                <div className="flex flex-col gap-1.5 border-t border-white/10 pt-2">
+                  <h3 className="text-(length:--fs-11) font-semibold uppercase tracking-wider text-slate-500">Crop σχεδίου</h3>
+                  <p className="text-(length:--fs-11) text-slate-400">Διάλεξε το εργαλείο Crop (Z) και σχεδίασε ορθογώνιο · κόβει εικόνα και τοίχους/κολώνες.</p>
+                  {cropRect && (
+                    <div className="text-(length:--fs-11) text-slate-300">
+                      Επιλογή: {fmtLen(cropRect.w)} × {fmtLen(cropRect.h)}
+                    </div>
+                  )}
+                  <div className="flex gap-2">
+                    <button type="button" onClick={applyCrop} disabled={!cropRect}
+                      className="inline-flex h-7 flex-1 cursor-pointer items-center justify-center rounded-md px-2.5 text-(length:--fs-12) font-semibold text-white transition-colors disabled:cursor-not-allowed disabled:opacity-60" style={{ background: '#F59E0B', color: '#0B1220' }}>
+                      Εφαρμογή crop
+                    </button>
+                    <button type="button" onClick={() => { setCropRect(null); setDraft([]); }} disabled={!cropRect}
+                      className="inline-flex h-7 cursor-pointer items-center justify-center rounded-md border border-white/15 px-2.5 text-(length:--fs-12) text-slate-300 transition-colors hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-60">
+                      Ακύρωση
+                    </button>
+                  </div>
+                </div>
+                {/* ── Αυτόματη αναγνώριση κολωνών ── */}
+                <div className="flex flex-col gap-1.5 border-t border-white/10 pt-2">
+                  <h3 className="text-(length:--fs-11) font-semibold uppercase tracking-wider text-slate-500">Κολώνες</h3>
+                  <button type="button" onClick={() => void detectColumnsAuto()} disabled={cadBusy || !mPerPx || !plan}
+                    title={!mPerPx ? 'Όρισε πρώτα κλίμακα.' : 'Αναγνώριση κολωνών από το σχέδιο'}
+                    className="inline-flex h-7 cursor-pointer items-center justify-center gap-1.5 rounded-md border border-white/15 px-2.5 text-(length:--fs-12) text-slate-200 transition-colors hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-60">
+                    {cadBusy ? <FiLoader className="size-3.5 animate-spin" aria-hidden /> : <FiSquare className="size-3.5" aria-hidden />} Αυτόματη αναγνώριση
+                  </button>
                 </div>
                 {v2.selection.kind === 'wall' && v2.selection.id && (
                   <label className="flex items-center gap-2 text-(length:--fs-11) text-slate-400">
