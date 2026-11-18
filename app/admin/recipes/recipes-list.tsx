@@ -3,7 +3,10 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { toast } from 'sonner';
-import { FiChevronRight, FiCopy, FiEdit2, FiLayers, FiLoader, FiMoreVertical, FiSave, FiSearch, FiSliders, FiTrash2 } from 'react-icons/fi';
+import {
+  FiBox, FiChevronDown, FiCopy, FiDollarSign, FiEdit2, FiLayers, FiLoader,
+  FiMoreVertical, FiPenTool, FiSave, FiSearch, FiSliders, FiTrash2,
+} from 'react-icons/fi';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
@@ -58,7 +61,7 @@ export function RecipesList({ recipes, canManage }: { recipes: RecipeView[]; can
           <FiLayers className="mx-auto mb-3 size-8 text-muted-foreground/60" aria-hidden />
           <p className="text-(length:--fs-14) font-medium">{recipes.length ? 'Καμία συνταγή με αυτά τα κριτήρια' : 'Δεν υπάρχουν ακόμη συνταγές'}</p>
           <p className="mt-1 text-(length:--fs-12) text-muted-foreground">
-            {canManage ? 'Πατήστε «Νέα συνταγή»: ένας οδηγός σε 5 βήματα — υλικό, υλικά ανά m² με φύρα και εργατικό κόστος.' : 'Ο διαχειριστής δεν έχει δημιουργήσει ακόμη συνταγές.'}
+            {canManage ? 'Πατήστε «Νέα συνταγή»: ένας οδηγός βήμα-βήμα — υλικό, υλικά ανά m² με φύρα και εργατικό κόστος.' : 'Ο διαχειριστής δεν έχει δημιουργήσει ακόμη συνταγές.'}
           </p>
         </div>
       ) : (
@@ -73,7 +76,7 @@ export function RecipesList({ recipes, canManage }: { recipes: RecipeView[]; can
                     className="flex min-w-0 flex-1 cursor-pointer items-center gap-3 text-left"
                     aria-label={`${isOpen ? 'Σύμπτυξη' : 'Ανάπτυξη'} λεπτομερειών: ${r.name}`}
                   >
-                    <FiChevronRight className={cn('size-5 shrink-0 text-muted-foreground transition-transform duration-200', isOpen && 'rotate-90')} aria-hidden />
+                    <FiChevronDown className={cn('size-5 shrink-0 text-muted-foreground transition-transform duration-200', isOpen ? 'rotate-0' : '-rotate-90')} aria-hidden />
                     <span className="hidden h-10 w-1 shrink-0 rounded-full sm:block" style={{ backgroundColor: RECIPE_KIND_META[r.kind].color }} aria-hidden />
                     <span className="min-w-0 flex-1">
                       <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
@@ -124,73 +127,102 @@ async function remove(r: RecipeView) {
   if (res.ok) toast.success('Η συνταγή διαγράφηκε'); else toast.error(res.message);
 }
 
-/** Αναπτυσσόμενη λεπτομέρεια: υλικά ανά m², ανάλυση κόστους και γρήγορη inline διόρθωση. */
+/** Αναπτυσσόμενη λεπτομέρεια: 3 καρτέλες — Υλικά, Κόστος, Γρήγορη Διόρθωση. */
 function RecipeDetail({ recipe: r, canManage, onCopy }: { recipe: RecipeView; canManage: boolean; onCopy: () => void }) {
   const tone = RECIPE_KIND_META[r.kind].color;
   const isComposite = r.components.length > 0;
-  const [editing, setEditing] = React.useState(false);
+  const [tab, setTab] = React.useState<'materials' | 'cost' | 'edit'>('materials');
+
+  const detailTabs: { key: typeof tab; label: string; icon: React.ReactNode }[] = [
+    { key: 'materials', label: isComposite ? 'Στάδια' : 'Υλικά ανά m²', icon: <FiBox className="size-3.5" aria-hidden /> },
+    { key: 'cost', label: 'Ανάλυση κόστους', icon: <FiDollarSign className="size-3.5" aria-hidden /> },
+    ...(canManage && !isComposite ? [{ key: 'edit' as const, label: 'Γρήγορη διόρθωση', icon: <FiPenTool className="size-3.5" aria-hidden /> }] : []),
+  ];
+
   return (
     <div className="border-t border-dashed border-border bg-muted/20 px-3 pb-4 pt-3 sm:pl-12">
-      <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_260px]">
+      {/* Tab navigation */}
+      <div className="mb-3 flex items-center gap-1 overflow-x-auto" role="tablist" aria-label="Λεπτομέρειες συνταγής">
+        {detailTabs.map((t) => (
+          <button key={t.key} role="tab" type="button" aria-selected={tab === t.key} onClick={() => setTab(t.key)}
+            className={cn(
+              'inline-flex shrink-0 cursor-pointer items-center gap-1.5 rounded-md px-2.5 py-1.5 text-(length:--fs-12) font-medium transition-colors',
+              tab === t.key ? 'bg-foreground text-background shadow-xs' : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+            )}>
+            {t.icon} {t.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Materials tab */}
+      {tab === 'materials' && (
         <div className="rounded-lg border border-border bg-card p-3">
-          <h3 className="mb-2 text-(length:--fs-11) font-semibold uppercase tracking-wide text-muted-foreground">{isComposite ? 'Στάδια' : 'Υλικά ανά m²'}</h3>
           {isComposite ? (
             <ul className="divide-y divide-border">
               {r.components.map((c, i) => (
-                <li key={c.id} className="flex items-center justify-between gap-2 py-1.5 text-(length:--fs-12)">
-                  <span className="min-w-0 truncate"><span className="tabular-nums text-muted-foreground">{i + 1}.</span> {c.name} <span className="text-muted-foreground">· {RECIPE_KIND_META[c.kind].label}</span></span>
-                  <span className="shrink-0 tabular-nums text-muted-foreground">{eur.format(c.cost.total)}/m²</span>
+                <li key={c.id} className="flex items-center justify-between gap-2 py-2 text-(length:--fs-12)">
+                  <span className="min-w-0 flex-1">
+                    <span className="mr-2 inline-flex size-5 items-center justify-center rounded bg-foreground text-(length:--fs-10) font-bold text-background">{i + 1}</span>
+                    {c.name}
+                    <span className="ml-1.5 text-muted-foreground">· {RECIPE_KIND_META[c.kind].label}</span>
+                  </span>
+                  <span className="shrink-0 font-medium tabular-nums" style={{ color: RECIPE_KIND_META[c.kind].color }}>{eur.format(c.cost.total)}/m²</span>
                 </li>
               ))}
             </ul>
           ) : r.lines.length ? (
-            <ul className="divide-y divide-border">
-              {r.lines.map((l) => (
-                <li key={l.id} className="flex items-center justify-between gap-2 py-1.5 text-(length:--fs-12)">
-                  <span className="min-w-0 truncate">{l.name} <span className="text-muted-foreground tabular-nums">· {num(l.qtyPerSqm)}{l.unit ? ` ${l.unit}` : ''}/m²{l.wastePct ? ` +${num(l.wastePct, 2)}%` : ''}</span></span>
-                  <span className="shrink-0 tabular-nums text-muted-foreground">{eur.format(lineCostPerSqm(l))}</span>
-                </li>
-              ))}
-            </ul>
+            <>
+              <div className="mb-2 grid grid-cols-[minmax(0,1fr)_90px_90px] gap-1 text-(length:--fs-10) font-semibold uppercase tracking-wide text-muted-foreground">
+                <span>Υλικό</span>
+                <span className="text-right">Ποσότητα/m²</span>
+                <span className="text-right">Κόστος/m²</span>
+              </div>
+              <ul className="divide-y divide-border">
+                {r.lines.map((l) => (
+                  <li key={l.id} className="grid grid-cols-[minmax(0,1fr)_90px_90px] items-center gap-1 py-1.5 text-(length:--fs-12)">
+                    <span className="min-w-0 truncate">{l.name}</span>
+                    <span className="text-right tabular-nums text-muted-foreground">{num(l.qtyPerSqm)}{l.unit ? ` ${l.unit}` : ''}{l.wastePct ? <span className="text-(length:--fs-10)"> +{num(l.wastePct, 1)}%</span> : ''}</span>
+                    <span className="text-right tabular-nums font-medium">{eur.format(lineCostPerSqm(l))}</span>
+                  </li>
+                ))}
+              </ul>
+            </>
           ) : <p className="py-2 text-(length:--fs-12) text-muted-foreground">Χωρίς βοηθητικά υλικά.</p>}
-          {r.description && <p className="mt-2 border-t border-border pt-2 text-(length:--fs-12) text-muted-foreground">{r.description}</p>}
-        </div>
-
-        <div className="rounded-lg border border-border bg-card p-3">
-          <h3 className="mb-2 text-(length:--fs-11) font-semibold uppercase tracking-wide text-muted-foreground">Ανάλυση κόστους /m²</h3>
-          <dl className="space-y-1 text-(length:--fs-12)">
-            {isComposite ? (<>
-              <div className="flex justify-between gap-2"><dt className="text-muted-foreground">Υλικά (στάδια)</dt><dd className="tabular-nums">{eur.format(r.cost.material + r.cost.accessories)}</dd></div>
-              <div className="flex justify-between gap-2"><dt className="text-muted-foreground">Εργατικά (στάδια)</dt><dd className="tabular-nums">{eur.format(r.cost.labor)}</dd></div>
-            </>) : (<>
-              <div className="flex justify-between gap-2"><dt className="text-muted-foreground">Κύριο υλικό{r.wastePct ? ` (+${num(r.wastePct, 2)}%)` : ''}</dt><dd className="tabular-nums">{eur.format(r.cost.material)}</dd></div>
-              <div className="flex justify-between gap-2"><dt className="text-muted-foreground">Βοηθητικά υλικά</dt><dd className="tabular-nums">{eur.format(r.cost.accessories)}</dd></div>
-              <div className="flex justify-between gap-2"><dt className="text-muted-foreground">Εργατικά</dt><dd className="tabular-nums">{eur.format(r.cost.labor)}</dd></div>
-            </>)}
-            <div className="flex justify-between gap-2 border-t border-border pt-1 text-(length:--fs-14) font-semibold" style={{ color: tone }}><dt>Σύνολο</dt><dd className="tabular-nums">{eur.format(r.cost.total)}</dd></div>
-          </dl>
-          {!isComposite && !r.labor && r.laborCostPerSqm > 0 && <p className="mt-2 rounded bg-amber-50 px-2 py-1 text-(length:--fs-11) text-amber-900">Χωρίς υπηρεσία εργατικών — δεν περνούν στον προϋπολογισμό έργου.</p>}
-        </div>
-      </div>
-
-      {canManage && (
-        <div className="mt-3 flex flex-wrap items-center gap-2">
-          {!isComposite && (
-            <Button type="button" variant="outline" size="sm" className="h-8 gap-1.5 text-(length:--fs-12)" onClick={() => setEditing((v) => !v)}>
-              <FiSliders className="size-3.5" aria-hidden /> Γρήγορη διόρθωση
-            </Button>
-          )}
-          <Button asChild size="sm" className="h-8 gap-1.5 text-(length:--fs-12)"><Link href={`/admin/recipes/${r.id}`}><FiEdit2 className="size-3.5" aria-hidden /> {isComposite ? 'Επεξεργασία σταδίων' : 'Πλήρης οδηγός'}</Link></Button>
-          <Button type="button" variant="outline" size="sm" className="h-8 gap-1.5 text-(length:--fs-12)" onClick={onCopy}><FiCopy className="size-3.5" aria-hidden /> Αντιγραφή{isComposite ? '' : ' για ομοειδές'}</Button>
+          {r.description && <p className="mt-2 border-t border-border pt-2 text-(length:--fs-12) italic text-muted-foreground">{r.description}</p>}
         </div>
       )}
 
-      {!isComposite && editing && <QuickEdit recipe={r} tone={tone} onDone={() => setEditing(false)} />}
+      {/* Cost tab */}
+      {tab === 'cost' && (
+        <div className="rounded-lg border border-border bg-card p-3">
+          <dl className="space-y-1.5 text-(length:--fs-13)">
+            {isComposite ? (<>
+              <div className="flex justify-between gap-2"><dt className="text-muted-foreground">Υλικά (στάδια)</dt><dd className="tabular-nums font-medium">{eur.format(r.cost.material + r.cost.accessories)}</dd></div>
+              <div className="flex justify-between gap-2"><dt className="text-muted-foreground">Εργατικά (στάδια)</dt><dd className="tabular-nums font-medium">{eur.format(r.cost.labor)}</dd></div>
+            </>) : (<>
+              <div className="flex justify-between gap-2"><dt className="text-muted-foreground">Κύριο υλικό{r.wastePct ? ` (+${num(r.wastePct, 2)}%)` : ''}</dt><dd className="tabular-nums font-medium">{eur.format(r.cost.material)}</dd></div>
+              <div className="flex justify-between gap-2"><dt className="text-muted-foreground">Βοηθητικά υλικά</dt><dd className="tabular-nums font-medium">{eur.format(r.cost.accessories)}</dd></div>
+              <div className="flex justify-between gap-2"><dt className="text-muted-foreground">Εργατικά</dt><dd className="tabular-nums font-medium">{eur.format(r.cost.labor)}</dd></div>
+            </>)}
+            <div className="flex justify-between gap-2 border-t border-border pt-2 text-(length:--fs-15) font-semibold" style={{ color: tone }}><dt>Σύνολο</dt><dd className="tabular-nums">{eur.format(r.cost.total)}</dd></div>
+          </dl>
+          {!isComposite && !r.labor && r.laborCostPerSqm > 0 && <p className="mt-3 rounded-md bg-amber-50 px-2 py-1.5 text-(length:--fs-11) text-amber-900">⚠ Χωρίς υπηρεσία εργατικών — δεν περνούν στον προϋπολογισμό έργου.</p>}
+        </div>
+      )}
+
+      {/* Quick edit tab */}
+      {tab === 'edit' && canManage && !isComposite && <QuickEdit recipe={r} tone={tone} onDone={() => setTab('materials')} />}
+
+      {/* Action buttons */}
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <Button asChild size="sm" className="h-8 gap-1.5 text-(length:--fs-12)"><Link href={`/admin/recipes/${r.id}`}><FiEdit2 className="size-3.5" aria-hidden /> {isComposite ? 'Επεξεργασία σταδίων' : 'Πλήρης επεξεργασία'}</Link></Button>
+        <Button type="button" variant="outline" size="sm" className="h-8 gap-1.5 text-(length:--fs-12)" onClick={onCopy}><FiCopy className="size-3.5" aria-hidden /> Αντιγραφή{isComposite ? '' : ' για ομοειδές'}</Button>
+      </div>
     </div>
   );
 }
 
-/** Γρήγορη διόρθωση τιμής/φύρας/εργατικών χωρίς να φύγεις από τη λίστα. Ξαναχτίζει το πλήρες payload από τη συνταγή. */
+/** Γρήγορη διόρθωση τιμής/φύρας/εργατικών χωρίς να φύγεις από τη λίστα. */
 function QuickEdit({ recipe: r, tone, onDone }: { recipe: RecipeView; tone: string; onDone: () => void }) {
   const [price, setPrice] = React.useState(toInput(r.materialPrice));
   const [waste, setWaste] = React.useState(toInput(r.wastePct, 2));
@@ -220,11 +252,23 @@ function QuickEdit({ recipe: r, tone, onDone }: { recipe: RecipeView; tone: stri
   };
 
   return (
-    <div className="mt-3 rounded-lg border border-border bg-card p-3">
+    <div className="rounded-lg border border-border bg-card p-3">
+      <p className="mb-3 flex items-center gap-1.5 text-(length:--fs-12) font-medium text-foreground">
+        <FiSliders className="size-3.5" aria-hidden /> Αλλαγή τιμών — τα υλικά ανά m² δεν αλλάζουν εδώ
+      </p>
       <div className="flex flex-wrap items-end gap-3">
-        <div><Label htmlFor={`qe-p-${r.id}`} className="mb-1 block text-(length:--fs-11) text-muted-foreground">Τιμή υλικού (€/m²)</Label><Input id={`qe-p-${r.id}`} inputMode="decimal" value={price} onChange={(e) => setPrice(e.target.value)} className={field} /></div>
-        <div><Label htmlFor={`qe-w-${r.id}`} className="mb-1 block text-(length:--fs-11) text-muted-foreground">Φύρα (%)</Label><Input id={`qe-w-${r.id}`} inputMode="decimal" value={waste} onChange={(e) => setWaste(e.target.value)} className={field} /></div>
-        <div><Label htmlFor={`qe-l-${r.id}`} className="mb-1 block text-(length:--fs-11) text-muted-foreground">Εργατικά (€/m²)</Label><Input id={`qe-l-${r.id}`} inputMode="decimal" value={labor} onChange={(e) => setLabor(e.target.value)} className={field} /></div>
+        <div>
+          <Label htmlFor={`qe-p-${r.id}`} className="mb-1 block text-(length:--fs-11) text-muted-foreground">Τιμή υλικού (€/m²)</Label>
+          <Input id={`qe-p-${r.id}`} inputMode="decimal" value={price} onChange={(e) => setPrice(e.target.value)} className={field} />
+        </div>
+        <div>
+          <Label htmlFor={`qe-w-${r.id}`} className="mb-1 block text-(length:--fs-11) text-muted-foreground">Φύρα (%)</Label>
+          <Input id={`qe-w-${r.id}`} inputMode="decimal" value={waste} onChange={(e) => setWaste(e.target.value)} className={field} />
+        </div>
+        <div>
+          <Label htmlFor={`qe-l-${r.id}`} className="mb-1 block text-(length:--fs-11) text-muted-foreground">Εργατικά (€/m²)</Label>
+          <Input id={`qe-l-${r.id}`} inputMode="decimal" value={labor} onChange={(e) => setLabor(e.target.value)} className={field} />
+        </div>
         <div className="ml-auto flex items-center gap-2">
           <Button type="button" variant="ghost" size="sm" className="h-8 text-(length:--fs-12)" onClick={onDone} disabled={busy}>Άκυρο</Button>
           <Button type="button" size="sm" className="h-8 gap-1.5 text-(length:--fs-12) text-white hover:opacity-90" style={{ backgroundColor: tone }} onClick={() => void save()} disabled={busy || invalid}>
@@ -232,7 +276,6 @@ function QuickEdit({ recipe: r, tone, onDone }: { recipe: RecipeView; tone: stri
           </Button>
         </div>
       </div>
-      <p className="mt-2 text-(length:--fs-11) text-muted-foreground">Για αλλαγές σε υλικά ανά m² ή υπηρεσία εργατικών, άνοιξε τον πλήρη οδηγό.</p>
     </div>
   );
 }

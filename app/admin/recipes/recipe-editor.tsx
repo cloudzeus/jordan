@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
-import { FiAlertTriangle, FiArrowLeft, FiArrowRight, FiCheckCircle, FiCopy, FiInfo, FiZap, FiLoader, FiPlus, FiSave, FiTrash2 } from 'react-icons/fi';
+import { FiAlertTriangle, FiArrowLeft, FiArrowRight, FiCheck, FiCheckCircle, FiCopy, FiInfo, FiZap, FiLoader, FiPlus, FiSave, FiTrash2 } from 'react-icons/fi';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -36,17 +36,25 @@ type StepId = 'start' | 'material' | 'lines' | 'labor' | 'stages' | 'summary';
 const STEP_LABEL: Record<StepId, string> = {
   start: 'Αφετηρία', material: 'Υλικό', lines: 'Υλικά/m²', labor: 'Εργατικά', stages: 'Στάδια', summary: 'Σύνοψη',
 };
+const STEP_HELP: Record<StepId, string> = {
+  start: 'Επιλέξτε κατηγορία και, αν θέλετε, ξεκινήστε από παρόμοια συνταγή',
+  material: 'Το κύριο υλικό (π.χ. πλακάκι) και η τιμή του ανά m²',
+  lines: 'Τα αναλώσιμα που χρειάζονται ανά τετραγωνικό (κόλλα, αρμόστοκος…)',
+  labor: 'Πόσο κοστίζει η εργασία τοποθέτησης ανά m²',
+  stages: 'Τα στάδια (υποσυνταγές) με σειρά εκτέλεσης',
+  summary: 'Ελέγξτε τα δεδομένα και αποθηκεύστε',
+};
 type Stage = { id: string; name: string; kind: RecipeKind; cost: RecipeCost };
 
 /** Έγχρωμο πλαίσιο επεξήγησης/παραδείγματος πάνω από κάθε βήμα. */
 function Callout({ tone, icon, children }: { tone: 'info' | 'example' | 'warn'; icon: React.ReactNode; children: React.ReactNode }) {
   const cls = tone === 'warn'
-    ? 'bg-amber-50 text-amber-900 ring-amber-200'
+    ? 'bg-amber-50 text-amber-900 ring-amber-200 dark:bg-amber-950/40 dark:text-amber-200 dark:ring-amber-800'
     : tone === 'example'
-      ? 'bg-violet-50 text-violet-900 ring-violet-200'
-      : 'bg-blue-50 text-blue-900 ring-blue-200';
+      ? 'bg-violet-50 text-violet-900 ring-violet-200 dark:bg-violet-950/40 dark:text-violet-200 dark:ring-violet-800'
+      : 'bg-blue-50 text-blue-900 ring-blue-200 dark:bg-blue-950/40 dark:text-blue-200 dark:ring-blue-800';
   return (
-    <p className={cn('mb-4 flex items-start gap-2 rounded-lg px-3 py-2 text-(length:--fs-12) leading-relaxed ring-1 ring-inset', cls)}>
+    <p className={cn('mb-4 flex items-start gap-2 rounded-lg px-3 py-2.5 text-(length:--fs-12) leading-relaxed ring-1 ring-inset', cls)}>
       <span className="mt-0.5 shrink-0" aria-hidden>{icon}</span>
       <span>{children}</span>
     </p>
@@ -217,25 +225,34 @@ export function RecipeEditor({ initial, templates = [], readOnly = false }: { in
   const err = (k: string) => (touched && errors[k] ? <p role="alert" className="mt-1 text-(length:--fs-11) text-destructive">{errors[k]}</p> : null);
   const isLast = cur === steps.length - 1;
 
+  // Progress percentage for the visual bar
+  const progress = steps.length > 1 ? Math.round(((cur + 1) / steps.length) * 100) : 100;
+
   return (
     <form onSubmit={save} noValidate className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
       <div className="min-w-0 space-y-4">
+        {/* ── Progress bar ── */}
+        <div className="overflow-hidden rounded-full bg-muted" role="progressbar" aria-valuenow={progress} aria-valuemin={0} aria-valuemax={100} aria-label="Πρόοδος οδηγού">
+          <div className="h-1 rounded-full transition-all duration-500 ease-out" style={{ width: `${progress}%`, backgroundColor: tone }} />
+        </div>
+
         {/* ── Rail βημάτων ── */}
         <nav aria-label="Βήματα" className="flex items-center gap-1 overflow-x-auto rounded-xl border border-border bg-card p-2 shadow-xs">
           {steps.map((s, i) => {
             const state = i < cur ? 'done' : i === cur ? 'active' : 'todo';
             return (
               <React.Fragment key={s}>
-                {i > 0 && <span className="h-px w-5 shrink-0 bg-border sm:w-7" aria-hidden />}
+                {i > 0 && <span className={cn('h-px w-5 shrink-0 sm:w-7 transition-colors duration-300', state === 'done' || state === 'active' ? 'bg-current opacity-30' : 'bg-border')} style={state !== 'todo' ? { color: tone } : undefined} aria-hidden />}
                 <button
                   type="button" onClick={() => jump(i)} aria-current={state === 'active' ? 'step' : undefined}
                   className={cn('inline-flex shrink-0 cursor-pointer items-center gap-2 rounded-lg px-2.5 py-1.5 transition-colors',
                     state === 'active' ? 'bg-muted' : 'hover:bg-muted/60')}
+                  title={STEP_HELP[s]}
                 >
-                  <span className={cn('grid size-6 place-items-center rounded-full border-2 text-(length:--fs-11) font-bold tabular-nums',
-                    state === 'done' ? 'border-emerald-600 bg-emerald-600 text-white' : state === 'active' ? 'border-current' : 'border-border text-muted-foreground')}
-                    style={state === 'active' ? { color: tone } : undefined}>
-                    {state === 'done' ? '✓' : i + 1}
+                  <span className={cn('grid size-6 place-items-center rounded-full border-2 text-(length:--fs-11) font-bold tabular-nums transition-all duration-300',
+                    state === 'done' ? 'border-transparent text-white' : state === 'active' ? 'border-current' : 'border-border text-muted-foreground')}
+                    style={state === 'done' ? { backgroundColor: tone } : state === 'active' ? { color: tone } : undefined}>
+                    {state === 'done' ? <FiCheck className="size-3.5" /> : i + 1}
                   </span>
                   <span className={cn('text-(length:--fs-12) font-medium whitespace-nowrap', state === 'todo' ? 'text-muted-foreground' : 'text-foreground')}>{STEP_LABEL[s]}</span>
                 </button>
@@ -245,12 +262,15 @@ export function RecipeEditor({ initial, templates = [], readOnly = false }: { in
         </nav>
 
         <section className="rounded-xl border border-border bg-card p-4 shadow-xs">
+          {/* ── Step subtitle ── */}
+          <div className="mb-4">
+            <h2 className="text-(length:--fs-16) font-semibold">{STEP_LABEL[step]}</h2>
+            <p className="mt-0.5 text-(length:--fs-12) text-muted-foreground">{STEP_HELP[step]}</p>
+          </div>
+
           {/* ── Βήμα: Αφετηρία ── */}
           {step === 'start' && (
             <div>
-              <h2 className="mb-1 text-(length:--fs-16) font-semibold">Αφετηρία</h2>
-              <p className="mb-4 text-(length:--fs-12) text-muted-foreground">Διάλεξε κατηγορία και, αν θέλεις, ξεκίνα αντιγράφοντας μια παρόμοια συνταγή — κρατά υλικά ανά m², φύρες και εργατικά.</p>
-
               <div className="mb-4">
                 <Label className="mb-1 block text-(length:--fs-12)">Κατηγορία <span className="text-destructive">*</span></Label>
                 <div role="radiogroup" aria-label="Κατηγορία υλικού" className="inline-flex flex-wrap rounded-lg border border-border p-0.5">
@@ -285,14 +305,14 @@ export function RecipeEditor({ initial, templates = [], readOnly = false }: { in
               ) : (<>
               <div className="grid gap-2 sm:grid-cols-2">
                 <button type="button" onClick={() => { setStartMode('blank'); setSource(''); }}
-                  className={cn('cursor-pointer rounded-xl border p-3 text-left transition-colors', startMode === 'blank' ? 'border-ring bg-accent' : 'border-border hover:border-ring/50')}>
+                  className={cn('cursor-pointer rounded-xl border p-4 text-left transition-all duration-200', startMode === 'blank' ? 'border-ring bg-accent shadow-sm' : 'border-border hover:border-ring/50 hover:shadow-xs')}>
                   <p className="text-(length:--fs-13) font-semibold">Κενή συνταγή</p>
-                  <p className="mt-0.5 text-(length:--fs-11) text-muted-foreground">Ξεκινάς από την αρχή — για νέο τύπο τοποθέτησης.</p>
+                  <p className="mt-1 text-(length:--fs-11) text-muted-foreground">Ξεκινάς από την αρχή — για νέο τύπο τοποθέτησης.</p>
                 </button>
                 <button type="button" onClick={() => setStartMode('copy')} disabled={!sameKind.length}
-                  className={cn('cursor-pointer rounded-xl border p-3 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-50', startMode === 'copy' ? 'border-ring bg-accent' : 'border-border hover:border-ring/50')}>
+                  className={cn('cursor-pointer rounded-xl border p-4 text-left transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-50', startMode === 'copy' ? 'border-ring bg-accent shadow-sm' : 'border-border hover:border-ring/50 hover:shadow-xs')}>
                   <p className="flex items-center gap-1.5 text-(length:--fs-13) font-semibold"><FiCopy className="size-3.5" aria-hidden /> Αντιγραφή από υπάρχουσα</p>
-                  <p className="mt-0.5 text-(length:--fs-11) text-muted-foreground">{sameKind.length ? `${sameKind.length} ${RECIPE_KIND_META[kind].plural.toLowerCase()} διαθέσιμες` : 'Καμία συνταγή σε αυτή την κατηγορία ακόμη.'}</p>
+                  <p className="mt-1 text-(length:--fs-11) text-muted-foreground">{sameKind.length ? `${sameKind.length} ${RECIPE_KIND_META[kind].plural.toLowerCase()} διαθέσιμες — κρατά υλικά, φύρες, εργατικά` : 'Καμία συνταγή σε αυτή την κατηγορία ακόμη.'}</p>
                 </button>
               </div>
 
@@ -303,12 +323,12 @@ export function RecipeEditor({ initial, templates = [], readOnly = false }: { in
                     {sameKind.map((t) => (
                       <li key={t.id}>
                         <button type="button" onClick={() => applyTemplate(t.id)}
-                          className={cn('flex w-full cursor-pointer items-center justify-between gap-2 rounded-lg border p-3 text-left transition-colors', source === t.id ? 'border-ring bg-accent' : 'border-border hover:border-ring/50 hover:bg-muted/40')}>
+                          className={cn('flex w-full cursor-pointer items-center justify-between gap-2 rounded-lg border p-3 text-left transition-all duration-200', source === t.id ? 'border-ring bg-accent shadow-sm' : 'border-border hover:border-ring/50 hover:bg-muted/40')}>
                           <span className="min-w-0">
                             <span className="block truncate text-(length:--fs-13) font-medium">{t.name}</span>
                             <span className="block text-(length:--fs-11) text-muted-foreground">{t.lines.length} υλικά · φύρα {num(t.wastePct, 2)}% · {eur.format(t.cost.total)}/m²</span>
                           </span>
-                          <span className="shrink-0 text-(length:--fs-11) font-medium" style={{ color: tone }}>{source === t.id ? '✓ Αντιγράφηκε' : 'Αντιγραφή →'}</span>
+                          <span className="shrink-0 text-(length:--fs-11) font-medium" style={{ color: tone }}>{source === t.id ? <span className="flex items-center gap-1"><FiCheck className="size-3" /> Αντιγράφηκε</span> : 'Αντιγραφή →'}</span>
                         </button>
                       </li>
                     ))}
@@ -322,9 +342,6 @@ export function RecipeEditor({ initial, templates = [], readOnly = false }: { in
           {/* ── Βήμα: Υλικό ── */}
           {step === 'material' && (
             <div>
-              <h2 className="mb-1 text-(length:--fs-16) font-semibold">Υλικό</h2>
-              <p className="mb-4 text-(length:--fs-12) text-muted-foreground">Το κύριο υλικό της συνταγής και η τιμή του. Το κύριο υλικό είναι προαιρετικό — χωρίς αυτό, η συνταγή ισχύει γενικά για την κατηγορία.</p>
-
               <div className="mb-4 flex flex-wrap items-center gap-2">
                 <span className="text-(length:--fs-12) text-muted-foreground">Κατηγορία:</span>
                 <KindBadge kind={kind} />
@@ -342,7 +359,7 @@ export function RecipeEditor({ initial, templates = [], readOnly = false }: { in
                 ) : (
                   <RegistrySearch id="recipe-main" kind="product" onPick={pickMain} label="" />
                 )}
-                {!main && !readOnly && <p className="mt-1 text-(length:--fs-11) text-muted-foreground">Προαιρετικό. Με το που διαλέξεις είδος, προσυμπληρώνεται η τελευταία τιμή αγοράς.</p>}
+                {!main && !readOnly && <p className="mt-1 text-(length:--fs-11) text-muted-foreground">Προαιρετικό. Κάντε κλικ στο πεδίο για να δείτε τη λίστα ειδών, ή γράψτε για αναζήτηση. Με την επιλογή, η τελευταία τιμή αγοράς προσυμπληρώνεται.</p>}
               </div>
 
               <div className="mb-4">
@@ -379,15 +396,13 @@ export function RecipeEditor({ initial, templates = [], readOnly = false }: { in
           {step === 'lines' && (
             <div>
               <div className="mb-1 flex items-baseline justify-between gap-2">
-                <h2 className="text-(length:--fs-16) font-semibold">Υλικά ανά m²</h2>
                 <span className="text-(length:--fs-12) tabular-nums text-muted-foreground">{lines.length} υλικά · {eur.format(cost.accessories)}/m²</span>
               </div>
-              <p className="mb-4 text-(length:--fs-12) text-muted-foreground">Τα αναλώσιμα που καταναλώνονται ανά τετραγωνικό. Για κάθε ένα: ποσότητα ανά m², φύρα και τιμή μονάδας.</p>
               <Callout tone="example" icon={<FiZap className="size-3.5" />}><b>Παράδειγμα:</b> κόλλα πλακιδίων ≈ 4 kg/m², αρμόστοκος ≈ 0,4 kg/m², αστάρι ≈ 0,2 lt/m². Οι ποσότητες εξαρτώνται από το μέγεθος του πλακιδίου.</Callout>
 
               {lines.length === 0 && (
                 <p className="mb-3 rounded-lg bg-muted/50 px-3 py-4 text-center text-(length:--fs-12) text-muted-foreground">
-                  Πρόσθεσε τα υλικά που καταναλώνονται ανά τετραγωνικό (κόλλα, αρμόστοκος, αστάρι, σταυρουδάκια…).
+                  Κάντε κλικ παρακάτω για να προσθέσετε υλικά (κόλλα, αρμόστοκος, αστάρι, σταυρουδάκια…). Η λίστα ειδών ανοίγει αμέσως.
                 </p>
               )}
               <ul className="space-y-2">
@@ -447,8 +462,6 @@ export function RecipeEditor({ initial, templates = [], readOnly = false }: { in
           {/* ── Βήμα: Εργατικά ── */}
           {step === 'labor' && (
             <div>
-              <h2 className="mb-1 text-(length:--fs-16) font-semibold">Εργατικό κόστος</h2>
-              <p className="mb-4 text-(length:--fs-12) text-muted-foreground">Το κόστος εργασίας ανά m² και η υπηρεσία με την οποία τα εργατικά περνούν στον προϋπολογισμό του έργου.</p>
               <div className="grid gap-3 sm:grid-cols-[200px_minmax(0,1fr)]">
                 <div>
                   <Label htmlFor="recipe-labor" className="mb-1 block text-(length:--fs-12)">Εργατικά ανά m² (€)</Label>
@@ -469,7 +482,7 @@ export function RecipeEditor({ initial, templates = [], readOnly = false }: { in
                       <FiAlertTriangle className="mt-0.5 size-3.5 shrink-0" aria-hidden />
                       <span>Λείπει η υπηρεσία εργατικών: στις προσφορές τα εργατικά μπαίνουν ως ελεύθερη γραμμή και <b>δεν περνούν στον προϋπολογισμό του έργου</b> με την ενεργοποίηση. Διαλέξτε π.χ. «Τοποθέτηση υλικών».</span>
                     </p>
-                  ) : !readOnly && <p className="mt-1 text-(length:--fs-11) text-muted-foreground">Όταν η συνταγή μπαίνει σε προσφορά ή έργο, τα εργατικά γράφονται ως αυτή η υπηρεσία (m² × εργατικά/m²).</p>}
+                  ) : !readOnly && <p className="mt-1 text-(length:--fs-11) text-muted-foreground">Κάντε κλικ στο πεδίο για τη λίστα υπηρεσιών. Τα εργατικά γράφονται ως αυτή η υπηρεσία (m² × εργατικά/m²) στην προσφορά.</p>}
                 </div>
               </div>
             </div>
@@ -479,10 +492,8 @@ export function RecipeEditor({ initial, templates = [], readOnly = false }: { in
           {step === 'stages' && (
             <div>
               <div className="mb-1 flex items-baseline justify-between gap-2">
-                <h2 className="text-(length:--fs-16) font-semibold">Στάδια (υποσυνταγές)</h2>
                 <span className="text-(length:--fs-12) tabular-nums text-muted-foreground">{stages.length}/6 · {eur.format(compositeCost.total)}/m²</span>
               </div>
-              <p className="mb-4 text-(length:--fs-12) text-muted-foreground">Μια σειρά από <b>υπάρχουσες (απλές) συνταγές</b>, με σειρά εκτέλεσης. Κάθε στάδιο κρατά τη δική του ανάλυση· αλλαγή σε μια υποσυνταγή ενημερώνεται παντού.</p>
               <Callout tone="example" icon={<FiZap className="size-3.5" />}><b>Παράδειγμα «Μπάνιο — πλήρης τοποθέτηση»:</b> 1 Στεγανοποίηση → 2 Υπόστρωμα → 3 Πλακάκι δαπέδου → 4 Πλακάκι τοίχου.</Callout>
 
               <div className="mb-4">
@@ -533,11 +544,8 @@ export function RecipeEditor({ initial, templates = [], readOnly = false }: { in
           {/* ── Βήμα: Σύνοψη ── */}
           {step === 'summary' && (
             <div>
-              <h2 className="mb-1 text-(length:--fs-16) font-semibold">Σύνοψη & έλεγχος</h2>
-              <p className="mb-4 text-(length:--fs-12) text-muted-foreground">Δες το τελικό κόστος ανά m² και υπολόγισε για συγκεκριμένα τετραγωνικά πριν αποθηκεύσεις.</p>
-
               {touched && !valid && (
-                <Callout tone="warn" icon={<FiAlertTriangle className="size-3.5" />}>Υπάρχουν πεδία που χρειάζονται διόρθωση. Πάτησε σε ένα βήμα πάνω για να τα δεις σημειωμένα με κόκκινο.</Callout>
+                <Callout tone="warn" icon={<FiAlertTriangle className="size-3.5" />}>Υπάρχουν πεδία που χρειάζονται διόρθωση. Πατήστε σε ένα βήμα πάνω για να τα δείτε σημειωμένα με κόκκινο.</Callout>
               )}
 
               <div className="rounded-lg border border-border p-3">
