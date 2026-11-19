@@ -12,6 +12,8 @@ type Props = {
   className?: string;
 };
 
+let pluginLoaded = false;
+
 export function PascalViewer({ data, wallTypes = [], className }: Props) {
   const [Viewer, setViewer] = React.useState<React.ComponentType<Record<string, unknown>> | null>(null);
   const [error, setError] = React.useState<string | null>(null);
@@ -20,9 +22,12 @@ export function PascalViewer({ data, wallTypes = [], className }: Props) {
     let alive = true;
     (async () => {
       try {
-        const { loadPlugin } = await import('@pascal-app/core');
-        const { builtinPlugin } = await import('@pascal-app/nodes');
-        await loadPlugin(builtinPlugin);
+        if (!pluginLoaded) {
+          const { loadPlugin } = await import('@pascal-app/core');
+          const { builtinPlugin } = await import('@pascal-app/nodes');
+          await loadPlugin(builtinPlugin);
+          pluginLoaded = true;
+        }
         const mod = await import('@pascal-app/viewer');
         if (alive) setViewer(() => mod.Viewer);
       } catch (e) {
