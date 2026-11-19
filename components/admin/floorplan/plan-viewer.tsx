@@ -21,9 +21,9 @@ import { distSqToSeg } from '@/lib/floorplan/editor/interactions';
 import { doorSwing, wallCaps, wallEdges, windowLines } from '@/lib/floorplan/openings-2d';
 
 export type ViewerRoom = { id: string; color: string; polygon: Pt[]; label: string; sub: string; anchor: Pt };
-export type ViewerTool = 'room' | 'rect' | 'polygon' | 'wall' | 'divider' | 'opening' | 'calibrate' | 'measure' | 'pin' | 'pan' | 'edit' | 'erase' | 'device' | 'cable' | 'select' | 'column' | 'crop';
+export type ViewerTool = 'room' | 'rect' | 'polygon' | 'wall' | 'divider' | 'opening' | 'calibrate' | 'measure' | 'area' | 'pin' | 'pan' | 'edit' | 'erase' | 'device' | 'cable' | 'select' | 'column' | 'crop';
 /** Εργαλεία που σχεδιάζουν γραμμές — σε αυτά ισχύει το «Ορθογώνια» (μόνο οριζόντια/κάθετα). */
-export const LINE_TOOLS: ReadonlySet<ViewerTool> = new Set(['wall', 'polygon', 'measure', 'divider', 'calibrate', 'cable']);
+export const LINE_TOOLS: ReadonlySet<ViewerTool> = new Set(['wall', 'polygon', 'measure', 'area', 'divider', 'calibrate', 'cable']);
 /** Άνοιγμα (πόρτα/παράθυρο) πάνω σε τοίχο χώρου, όπως σχεδιάστηκε. */
 export type ViewerOpening = {
   id: string; kind: 'door' | 'window' | 'other'; a: Pt; b: Pt; selected?: boolean;
@@ -221,6 +221,12 @@ export function PlanViewer(props: PlanViewerProps) {
     else if (seq.length >= 2 && t === 'wall') c.layers.draft.add(line(seq, Z.draft, color, Math.max(2, cbs.current.wallThicknessPx), { world: true }));
     else if (seq.length >= 2 && t === 'cable') c.layers.draft.add(line(seq, Z.draft, color, 1.75, { dots: Math.max(w, h) * 0.0045 }));
     else if (seq.length >= 2) c.layers.draft.add(line(seq, Z.draft, color, 2.5, { dashed: t === 'polygon' }));
+    if (t === 'area' && seq.length >= 3) {
+      const shape = new THREE.Shape(seq.map((p) => new THREE.Vector2(p.x - w / 2, h / 2 - p.y)));
+      const fill = new THREE.Mesh(new THREE.ShapeGeometry(shape), new THREE.MeshBasicMaterial({ color: '#22D3EE', transparent: true, opacity: 0.18, depthWrite: false, side: THREE.DoubleSide }));
+      fill.position.z = Z.draft - 0.01;
+      c.layers.draft.add(fill);
+    }
     if (t === 'polygon' && d.length >= 2 && c.hover) c.layers.draft.add(line([c.hover, d[0]], Z.draft, color, 1, { dashed: true }));
     c.layers.draft.add(dots(d, Z.draft + 0.1));
   }, [clear, line, dots, w, h]);

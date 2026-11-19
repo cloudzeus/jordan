@@ -163,6 +163,11 @@ const TOOLS: Array<{ key: ViewerTool; label: string; hint: string; help: string;
     help: 'Τοποθετεί μόνιμη διάσταση πάνω στο σχέδιο (μήκος τοίχου, πλάτος πάγκου, άνοιγμα): κλικ στην αρχή, κλικ στο τέλος. Αποθηκεύεται με την κάτοψη και σβήνεται από τη λίστα «Διαστάσεις». Δεν αλλάζει την κλίμακα.',
   },
   {
+    key: 'area', label: 'Περιοχή (εμβαδόν)', kbd: 'A', icon: <FiGrid className="size-4" />, group: 'Μετρήσεις',
+    hint: 'Κλικ στις γωνίες· διπλό κλικ ή Enter τελειώνει. Δείχνει εμβαδόν και περίμετρο χωρίς να δημιουργεί χώρο.',
+    help: 'Μετράει μόνο μια περιοχή: σχεδιάζεις polyline και βλέπεις εμβαδόν/περίμετρο. Δεν δημιουργεί χώρο για προσφορά — είναι καθαρά εργαλείο επιμέτρησης.',
+  },
+  {
     key: 'pin', label: 'Σημείωση στο σχέδιο', kbd: 'N', icon: <FiMapPin />, group: 'Σημειώσεις',
     hint: 'Κλικ στο σημείο του σχεδίου· γράψε τη σημείωση αριστερά και πρόσθεσε φωτογραφία.',
     help: 'Καρφιτσώνει σημείωση σε σημείο του σχεδίου (π.χ. «σπασμένο πλακάκι», «σωλήνας εδώ») με φωτογραφία. Στην προσφορά κάθε σημείωση γίνεται εργασία με ένα κλικ, μαζί με τη φωτογραφία της.',
@@ -655,7 +660,25 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
     }
     return best ? { ...best } : p;
   };
-  const finish = () => { if (tool === 'wall') setDraft([]); else if (tool === 'cable') finishCable(draft); else finishPolygon(); };
+  const finish = () => {
+    if (tool === 'wall') setDraft([]);
+    else if (tool === 'cable') finishCable(draft);
+    else if (tool === 'area') finishArea();
+    else finishPolygon();
+  };
+  const finishArea = () => {
+    if (draft.length < 3) { setDraft([]); return; }
+    const areaPx = polygonArea(draft);
+    const perimeterPx = polygonPerimeter(draft);
+    if (mPerPx) {
+      const areaM2 = toM2(areaPx, mPerPx);
+      const perimeterM = perimeterPx * mPerPx;
+      toast.success(`Εμβαδόν ${fmtM2(areaM2)} · Περίμετρος ${fmtM(perimeterM)}`, { duration: 5000 });
+    } else {
+      toast.success(`Εμβαδόν ${Math.round(areaPx)} px² · Περίμετρος ${Math.round(perimeterPx)} px`, { duration: 5000 });
+    }
+    setDraft([]);
+  };
 
   /** Ολοκλήρωση καλωδίου: άκρα δεμένα σε συσκευές (αν πέφτουν πάνω τους)· έλεγχος τερματισμού. */
   const finishCable = (pts: Pt[]) => {
@@ -857,6 +880,11 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
     }
     if (tool === 'polygon') {
       if (draft.length >= 3 && Math.hypot(p.x - draft[0].x, p.y - draft[0].y) < maxDim * 0.012) { finishPolygon(); return; }
+      setDraft((d) => [...d, p]);
+      return;
+    }
+    if (tool === 'area') {
+      if (draft.length >= 3 && Math.hypot(p.x - draft[0].x, p.y - draft[0].y) < maxDim * 0.012) { finishArea(); return; }
       setDraft((d) => [...d, p]);
       return;
     }
