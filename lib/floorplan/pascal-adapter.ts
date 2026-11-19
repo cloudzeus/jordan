@@ -33,6 +33,12 @@ export function planDataV2ToPascal(d: PlanDataV2, wallTypes: { id: string; thick
     name: 'Ισόγειο', parentId: null, level: 0, baseElevation: 0,
     height: d.floor.ceilingM,
     children: levelChildren,
+    visible: true,
+    camera: {
+      position: [10, 10, 10] as [number, number, number],
+      target: [0, 0, 0] as [number, number, number],
+      mode: 'perspective',
+    },
   };
 
   // Walls
@@ -56,6 +62,7 @@ export function planDataV2ToPascal(d: PlanDataV2, wallTypes: { id: string; thick
       thickness,
       height: d.floor.ceilingM,
       children,
+      visible: true,
     };
     levelChildren.push(id);
   }
@@ -83,6 +90,7 @@ export function planDataV2ToPascal(d: PlanDataV2, wallTypes: { id: string; thick
       position: pos,
       width,
       height: o.heightM,
+      visible: true,
     };
     if (o.kind === 'door') {
       nodes[id] = {
@@ -108,6 +116,7 @@ export function planDataV2ToPascal(d: PlanDataV2, wallTypes: { id: string; thick
       depth: c.depthM,
       height: c.heightM,
       rotation: c.rotationDeg,
+      visible: true,
     };
     levelChildren.push(id);
   }
