@@ -2286,12 +2286,13 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
                       </button>
                     );
                   })}
-                  {v2Active && (
+                  {editorV2 && (
                     <button
                       type="button" role="radio" aria-checked={viewPascal}
-                      title="Προβολή με τον Pascal Editor (React Three Fiber)"
+                      disabled={!v2Active}
+                      title={v2Active ? 'Προβολή με τον Pascal Editor (React Three Fiber)' : 'Όρισε πρώτα κλίμακα για Pascal 3D'}
                       onClick={() => { setViewPascal(true); setView3d(false); setDraft([]); }}
-                      className="h-6 cursor-pointer rounded px-2 font-mono text-(length:--fs-11) font-semibold transition-colors"
+                      className="h-6 cursor-pointer rounded px-2 font-mono text-(length:--fs-11) font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-40"
                       style={viewPascal ? { background: '#7C3AED', color: '#fff' } : undefined}
                     >
                       Pascal
