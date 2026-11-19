@@ -48,6 +48,8 @@ import { FloorPlanOfferDialog, type OfferRoom, type OfferSubmit } from './offer-
 import type { RecipeView } from '@/lib/install-recipes';
 import { planData, planDataV2, planPins, planRooms, scalePlanData, type PlanData, type PlanPin, type PlanRoom } from '@/lib/floorplan/saved';
 import { upgradePlanData } from '@/lib/floorplan/upgrade';
+import { vectorizeWalls } from '@/lib/floorplan/vectorize';
+import { nearestWallTypeByThickness } from '@/lib/floorplan/wall-types';
 import { createEditorStore, type EditorStore } from '@/lib/floorplan/editor/store';
 import { clampAcceptCount, hotkeyToWallTypeId, marqueeIds, pickWallAt, wallsForCanvas, pickColumnAt, columnsForCanvas, openingParamsOnWall, measureTargets, snapToTargets } from '@/lib/floorplan/editor/interactions';
 import { snapPoint, applyLength, type SnapKind } from '@/lib/floorplan/editor/snapping';
@@ -1198,6 +1200,21 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
     // μία φορά ανά σχέδιο· σκόπιμα χωρίς dep στο planDataNow (αλλάζει κάθε render).
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [v2Active, plan, wallTypes]);
+
+  // Προσθήκη auto-detected walls στο v2 store όταν γίνουν διαθέσιμα (το detectWalls τρέχει μετά το seeding).
+  React.useEffect(() => {
+    if (!v2Active || !mPerPx || !autoMask) return;
+    const st = storeRef.current!.getState();
+    if (st.data.walls.length > 0) return; // υπάρχουν ήδη — δεν ξαναγεμίζουμε
+    const vw = vectorizeWalls(autoMask, w, h);
+    if (!vw.length) return;
+    st.addWalls(vw.map((s) => ({
+      a: { x: s.a.x * mPerPx, y: s.a.y * mPerPx },
+      b: { x: s.b.x * mPerPx, y: s.b.y * mPerPx },
+      typeId: nearestWallTypeByThickness(wallTypes.map((t) => ({ ...t, active: true })), s.thicknessPx * mPerPx),
+      source: 'auto' as const,
+    })));
+  }, [v2Active, mPerPx, autoMask, w, h, wallTypes]);
 
 
   // v2 (beta): αυτόματη αναγνώριση κολωνών από raster εικόνα ή CAD/PDF ─────────────────
