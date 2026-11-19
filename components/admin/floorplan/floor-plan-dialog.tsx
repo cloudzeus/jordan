@@ -1842,7 +1842,8 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
                   </p>
                 </section>
               )}
-              <Step n={1} title="Τοίχοι" done={wallsReady} active={step === 1}>
+              <Step n={1} title="1. Σχέδιο & τοίχοι" done={wallsReady} active={step === 1}>
+                <p className="text-(length:--fs-12) text-muted-foreground">Ανέβασε εικόνα/PDF ή ξεκίνα κενό. Οι τοίχοι ανιχνεύονται αυτόματα — αν λείπουν, σχεδίασέ τους.</p>
                 {plan.pxPerM == null && (
                   <label className="flex cursor-pointer items-center justify-between gap-2">
                     <span>Αυτόματη ανίχνευση από το σχέδιο</span>
@@ -1904,7 +1905,7 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
                 </Button>
               </Step>
 
-              <Step n={2} title="Κλίμακα" done={!!calib} active={step === 2}>
+              <Step n={2} title="2. Κλίμακα" done={!!calib} active={step === 2}>
                 {calib && !calibLine ? (
                   <p className="text-muted-foreground">
                     <b className="font-mono text-foreground">{nf.format(calib.meters)} m</b> = {Math.round(calib.meters / (mPerPx ?? 1))} px ·{' '}
@@ -1941,7 +1942,7 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
               </Step>
 
               {/* raised: το dropdown αναζήτησης είδους να περνά πάνω από το βήμα «Προσφορά» */}
-              <Step n={3} title="Μέτρηση χώρων" done={rooms.length > 0} active={step === 3} raised>
+              <Step n={3} title="3. Μέτρηση" done={rooms.length > 0} active={step === 3} raised>
                 <div className="grid grid-cols-2 gap-1.5">
                   {TOOLS.filter((t) => ['room', 'rect', 'polygon', 'edit', 'divider', 'opening', 'measure'].includes(t.key)).map((t) => (
                     <ToolTip key={t.key} tool={t}>
