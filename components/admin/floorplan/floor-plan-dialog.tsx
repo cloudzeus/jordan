@@ -1190,7 +1190,10 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
     seededRef.current = sig;
     setWallDraft(null); setCadInfo(null); setV2Rooms(null);
     storeRef.current!.getState().load(
-      upgradePlanData(planDataNow(), { wallTypes: wallTypes.map((t) => ({ id: t.id, thicknessM: t.thicknessM, active: true })) }),
+      upgradePlanData(planDataNow(), {
+        wallTypes: wallTypes.map((t) => ({ id: t.id, thicknessM: t.thicknessM, active: true })),
+        autoMask: autoMask && mPerPx ? { mask: autoMask, w, h } : undefined,
+      }),
     );
     // μία φορά ανά σχέδιο· σκόπιμα χωρίς dep στο planDataNow (αλλάζει κάθε render).
     // eslint-disable-next-line react-hooks/exhaustive-deps

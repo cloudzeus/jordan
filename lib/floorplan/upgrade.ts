@@ -4,7 +4,8 @@
 // έχουν θέση (`at`) προβάλλονται παραμετρικά (t0…t1) στον πλησιέστερο τοίχο.
 import { planData, planDataV2, mPerPxOf, type PlanDataV2 } from './saved';
 import { nearestWallTypeByThickness } from './wall-types';
-import { labelPoint } from './core';
+import { labelPoint, type Mask } from './core';
+import { vectorizeWalls } from './vectorize';
 
 type P = { x: number; y: number };
 type WallEntity = PlanDataV2['walls'][number];
@@ -34,7 +35,7 @@ function nearestWall(walls: WallEntity[], p: P, tolM: number): { wall: WallEntit
  * v1 (ή v2) → v2. Ένα v2 περνά αυτούσιο (passthrough). `opts.wallTypes`: ο κατάλογος τύπων, για να
  * προτείνεται τύπος στους σχεδιασμένους τοίχους από το μετρημένο πάχος.
  */
-export function upgradePlanData(raw: unknown, opts: { wallTypes?: WallType[] } = {}): PlanDataV2 {
+export function upgradePlanData(raw: unknown, opts: { wallTypes?: WallType[]; autoMask?: { mask: Mask; w: number; h: number } } = {}): PlanDataV2 {
   if ((raw as { v?: number })?.v === 2) return planDataV2.parse(raw);
   const v1 = planData.parse(raw);
   // Κλίμακα ΜΟΝΟ από το calib — όπως ακριβώς το v1 `roomSheet`/`mPerPxOf`. Κάτοψη με μόνο `pxPerM`
@@ -51,6 +52,19 @@ export function upgradePlanData(raw: unknown, opts: { wallTypes?: WallType[] } =
     typeId: mpp ? nearestWallTypeByThickness(types, w.t * mpp) : null,
     source: 'drawn',
   }));
+
+  // Auto-detected walls (raster mask) → vector walls, όταν υπάρχει mask και κλίμακα.
+  if (opts.autoMask && mpp) {
+    const vw = vectorizeWalls(opts.autoMask.mask, opts.autoMask.w, opts.autoMask.h);
+    for (const s of vw) {
+      walls.push({
+        id: uid(),
+        a: m(s.a), b: m(s.b),
+        typeId: nearestWallTypeByThickness(types, s.thicknessPx * mpp),
+        source: 'auto',
+      });
+    }
+  }
 
   // Ανοχή προβολής ανοιγμάτων: μισό πάχος του χοντρότερου τύπου, τουλάχιστον 0,15 m.
   const tolM = Math.max(0.15, ...types.map((t) => t.thicknessM / 2), 0.15);
