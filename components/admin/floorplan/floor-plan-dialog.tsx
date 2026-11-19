@@ -1833,7 +1833,17 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
             {/* ── Πάνελ βημάτων ── */}
             <div ref={railRef} className="order-2 max-h-[42dvh] space-y-3 overflow-y-auto border-t border-border bg-muted/30 p-3 md:order-1 md:max-h-none md:border-r md:border-t-0">
               {canOffer && plan.pxPerM == null && (
-                <section data-fp-step className="rounded-xl border p-3" style={{ borderColor: '#C4B5FD', background: 'linear-gradient(135deg, #F5F3FF, #EEF2FF)' }}>
+                <section data-fp-step className="rounded-xl border border-cyan-400/30 bg-cyan-400/5 p-3">
+                <h3 className="mb-2 text-(length:--fs-13) font-semibold text-cyan-300">Γρήγορη εκκίνηση</h3>
+                <ol className="space-y-1.5 text-(length:--fs-12) text-slate-300">
+                  <li><b>1.</b> Ανέβασε σχέδιο ή πάτα «Κενός κάναβος».</li>
+                  <li><b>2.</b> Όρισε κλίμακα με το εργαλείο «Κλίμακα» (K).</li>
+                  <li><b>3.</b> Σχεδίασε τοίχους (W) ή άφησε την αυτόματη ανίχνευση.</li>
+                  <li><b>4.</b> Πρόσθεσε πόρτες/παράθυρα (O) πάνω στους τοίχους.</li>
+                  <li><b>5.</b> Κλικ «Χώρος με κλικ» (R) για εμβαδά, ή «Περιοχή» (A) για μέτρηση.</li>
+                  <li><b>6.</b> Δες 3D ή Pascal για το μοντέλο.</li>
+                </ol>
+              </section>
                   <Button className="w-full" size="sm" disabled={aiBusy || !gray} onClick={() => void detectAi()} style={{ background: '#6D28D9', color: '#fff' }}>
                     {aiBusy ? <FiLoader className="animate-spin" aria-hidden /> : <Sparkles className="size-3.5" aria-hidden />} {aiBusy ? 'Ανάγνωση σχεδίου… (~30″)' : 'Αναγνώριση χώρων με AI'}
                   </Button>
