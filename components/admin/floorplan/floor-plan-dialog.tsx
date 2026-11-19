@@ -41,6 +41,7 @@ import type { NewWall } from '@/lib/floorplan/editor/reducers';
 import { roomsFromWalls, type DerivedRoom } from '@/lib/floorplan/editor/rooms';
 import { LINE_TOOLS, OPENING_COLOR, PlanViewer, WALL_DRAW, type EditPhase, type ViewerOpening, type ViewerRoom, type ViewerTool } from './plan-viewer';
 import { Plan3d, type Plan3dHandle } from './plan-3d';
+import { PascalViewer } from './pascal-viewer';
 import { annotatedPng, download, fmtM, fmtM2, roomsCsv, roomsText, type ExportRoom } from './export';
 import { MaterialChip, OfferStepBody, RoomMaterialEditor, type RoomMaterial } from './offer-panel';
 import { FloorPlanOfferDialog, type OfferRoom, type OfferSubmit } from './offer-dialog';
@@ -332,6 +333,8 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
   const [columnSize, setColumnSize] = React.useState<{ wM: number; dM: number }>({ wM: 0.25, dM: 0.25 });
   const [cropRect, setCropRect] = React.useState<{ x: number; y: number; w: number; h: number } | null>(null);
   const [view3d, setView3d] = React.useState(false);
+  /** Προβολή με τον Pascal Editor (React Three Fiber) — ξεχωριστή από το δικό μας 3D. */
+  const [viewPascal, setViewPascal] = React.useState(false);
   const plan3dRef = React.useRef<Plan3dHandle | null>(null);
   const [rooms, setRooms] = React.useState<Room[]>([]);
   const [selected, setSelected] = React.useState<string | null>(null);
@@ -1518,8 +1521,10 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
     : TOOLS.find((t) => t.key === tool)!;
   const thickCm = walls && mPerPx ? walls.minThickness * mPerPx * 100 : null;
 
-  // Ο καμβάς (3D ή 2D) — κοινός για τον σημερινό editor και το κέλυφος v2. null όσο δεν υπάρχει σχέδιο.
-  const viewer = !plan ? null : view3d && mPerPx ? (
+  // Ο καμβάς (Pascal / 3D / 2D) — κοινός για τον σημερινό editor και το κέλυφος v2.
+  const viewer = !plan ? null : viewPascal && v2Active ? (
+    <PascalViewer data={v2.data} wallTypes={wallTypes} className="size-full" />
+  ) : view3d && mPerPx ? (
     <Plan3d ref={plan3dRef} image={plan.display} w={w} h={h} mPerPx={mPerPx} rooms={rooms} selectedId={selected} devices={devices} cables={cables} selectedDeviceId={devSel} ceilingM={ceilingM}
       columns={v2Active ? v2.data.columns.map((c) => ({ center: { x: c.center.x / mPerPx, y: c.center.y / mPerPx }, widthM: c.widthM, depthM: c.depthM, rotationDeg: c.rotationDeg, heightM: c.heightM, color: wallTypes.find((t) => t.id === c.typeId)?.color ?? '#CBD5E1' })) : []}
     />
@@ -2268,12 +2273,12 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
                 {/* 2D / 3D */}
                 <div className="flex rounded-md bg-slate-800/80 p-0.5" role="radiogroup" aria-label="Προβολή">
                   {(['2D', '3D'] as const).map((m) => {
-                    const on = (m === '3D') === view3d;
+                    const on = (m === '3D') === view3d && !viewPascal;
                     return (
                       <button
                         key={m} type="button" role="radio" aria-checked={on} disabled={m === '3D' && !mPerPx}
                         title={m === '3D' ? (mPerPx ? 'Προβολή 3D: τοίχοι, ζώνη πλακιδίων και ανοίγματα' : 'Όρισε πρώτα κλίμακα για 3D') : 'Σχέδιο 2D με τα εργαλεία'}
-                        onClick={() => { setView3d(m === '3D'); setDraft([]); }}
+                        onClick={() => { setView3d(m === '3D'); setViewPascal(false); setDraft([]); }}
                         className="h-6 cursor-pointer rounded px-2 font-mono text-(length:--fs-11) font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-40"
                         style={on ? { background: '#22D3EE', color: '#0B1220' } : undefined}
                       >
@@ -2281,6 +2286,17 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
                       </button>
                     );
                   })}
+                  {v2Active && (
+                    <button
+                      type="button" role="radio" aria-checked={viewPascal}
+                      title="Προβολή με τον Pascal Editor (React Three Fiber)"
+                      onClick={() => { setViewPascal(true); setView3d(false); setDraft([]); }}
+                      className="h-6 cursor-pointer rounded px-2 font-mono text-(length:--fs-11) font-semibold transition-colors"
+                      style={viewPascal ? { background: '#7C3AED', color: '#fff' } : undefined}
+                    >
+                      Pascal
+                    </button>
+                  )}
                 </div>
                 {view3d && (
                   <button type="button" onClick={() => void save3d()} disabled={planSaving || !rooms.length} title="Αποθήκευση της εικόνας 3D μαζί με τη χαρτογράφηση" aria-label="Αποθήκευση εικόνας 3D" className="inline-flex h-7 cursor-pointer items-center gap-1 rounded-md px-2 text-(length:--fs-11) font-medium hover:bg-slate-800 disabled:opacity-40 [&_svg]:size-3.5">
