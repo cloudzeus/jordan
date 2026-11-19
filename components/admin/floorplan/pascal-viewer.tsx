@@ -46,11 +46,13 @@ export function PascalViewer({ data, wallTypes = [], className }: Props) {
       if (!alive) return;
       const graph = planDataV2ToPascal(data, wallTypes);
       console.log('[PascalViewer] scene nodes:', Object.keys(graph.nodes).length, 'walls:', data.walls.length, 'openings:', data.openings.length, 'columns:', data.columns.length);
+      console.log('[PascalViewer] sample wall:', graph.nodes.wall_w1 ?? graph.nodes[Object.keys(graph.nodes).find((k) => k.startsWith('wall_')) ?? '']);
       if (Object.keys(graph.nodes).length <= 1) {
         setError('Δεν υπάρχουν τοίχοι για 3D — σχεδίασε ή ανίχνευσε πρώτα.');
         return;
       }
       useScene.getState().setScene(graph.nodes as never, graph.rootNodeIds as never);
+      console.log('[PascalViewer] scene set, roots:', graph.rootNodeIds);
     })().catch((e) => {
       console.error('[PascalViewer] setScene failed', e);
       setError(e instanceof Error ? e.message : 'Failed to set scene');
