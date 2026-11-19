@@ -1666,7 +1666,8 @@ export function FloorPlanDialog({ owner, projectLabel, open, onOpenChange, canSa
             title="Διαστασιολόγηση κάτοψης" subtitle={projectLabel}
             tools={TOOLS} activeTool={tool} onTool={(k) => changeTool(k as ViewerTool)}
             ortho={ortho} onToggleOrtho={toggleOrtho}
-            view3d={view3d} onView={(v) => { setView3d(v); setDraft([]); }} canUse3d={!!mPerPx}
+            view3d={view3d} onView={(v) => { setView3d(v); setViewPascal(false); setDraft([]); }} canUse3d={!!mPerPx}
+            viewPascal={viewPascal} onViewPascal={() => { setViewPascal(true); setView3d(false); setDraft([]); }} canUsePascal={v2Active}
             onZoomIn={zoomIn} onZoomOut={zoomOut} onZoomFit={zoomFit}
             wallTypes={wallTypes}
             activeWallTypeId={v2.activeWallTypeId}

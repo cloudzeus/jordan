@@ -22,6 +22,10 @@ export type EditorShellProps = {
   view3d: boolean;
   onView: (v: boolean) => void;
   canUse3d: boolean;
+  /** Προβολή με τον Pascal Editor — εναλλακτική του 3D. */
+  viewPascal?: boolean;
+  onViewPascal?: () => void;
+  canUsePascal?: boolean;
   zoomPct?: number;
   onZoomIn?: () => void;
   onZoomOut?: () => void;
@@ -95,7 +99,7 @@ export function EditorShell(props: EditorShellProps) {
         <div className="flex-1" />
         <div className="flex overflow-hidden rounded-lg border border-white/10" style={{ background: '#111a2e' }} role="radiogroup" aria-label="Προβολή">
           {(['2D', '3D'] as const).map((m) => {
-            const on = (m === '3D') === view3d;
+            const on = (m === '3D') === view3d && !props.viewPascal;
             return (
               <button key={m} type="button" role="radio" aria-checked={on} disabled={m === '3D' && !canUse3d}
                 onClick={() => onView(m === '3D')}
@@ -103,6 +107,16 @@ export function EditorShell(props: EditorShellProps) {
                 style={on ? { background: '#7C3AED', color: '#fff', fontWeight: 600 } : { color: '#94A3B8' }}>{m}</button>
             );
           })}
+          {props.onViewPascal && (
+            <button type="button" role="radio" aria-checked={!!props.viewPascal}
+              disabled={!props.canUsePascal}
+              title={props.canUsePascal ? 'Προβολή με τον Pascal Editor' : 'Όρισε πρώτα κλίμακα'}
+              onClick={props.onViewPascal}
+              className="h-[26px] cursor-pointer px-2.5 text-(length:--fs-12) disabled:cursor-not-allowed disabled:opacity-40"
+              style={props.viewPascal ? { background: '#7C3AED', color: '#fff', fontWeight: 600 } : { color: '#94A3B8' }}>
+              Pascal
+            </button>
+          )}
         </div>
         {props.zoomPct != null && <span className={chip}>Zoom <b className="text-slate-200">{props.zoomPct}%</b></span>}
         {props.onExport && (
